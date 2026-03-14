@@ -1,25 +1,16 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "links.html", "use": "@vercel/static" },
-    { "src": "js/**/*.js", "use": "@vercel/static" },
-    { "src": "api/**/*.js", "use": "@vercel/node" }
-  ],
-  "routes": [
-    { "src": "/links", "dest": "/links.html" },
-    { "src": "/js/(.*)", "dest": "/js/$1" },
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
-      ]
-    }
-  ]
+    "rewrites": [
+          { "source": "/links", "destination": "/links.html" },
+          { "source": "/((?!api/)(?!js/)(?!links).*)", "destination": "/index.html" }
+    ],
+    "headers": [
+          {
+                  "source": "/api/(.*)",
+                  "headers": [
+                            { "key": "Access-Control-Allow-Origin", "value": "*" },
+                            { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
+                            { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+                  ]
+          }
+    ]
 }
