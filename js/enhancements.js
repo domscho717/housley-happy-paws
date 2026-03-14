@@ -1,7 +1,7 @@
 // ============================================================
 // Housley Happy Paws - UI Enhancements (enhancements.js)
 // 1. Portal dropdown visibility by role
-// 2. Remember Me (30-day) + pet name field on signup
+// 2. Remember Me (stay signed in) + pet name field on signup
 // 3. Client portal welcome personalization
 // 4. Floating Request Booking button
 // 5. Sync booking services with home page pricing
@@ -47,6 +47,7 @@
       origUpdateUI();
       updateDropdownForRole();
       personalizeClientWelcome();
+      handleMeetGreetButton();
     };
     var origShowLogin = auth.showLoginScreen.bind(auth);
     auth.showLoginScreen = function() {
@@ -65,7 +66,7 @@
     var div = document.createElement('div');
     div.id = 'rememberMeGroup';
     div.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;margin-bottom:4px';
-    div.innerHTML = '<input type="checkbox" id="rememberMe" style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer"><label for="rememberMe" style="font-size:0.82rem;color:var(--mid);cursor:pointer;user-select:none">Remember me for 30 days</label>';
+    div.innerHTML = '<input type="checkbox" id="rememberMe" checked style="width:16px;height:16px;accent-color:var(--gold);cursor:pointer"><label for="rememberMe" style="font-size:0.82rem;color:var(--mid);cursor:pointer;user-select:none">Keep me signed in</label>';
     passGroup.after(div);
   }
 
@@ -141,11 +142,9 @@
       var cb = document.getElementById('rememberMe');
       var remember = cb && cb.checked;
       if (remember) {
-        localStorage.setItem('hhp_remember_me', 'true');
-        localStorage.setItem('hhp_remember_until', String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+        localStorage.setItem('hhp_stay_signed_in', 'true');
       } else {
-        localStorage.removeItem('hhp_remember_me');
-        localStorage.removeItem('hhp_remember_until');
+        localStorage.removeItem('hhp_stay_signed_in');
       }
       return origLogin(email, password);
     };
@@ -169,17 +168,11 @@
     var btn = document.createElement('button');
     btn.id = 'floatingBookBtn';
     btn.onclick = function() { openModal('bookModal'); };
-    btn.innerHTML = '\ud83d\udcc5';
-    btn.title = 'Request Booking';
-    btn.style.cssText = 'position:fixed;bottom:28px;right:28px;width:60px;height:60px;border-radius:50%;background:var(--gold,#c8963e);color:white;border:none;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 16px rgba(200,150,62,0.45);z-index:9999;display:none;align-items:center;justify-content:center;transition:transform 0.2s,box-shadow 0.2s';
-    btn.onmouseenter = function() { btn.style.transform = 'scale(1.1)'; btn.style.boxShadow = '0 6px 24px rgba(200,150,62,0.6)'; };
-    btn.onmouseleave = function() { btn.style.transform = 'scale(1)'; btn.style.boxShadow = '0 4px 16px rgba(200,150,62,0.45)'; };
-    var tooltip = document.createElement('span');
-    tooltip.textContent = 'Request Booking';
-    tooltip.style.cssText = 'position:absolute;bottom:70px;right:0;background:var(--ink,#1e1409);color:white;padding:6px 12px;border-radius:6px;font-size:0.78rem;font-weight:600;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity 0.2s';
-    btn.appendChild(tooltip);
-    btn.addEventListener('mouseenter', function() { tooltip.style.opacity = '1'; });
-    btn.addEventListener('mouseleave', function() { tooltip.style.opacity = '0'; });
+    btn.innerHTML = '\ud83d\udcc5 Book Now';
+    btn.title = 'Request a Booking';
+    btn.style.cssText = 'position:fixed;bottom:28px;right:28px;height:56px;padding:0 24px;border-radius:28px;background:var(--gold,#c8963e);color:white;border:none;font-size:1rem;font-weight:700;letter-spacing:0.02em;cursor:pointer;box-shadow:0 4px 20px rgba(200,150,62,0.5);z-index:9999;display:none;align-items:center;justify-content:center;gap:8px;transition:transform 0.2s,box-shadow 0.2s;font-family:inherit';
+    btn.onmouseenter = function() { btn.style.transform = 'scale(1.05)'; btn.style.boxShadow = '0 6px 28px rgba(200,150,62,0.65)'; };
+    btn.onmouseleave = function() { btn.style.transform = 'scale(1)'; btn.style.boxShadow = '0 4px 20px rgba(200,150,62,0.5)'; };
     document.body.appendChild(btn);
     function updateVis() {
       var cp = document.getElementById('pg-client');
@@ -188,6 +181,25 @@
     var origSV = window.switchView;
     window.switchView = function(view) { origSV(view); updateVis(); };
     updateVis();
+  }
+
+  // 4b. HIDE MEET & GREET FOR LOGGED-IN CLIENTS
+  function handleMeetGreetButton() {
+    var auth = window.HHP_Auth;
+    var navRight = document.querySelector('.nav-right');
+    if (!navRight) return;
+    var mgBtn = navRight.querySelector('.nbtn-gold');
+    if (!mgBtn) return;
+    if (auth && auth.currentUser) {
+      var role = auth.currentRole || 'client';
+      if (role === 'client') {
+        // Replace Meet & Greet with a Request Booking button for clients
+        mgBtn.textContent = 'Request Booking';
+        mgBtn.setAttribute('onclick', "openModal('bookModal')");
+      }
+      // Owner and staff keep the original button
+    }
+    // For non-logged-in users, keep Meet & Greet as-is
   }
 
   // 5. SYNC BOOKING SERVICES
@@ -255,7 +267,7 @@
   onReady(function() {
     console.log('[enhancements.js] Initializing...');
     addRememberMe(); addPetNameField(); patchAuthMode(); patchSignup(); patchLogin(); patchAuthUI();
-    createFloatingBookButton(); syncBookingServices(); fixServicesEditor(); personalizeClientWelcome();
+    createFloatingBookButton(); handleMeetGreetButton(); syncBookingServices(); fixServicesEditor(); personalizeClientWelcome();
     console.log('[enhancements.js] All enhancements loaded');
   });
 })();
