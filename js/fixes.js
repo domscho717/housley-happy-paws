@@ -128,3 +128,6 @@ function aiQuick(msg) {
 }
 
 console.log('[fixes.js] Function overrides loaded successfully');
+
+// Load UI enhancements (role-based dropdown, remember me, floating booking, synced services)
+var _enhScript = document.createElement('script'); _enhScript.src = '/js/enhancements.js'; _enhScript.defer = true; document.head.appendChild(_enhScript);
