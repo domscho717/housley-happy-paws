@@ -223,20 +223,29 @@
   }
 
   // 6. FIX SERVICES EDITOR
-  function fixServicesEditor() {
-    var observer = new MutationObserver(function() {
-      var rows = document.getElementById('serviceDescRows');
-      if (rows && rows.children.length > 0) {
-        rows.querySelectorAll('[data-field]').forEach(function(field) {
-          if (field.dataset.field === 'svcBoard') {
-            field.dataset.field = 'svcHouseSit';
-            var label = field.previousElementSibling;
-            if (label && label.textContent.indexOf('Boarding') !== -1) label.textContent = '\ud83c\udfe1 House Sitting';
-            if (!field.value || field.value.indexOf('Boarding') !== -1)
-              field.value = 'Going away? I stay at your home and care for your pets in their own environment \u2014 keeping their routine, giving medication if needed, and sending regular updates so you have peace of mind. Starting at $125/night.';
-          }
-        });
+  function replaceBoardingWithHouseSitting() {
+    var rows = document.getElementById('serviceDescRows');
+    if (!rows || rows.children.length === 0) return false;
+    var found = false;
+    rows.querySelectorAll('[data-svc-key]').forEach(function(field) {
+      if (field.dataset.svcKey === 'desc_boarding') {
+        field.dataset.svcKey = 'desc_house_sitting';
+        var label = field.previousElementSibling;
+        if (label && label.textContent.indexOf('Boarding') !== -1) label.textContent = '\ud83c\udfe1 House Sitting';
+        if (!field.value || field.value.indexOf('Boarding') !== -1)
+          field.value = 'Going away? I stay at your home and care for your pets in their own environment \u2014 keeping their routine, giving medication if needed, and sending regular updates so you have peace of mind. Starting at $125/night.';
+        found = true;
       }
+    });
+    return found;
+  }
+
+  function fixServicesEditor() {
+    // Try immediately in case rows are already loaded
+    if (replaceBoardingWithHouseSitting()) return;
+    // Otherwise watch for DOM changes
+    var observer = new MutationObserver(function() {
+      if (replaceBoardingWithHouseSitting()) observer.disconnect();
     });
     var contentArea = document.getElementById('contentEditArea');
     if (contentArea) observer.observe(contentArea, { childList: true, subtree: true });
