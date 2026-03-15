@@ -90,6 +90,20 @@
     css.id = 'hhp-ux-patch-css';
     css.textContent =
 
+      /* ===== GLOBAL: Prevent horizontal overflow / bounce on mobile ===== */
+      'html, body {' +
+        'overflow-x: hidden !important;' +
+        'max-width: 100vw !important;' +
+        '-webkit-overflow-scrolling: touch !important;' +
+      '}' +
+      'html { scroll-behavior: smooth; }' +
+      '*, *::before, *::after { max-width: 100vw; }' +
+      '.nav, .hero, section, footer, .portal-wrap, .portal-main,' +
+      '#pg-public, #pg-client, #pg-staff, #pg-owner {' +
+        'overflow-x: hidden !important;' +
+        'max-width: 100% !important;' +
+      '}' +
+
       /* ===== DESKTOP: Hero + About tweaks ===== */
       '.hero { grid-template-columns: 1.2fr 0.8fr !important; }' +
       '.hero .hero-photo-col { max-width: 500px !important; justify-self: center !important; }' +
@@ -295,6 +309,16 @@
           'display: flex !important; padding: 16px 20px !important; font-size: 1.05rem !important;' +
           'border-bottom: 1px solid #e0d5c5 !important; margin: 0 !important;' +
           'border-radius: 0 !important; width: 100% !important; cursor: pointer !important;' +
+          'color: #1e1409 !important; font-weight: 600 !important;' +
+          'background: transparent !important; opacity: 1 !important;' +
+          'text-shadow: none !important; -webkit-text-fill-color: #1e1409 !important;' +
+        '}' +
+        '.sidebar.hhp-sidebar-open .sb-item span,' +
+        '.sidebar.hhp-sidebar-open .sb-item div,' +
+        '.sidebar.hhp-sidebar-open .sb-item a,' +
+        '.sidebar.hhp-sidebar-open .sb-item * {' +
+          'color: #1e1409 !important; opacity: 1 !important;' +
+          '-webkit-text-fill-color: #1e1409 !important;' +
         '}' +
 
         /* -- Portal hamburger: top-right -- */
@@ -602,6 +626,20 @@
     sidebar.style.setProperty('padding-top', '70px', 'important');
     sidebar.style.setProperty('pointer-events', 'auto', 'important');
     document.body.style.overflow = 'hidden';
+
+    // Force text visibility on all sidebar items
+    sidebar.querySelectorAll('.sb-item').forEach(function(item) {
+      item.style.setProperty('color', '#1e1409', 'important');
+      item.style.setProperty('font-weight', '600', 'important');
+      item.style.setProperty('opacity', '1', 'important');
+      item.style.setProperty('-webkit-text-fill-color', '#1e1409', 'important');
+      // Also fix any child text elements
+      item.querySelectorAll('*').forEach(function(child) {
+        child.style.setProperty('color', '#1e1409', 'important');
+        child.style.setProperty('opacity', '1', 'important');
+        child.style.setProperty('-webkit-text-fill-color', '#1e1409', 'important');
+      });
+    });
   }
 
   function closeSidebarEl(sidebar) {
@@ -1321,9 +1359,35 @@
   }
 
   // ─────────────────────────────────────────────
+  // 15. v8: FIX VIEWPORT — ensure proper meta tag + prevent zoom/bounce
+  // ─────────────────────────────────────────────
+  function fixViewport() {
+    // Ensure viewport meta tag is correct
+    var viewport = document.querySelector('meta[name="viewport"]');
+    if (!viewport) {
+      viewport = document.createElement('meta');
+      viewport.name = 'viewport';
+      document.head.appendChild(viewport);
+    }
+    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+
+    // Prevent overscroll/bounce on iOS
+    document.body.style.setProperty('overscroll-behavior', 'none', 'important');
+    document.documentElement.style.setProperty('overscroll-behavior', 'none', 'important');
+
+    // Reset any accidental zoom on page transitions
+    if (window.innerWidth <= 767) {
+      document.body.style.setProperty('width', '100%', 'important');
+      document.body.style.setProperty('min-width', '0', 'important');
+      document.documentElement.style.setProperty('width', '100%', 'important');
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // INIT
   // ─────────────────────────────────────────────
   onReady(function() {
+    fixViewport();            // v8: fix viewport zoom/bounce FIRST
     injectAllCSS();
     fixGreetings();
     fixFooterEmail();
