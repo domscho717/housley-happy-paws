@@ -724,14 +724,24 @@
     var supabase = HHP_Auth.supabase;
     if (!supabase) return;
 
+    // bookings.client_id references profiles.id, so look up profile first
     supabase
-      .from('appointments')
+      .from('profiles')
       .select('id')
-      .eq('client_id', userId)
-      .limit(1)
+      .eq('user_id', userId)
+      .single()
+      .then(function(profileResult) {
+        if (!profileResult.data || profileResult.error) return;
+        var profileId = profileResult.data.id;
+        return supabase
+          .from('bookings')
+          .select('id')
+          .eq('client_id', profileId)
+          .limit(1);
+      })
       .then(function(result) {
-        if (result.data && result.data.length > 0) {
-          // Client has at least one appointment — hide Meet & Greet buttons
+        if (result && result.data && result.data.length > 0) {
+          // Client has at least one booking — hide Meet & Greet buttons
           hideMeetGreetButtons();
         }
       })
