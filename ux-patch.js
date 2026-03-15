@@ -1,5 +1,5 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v5 (ux-patch.js)
+// Housley Happy Paws — UX Patch v6 (ux-patch.js)
 // 1. Fix greeting emojis (garbled from encoding) + add decorative icons
 // 2. Hero: shrink slideshow, enlarge text & Meet button
 // 3. About Rachel: enlarge slideshow
@@ -8,6 +8,9 @@
 // 6. Fix mobile: comprehensive CSS + JS sidebar/hamburger
 // 7. Add viewport preview tool to Edit Website page
 // 8. v5: Fix nav-right hiding, add missing mobile breakpoints
+// 9. v6: Fix mobile nav (hidden by default, toggle on hamburger tap)
+// 10. v6: Role-based view switcher (hide portals from unauthorized users)
+// 11. v6: Hide Meet & Greet for clients with existing bookings
 // ============================================================
 (function() {
   'use strict';
@@ -137,6 +140,16 @@
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
         '.hhp-hamburger { display: flex !important; order: 99; margin-left: auto; }' +
+
+        /* -- Mobile nav: HIDDEN by default, shown only on hamburger tap -- */
+        '.hhp-mobile-nav { display: none !important; }' +
+        '.hhp-mobile-nav.hhp-mobile-nav-open {' +
+          'display: flex !important; flex-direction: column !important;' +
+          'position: fixed !important; top: 0 !important; left: 0 !important;' +
+          'width: 100vw !important; height: 100vh !important;' +
+          'z-index: 9997 !important; background: #fdfaf5 !important;' +
+          'padding: 70px 20px 20px !important; overflow-y: auto !important;' +
+        '}' + +
 
         /* -- Hero -- */
         '.hero { grid-template-columns: 1fr !important; padding: 76px 16px 36px !important; min-height: auto !important; gap: 20px !important; }' +
@@ -562,6 +575,190 @@
   }
 
   // ─────────────────────────────────────────────
+  // 9. MOBILE NAV TOGGLE — hide by default, open on hamburger tap
+  // ─────────────────────────────────────────────
+  function fixMobileNavToggle() {
+    var isMobile = window.innerWidth <= 767;
+    if (!isMobile) return;
+
+    var mobileNav = document.querySelector('.hhp-mobile-nav');
+    var hamburger = document.querySelector('.hhp-hamburger');
+    if (!mobileNav || !hamburger) return;
+
+    // Ensure mobile nav starts closed
+    mobileNav.classList.remove('hhp-mobile-nav-open');
+
+    // Replace hamburger to remove old listeners
+    if (!hamburger.dataset.hhpV6Bound) {
+      hamburger.dataset.hhpV6Bound = 'true';
+
+      hamburger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var isOpen = mobileNav.classList.contains('hhp-mobile-nav-open');
+        if (isOpen) {
+          mobileNav.classList.remove('hhp-mobile-nav-open');
+          document.body.style.overflow = '';
+        } else {
+          mobileNav.classList.add('hhp-mobile-nav-open');
+          document.body.style.overflow = 'hidden';
+        }
+      });
+
+      // Close mobile nav when any link inside is clicked
+      mobileNav.querySelectorAll('a').forEach(function(link) {
+        link.addEventListener('click', function() {
+          setTimeout(function() {
+            mobileNav.classList.remove('hhp-mobile-nav-open');
+            document.body.style.overflow = '';
+          }, 150);
+        });
+      });
+
+      // Close when view dropdown changes
+      var mobileDD = document.getElementById('hhpMobileViewDD');
+      if (mobileDD) {
+        mobileDD.addEventListener('change', function() {
+          setTimeout(function() {
+            mobileNav.classList.remove('hhp-mobile-nav-open');
+            document.body.style.overflow = '';
+          }, 200);
+        });
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 10. ROLE-BASED VIEW SWITCHER — hide portals based on auth role
+  // ─────────────────────────────────────────────
+  function fixViewSwitcher() {
+    // Both desktop and mobile dropdowns
+    var dropdowns = [
+      document.getElementById('viewDropdown'),
+      document.getElementById('hhpMobileViewDD')
+    ];
+
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+    var isLoggedIn = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? true : false;
+
+    dropdowns.forEach(function(dd) {
+      if (!dd) return;
+      Array.from(dd.options).forEach(function(opt) {
+        var val = opt.value;
+        if (val === 'public') {
+          // Always show Home
+          opt.style.display = '';
+          opt.disabled = false;
+        } else if (!isLoggedIn) {
+          // Not signed in — hide all portal options
+          opt.style.display = 'none';
+          opt.disabled = true;
+        } else if (role === 'owner') {
+          // Owner sees everything
+          opt.style.display = '';
+          opt.disabled = false;
+        } else if (role === 'staff') {
+          // Staff sees Home + Staff + Client
+          if (val === 'staff' || val === 'client') {
+            opt.style.display = '';
+            opt.disabled = false;
+          } else {
+            opt.style.display = 'none';
+            opt.disabled = true;
+          }
+        } else if (role === 'client') {
+          // Client sees Home + Client only
+          if (val === 'client') {
+            opt.style.display = '';
+            opt.disabled = false;
+          } else {
+            opt.style.display = 'none';
+            opt.disabled = true;
+          }
+        } else {
+          // Unknown role — hide portals
+          if (val !== 'public') {
+            opt.style.display = 'none';
+            opt.disabled = true;
+          }
+        }
+      });
+    });
+
+    // Also hide the entire SWITCH VIEW section in mobile nav if not logged in
+    var mobileNav = document.querySelector('.hhp-mobile-nav');
+    if (mobileNav) {
+      var switchDiv = mobileNav.children[5]; // The DIV with SWITCH VIEW label + dropdown
+      if (switchDiv && switchDiv.tagName === 'DIV') {
+        switchDiv.style.display = isLoggedIn ? '' : 'none';
+      }
+    }
+
+    // Hide Sign Out link if not logged in; hide Sign In if logged in
+    if (mobileNav) {
+      mobileNav.querySelectorAll('a').forEach(function(a) {
+        var text = a.textContent.trim();
+        if (text === 'Sign Out') {
+          a.style.display = isLoggedIn ? '' : 'none';
+        }
+        if (text === 'Sign In') {
+          a.style.display = isLoggedIn ? 'none' : '';
+        }
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 11. HIDE MEET & GREET — for clients with existing bookings
+  // ─────────────────────────────────────────────
+  function fixMeetGreetButton() {
+    var isLoggedIn = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? true : false;
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+
+    // Only check for clients
+    if (!isLoggedIn || role !== 'client') return;
+
+    var userId = HHP_Auth.currentUser.id;
+    if (!userId) return;
+
+    // Check Supabase for existing bookings or meet & greet
+    var supabase = HHP_Auth.supabase;
+    if (!supabase) return;
+
+    supabase
+      .from('appointments')
+      .select('id')
+      .eq('client_id', userId)
+      .limit(1)
+      .then(function(result) {
+        if (result.data && result.data.length > 0) {
+          // Client has at least one appointment — hide Meet & Greet buttons
+          hideMeetGreetButtons();
+        }
+      })
+      .catch(function() {
+        // If query fails, don't hide anything
+      });
+  }
+
+  function hideMeetGreetButtons() {
+    // Hide all "Book Meet & Greet" / "Schedule a Meet & Greet" buttons
+    document.querySelectorAll('a, button').forEach(function(el) {
+      var text = el.textContent.trim().toLowerCase();
+      if (text.includes('meet') && text.includes('greet')) {
+        el.style.display = 'none';
+      }
+    });
+    // Also hide the floating book button if it's for meet & greet
+    var floatingBtn = document.getElementById('floatingBookBtn');
+    if (floatingBtn) {
+      var txt = floatingBtn.textContent.trim().toLowerCase();
+      if (txt.includes('meet') && txt.includes('greet')) {
+        floatingBtn.style.display = 'none';
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // INIT
   // ─────────────────────────────────────────────
   onReady(function() {
@@ -569,6 +766,9 @@
     fixGreetings();
     fixFooterEmail();
     fixMobileSidebar();
+    fixMobileNavToggle();
+    fixViewSwitcher();
+    fixMeetGreetButton();
     injectPreviewTool();
 
     // Re-check for Edit Website panel when tabs change
@@ -582,13 +782,27 @@
     window.addEventListener('resize', function() {
       if (window.innerWidth <= 767) {
         fixMobileSidebar();
+        fixMobileNavToggle();
       } else {
         // On desktop, make sure nav-right is visible again
         var navRight = document.querySelector('.nav-right');
         if (navRight) navRight.style.removeProperty('display');
+        // On desktop, ensure mobile nav is hidden
+        var mobileNav = document.querySelector('.hhp-mobile-nav');
+        if (mobileNav) mobileNav.classList.remove('hhp-mobile-nav-open');
       }
     });
 
-    console.log('\uD83D\uDC1E HHP UX Patch v5 applied (comprehensive mobile + greetings + hero + footer + preview)');
+    // Re-apply view switcher when auth state changes
+    if (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) {
+      HHP_Auth.supabase.auth.onAuthStateChange(function() {
+        setTimeout(function() {
+          fixViewSwitcher();
+          fixMeetGreetButton();
+        }, 500);
+      });
+    }
+
+    console.log('\uD83D\uDC1E HHP UX Patch v6 applied (mobile nav toggle + role switcher + meet&greet hide)');
   });
 })();
