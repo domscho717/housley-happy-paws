@@ -1,5 +1,5 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v10 (ux-patch.js)
+// Housley Happy Paws — UX Patch v11 (ux-patch.js)
 // Merged: v9 architecture (hamburger=public links, drawer=portal nav)
 //       + v7 robust implementations (footer, meet&greet, preview, CSS)
 // Changes from v9:
@@ -17,6 +17,8 @@
   'use strict';
 
   var scrollPos = 0;
+  var HAMBURGER_LINES = '<span class="hhp-hline"></span><span class="hhp-hline"></span><span class="hhp-hline"></span>';
+  var CLOSE_X = '\u2715';
 
   function onReady(fn) {
     if (document.readyState !== 'loading') setTimeout(fn, 800);
@@ -178,14 +180,18 @@
 
         /* -- Hamburger button (public nav): 3-line icon -- */
         '.hhp-hamburger-v10 {' +
-          'display: flex !important; order: 99; margin-left: auto;' +
+          'display: flex !important; flex-direction: column !important; order: 99; margin-left: auto;' +
           'background: transparent !important; border: none !important;' +
           'width: 44px !important; height: 44px !important; border-radius: 10px !important;' +
           'align-items: center !important; justify-content: center !important;' +
           'cursor: pointer !important; padding: 0 !important; z-index: 9999 !important;' +
-          'font-size: 28px !important; color: #000000 !important; line-height: 1 !important;' +
+          'gap: 5px !important;' +
           '-webkit-tap-highlight-color: transparent !important;' +
           'touch-action: manipulation !important; user-select: none !important;' +
+        '}' +
+        '.hhp-hamburger-v10 .hhp-hline {' +
+          'display: block !important; width: 26px !important; height: 3px !important;' +
+          'background: #1a1008 !important; border-radius: 2px !important;' +
         '}' +
 
         /* -- Mobile nav overlay (public links) -- */
@@ -371,16 +377,21 @@
 
         /* -- Pull-out drawer tab (3-line hamburger on left edge) -- */
         '.hhp-drawer-tab {' +
-          'display: flex !important; position: fixed !important; left: 0 !important;' +
+          'display: flex !important; flex-direction: column !important;' +
+          'position: fixed !important; left: 0 !important;' +
           'top: 50% !important; transform: translateY(-50%) !important;' +
-          'width: 28px !important; height: 44px !important; z-index: 9996 !important;' +
-          'background: transparent !important; border: none !important;' +
+          'width: 32px !important; height: 48px !important; z-index: 9996 !important;' +
+          'background: #fefcf8 !important; border: 1px solid #d4c4ad !important;' +
+          'border-left: none !important;' +
           'border-radius: 0 10px 10px 0 !important; cursor: pointer !important;' +
-          'font-size: 22px !important; color: #000000 !important; font-weight: 700 !important;' +
           'align-items: center !important; justify-content: center !important;' +
-          'padding: 0 !important; line-height: 1 !important;' +
+          'padding: 0 !important; gap: 4px !important;' +
+          'box-shadow: 2px 0 4px rgba(0,0,0,0.08) !important;' +
           '-webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important;' +
-          '-webkit-text-fill-color: #000000 !important;' +
+        '}' +
+        '.hhp-drawer-tab .hhp-dline {' +
+          'display: block !important; width: 18px !important; height: 3px !important;' +
+          'background: #1a1008 !important; border-radius: 2px !important;' +
         '}' +
 
         /* -- Pull-out drawer panel -- */
@@ -559,10 +570,8 @@
     if (!nav.querySelector('.hhp-hamburger-v10')) {
       var hamburger = document.createElement('button');
       hamburger.className = 'hhp-hamburger-v10';
-      // 3 horizontal lines using spans
-      hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                            '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                            '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
+      // 3 horizontal lines using CSS-class spans
+      hamburger.innerHTML = HAMBURGER_LINES;
       hamburger.setAttribute('aria-label', 'Menu');
       hamburger.setAttribute('type', 'button');
       nav.appendChild(hamburger);
@@ -591,6 +600,14 @@
         document.body.appendChild(overlay);
       }
 
+      // Helper to close hamburger menu
+      function closeHamburgerMenu() {
+        var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
+        if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
+        hamburger.innerHTML = HAMBURGER_LINES;
+        document.body.style.overflow = '';
+      }
+
       // Hamburger click handler
       hamburger.addEventListener('click', function(e) {
         e.stopPropagation();
@@ -599,16 +616,12 @@
         var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
         var isOpen = mobileNav.classList.contains('hhp-mnav-open');
         if (isOpen) {
-          mobileNav.classList.remove('hhp-mnav-open');
-          hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
-          document.body.style.overflow = '';
+          closeHamburgerMenu();
         } else {
           mobileNav.classList.add('hhp-mnav-open');
-          hamburger.innerHTML = '\u2715';
-          hamburger.style.color = '#000';
+          hamburger.innerHTML = CLOSE_X;
           hamburger.style.fontSize = '24px';
+          hamburger.style.color = '#000';
           document.body.style.overflow = 'hidden';
         }
       }, true);
@@ -628,23 +641,16 @@
           e.preventDefault();
           var selector = this.getAttribute('data-scroll');
           if (selector === 'home') {
-            // Switch to public view first
             if (typeof switchView === 'function') switchView('public');
             window.scrollTo(0, 0);
           } else {
-            // Switch to public view first
             if (typeof switchView === 'function') switchView('public');
             setTimeout(function() {
               var target = document.querySelector(selector);
               if (target) target.scrollIntoView({ behavior: 'smooth' });
             }, 100);
           }
-          var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
-          mobileNav.classList.remove('hhp-mnav-open');
-          hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
-          document.body.style.overflow = '';
+          closeHamburgerMenu();
         });
       });
 
@@ -657,12 +663,7 @@
           } else {
             if (window.showAuthModal) window.showAuthModal();
           }
-          var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
-          if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
-          hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
-          document.body.style.overflow = '';
+          closeHamburgerMenu();
         });
       }
 
@@ -672,12 +673,7 @@
         bookBtn.addEventListener('click', function() {
           var floatingBtn = document.getElementById('floatingBookBtn');
           if (floatingBtn) floatingBtn.click();
-          var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
-          if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
-          hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
-                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
-          document.body.style.overflow = '';
+          closeHamburgerMenu();
         });
       }
     }
@@ -741,6 +737,34 @@
   }
 
   // ─────────────────────────────────────────────
+  // CHECK IF USER IS AUTHENTICATED
+  // ─────────────────────────────────────────────
+  function isUserAuthenticated() {
+    if (typeof HHP_Auth === 'undefined') return false;
+    if (HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) return true;
+    if (HHP_Auth.currentUser) return true;
+    return false;
+  }
+
+  // ─────────────────────────────────────────────
+  // KILL OLD UX-UPGRADES.JS ELEMENTS
+  // ─────────────────────────────────────────────
+  function killOldMobileNav() {
+    // Remove old .hhp-mobile-nav (from ux-upgrades.js) entirely from DOM
+    document.querySelectorAll('.hhp-mobile-nav:not(.hhp-mobile-nav-v10)').forEach(function(el) {
+      el.remove();
+    });
+    // Remove old .hhp-hamburger (from ux-upgrades.js) entirely from DOM
+    document.querySelectorAll('.hhp-hamburger:not(.hhp-hamburger-v10)').forEach(function(el) {
+      el.remove();
+    });
+    // Remove old portal hamburger
+    document.querySelectorAll('.hhp-portal-hamburger').forEach(function(el) {
+      el.remove();
+    });
+  }
+
+  // ─────────────────────────────────────────────
   // CREATE PORTAL DRAWER (Pull-out from Left, 3-line icon)
   // ─────────────────────────────────────────────
   function createPortalDrawer() {
@@ -748,12 +772,12 @@
     if (!document.querySelector('.hhp-drawer-tab')) {
       var tab = document.createElement('div');
       tab.className = 'hhp-drawer-tab';
-      // 3 horizontal lines icon
-      tab.innerHTML = '<span style="display:block;width:16px;height:2px;background:#000;margin:2px auto;"></span>' +
-                      '<span style="display:block;width:16px;height:2px;background:#000;margin:2px auto;"></span>' +
-                      '<span style="display:block;width:16px;height:2px;background:#000;margin:2px auto;"></span>';
+      // 3 horizontal lines icon using CSS-class spans
+      tab.innerHTML = '<span class="hhp-dline"></span><span class="hhp-dline"></span><span class="hhp-dline"></span>';
       tab.setAttribute('role', 'button');
       tab.setAttribute('tabindex', '0');
+      // Start hidden — updateDrawerContent will show it if appropriate
+      tab.style.display = 'none';
       document.body.appendChild(tab);
 
       var drawer = document.createElement('div');
@@ -808,6 +832,28 @@
     window.scrollTo(0, scrollPos);
   }
 
+  // Detect which portal is currently active
+  function getActivePortal() {
+    var portals = ['pg-owner', 'pg-staff', 'pg-client'];
+    for (var i = 0; i < portals.length; i++) {
+      var el = document.getElementById(portals[i]);
+      if (!el) continue;
+      // Check computed style — the element might not have inline style
+      var computed = window.getComputedStyle(el);
+      if (computed.display !== 'none' && el.offsetParent !== null) {
+        return portals[i];
+      }
+    }
+    // Fallback: check inline style
+    for (var j = 0; j < portals.length; j++) {
+      var el2 = document.getElementById(portals[j]);
+      if (el2 && el2.style.display !== 'none' && el2.style.display !== '') {
+        return portals[j];
+      }
+    }
+    return null;
+  }
+
   function updateDrawerContent() {
     var drawer = document.querySelector('.hhp-drawer');
     if (!drawer) return;
@@ -815,11 +861,17 @@
     // Clear drawer
     drawer.innerHTML = '';
 
-    var isClient = document.getElementById('pg-client') && document.getElementById('pg-client').style.display !== 'none';
-    var isStaff = document.getElementById('pg-staff') && document.getElementById('pg-staff').style.display !== 'none';
-    var isOwner = document.getElementById('pg-owner') && document.getElementById('pg-owner').style.display !== 'none';
+    // *** AUTH CHECK: Never show drawer if user is not logged in ***
+    if (!isUserAuthenticated()) {
+      var tab = document.querySelector('.hhp-drawer-tab');
+      if (tab) tab.style.display = 'none';
+      closeDrawer();
+      return;
+    }
 
-    if (!isClient && !isStaff && !isOwner) {
+    var activePortal = getActivePortal();
+
+    if (!activePortal) {
       // On public page, hide drawer tab
       var tab = document.querySelector('.hhp-drawer-tab');
       if (tab) tab.style.display = 'none';
@@ -829,10 +881,17 @@
     var tab = document.querySelector('.hhp-drawer-tab');
     if (tab && window.innerWidth <= 767) tab.style.display = 'flex';
 
+    // Determine portal name
+    var portalNames = {
+      'pg-owner': 'Owner Portal',
+      'pg-staff': 'Staff Portal',
+      'pg-client': 'Client Portal'
+    };
+    var portalName = portalNames[activePortal] || 'Portal';
+
     // Add header with title and close button
     var header = document.createElement('div');
     header.className = 'hhp-drawer-header';
-    var portalName = isOwner ? 'Owner Portal' : (isStaff ? 'Staff Portal' : 'Client Portal');
     header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;">' + portalName + '</span>' +
                        '<button class="hhp-drawer-close" style="color:#000!important;-webkit-text-fill-color:#000!important;" type="button">\u2715</button>';
     drawer.appendChild(header);
@@ -840,56 +899,59 @@
     // Close button handler
     header.querySelector('.hhp-drawer-close').addEventListener('click', closeDrawer);
 
-    var items = [];
+    // Read ALL .sb-item buttons from the active portal's sidebar
+    var portalEl = document.getElementById(activePortal);
+    if (!portalEl) return;
 
-    if (isClient) {
-      items = [
-        { text: 'Overview', selector: 'c-overview' },
-        { text: 'My Pet', selector: 'c-pets' },
-        { text: 'Account', selector: 'c-account' }
-      ];
-    } else if (isStaff) {
-      items = [
-        { text: 'My Work', selector: 's-work' },
-        { text: 'Communication', selector: 's-comm' }
-      ];
-    } else if (isOwner) {
-      // Show all .sb-item from sidebar
-      var sidebarItems = document.querySelectorAll('#pg-owner .sidebar .sb-item');
-      sidebarItems.forEach(function(item) {
-        items.push({
-          text: item.textContent.trim(),
-          element: item
-        });
-      });
-    }
+    var sidebarItems = portalEl.querySelectorAll('.sidebar .sb-item');
 
-    items.forEach(function(item) {
+    sidebarItems.forEach(function(sbItem) {
       var link = document.createElement('button');
       link.className = 'hhp-drawer-item';
-      link.textContent = item.text;
+      link.textContent = sbItem.textContent.trim();
       link.type = 'button';
-      // Force black text inline
       link.style.color = '#000';
       link.style.setProperty('-webkit-text-fill-color', '#000', 'important');
 
-      if (item.element) {
-        link.addEventListener('click', function() {
-          item.element.click();
-          closeDrawer();
-        });
+      // Extract the onclick sTab call from the original sidebar item
+      var onclickAttr = sbItem.getAttribute('onclick');
+      if (onclickAttr) {
+        // Parse sTab('o','o-overview') pattern
+        var match = onclickAttr.match(/sTab\s*\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)/);
+        if (match) {
+          var tabPortal = match[1];
+          var tabPanel = match[2];
+          link.addEventListener('click', function() {
+            // Call sTab directly
+            if (typeof sTab === 'function') {
+              sTab(tabPortal, tabPanel);
+            }
+            closeDrawer();
+          });
+        } else {
+          // Fallback: try clicking the original element
+          link.addEventListener('click', function() {
+            sbItem.click();
+            closeDrawer();
+          });
+        }
       } else {
         link.addEventListener('click', function() {
-          var targetItem = document.querySelector('.sb-item[onclick*="' + item.selector + '"]');
-          if (targetItem) {
-            targetItem.click();
-            closeDrawer();
-          }
+          sbItem.click();
+          closeDrawer();
         });
       }
 
       drawer.appendChild(link);
     });
+
+    // If no sidebar items found, show a message
+    if (sidebarItems.length === 0) {
+      var msg = document.createElement('div');
+      msg.style.cssText = 'padding:20px;color:#000;font-size:0.95rem;';
+      msg.textContent = 'No navigation items available.';
+      drawer.appendChild(msg);
+    }
   }
 
   // ─────────────────────────────────────────────
@@ -1242,6 +1304,7 @@
   // HANDLE RESIZE
   // ─────────────────────────────────────────────
   function handleResize() {
+    killOldMobileNav();
     updateDrawerContent();
     fixMobileSidebar();
     fixAboutPhoto();
@@ -1268,6 +1331,7 @@
   // ─────────────────────────────────────────────
   function handleAuthChange() {
     setTimeout(function() {
+      killOldMobileNav();
       fixViewSwitcher();
       fixMeetGreetButton();
       updateMobileSignInBtn();
@@ -1284,6 +1348,7 @@
   onReady(function() {
     fixViewport();
     injectAllCSS();
+    killOldMobileNav();
     fixGreetings();
     fixFooterEmail();
     fixMobileSidebar();
@@ -1315,6 +1380,6 @@
       });
     }
 
-    console.log('\uD83D\uDC3E HHP UX Patch v10 applied (hamburger=public links, drawer=portal nav, all black text, 3-line icons)');
+    console.log('\uD83D\uDC3E HHP UX Patch v11 applied (auth-gated drawer, old nav removed, hamburger=public, drawer=portal, black text, 3-line icons)');
   });
 })();
