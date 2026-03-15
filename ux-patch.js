@@ -1,7 +1,10 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v12 (ux-patch.js)
+// Housley Happy Paws — UX Patch v13 (ux-patch.js)
 // Merged: v9 architecture (hamburger=public links, drawer=portal nav)
 //       + v7 robust implementations (footer, meet&greet, preview, CSS)
+// Changes from v12:
+//   - Fixed drawer tab visible CSS rule (was missing, drawer stayed hidden)
+//   - Fixed scroll-to-top: removed global scroll-behavior:smooth
 // Changes from v11:
 //   - Fixed Sign In button not working on mobile (using HHP_Auth.showLoginScreen)
 //   - Fixed drawer tab visibility with CSS class system
@@ -120,7 +123,7 @@
         'max-width: 100vw !important;' +
         '-webkit-overflow-scrolling: touch !important;' +
       '}' +
-      'html { scroll-behavior: smooth; }' +
+      'html { scroll-behavior: auto !important; }' +
       '*, *::before, *::after { max-width: 100vw; }' +
       '.nav, .hero, section, footer, .portal-wrap, .portal-main,' +
       '#pg-public, #pg-client, #pg-staff, #pg-owner {' +
@@ -392,6 +395,9 @@
           'padding: 0 !important; gap: 4px !important;' +
           'box-shadow: 2px 0 4px rgba(0,0,0,0.08) !important;' +
           '-webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important;' +
+        '}' +
+        '.hhp-drawer-tab.hhp-drawer-tab-visible {' +
+          'display: flex !important;' +
         '}' +
         '.hhp-drawer-tab .hhp-dline {' +
           'display: block !important; width: 18px !important; height: 3px !important;' +
