@@ -1,5 +1,5 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v7 (ux-patch.js)
+// Housley Happy Paws — UX Patch v8 (ux-patch.js)
 // 1. Fix greeting emojis (garbled from encoding) + add decorative icons
 // 2. Hero: shrink slideshow, enlarge text & Meet button
 // 3. About Rachel: enlarge slideshow
@@ -8,10 +8,13 @@
 // 6. Fix mobile: comprehensive CSS + JS sidebar/hamburger
 // 7. Add viewport preview tool to Edit Website page
 // 8. v5: Fix nav-right hiding, add missing mobile breakpoints
-// 9. v7: Bulletproof mobile nav (polling + new button + touch + inline styles)
+// 9. v8: CREATE hamburger + mobile nav from scratch (no ux-upgrades dependency)
 // 9b. v7: About photo full-width fix with inline styles
 // 10. v6: Role-based view switcher (hide portals from unauthorized users)
 // 11. v6: Hide Meet & Greet for clients with existing bookings
+// 12. v8: Add Sign In button on mobile (top of screen)
+// 13. v8: Fix review arrow navigation (one card at a time)
+// 14. v8: Portal hamburger dropdowns (Client/Staff/Owner) in top nav
 // ============================================================
 (function() {
   'use strict';
@@ -126,7 +129,6 @@
           'flex-direction: row !important; flex-wrap: wrap !important;' +
           'gap: 4px !important; padding: 10px 12px !important;' +
         '}' +
-        '.hhp-portal-hamburger { display: none !important; }' +
         '.services-grid { grid-template-columns: repeat(2, 1fr) !important; }' +
         '.future-grid { grid-template-columns: repeat(2, 1fr) !important; }' +
       '}' +
@@ -140,24 +142,70 @@
         '.nav-center { display: none !important; }' +
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
-        /* -- Hamburger: gold button, hide the black-line spans from ux-upgrades -- */
-        '.hhp-hamburger { display: flex !important; order: 99; margin-left: auto;' +
+
+        /* -- v8 hamburger: gold button in nav -- */
+        '.hhp-hamburger-v8 {' +
+          'display: flex !important; order: 99; margin-left: auto;' +
           'background: var(--gold, #c8963e) !important; border: none !important;' +
           'width: 44px !important; height: 44px !important; border-radius: 10px !important;' +
           'align-items: center !important; justify-content: center !important;' +
           'cursor: pointer !important; padding: 0 !important; z-index: 9999 !important;' +
           'font-size: 20px !important; color: white !important; line-height: 1 !important;' +
+          '-webkit-tap-highlight-color: transparent !important;' +
+          'touch-action: manipulation !important; user-select: none !important;' +
         '}' +
-        '.hhp-hamburger span { display: none !important; }' +
 
-        /* -- Mobile nav: HIDDEN by default, shown only on hamburger tap -- */
-        '.hhp-mobile-nav { display: none !important; }' +
-        '.hhp-mobile-nav.open, .hhp-mobile-nav.hhp-mobile-nav-open {' +
+        /* -- v8 mobile nav overlay -- */
+        '.hhp-mobile-nav-v8 {' +
+          'display: none !important;' +
+        '}' +
+        '.hhp-mobile-nav-v8.hhp-mnav-open {' +
           'display: flex !important; flex-direction: column !important;' +
           'position: fixed !important; top: 0 !important; left: 0 !important;' +
           'width: 100vw !important; height: 100vh !important;' +
           'z-index: 9997 !important; background: #fdfaf5 !important;' +
           'padding: 70px 20px 20px !important; overflow-y: auto !important;' +
+        '}' +
+        '.hhp-mnav-link {' +
+          'display: block; padding: 14px 0; font-size: 1.1rem; font-weight: 600;' +
+          'color: #1e1409; text-decoration: none; border-bottom: 1px solid #e8ddd0;' +
+          'cursor: pointer;' +
+        '}' +
+        '.hhp-mnav-link:last-child { border-bottom: none; }' +
+        '.hhp-mnav-divider {' +
+          'height: 1px; background: #d4c4ad; margin: 12px 0;' +
+        '}' +
+        '.hhp-mnav-label {' +
+          'font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;' +
+          'color: #9a8a74; font-weight: 700; margin-top: 8px; margin-bottom: 4px;' +
+        '}' +
+        '.hhp-mnav-signin {' +
+          'display: inline-block; margin-top: 16px; padding: 12px 28px;' +
+          'background: transparent; border: 1.5px solid #c8963e; border-radius: 10px;' +
+          'color: #c8963e; font-weight: 700; font-size: 0.95rem; cursor: pointer;' +
+          'text-align: center; text-decoration: none;' +
+        '}' +
+        '.hhp-mnav-signout {' +
+          'display: inline-block; margin-top: 8px; padding: 12px 28px;' +
+          'background: transparent; border: 1.5px solid #c8963e; border-radius: 10px;' +
+          'color: #c8963e; font-weight: 700; font-size: 0.95rem; cursor: pointer;' +
+          'text-align: center; text-decoration: none;' +
+        '}' +
+
+        /* -- Mobile Sign In button (top bar) -- */
+        '.hhp-mobile-signin-btn {' +
+          'display: flex !important; align-items: center; justify-content: center;' +
+          'margin-left: 8px; padding: 8px 14px; border-radius: 8px;' +
+          'border: 1.5px solid #c8963e; background: transparent; color: #c8963e;' +
+          'font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap;' +
+          '-webkit-tap-highlight-color: transparent; touch-action: manipulation;' +
+        '}' +
+        '.hhp-mobile-signout-btn {' +
+          'display: flex !important; align-items: center; justify-content: center;' +
+          'margin-left: 8px; padding: 8px 14px; border-radius: 8px;' +
+          'border: 1.5px solid #c8963e; background: transparent; color: #c8963e;' +
+          'font-weight: 700; font-size: 0.78rem; cursor: pointer; white-space: nowrap;' +
+          '-webkit-tap-highlight-color: transparent; touch-action: manipulation;' +
         '}' +
 
         /* -- Hero -- */
@@ -322,6 +370,10 @@
         /* -- Client list -- */
         '.client-row { padding: 10px 0 !important; }' +
         '.cl-ava { width: 36px !important; height: 36px !important; font-size: 0.78rem !important; }' +
+
+        /* -- Hide old hamburger from ux-upgrades if it exists -- */
+        '.hhp-hamburger:not(.hhp-hamburger-v8) { display: none !important; }' +
+        '.hhp-mobile-nav:not(.hhp-mobile-nav-v8) { display: none !important; }' +
       '}' +
 
       /* ===== SMALL PHONE (max 400px) ===== */
@@ -341,7 +393,50 @@
 
       /* ===== Hide hamburger on desktop ===== */
       '@media (min-width: 768px) {' +
+        '.hhp-hamburger-v8 { display: none !important; }' +
+        '.hhp-mobile-signin-btn { display: none !important; }' +
+        '.hhp-mobile-signout-btn { display: none !important; }' +
         '.hhp-portal-hamburger { display: none !important; }' +
+      '}' +
+
+      /* ===== Portal nav dropdown (v8) — all screen sizes ===== */
+      '.hhp-portal-nav {' +
+        'display: flex; align-items: center; gap: 4px; margin-left: 16px;' +
+      '}' +
+      '.hhp-portal-nav-btn {' +
+        'position: relative; background: none; border: 1.5px solid rgba(30,20,9,0.12);' +
+        'border-radius: 8px; padding: 7px 12px; font-size: 0.82rem; font-weight: 600;' +
+        'color: #1e1409; cursor: pointer; display: flex; align-items: center; gap: 6px;' +
+        'transition: all 0.15s;' +
+      '}' +
+      '.hhp-portal-nav-btn:hover, .hhp-portal-nav-btn.active {' +
+        'background: var(--gold, #c8963e); color: white; border-color: var(--gold, #c8963e);' +
+      '}' +
+      '.hhp-portal-nav-btn .hhp-pn-arrow { font-size: 0.6rem; transition: transform 0.2s; }' +
+      '.hhp-portal-nav-btn.active .hhp-pn-arrow { transform: rotate(180deg); }' +
+      '.hhp-portal-dropdown {' +
+        'display: none; position: absolute; top: 100%; left: 0; min-width: 180px;' +
+        'background: #fefcf8; border: 1.5px solid rgba(30,20,9,0.1); border-radius: 10px;' +
+        'box-shadow: 0 4px 16px rgba(30,20,9,0.12); z-index: 10001; padding: 6px 0;' +
+        'margin-top: 4px;' +
+      '}' +
+      '.hhp-portal-dropdown.hhp-pd-open { display: block; }' +
+      '.hhp-portal-dropdown a, .hhp-portal-dropdown .hhp-pd-item {' +
+        'display: block; padding: 10px 16px; font-size: 0.88rem; font-weight: 500;' +
+        'color: #1e1409; text-decoration: none; cursor: pointer; transition: background 0.15s;' +
+      '}' +
+      '.hhp-portal-dropdown a:hover, .hhp-portal-dropdown .hhp-pd-item:hover {' +
+        'background: #f5f0ea;' +
+      '}' +
+
+      /* Portal nav on tablet */
+      '@media (min-width: 768px) and (max-width: 1024px) {' +
+        '.hhp-portal-nav { margin-left: 8px; }' +
+        '.hhp-portal-nav-btn { padding: 6px 10px; font-size: 0.78rem; }' +
+      '}' +
+      /* Portal nav on phone — hide desktop version, show in mobile nav instead */
+      '@media (max-width: 767px) {' +
+        '.hhp-portal-nav { display: none !important; }' +
       '}' +
 
       /* ===== Preview tool styles ===== */
@@ -400,7 +495,7 @@
       portalHamburger.style.setProperty('z-index', '10000', 'important');
     }
 
-    // Also force-hide nav-right on mobile (fixes ux-upgrades.js wrong class bug)
+    // Also force-hide nav-right on mobile
     var navRight = document.querySelector('.nav-right');
     if (navRight) {
       navRight.style.setProperty('display', 'none', 'important');
@@ -593,35 +688,31 @@
   }
 
   // ─────────────────────────────────────────────
-  // 9. MOBILE NAV TOGGLE — hide by default, open on hamburger tap
-  //    Uses polling to reliably find elements created by ux-upgrades.js
-  //    Creates a brand-new button to avoid event handler conflicts
+  // 9. v8: CREATE HAMBURGER + MOBILE NAV FROM SCRATCH
+  //    No dependency on ux-upgrades.js — we build everything ourselves
   // ─────────────────────────────────────────────
-  var _mobileNavPatched = false;
+  var _mobileNavV8Created = false;
 
-  function fixMobileNavToggle() {
-    if (_mobileNavPatched) return;
-    var isMobile = window.innerWidth <= 767;
-    if (!isMobile) return;
+  function createMobileNav() {
+    if (_mobileNavV8Created) return;
+    if (window.innerWidth > 767) return;
 
-    var mobileNav = document.querySelector('.hhp-mobile-nav');
-    var oldHamburger = document.querySelector('.hhp-hamburger');
-    if (!mobileNav || !oldHamburger) return;
+    var nav = document.getElementById('mainNav');
+    if (!nav) return;
 
-    _mobileNavPatched = true;
+    _mobileNavV8Created = true;
 
-    // Ensure mobile nav starts closed
-    mobileNav.classList.remove('hhp-mobile-nav-open');
-    mobileNav.classList.remove('open');
-    mobileNav.style.setProperty('display', 'none', 'important');
+    // Hide any old hamburger/mobile nav from ux-upgrades.js
+    var oldHamburger = document.querySelector('.hhp-hamburger:not(.hhp-hamburger-v8)');
+    if (oldHamburger) oldHamburger.style.setProperty('display', 'none', 'important');
+    var oldMobileNav = document.querySelector('.hhp-mobile-nav:not(.hhp-mobile-nav-v8)');
+    if (oldMobileNav) oldMobileNav.style.setProperty('display', 'none', 'important');
 
-    // Create a BRAND NEW button (not a clone) to guarantee zero old handlers
+    // === CREATE THE HAMBURGER BUTTON ===
     var btn = document.createElement('button');
-    btn.className = 'hhp-hamburger';
+    btn.className = 'hhp-hamburger-v8';
     btn.setAttribute('aria-label', 'Open menu');
     btn.textContent = '\u2630';
-    btn.dataset.hhpV7 = 'true';
-    // Force inline styles so nothing can override
     btn.style.cssText =
       'display:flex!important;order:99!important;margin-left:auto!important;' +
       'background:#c8963e!important;border:none!important;' +
@@ -632,23 +723,150 @@
       'pointer-events:auto!important;-webkit-tap-highlight-color:transparent!important;' +
       'touch-action:manipulation!important;user-select:none!important;' +
       'position:relative!important;';
+    nav.appendChild(btn);
 
-    // Replace old hamburger in DOM
-    oldHamburger.parentNode.replaceChild(btn, oldHamburger);
+    // === CREATE THE MOBILE NAV OVERLAY ===
+    var mobileNav = document.createElement('div');
+    mobileNav.className = 'hhp-mobile-nav-v8';
+    document.body.appendChild(mobileNav);
 
-    // Helper: close the mobile nav
-    function closeMobileNav() {
-      mobileNav.classList.remove('open');
-      mobileNav.classList.remove('hhp-mobile-nav-open');
+    // Build nav content
+    function buildMobileNavContent() {
+      var isLoggedIn = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? true : false;
+      var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+
+      var html = '';
+
+      // Home link
+      html += '<a class="hhp-mnav-link" data-action="home">Home</a>';
+
+      // Public pages
+      html += '<a class="hhp-mnav-link" data-action="scroll" data-target=".services-section">Services</a>';
+      html += '<a class="hhp-mnav-link" data-action="scroll" data-target=".about-section">About</a>';
+      html += '<a class="hhp-mnav-link" data-action="scroll" data-target=".reviews-section">Reviews</a>';
+
+      // Portal links based on role
+      if (isLoggedIn) {
+        html += '<div class="hhp-mnav-divider"></div>';
+
+        if (role === 'client' || role === 'owner') {
+          html += '<div class="hhp-mnav-label">Client Portal</div>';
+          html += '<a class="hhp-mnav-link" data-action="portal" data-portal="client" data-section="c-overview">Overview</a>';
+          html += '<a class="hhp-mnav-link" data-action="portal" data-portal="client" data-section="c-pets">My Pet</a>';
+          html += '<a class="hhp-mnav-link" data-action="portal" data-portal="client" data-section="c-account">Account</a>';
+        }
+
+        if (role === 'staff' || role === 'owner') {
+          html += '<div class="hhp-mnav-divider"></div>';
+          html += '<div class="hhp-mnav-label">Staff Portal</div>';
+          html += '<a class="hhp-mnav-link" data-action="portal" data-portal="staff" data-section="s-work">My Work</a>';
+          html += '<a class="hhp-mnav-link" data-action="portal" data-portal="staff" data-section="s-comm">Communication</a>';
+        }
+
+        if (role === 'owner') {
+          html += '<div class="hhp-mnav-divider"></div>';
+          html += '<div class="hhp-mnav-label">Owner Portal</div>';
+          html += '<a class="hhp-mnav-link" data-action="portal" data-portal="owner" data-section="o-overview">Overview</a>';
+        }
+
+        // View switcher
+        html += '<div class="hhp-mnav-divider"></div>';
+        html += '<div class="hhp-mnav-label">Switch View</div>';
+        html += '<select id="hhpMobileViewDDv8" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #d4c4ad;font-size:0.95rem;background:#fff;color:#1e1409;">';
+        html += '<option value="public">Home</option>';
+        if (role === 'client' || role === 'owner') html += '<option value="client">My Portal</option>';
+        if (role === 'staff' || role === 'owner') html += '<option value="staff">Staff</option>';
+        if (role === 'owner') html += '<option value="owner">Owner</option>';
+        html += '</select>';
+      }
+
+      html += '<div class="hhp-mnav-divider"></div>';
+
+      // Sign In / Sign Out
+      if (isLoggedIn) {
+        html += '<a class="hhp-mnav-signout" data-action="signout">Sign Out</a>';
+      } else {
+        html += '<a class="hhp-mnav-signin" data-action="signin">Sign In</a>';
+      }
+
+      mobileNav.innerHTML = html;
+
+      // Bind actions
+      mobileNav.querySelectorAll('[data-action]').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+          e.preventDefault();
+          var action = el.getAttribute('data-action');
+
+          if (action === 'home') {
+            closeMobileNavV8();
+            if (typeof showPublic === 'function') showPublic();
+            else if (typeof switchView === 'function') switchView('public');
+          } else if (action === 'scroll') {
+            closeMobileNavV8();
+            var target = el.getAttribute('data-target');
+            var section = document.querySelector(target);
+            if (section) {
+              // Make sure we're on public view first
+              if (typeof showPublic === 'function') showPublic();
+              setTimeout(function() { section.scrollIntoView({ behavior: 'smooth' }); }, 200);
+            }
+          } else if (action === 'portal') {
+            closeMobileNavV8();
+            var portal = el.getAttribute('data-portal');
+            var section2 = el.getAttribute('data-section');
+            if (typeof switchView === 'function') switchView(portal);
+            // Try to activate the specific section
+            setTimeout(function() {
+              var sectionEl = document.getElementById(section2);
+              if (sectionEl) {
+                // Click the corresponding sidebar item if possible
+                var sidebarItems = document.querySelectorAll('.sb-item');
+                sidebarItems.forEach(function(si) {
+                  if (si.getAttribute('data-tab') === section2 || si.getAttribute('onclick') && si.getAttribute('onclick').indexOf(section2) !== -1) {
+                    si.click();
+                  }
+                });
+              }
+            }, 300);
+          } else if (action === 'signin') {
+            closeMobileNavV8();
+            if (typeof HHP_Auth !== 'undefined' && HHP_Auth.showLoginScreen) {
+              HHP_Auth.showLoginScreen();
+            } else if (typeof switchView === 'function') {
+              switchView('client');
+            }
+          } else if (action === 'signout') {
+            closeMobileNavV8();
+            if (typeof HHP_Auth !== 'undefined' && HHP_Auth.logout) {
+              HHP_Auth.logout();
+            }
+          }
+        });
+      });
+
+      // Bind view switcher dropdown
+      var dd = document.getElementById('hhpMobileViewDDv8');
+      if (dd) {
+        dd.addEventListener('change', function() {
+          var val = dd.value;
+          closeMobileNavV8();
+          if (typeof switchViewFromDrop === 'function') switchViewFromDrop(val);
+          else if (typeof switchView === 'function') switchView(val);
+        });
+      }
+    }
+
+    function closeMobileNavV8() {
+      mobileNav.classList.remove('hhp-mnav-open');
       mobileNav.style.setProperty('display', 'none', 'important');
       btn.textContent = '\u2630';
       document.body.style.overflow = '';
     }
 
-    // Helper: open the mobile nav
-    function openMobileNav() {
-      mobileNav.classList.add('open');
-      mobileNav.classList.add('hhp-mobile-nav-open');
+    function openMobileNavV8() {
+      // Rebuild content each time (to reflect current auth state)
+      buildMobileNavContent();
+      mobileNav.classList.add('hhp-mnav-open');
       mobileNav.style.setProperty('display', 'flex', 'important');
       mobileNav.style.setProperty('flex-direction', 'column', 'important');
       mobileNav.style.setProperty('position', 'fixed', 'important');
@@ -664,63 +882,279 @@
       document.body.style.overflow = 'hidden';
     }
 
-    // Bind click on new button — use CAPTURE phase for maximum priority
+    // HAMBURGER CLICK — use capture phase for max priority
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
       e.stopImmediatePropagation();
       e.preventDefault();
-      var isOpen = mobileNav.classList.contains('open');
-      if (isOpen) {
-        closeMobileNav();
-      } else {
-        openMobileNav();
-      }
+      var isOpen = mobileNav.classList.contains('hhp-mnav-open');
+      if (isOpen) closeMobileNavV8();
+      else openMobileNavV8();
     }, true);
 
-    // Also handle touch for mobile devices
+    // HAMBURGER TOUCH — for mobile devices
     btn.addEventListener('touchend', function(e) {
       e.stopPropagation();
       e.stopImmediatePropagation();
       e.preventDefault();
-      var isOpen = mobileNav.classList.contains('open');
-      if (isOpen) {
-        closeMobileNav();
-      } else {
-        openMobileNav();
-      }
+      var isOpen = mobileNav.classList.contains('hhp-mnav-open');
+      if (isOpen) closeMobileNavV8();
+      else openMobileNavV8();
     }, true);
 
-    // Close mobile nav when any link/button inside is clicked
-    mobileNav.querySelectorAll('a, button').forEach(function(el) {
-      el.addEventListener('click', function() {
-        setTimeout(closeMobileNav, 150);
+    console.log('\u2705 HHP: Mobile nav + hamburger created from scratch (v8)');
+  }
+
+  // ─────────────────────────────────────────────
+  // 12. v8: MOBILE SIGN IN BUTTON — in the nav bar next to hamburger
+  // ─────────────────────────────────────────────
+  function addMobileSignIn() {
+    if (window.innerWidth > 767) return;
+    var nav = document.getElementById('mainNav');
+    if (!nav) return;
+    if (nav.querySelector('.hhp-mobile-signin-btn') || nav.querySelector('.hhp-mobile-signout-btn')) return;
+
+    var isLoggedIn = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? true : false;
+
+    if (isLoggedIn) {
+      var outBtn = document.createElement('button');
+      outBtn.className = 'hhp-mobile-signout-btn';
+      outBtn.textContent = 'Sign Out';
+      outBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (typeof HHP_Auth !== 'undefined' && HHP_Auth.logout) HHP_Auth.logout();
+      });
+      // Insert before the hamburger
+      var hamburger = nav.querySelector('.hhp-hamburger-v8');
+      if (hamburger) nav.insertBefore(outBtn, hamburger);
+      else nav.appendChild(outBtn);
+    } else {
+      var inBtn = document.createElement('button');
+      inBtn.className = 'hhp-mobile-signin-btn';
+      inBtn.textContent = 'Sign In';
+      inBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (typeof HHP_Auth !== 'undefined' && HHP_Auth.showLoginScreen) {
+          HHP_Auth.showLoginScreen();
+        } else if (typeof switchView === 'function') {
+          switchView('client');
+        }
+      });
+      var hamburger2 = nav.querySelector('.hhp-hamburger-v8');
+      if (hamburger2) nav.insertBefore(inBtn, hamburger2);
+      else nav.appendChild(inBtn);
+    }
+  }
+
+  // Update sign in/out button when auth state changes
+  function refreshMobileSignIn() {
+    var nav = document.getElementById('mainNav');
+    if (!nav) return;
+    // Remove existing buttons
+    var existing = nav.querySelectorAll('.hhp-mobile-signin-btn, .hhp-mobile-signout-btn');
+    existing.forEach(function(el) { el.remove(); });
+    // Re-add based on current state
+    addMobileSignIn();
+  }
+
+  // ─────────────────────────────────────────────
+  // 13. v8: FIX REVIEW ARROWS — scroll exactly one card at a time
+  // ─────────────────────────────────────────────
+  function fixReviewArrows() {
+    // Override the global scrollReviews function
+    window.scrollReviews = function(dir) {
+      var track = document.getElementById('reviewsTrack');
+      if (!track) return;
+
+      var cards = track.querySelectorAll('.review-card');
+      if (!cards.length) return;
+
+      var cardW = cards[0].offsetWidth;
+      // Get computed gap (default 22px on desktop, 0 on mobile)
+      var gap = 0;
+      var style = window.getComputedStyle(track);
+      if (style.gap && style.gap !== 'normal') {
+        gap = parseInt(style.gap, 10) || 0;
+      } else if (style.columnGap && style.columnGap !== 'normal') {
+        gap = parseInt(style.columnGap, 10) || 0;
+      }
+
+      // On mobile, cards are 100% width with 0 gap
+      var scrollAmount = cardW + gap;
+
+      track.scrollBy({ left: dir * scrollAmount, behavior: 'smooth' });
+    };
+
+    // Also rebind the arrow buttons to ensure they use the new function
+    document.querySelectorAll('.rev-nav-btn').forEach(function(btn) {
+      var newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+      newBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        // Determine direction from the button's onclick or position
+        var dir = 1;
+        var onclick = newBtn.getAttribute('onclick') || '';
+        if (onclick.indexOf('-1') !== -1) dir = -1;
+        else if (onclick.indexOf('1') !== -1) dir = 1;
+        // If no onclick, check if it's the first or second button
+        if (!onclick) {
+          var allBtns = newBtn.parentNode.querySelectorAll('.rev-nav-btn');
+          if (allBtns[0] === newBtn) dir = -1;
+          else dir = 1;
+        }
+        newBtn.removeAttribute('onclick');
+        window.scrollReviews(dir);
       });
     });
 
-    // Close when view dropdown changes
-    var mobileDD = document.getElementById('hhpMobileViewDD');
-    if (mobileDD) {
-      mobileDD.addEventListener('change', function() {
-        setTimeout(closeMobileNav, 200);
+    console.log('\u2705 HHP: Review arrow navigation fixed (v8 — one card at a time)');
+  }
+
+  // ─────────────────────────────────────────────
+  // 14. v8: PORTAL HAMBURGER DROPDOWNS — in top nav bar
+  //     Client: Overview, My Pet, Account
+  //     Staff: My Work, Communication
+  //     Owner: Overview
+  // ─────────────────────────────────────────────
+  var _portalNavInjected = false;
+
+  function injectPortalNav() {
+    if (_portalNavInjected) return;
+
+    var navRight = document.querySelector('.nav-right');
+    if (!navRight) return;
+
+    // Check auth
+    var isLoggedIn = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? true : false;
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+    if (!isLoggedIn) return;
+
+    _portalNavInjected = true;
+
+    var container = document.createElement('div');
+    container.className = 'hhp-portal-nav';
+    container.id = 'hhpPortalNav';
+
+    // Define portal menus based on role
+    var portals = [];
+    if (role === 'client' || role === 'owner') {
+      portals.push({
+        label: 'Client',
+        portal: 'client',
+        items: [
+          { label: 'Overview', section: 'c-overview' },
+          { label: 'My Pet', section: 'c-pets' },
+          { label: 'Account', section: 'c-account' }
+        ]
+      });
+    }
+    if (role === 'staff' || role === 'owner') {
+      portals.push({
+        label: 'Staff',
+        portal: 'staff',
+        items: [
+          { label: 'My Work', section: 's-work' },
+          { label: 'Communication', section: 's-comm' }
+        ]
+      });
+    }
+    if (role === 'owner') {
+      portals.push({
+        label: 'Owner',
+        portal: 'owner',
+        items: [
+          { label: 'Overview', section: 'o-overview' }
+        ]
       });
     }
 
-    console.log('\u2705 HHP: Mobile nav hamburger patched (v7 new-button approach)');
+    portals.forEach(function(p) {
+      var wrapper = document.createElement('div');
+      wrapper.style.position = 'relative';
+      wrapper.style.display = 'inline-block';
+
+      var btn = document.createElement('button');
+      btn.className = 'hhp-portal-nav-btn';
+      btn.innerHTML = p.label + ' <span class="hhp-pn-arrow">\u25BC</span>';
+
+      var dropdown = document.createElement('div');
+      dropdown.className = 'hhp-portal-dropdown';
+
+      p.items.forEach(function(item) {
+        var a = document.createElement('a');
+        a.className = 'hhp-pd-item';
+        a.textContent = item.label;
+        a.href = '#';
+        a.addEventListener('click', function(e) {
+          e.preventDefault();
+          // Switch to the portal
+          if (typeof switchView === 'function') switchView(p.portal);
+          // Navigate to section
+          setTimeout(function() {
+            var sidebarItems = document.querySelectorAll('#pg-' + p.portal + ' .sb-item');
+            sidebarItems.forEach(function(si) {
+              var onclick = si.getAttribute('onclick') || '';
+              var dataTab = si.getAttribute('data-tab') || '';
+              if (onclick.indexOf(item.section) !== -1 || dataTab === item.section) {
+                si.click();
+              }
+            });
+          }, 200);
+          // Close dropdown
+          dropdown.classList.remove('hhp-pd-open');
+          btn.classList.remove('active');
+        });
+        dropdown.appendChild(a);
+      });
+
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var isOpen = dropdown.classList.contains('hhp-pd-open');
+        // Close all other dropdowns first
+        document.querySelectorAll('.hhp-portal-dropdown.hhp-pd-open').forEach(function(d) {
+          d.classList.remove('hhp-pd-open');
+        });
+        document.querySelectorAll('.hhp-portal-nav-btn.active').forEach(function(b) {
+          b.classList.remove('active');
+        });
+        if (!isOpen) {
+          dropdown.classList.add('hhp-pd-open');
+          btn.classList.add('active');
+        }
+      });
+
+      wrapper.appendChild(btn);
+      wrapper.appendChild(dropdown);
+      container.appendChild(wrapper);
+    });
+
+    // Insert before the view switcher
+    var viewSwitcher = navRight.querySelector('#viewSwitcher');
+    if (viewSwitcher) {
+      navRight.insertBefore(container, viewSwitcher);
+    } else {
+      navRight.insertBefore(container, navRight.firstChild);
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function() {
+      document.querySelectorAll('.hhp-portal-dropdown.hhp-pd-open').forEach(function(d) {
+        d.classList.remove('hhp-pd-open');
+      });
+      document.querySelectorAll('.hhp-portal-nav-btn.active').forEach(function(b) {
+        b.classList.remove('active');
+      });
+    });
+
+    console.log('\u2705 HHP: Portal nav dropdowns injected (v8)');
   }
 
-  // Poll for hamburger element — ux-upgrades.js creates it at 500ms,
-  // but on slow devices it may take longer
-  function startMobileNavPoll() {
-    if (window.innerWidth > 767) return;
-    var attempts = 0;
-    var pollTimer = setInterval(function() {
-      attempts++;
-      if (_mobileNavPatched || attempts > 25) {
-        clearInterval(pollTimer);
-        return;
-      }
-      fixMobileNavToggle();
-    }, 200); // Poll every 200ms for up to 5 seconds
+  // Refresh portal nav when auth changes
+  function refreshPortalNav() {
+    var existing = document.getElementById('hhpPortalNav');
+    if (existing) existing.remove();
+    _portalNavInjected = false;
+    injectPortalNav();
   }
 
   // ─────────────────────────────────────────────
@@ -756,7 +1190,8 @@
     // Both desktop and mobile dropdowns
     var dropdowns = [
       document.getElementById('viewDropdown'),
-      document.getElementById('hhpMobileViewDD')
+      document.getElementById('hhpMobileViewDD'),
+      document.getElementById('hhpMobileViewDDv8')
     ];
 
     var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
@@ -771,15 +1206,12 @@
           opt.style.display = '';
           opt.disabled = false;
         } else if (!isLoggedIn) {
-          // Not signed in — hide all portal options
           opt.style.display = 'none';
           opt.disabled = true;
         } else if (role === 'owner') {
-          // Owner sees everything
           opt.style.display = '';
           opt.disabled = false;
         } else if (role === 'staff') {
-          // Staff sees Home + Staff + Client
           if (val === 'staff' || val === 'client') {
             opt.style.display = '';
             opt.disabled = false;
@@ -788,7 +1220,6 @@
             opt.disabled = true;
           }
         } else if (role === 'client') {
-          // Client sees Home + Client only
           if (val === 'client') {
             opt.style.display = '';
             opt.disabled = false;
@@ -797,7 +1228,6 @@
             opt.disabled = true;
           }
         } else {
-          // Unknown role — hide portals
           if (val !== 'public') {
             opt.style.display = 'none';
             opt.disabled = true;
@@ -898,14 +1328,14 @@
     fixGreetings();
     fixFooterEmail();
     fixMobileSidebar();
-    fixMobileNavToggle();
+    createMobileNav();      // v8: create hamburger + mobile nav from scratch
+    addMobileSignIn();       // v8: add Sign In button on mobile
     fixAboutPhoto();
     fixViewSwitcher();
     fixMeetGreetButton();
+    fixReviewArrows();       // v8: fix review arrow navigation
     injectPreviewTool();
-
-    // Start polling for hamburger (in case ux-upgrades.js hasn't created it yet)
-    startMobileNavPoll();
+    injectPortalNav();       // v8: portal nav dropdowns in desktop nav
 
     // Re-check for Edit Website panel when tabs change
     document.addEventListener('click', function(e) {
@@ -918,19 +1348,22 @@
     window.addEventListener('resize', function() {
       if (window.innerWidth <= 767) {
         fixMobileSidebar();
-        fixMobileNavToggle();
+        createMobileNav();
+        addMobileSignIn();
         fixAboutPhoto();
       } else {
         // On desktop, make sure nav-right is visible again
         var navRight = document.querySelector('.nav-right');
         if (navRight) navRight.style.removeProperty('display');
-        // On desktop, ensure mobile nav is hidden
-        var mobileNav = document.querySelector('.hhp-mobile-nav');
-        if (mobileNav) {
-          mobileNav.classList.remove('hhp-mobile-nav-open');
-          mobileNav.classList.remove('open');
-          mobileNav.style.setProperty('display', 'none', 'important');
+        // On desktop, ensure v8 mobile nav is hidden
+        var mobileNavV8 = document.querySelector('.hhp-mobile-nav-v8');
+        if (mobileNavV8) {
+          mobileNavV8.classList.remove('hhp-mnav-open');
+          mobileNavV8.style.setProperty('display', 'none', 'important');
         }
+        // Hide v8 hamburger on desktop
+        var hamV8 = document.querySelector('.hhp-hamburger-v8');
+        if (hamV8) hamV8.style.setProperty('display', 'none', 'important');
       }
     });
 
@@ -940,10 +1373,12 @@
         setTimeout(function() {
           fixViewSwitcher();
           fixMeetGreetButton();
+          refreshMobileSignIn();
+          refreshPortalNav();
         }, 500);
       });
     }
 
-    console.log('\uD83D\uDC1E HHP UX Patch v7 applied (bulletproof mobile nav + about photo + role switcher + meet&greet hide)');
+    console.log('\uD83D\uDC3E HHP UX Patch v8 applied (scratch mobile nav + sign in + review fix + portal dropdowns + preview)');
   });
 })();
