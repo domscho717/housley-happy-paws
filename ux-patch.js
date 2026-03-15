@@ -1,8 +1,12 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v11 (ux-patch.js)
+// Housley Happy Paws — UX Patch v12 (ux-patch.js)
 // Merged: v9 architecture (hamburger=public links, drawer=portal nav)
 //       + v7 robust implementations (footer, meet&greet, preview, CSS)
-// Changes from v9:
+// Changes from v11:
+//   - Fixed Sign In button not working on mobile (using HHP_Auth.showLoginScreen)
+//   - Fixed drawer tab visibility with CSS class system
+//   - Rearranged mobile header layout (sign-in btn, logo centered, hamburger)
+// Previous changes from v9:
 //   - Both hamburger & drawer use 3-line (☰) icon
 //   - All text in both menus is BLACK
 //   - Restored v7 footer email (Cloudflare __cf_email__ handling)
@@ -172,8 +176,8 @@
       '@media (max-width: 767px) {' +
 
         /* -- Nav: hide desktop elements -- */
-        '.nav { padding: 0 12px !important; height: 56px !important; }' +
-        '.nav-logo { font-size: 1.2rem !important; }' +
+        '.nav { padding: 0 12px !important; height: 56px !important; display: flex !important; align-items: center !important; justify-content: flex-start !important; }' +
+        '.nav-logo { font-size: 1.2rem !important; flex: 1 !important; text-align: center !important; order: 1 !important; }' +
         '.nav-center { display: none !important; }' +
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
@@ -199,7 +203,7 @@
           'display: none !important;' +
         '}' +
         '.hhp-mobile-nav-v10.hhp-mnav-open {' +
-          'display: flex !important; flex-direction: column !important;' +
+          'display: none !important; flex-direction: column !important;' +
           'position: fixed !important; top: 0 !important; left: 0 !important;' +
           'width: 100vw !important; height: 100vh !important;' +
           'z-index: 9997 !important; background: #fdfaf5 !important;' +
@@ -661,7 +665,12 @@
           if (typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
             if (HHP_Auth.logout) HHP_Auth.logout();
           } else {
-            if (window.showAuthModal) window.showAuthModal();
+            if (typeof HHP_Auth !== 'undefined' && HHP_Auth.showLoginScreen) {
+          HHP_Auth.showLoginScreen();
+        } else {
+          var overlay = document.getElementById('authOverlay');
+          if (overlay) overlay.style.display = 'flex';
+        }
           }
           closeHamburgerMenu();
         });
@@ -693,13 +702,18 @@
       signInBtn.setAttribute('type', 'button');
       signInBtn.style.color = '#000';
       signInBtn.style.setProperty('-webkit-text-fill-color', '#000', 'important');
-      nav.appendChild(signInBtn);
+      nav.insertBefore(signInBtn, nav.firstChild);
 
       signInBtn.addEventListener('click', function() {
         if (typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
           if (HHP_Auth.logout) HHP_Auth.logout();
         } else {
-          if (window.showAuthModal) window.showAuthModal();
+          if (typeof HHP_Auth !== 'undefined' && HHP_Auth.showLoginScreen) {
+          HHP_Auth.showLoginScreen();
+        } else {
+          var overlay = document.getElementById('authOverlay');
+          if (overlay) overlay.style.display = 'flex';
+        }
         }
       });
     }
@@ -777,7 +791,7 @@
       tab.setAttribute('role', 'button');
       tab.setAttribute('tabindex', '0');
       // Start hidden — updateDrawerContent will show it if appropriate
-      tab.style.display = 'none';
+      tab.classList.remove('hhp-drawer-tab-visible');
       document.body.appendChild(tab);
 
       var drawer = document.createElement('div');
@@ -864,7 +878,7 @@
     // *** AUTH CHECK: Never show drawer if user is not logged in ***
     if (!isUserAuthenticated()) {
       var tab = document.querySelector('.hhp-drawer-tab');
-      if (tab) tab.style.display = 'none';
+      if (tab) tab.classList.remove('hhp-drawer-tab-visible');
       closeDrawer();
       return;
     }
@@ -874,12 +888,12 @@
     if (!activePortal) {
       // On public page, hide drawer tab
       var tab = document.querySelector('.hhp-drawer-tab');
-      if (tab) tab.style.display = 'none';
+      if (tab) tab.classList.remove('hhp-drawer-tab-visible');
       return;
     }
 
     var tab = document.querySelector('.hhp-drawer-tab');
-    if (tab && window.innerWidth <= 767) tab.style.display = 'flex';
+    if (tab && window.innerWidth <= 767) tab.classList.add('hhp-drawer-tab-visible');
 
     // Determine portal name
     var portalNames = {
