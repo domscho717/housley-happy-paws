@@ -139,17 +139,25 @@
         '.nav-center { display: none !important; }' +
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
-        '.hhp-hamburger { display: flex !important; order: 99; margin-left: auto; }' +
+        /* -- Hamburger: gold button, hide black-line spans -- */
+        '.hhp-hamburger { display: flex !important; order: 99; margin-left: auto;' +
+          'background: var(--gold, #c8963e) !important; border: none !important;' +
+          'width: 44px !important; height: 44px !important; border-radius: 10px !important;' +
+          'align-items: center !important; justify-content: center !important;' +
+          'cursor: pointer !important; padding: 0 !important; z-index: 9999 !important;' +
+          'font-size: 20px !important; color: white !important; line-height: 1 !important;' +
+        '}' +
+        '.hhp-hamburger span { display: none !important; }' +
 
         /* -- Mobile nav: HIDDEN by default, shown only on hamburger tap -- */
         '.hhp-mobile-nav { display: none !important; }' +
-        '.hhp-mobile-nav.hhp-mobile-nav-open {' +
+        '.hhp-mobile-nav.open, .hhp-mobile-nav.hhp-mobile-nav-open {' +
           'display: flex !important; flex-direction: column !important;' +
           'position: fixed !important; top: 0 !important; left: 0 !important;' +
           'width: 100vw !important; height: 100vh !important;' +
           'z-index: 9997 !important; background: #fdfaf5 !important;' +
           'padding: 70px 20px 20px !important; overflow-y: auto !important;' +
-        '}' + +
+        '}' +
 
         /* -- Hero -- */
         '.hero { grid-template-columns: 1fr !important; padding: 76px 16px 36px !important; min-height: auto !important; gap: 20px !important; }' +
@@ -168,7 +176,7 @@
         /* -- About -- */
         '.about-section { padding: 48px 16px !important; }' +
         '.about-grid { grid-template-columns: 1fr !important; gap: 24px !important; }' +
-        '.about-photos { min-height: 240px !important; max-width: 100% !important; }' +
+        '.about-photos { min-height: 280px !important; max-width: 100% !important; width: 100% !important; border-radius: 16px !important; }' +
         '.section-h { font-size: 1.75rem !important; }' +
         '.section-p { font-size: 0.88rem !important; }' +
 
@@ -188,9 +196,19 @@
         '.cal-dow { font-size: 0.62rem !important; padding: 4px 0 !important; }' +
 
         /* -- Reviews -- */
-        '.reviews-section { padding: 48px 16px !important; }' +
-        '.reviews-track { grid-template-columns: repeat(5, calc(88vw - 10px)) !important; gap: 12px !important; }' +
-        '.review-card { padding: 20px !important; }' +
+        /* -- Reviews: one card at a time, no partial/cut-off -- */
+        '.reviews-section { padding: 48px 16px !important; overflow: hidden !important; }' +
+        '.reviews-track {' +
+          'display: flex !important; grid-template-columns: none !important;' +
+          'overflow-x: auto !important; scroll-snap-type: x mandatory !important;' +
+          'gap: 0px !important; -webkit-overflow-scrolling: touch !important;' +
+          'scroll-behavior: smooth !important; padding: 0 !important;' +
+        '}' +
+        '.reviews-track .review-card {' +
+          'flex: 0 0 100% !important; width: 100% !important; min-width: 100% !important;' +
+          'scroll-snap-align: start !important; padding: 24px !important;' +
+          'box-sizing: border-box !important; margin: 0 !important;' +
+        '}' +
 
         /* -- Coming Soon / Future -- */
         '.future-section { padding: 40px 16px !important; }' +
@@ -585,21 +603,37 @@
     var hamburger = document.querySelector('.hhp-hamburger');
     if (!mobileNav || !hamburger) return;
 
-    // Ensure mobile nav starts closed
-    mobileNav.classList.remove('hhp-mobile-nav-open');
+    // Replace span children with hamburger icon for gold button look
+    if (!hamburger.dataset.hhpV6Styled) {
+      hamburger.dataset.hhpV6Styled = 'true';
+      hamburger.innerHTML = '\u2630';
+    }
 
-    // Replace hamburger to remove old listeners
+    // Ensure mobile nav starts closed (remove both class variants)
+    mobileNav.classList.remove('hhp-mobile-nav-open');
+    mobileNav.classList.remove('open');
+
+    // Clone hamburger to remove ALL old listeners from ux-upgrades.js
     if (!hamburger.dataset.hhpV6Bound) {
-      hamburger.dataset.hhpV6Bound = 'true';
+      var newHamburger = hamburger.cloneNode(true);
+      newHamburger.dataset.hhpV6Bound = 'true';
+      newHamburger.innerHTML = '\u2630';
+      hamburger.parentNode.replaceChild(newHamburger, hamburger);
+      hamburger = newHamburger;
 
       hamburger.addEventListener('click', function(e) {
         e.stopPropagation();
-        var isOpen = mobileNav.classList.contains('hhp-mobile-nav-open');
+        e.preventDefault();
+        var isOpen = mobileNav.classList.contains('open');
         if (isOpen) {
+          mobileNav.classList.remove('open');
           mobileNav.classList.remove('hhp-mobile-nav-open');
+          hamburger.innerHTML = '\u2630';
           document.body.style.overflow = '';
         } else {
+          mobileNav.classList.add('open');
           mobileNav.classList.add('hhp-mobile-nav-open');
+          hamburger.innerHTML = '\u2715';
           document.body.style.overflow = 'hidden';
         }
       });
@@ -608,7 +642,21 @@
       mobileNav.querySelectorAll('a').forEach(function(link) {
         link.addEventListener('click', function() {
           setTimeout(function() {
+            mobileNav.classList.remove('open');
             mobileNav.classList.remove('hhp-mobile-nav-open');
+            hamburger.innerHTML = '\u2630';
+            document.body.style.overflow = '';
+          }, 150);
+        });
+      });
+
+      // Close mobile nav when any button inside is clicked
+      mobileNav.querySelectorAll('button').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          setTimeout(function() {
+            mobileNav.classList.remove('open');
+            mobileNav.classList.remove('hhp-mobile-nav-open');
+            hamburger.innerHTML = '\u2630';
             document.body.style.overflow = '';
           }, 150);
         });
@@ -619,7 +667,9 @@
       if (mobileDD) {
         mobileDD.addEventListener('change', function() {
           setTimeout(function() {
+            mobileNav.classList.remove('open');
             mobileNav.classList.remove('hhp-mobile-nav-open');
+            hamburger.innerHTML = '\u2630';
             document.body.style.overflow = '';
           }, 200);
         });
@@ -799,7 +849,7 @@
         if (navRight) navRight.style.removeProperty('display');
         // On desktop, ensure mobile nav is hidden
         var mobileNav = document.querySelector('.hhp-mobile-nav');
-        if (mobileNav) mobileNav.classList.remove('hhp-mobile-nav-open');
+        if (mobileNav) { mobileNav.classList.remove('hhp-mobile-nav-open'); mobileNav.classList.remove('open'); }
       }
     });
 
