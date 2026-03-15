@@ -1,13 +1,17 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v9 (ux-patch.js)
-// Complete replacement with:
-// 1. Mobile hamburger menu (public links only)
-// 2. Pull-out sidebar drawer (portal pages only)
-// 3. Mobile sign-in button
-// 4. Desktop portal nav dropdowns
-// 5. Review arrow fix
-// 6. Viewport fix
-// 7. All existing functions preserved
+// Housley Happy Paws — UX Patch v10 (ux-patch.js)
+// Merged: v9 architecture (hamburger=public links, drawer=portal nav)
+//       + v7 robust implementations (footer, meet&greet, preview, CSS)
+// Changes from v9:
+//   - Both hamburger & drawer use 3-line (☰) icon
+//   - All text in both menus is BLACK
+//   - Restored v7 footer email (Cloudflare __cf_email__ handling)
+//   - Restored v7 Meet & Greet (Supabase booking query)
+//   - Restored v7 preview tool (iframe-based)
+//   - Restored v7 comprehensive mobile CSS
+//   - Restored v7 view switcher (targets viewDropdown select)
+//   - Restored v7 about photo (inline styles)
+//   - Restored v7 sidebar helpers for legacy compatibility
 // ============================================================
 (function() {
   'use strict';
@@ -97,7 +101,7 @@
   }
 
   // ─────────────────────────────────────────────
-  // INJECT ALL CSS
+  // INJECT ALL CSS — Comprehensive (restored from v7 + v9 drawer)
   // ─────────────────────────────────────────────
   function injectAllCSS() {
     var css = document.createElement('style');
@@ -157,11 +161,12 @@
           'flex-direction: row !important; flex-wrap: wrap !important;' +
           'gap: 4px !important; padding: 10px 12px !important;' +
         '}' +
+        '.hhp-portal-hamburger { display: none !important; }' +
         '.services-grid { grid-template-columns: repeat(2, 1fr) !important; }' +
         '.future-grid { grid-template-columns: repeat(2, 1fr) !important; }' +
       '}' +
 
-      /* ===== PHONE (max 767px) — COMPREHENSIVE ===== */
+      /* ===== PHONE (max 767px) — COMPREHENSIVE (restored from v7) ===== */
       '@media (max-width: 767px) {' +
 
         /* -- Nav: hide desktop elements -- */
@@ -171,23 +176,23 @@
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
 
-        /* -- Hamburger button -- */
-        '.hhp-hamburger-v9 {' +
+        /* -- Hamburger button (public nav): 3-line icon -- */
+        '.hhp-hamburger-v10 {' +
           'display: flex !important; order: 99; margin-left: auto;' +
-          'background: var(--gold, #c8963e) !important; border: none !important;' +
+          'background: transparent !important; border: none !important;' +
           'width: 44px !important; height: 44px !important; border-radius: 10px !important;' +
           'align-items: center !important; justify-content: center !important;' +
           'cursor: pointer !important; padding: 0 !important; z-index: 9999 !important;' +
-          'font-size: 20px !important; color: white !important; line-height: 1 !important;' +
+          'font-size: 28px !important; color: #000000 !important; line-height: 1 !important;' +
           '-webkit-tap-highlight-color: transparent !important;' +
           'touch-action: manipulation !important; user-select: none !important;' +
         '}' +
 
-        /* -- Mobile nav overlay -- */
-        '.hhp-mobile-nav-v9 {' +
+        /* -- Mobile nav overlay (public links) -- */
+        '.hhp-mobile-nav-v10 {' +
           'display: none !important;' +
         '}' +
-        '.hhp-mobile-nav-v9.hhp-mnav-open {' +
+        '.hhp-mobile-nav-v10.hhp-mnav-open {' +
           'display: flex !important; flex-direction: column !important;' +
           'position: fixed !important; top: 0 !important; left: 0 !important;' +
           'width: 100vw !important; height: 100vh !important;' +
@@ -196,8 +201,8 @@
         '}' +
         '.hhp-mnav-link {' +
           'display: block; padding: 14px 0; font-size: 1.1rem; font-weight: 600;' +
-          'color: #1e1409; text-decoration: none; border-bottom: 1px solid #e8ddd0;' +
-          'cursor: pointer;' +
+          'color: #000000 !important; text-decoration: none; border-bottom: 1px solid #e8ddd0;' +
+          'cursor: pointer; -webkit-text-fill-color: #000000 !important;' +
         '}' +
         '.hhp-mnav-link:last-child { border-bottom: none; }' +
         '.hhp-mnav-divider {' +
@@ -205,97 +210,177 @@
         '}' +
         '.hhp-mnav-label {' +
           'font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;' +
-          'color: #9a8a74; font-weight: 700; margin-top: 8px; margin-bottom: 4px;' +
+          'color: #000000 !important; font-weight: 700; margin-top: 8px; margin-bottom: 4px;' +
+          '-webkit-text-fill-color: #000000 !important;' +
         '}' +
         '.hhp-mnav-signin {' +
           'display: inline-block; margin-top: 16px; padding: 12px 28px;' +
           'background: transparent; border: 1.5px solid #c8963e; border-radius: 10px;' +
-          'color: #c8963e; font-weight: 700; font-size: 0.95rem; cursor: pointer;' +
-          'text-align: center; text-decoration: none;' +
+          'color: #000000 !important; font-weight: 700; font-size: 0.95rem; cursor: pointer;' +
+          'text-align: center; text-decoration: none; -webkit-text-fill-color: #000000 !important;' +
         '}' +
 
         /* -- Mobile sign-in button in nav -- */
         '.hhp-mobile-signin-btn {' +
           'display: block !important; order: 98; margin-left: 8px;' +
           'padding: 8px 14px !important; border: 1.5px solid #c8963e !important;' +
-          'background: transparent !important; color: #c8963e !important;' +
+          'background: transparent !important; color: #000000 !important;' +
           'font-weight: 700 !important; font-size: 0.85rem !important;' +
           'border-radius: 8px !important; cursor: pointer !important;' +
           'white-space: nowrap !important; line-height: 1 !important;' +
           'z-index: 9998 !important; -webkit-tap-highlight-color: transparent !important;' +
+          '-webkit-text-fill-color: #000000 !important;' +
         '}' +
 
-        /* -- Hero adjustments -- */
-        '.hero { grid-template-columns: 1fr !important; }' +
-        '.hero h1 { font-size: 2.2rem !important; line-height: 1.2 !important; }' +
-        '.hero .hero-sub, .hero p { font-size: 1rem !important; }' +
-        '.hero .hero-photo-col { max-width: 100% !important; }' +
-        '.hero-photo { max-width: 100% !important; }' +
+        /* -- Hero (restored from v7) -- */
+        '.hero { grid-template-columns: 1fr !important; padding: 76px 16px 36px !important; min-height: auto !important; gap: 20px !important; }' +
+        '.hero h1 { font-size: 2rem !important; line-height: 1.1 !important; margin-bottom: 12px !important; }' +
+        '.hero .hero-p, .hero p:not(.trust-row):not(.section-eyebrow) { font-size: 0.9rem !important; line-height: 1.55 !important; margin-bottom: 20px !important; }' +
+        '.hero-tag { font-size: 0.68rem !important; padding: 5px 12px !important; }' +
+        '.hero-photo-col { max-width: 100% !important; }' +
+        '.hero-actions { flex-direction: column !important; gap: 10px !important; }' +
+        '.hero-actions .btn { width: 100% !important; justify-content: center !important; padding: 14px 20px !important; }' +
+        '.hero .btn-ink { padding: 14px 24px !important; font-size: 0.95rem !important; width: 100% !important; justify-content: center !important; }' +
+        '.hero .btn-outline { padding: 12px 20px !important; font-size: 0.92rem !important; width: 100% !important; justify-content: center !important; }' +
+        '.hero-trust { flex-direction: column !important; gap: 8px !important; }' +
+        '.trust-chip { font-size: 0.78rem !important; }' +
+        '.hero .hero-photo-sm-cta { min-width: 140px !important; padding: 10px 24px !important; }' +
 
-        /* -- About section -- */
-        '.about-grid { grid-template-columns: 1fr !important; }' +
-        '.about-photos { min-height: 280px !important; }' +
+        /* -- About (restored from v7) -- */
+        '.about-section { padding: 48px 16px !important; }' +
+        '.about-grid { grid-template-columns: 1fr !important; gap: 24px !important; }' +
+        '.about-photos { min-height: 280px !important; max-width: 100% !important; width: 100% !important; border-radius: 16px !important; }' +
+        '.section-h { font-size: 1.75rem !important; }' +
+        '.section-p { font-size: 0.88rem !important; }' +
 
-        /* -- Services grid -- */
-        '.services-grid { grid-template-columns: 1fr !important; }' +
+        /* -- Services (restored from v7) -- */
+        '.services-section { padding: 48px 16px !important; }' +
+        '.services-grid { grid-template-columns: 1fr !important; gap: 14px !important; }' +
+        '.service-card { padding: 20px !important; }' +
+        '.sc-name { font-size: 1.1rem !important; }' +
+        '.sc-price { font-size: 1.15rem !important; }' +
 
-        /* -- Calendar -- */
-        '.cal-section { padding: 40px 16px !important; }' +
+        /* -- Calendar (restored from v7) -- */
+        '.cal-section { padding: 48px 16px !important; }' +
+        '.cal-wrap { margin-top: 20px !important; }' +
+        '.cal-grid .cal-day { min-height: 48px !important; padding: 4px !important; }' +
+        '.cal-day-num { font-size: 0.7rem !important; }' +
+        '.cal-event-dot { font-size: 0.55rem !important; }' +
+        '.cal-dow { font-size: 0.62rem !important; padding: 4px 0 !important; }' +
 
-        /* -- Reviews carousel -- */
-        '.reviews-track { scroll-snap-type: x mandatory !important; }' +
-        '.review-card { scroll-snap-align: start !important; flex-shrink: 0 !important; }' +
-        '.rev-nav-btn { padding: 8px 12px !important; }' +
+        /* -- Reviews: one card at a time (restored from v7) -- */
+        '.reviews-section { padding: 48px 16px !important; overflow: hidden !important; }' +
+        '.reviews-track {' +
+          'display: flex !important; grid-template-columns: none !important;' +
+          'overflow-x: auto !important; scroll-snap-type: x mandatory !important;' +
+          'gap: 0px !important; -webkit-overflow-scrolling: touch !important;' +
+          'scroll-behavior: smooth !important; padding: 0 !important;' +
+        '}' +
+        '.reviews-track .review-card {' +
+          'flex: 0 0 100% !important; width: 100% !important; min-width: 100% !important;' +
+          'scroll-snap-align: start !important; padding: 24px !important;' +
+          'box-sizing: border-box !important; margin: 0 !important;' +
+        '}' +
 
-        /* -- Future grid -- */
-        '.future-grid { grid-template-columns: 1fr !important; }' +
+        /* -- Coming Soon / Future (restored from v7) -- */
+        '.future-section { padding: 40px 16px !important; }' +
+        '.future-grid { grid-template-columns: 1fr !important; gap: 14px !important; }' +
 
-        /* -- Footer -- */
-        'footer { padding: 30px 16px !important; }' +
-        'footer a { font-size: 0.9rem !important; }' +
+        /* -- Footer (restored from v7) -- */
+        'footer { padding: 36px 16px 20px !important; }' +
+        '.footer-grid { grid-template-columns: 1fr !important; gap: 20px !important; }' +
+        '.footer-bottom { flex-direction: column !important; gap: 8px !important; text-align: center !important; }' +
 
-        /* -- Portal cards -- */
-        '.portal-card { padding: 16px !important; }' +
-        '.sidebar { flex-direction: column !important; gap: 8px !important; }' +
-        '.sb-item { padding: 12px 16px !important; font-size: 0.95rem !important; }' +
+        /* -- Portal sidebar: hidden on mobile (restored from v7) -- */
+        '#pg-owner .portal-wrap > .sidebar,' +
+        '#pg-client .portal-wrap > .sidebar,' +
+        '#pg-staff .portal-wrap > .sidebar,' +
+        '#pg-owner .sidebar, #pg-client .sidebar, #pg-staff .sidebar,' +
+        '.portal-wrap > .sidebar, div.sidebar {' +
+          'display: none !important; visibility: hidden !important;' +
+          'width: 0 !important; min-width: 0 !important; height: 0 !important;' +
+          'overflow: hidden !important; position: absolute !important;' +
+          'left: -9999px !important; pointer-events: none !important;' +
+        '}' +
 
-        /* -- Stats -- */
-        '.stat-box { padding: 20px 12px !important; }' +
+        /* -- Portal main: full width (restored from v7) -- */
+        '.portal-wrap { display: block !important; }' +
+        '.portal-wrap > .portal-main, .portal-main {' +
+          'width: 100% !important; max-width: 100% !important;' +
+          'padding: 12px !important; margin-left: 0 !important;' +
+        '}' +
 
-        /* -- Auth forms -- */
-        '.auth-form { padding: 20px !important; }' +
+        /* -- Portal cards & stats (restored from v7) -- */
+        '.stats-row { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }' +
+        '.stat-box { padding: 12px !important; }' +
+        '.stat-num { font-size: 1.4rem !important; }' +
+        '.stat-lbl { font-size: 0.68rem !important; }' +
+        '.card { padding: 14px !important; margin-bottom: 12px !important; }' +
+        '.form-row { grid-template-columns: 1fr !important; }' +
+        '.report-stats { grid-template-columns: repeat(2, 1fr) !important; }' +
+        '.report-photos { grid-template-columns: repeat(2, 1fr) !important; }' +
+
+        /* -- Owner banner (restored from v7) -- */
+        '.owner-banner { padding: 18px !important; border-radius: 12px !important; }' +
+        '.ob-top { flex-direction: column !important; gap: 10px !important; }' +
+        '.ob-h { font-size: 1.3rem !important; }' +
+        '.ob-stats { flex-wrap: wrap !important; gap: 12px !important; }' +
+
+        /* -- Tabs (restored from v7) -- */
+        '.tabs { flex-wrap: wrap !important; gap: 2px !important; }' +
+        '.tab { padding: 6px 10px !important; font-size: 0.74rem !important; }' +
+
+        /* -- Appointments (restored from v7) -- */
+        '.appt-row { flex-direction: column !important; align-items: flex-start !important; gap: 6px !important; }' +
+        '.appt-meta { text-align: left !important; }' +
+        '.job-card { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }' +
+
+        /* -- Availability (restored from v7) -- */
+        '.avail-grid { grid-template-columns: repeat(7, 1fr) !important; gap: 3px !important; }' +
+        '.avail-day { padding: 6px 2px !important; font-size: 0.65rem !important; }' +
+
+        /* -- Messages (restored from v7) -- */
+        '.msg-in, .msg-out { max-width: 88% !important; }' +
+        '.msg-input-row { gap: 6px !important; }' +
+
+        /* -- Modals (restored from v7) -- */
+        '.overlay { padding: 12px !important; }' +
+        '.modal { padding: 20px !important; margin: 8px !important; max-height: 92vh !important; }' +
+        '.modal-title { font-size: 1.4rem !important; }' +
+
+        /* -- Auth overlay (restored from v7) -- */
+        '.auth-card { padding: 28px 20px !important; margin: 12px !important; }' +
+        '.auth-logo { font-size: 1.5rem !important; }' +
+
+        /* -- Toast (restored from v7) -- */
+        '.toast { bottom: 16px !important; right: 16px !important; left: 16px !important; max-width: none !important; }' +
+
+        /* -- Floating book button (restored from v7) -- */
+        '#floatingBookBtn { bottom: 16px !important; right: 16px !important; }' +
+
+        /* -- Payment steps (restored from v7) -- */
+        '.pay-step { padding: 10px !important; }' +
+        '.pay-step-num { font-size: 1.2rem !important; }' +
+
+        /* -- Client list (restored from v7) -- */
+        '.client-row { padding: 10px 0 !important; }' +
+        '.cl-ava { width: 36px !important; height: 36px !important; font-size: 0.78rem !important; }' +
+
+        /* -- Portal form inputs -- */
         '.form-group input, .form-group textarea { font-size: 16px !important; }' +
 
-        /* -- Modals -- */
-        '.modal-content { max-height: 90vh !important; overflow-y: auto !important; }' +
-
-        /* -- Toast -- */
-        '.hhp-toast { bottom: 16px !important; margin: 0 8px !important; }' +
-
-        /* -- Floating book button -- */
-        '.floating-book-btn { bottom: 20px !important; right: 16px !important; }' +
-
-        /* -- Portal-specific -- */
-        '#pg-owner .owner-banner { padding: 20px 16px !important; }' +
-        '#pg-owner .tabs { flex-wrap: wrap !important; }' +
-        '#pg-owner .tab { padding: 10px 16px !important; font-size: 0.9rem !important; }' +
-        '#pg-owner .appt-card { margin: 12px 0 !important; }' +
-        '#pg-owner .availability-grid { grid-template-columns: repeat(2, 1fr) !important; }' +
-        '#pg-staff .msg-list { max-height: 400px !important; overflow-y: auto !important; }' +
-        '#pg-client .pet-card { margin: 12px 0 !important; }' +
-        '#pg-client .invoice-card { margin: 12px 0 !important; }' +
-
-        /* -- Pull-out drawer tab -- */
+        /* -- Pull-out drawer tab (3-line hamburger on left edge) -- */
         '.hhp-drawer-tab {' +
-          'display: block !important; position: fixed !important; left: 0 !important;' +
+          'display: flex !important; position: fixed !important; left: 0 !important;' +
           'top: 50% !important; transform: translateY(-50%) !important;' +
-          'width: 24px !important; height: 40px !important; z-index: 9996 !important;' +
-          'background: #c8963e !important; border: none !important;' +
-          'border-radius: 0 12px 12px 0 !important; cursor: pointer !important;' +
-          'font-size: 18px !important; color: white !important; font-weight: 700 !important;' +
+          'width: 28px !important; height: 44px !important; z-index: 9996 !important;' +
+          'background: transparent !important; border: none !important;' +
+          'border-radius: 0 10px 10px 0 !important; cursor: pointer !important;' +
+          'font-size: 22px !important; color: #000000 !important; font-weight: 700 !important;' +
           'align-items: center !important; justify-content: center !important;' +
           'padding: 0 !important; line-height: 1 !important;' +
           '-webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important;' +
+          '-webkit-text-fill-color: #000000 !important;' +
         '}' +
 
         /* -- Pull-out drawer panel -- */
@@ -321,14 +406,31 @@
           'display: block !important;' +
         '}' +
 
+        /* -- Drawer header -- */
+        '.hhp-drawer-header {' +
+          'display: flex !important; align-items: center !important;' +
+          'justify-content: space-between !important; padding: 16px 20px !important;' +
+          'border-bottom: 2px solid #e0d5c5 !important; background: #fefcf8 !important;' +
+        '}' +
+        '.hhp-drawer-title {' +
+          'font-size: 1.1rem !important; font-weight: 700 !important;' +
+          'color: #000000 !important; -webkit-text-fill-color: #000000 !important;' +
+        '}' +
+        '.hhp-drawer-close {' +
+          'background: transparent !important; border: none !important;' +
+          'font-size: 22px !important; color: #000000 !important; cursor: pointer !important;' +
+          'padding: 4px 8px !important; -webkit-text-fill-color: #000000 !important;' +
+        '}' +
+
         /* -- Drawer items -- */
         '.hhp-drawer-item {' +
           'display: block !important; width: 100% !important; padding: 16px 20px !important;' +
-          'border-bottom: 1px solid #e0d5c5 !important; color: #1a1008 !important;' +
+          'border-bottom: 1px solid #e0d5c5 !important; color: #000000 !important;' +
           'font-weight: 600 !important; font-size: 1.05rem !important;' +
           'text-decoration: none !important; cursor: pointer !important;' +
-          'background: transparent !important; border: none !important;' +
-          'text-align: left !important;' +
+          'background: transparent !important; border-left: none !important;' +
+          'border-right: none !important; border-top: none !important;' +
+          'text-align: left !important; -webkit-text-fill-color: #000000 !important;' +
         '}' +
         '.hhp-drawer-item:hover {' +
           'background: rgba(200,150,62,0.08) !important;' +
@@ -336,101 +438,188 @@
 
       '}' +
 
-      /* ===== HIDE OLD ELEMENTS ===== */
-      '.hhp-hamburger:not(.hhp-hamburger-v9) { display: none !important; }' +
-      '.hhp-mobile-nav:not(.hhp-mobile-nav-v9) { display: none !important; }' +
+      /* ===== SMALL PHONE (max 400px) — restored from v7 ===== */
+      '@media (max-width: 400px) {' +
+        '.hero { padding: 68px 12px 28px !important; }' +
+        '.hero h1 { font-size: 1.7rem !important; }' +
+        '.section-h { font-size: 1.45rem !important; }' +
+        '.service-card { padding: 16px !important; }' +
+        '.sc-name { font-size: 1rem !important; }' +
+        '.review-card { padding: 16px 18px !important; }' +
+        '.cal-grid .cal-day { min-height: 40px !important; }' +
+        '.stat-box { padding: 8px !important; }' +
+        '.stat-num { font-size: 1.2rem !important; }' +
+        '.stats-row { grid-template-columns: 1fr 1fr !important; }' +
+        '.ob-h { font-size: 1.1rem !important; }' +
+      '}' +
 
-      /* ===== DESKTOP: hide drawer elements ===== */
+      /* ===== HIDE OLD elements ===== */
+      '.hhp-hamburger:not(.hhp-hamburger-v10) { display: none !important; }' +
+      '.hhp-mobile-nav:not(.hhp-mobile-nav-v10) { display: none !important; }' +
+      '.hhp-portal-hamburger { display: none !important; }' +
+
+      /* ===== DESKTOP: hide mobile-only elements ===== */
       '@media (min-width: 768px) {' +
         '.hhp-drawer-tab { display: none !important; }' +
         '.hhp-drawer { display: none !important; }' +
         '.hhp-drawer-overlay { display: none !important; }' +
+        '.hhp-hamburger-v10 { display: none !important; }' +
+        '.hhp-mobile-nav-v10 { display: none !important; }' +
+        '.hhp-mobile-signin-btn { display: none !important; }' +
       '}' +
 
-      '';
+      /* ===== Preview tool styles (restored from v7) ===== */
+      '.hhp-preview-bar {' +
+        'display: flex; gap: 8px; margin-bottom: 16px; padding: 12px 16px;' +
+        'background: #f5f0ea; border-radius: 12px; align-items: center; flex-wrap: wrap;' +
+      '}' +
+      '.hhp-preview-bar .preview-label { font-weight: 700; font-size: 0.9rem; color: #1e1409; margin-right: 8px; }' +
+      '.hhp-preview-btn {' +
+        'padding: 8px 16px; border-radius: 8px; border: 1.5px solid rgba(30,20,9,0.12);' +
+        'background: white; cursor: pointer; font-size: 0.82rem; font-weight: 600;' +
+        'color: #1e1409; transition: all 0.2s;' +
+      '}' +
+      '.hhp-preview-btn:hover, .hhp-preview-btn.active {' +
+        'background: var(--gold, #c8963e); color: white; border-color: var(--gold, #c8963e);' +
+      '}' +
+      '.hhp-preview-frame-wrap {' +
+        'border: 2px solid rgba(30,20,9,0.1); border-radius: 12px; overflow: hidden;' +
+        'margin-bottom: 20px; background: white; transition: width 0.3s ease;' +
+        'margin-left: auto; margin-right: auto;' +
+      '}' +
+      '.hhp-preview-frame-wrap iframe { width: 100%; border: none; display: block; }';
 
     document.head.appendChild(css);
   }
 
   // ─────────────────────────────────────────────
-  // FIX FOOTER EMAIL
+  // FOOTER EMAIL — restored from v7 (Cloudflare __cf_email__ handling)
   // ─────────────────────────────────────────────
   function fixFooterEmail() {
     var footer = document.querySelector('footer');
-    if (footer) {
-      var email = footer.querySelector('a[href^="mailto:"], span:contains("@")');
-      if (!email) {
-        email = Array.from(footer.querySelectorAll('a, span')).find(function(el) {
-          return el.textContent.includes('@') || el.href.includes('mailto:');
-        });
+    if (!footer) return;
+    footer.querySelectorAll('a').forEach(function(a) {
+      var text = a.textContent.trim();
+      if (text.includes('[email') || text.includes('email protected') || text.includes('email\u00a0protected')) {
+        a.href = 'mailto:housleyhappypaws@gmail.com';
+        a.textContent = '';
+        a.innerHTML = '\uD83D\uDCE7 housleyhappypaws@gmail.com';
+        a.removeAttribute('data-cfemail');
+        a.classList.remove('__cf_email__');
       }
-      if (email) {
-        if (email.tagName === 'A') {
-          email.href = 'mailto:housleyhappypaws@gmail.com';
-          email.textContent = 'housleyhappypaws@gmail.com';
-        } else {
-          email.textContent = 'housleyhappypaws@gmail.com';
-        }
-      }
+    });
+    footer.querySelectorAll('.__cf_email__, [data-cfemail]').forEach(function(el) {
+      el.textContent = 'housleyhappypaws@gmail.com';
+      el.removeAttribute('data-cfemail');
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // MOBILE SIDEBAR — force-hide on mobile (restored from v7)
+  // ─────────────────────────────────────────────
+  function fixMobileSidebar() {
+    var isMobile = window.innerWidth <= 767;
+    if (!isMobile) return;
+
+    // Force-hide all sidebars via inline style
+    document.querySelectorAll('.sidebar').forEach(function(sidebar) {
+      sidebar.style.setProperty('display', 'none', 'important');
+      sidebar.style.setProperty('visibility', 'hidden', 'important');
+      sidebar.style.setProperty('width', '0', 'important');
+      sidebar.style.setProperty('height', '0', 'important');
+      sidebar.style.setProperty('overflow', 'hidden', 'important');
+      sidebar.style.setProperty('position', 'absolute', 'important');
+    });
+
+    // Hide portal hamburger from old versions
+    var portalHamburger = document.querySelector('.hhp-portal-hamburger');
+    if (portalHamburger) {
+      portalHamburger.style.setProperty('display', 'none', 'important');
+    }
+
+    // Force-hide nav-right on mobile
+    var navRight = document.querySelector('.nav-right');
+    if (navRight) {
+      navRight.style.setProperty('display', 'none', 'important');
     }
   }
 
   // ─────────────────────────────────────────────
-  // FIX MOBILE SIDEBAR (if legacy)
-  // ─────────────────────────────────────────────
-  function fixMobileSidebar() {
-    // Placeholder for legacy fixes
-  }
-
-  // ─────────────────────────────────────────────
-  // CREATE MOBILE NAV (Hamburger + Public Links Overlay)
+  // CREATE MOBILE NAV (Hamburger = 3 lines + Public Links Overlay)
   // ─────────────────────────────────────────────
   function createMobileNav() {
     var nav = document.getElementById('mainNav');
     if (!nav) return;
 
     // Remove old hamburgers
-    var oldHamburger = nav.querySelector('.hhp-hamburger:not(.hhp-hamburger-v9)');
-    if (oldHamburger) oldHamburger.remove();
+    var oldHamburgers = nav.querySelectorAll('.hhp-hamburger:not(.hhp-hamburger-v10)');
+    oldHamburgers.forEach(function(h) { h.remove(); });
 
     // Create hamburger button if not exists
-    if (!nav.querySelector('.hhp-hamburger-v9')) {
+    if (!nav.querySelector('.hhp-hamburger-v10')) {
       var hamburger = document.createElement('button');
-      hamburger.className = 'hhp-hamburger-v9';
-      hamburger.innerHTML = '≡';
+      hamburger.className = 'hhp-hamburger-v10';
+      // 3 horizontal lines using spans
+      hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                            '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                            '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
       hamburger.setAttribute('aria-label', 'Menu');
       hamburger.setAttribute('type', 'button');
       nav.appendChild(hamburger);
 
       // Create mobile nav overlay if not exists
-      if (!document.querySelector('.hhp-mobile-nav-v9')) {
+      if (!document.querySelector('.hhp-mobile-nav-v10')) {
         var overlay = document.createElement('div');
-        overlay.className = 'hhp-mobile-nav-v9';
+        overlay.className = 'hhp-mobile-nav-v10';
         overlay.innerHTML =
-          '<a class="hhp-mnav-link" data-scroll="home">Home</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".about-section">About Rachel</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".services-section">Services & Pricing</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".cal-section">Calendar</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".reviews-section">Reviews</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".future-section">Coming Soon</a>' +
+          '<a class="hhp-mnav-link" data-scroll="home" style="color:#000!important;-webkit-text-fill-color:#000!important;">Home</a>' +
+          '<a class="hhp-mnav-link" data-scroll=".about-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">About Rachel</a>' +
+          '<a class="hhp-mnav-link" data-scroll=".services-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">Services & Pricing</a>' +
+          '<a class="hhp-mnav-link" data-scroll=".cal-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">Calendar</a>' +
+          '<a class="hhp-mnav-link" data-scroll=".reviews-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">Reviews</a>' +
+          '<a class="hhp-mnav-link" data-scroll=".future-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">Coming Soon</a>' +
           '<div class="hhp-mnav-divider"></div>' +
           '<div id="hhp-mnav-portal-section" style="display:none;">' +
-            '<div class="hhp-mnav-label">Portal</div>' +
-            '<select id="hhp-mnav-view-switcher" class="hhp-mnav-link" style="padding:12px 0;font-size:1rem;border:none;background:transparent;color:#1e1409;cursor:pointer;">' +
+            '<div class="hhp-mnav-label" style="color:#000!important;-webkit-text-fill-color:#000!important;">Switch View</div>' +
+            '<select id="hhp-mnav-view-switcher" style="padding:12px 0;font-size:1rem;border:none;background:transparent;color:#000!important;-webkit-text-fill-color:#000!important;cursor:pointer;width:100%;">' +
               '<option value="">-- Switch View --</option>' +
             '</select>' +
             '<div class="hhp-mnav-divider"></div>' +
           '</div>' +
-          '<button id="hhp-mnav-book-btn" class="hhp-mnav-link" style="display:none;background:transparent;border:none;padding:14px 0;text-align:left;">Book Meet & Greet</button>' +
-          '<button id="hhp-mnav-signin-link" class="hhp-mnav-signin">Sign In</button>';
+          '<button id="hhp-mnav-book-btn" style="display:none;background:transparent;border:none;padding:14px 0;text-align:left;color:#000!important;-webkit-text-fill-color:#000!important;font-weight:600;font-size:1.1rem;cursor:pointer;">Book Meet & Greet</button>' +
+          '<button id="hhp-mnav-signin-link" class="hhp-mnav-signin" style="color:#000!important;-webkit-text-fill-color:#000!important;">Sign In</button>';
         document.body.appendChild(overlay);
       }
 
       // Hamburger click handler
-      hamburger.addEventListener('click', function() {
-        var mobileNav = document.querySelector('.hhp-mobile-nav-v9');
-        mobileNav.classList.toggle('hhp-mnav-open');
-      });
+      hamburger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
+        var isOpen = mobileNav.classList.contains('hhp-mnav-open');
+        if (isOpen) {
+          mobileNav.classList.remove('hhp-mnav-open');
+          hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
+          document.body.style.overflow = '';
+        } else {
+          mobileNav.classList.add('hhp-mnav-open');
+          hamburger.innerHTML = '\u2715';
+          hamburger.style.color = '#000';
+          hamburger.style.fontSize = '24px';
+          document.body.style.overflow = 'hidden';
+        }
+      }, true);
+
+      // Also handle touch
+      hamburger.addEventListener('touchend', function(e) {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        hamburger.click();
+      }, true);
 
       // Mobile nav scroll handlers
       var scrollLinks = document.querySelectorAll('.hhp-mnav-link[data-scroll]');
@@ -438,15 +627,24 @@
         link.addEventListener('click', function(e) {
           e.preventDefault();
           var selector = this.getAttribute('data-scroll');
-          var target;
           if (selector === 'home') {
+            // Switch to public view first
+            if (typeof switchView === 'function') switchView('public');
             window.scrollTo(0, 0);
           } else {
-            target = document.querySelector(selector);
-            if (target) target.scrollIntoView({ behavior: 'smooth' });
+            // Switch to public view first
+            if (typeof switchView === 'function') switchView('public');
+            setTimeout(function() {
+              var target = document.querySelector(selector);
+              if (target) target.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
           }
-          var mobileNav = document.querySelector('.hhp-mobile-nav-v9');
+          var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
           mobileNav.classList.remove('hhp-mnav-open');
+          hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
+          document.body.style.overflow = '';
         });
       });
 
@@ -454,11 +652,32 @@
       var mobileSignInLink = document.getElementById('hhp-mnav-signin-link');
       if (mobileSignInLink) {
         mobileSignInLink.addEventListener('click', function() {
-          if (HHP_Auth && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
+          if (typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
             if (HHP_Auth.logout) HHP_Auth.logout();
           } else {
             if (window.showAuthModal) window.showAuthModal();
           }
+          var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
+          if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
+          hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
+          document.body.style.overflow = '';
+        });
+      }
+
+      // Book Meet & Greet handler
+      var bookBtn = document.getElementById('hhp-mnav-book-btn');
+      if (bookBtn) {
+        bookBtn.addEventListener('click', function() {
+          var floatingBtn = document.getElementById('floatingBookBtn');
+          if (floatingBtn) floatingBtn.click();
+          var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
+          if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
+          hamburger.innerHTML = '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>' +
+                                '<span style="display:block;width:22px;height:2px;background:#000;margin:3px auto;"></span>';
+          document.body.style.overflow = '';
         });
       }
     }
@@ -476,10 +695,12 @@
       signInBtn.className = 'hhp-mobile-signin-btn';
       signInBtn.textContent = 'Sign In';
       signInBtn.setAttribute('type', 'button');
+      signInBtn.style.color = '#000';
+      signInBtn.style.setProperty('-webkit-text-fill-color', '#000', 'important');
       nav.appendChild(signInBtn);
 
       signInBtn.addEventListener('click', function() {
-        if (HHP_Auth && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
+        if (typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
           if (HHP_Auth.logout) HHP_Auth.logout();
         } else {
           if (window.showAuthModal) window.showAuthModal();
@@ -492,24 +713,45 @@
 
   function updateMobileSignInBtn() {
     var btn = document.querySelector('.hhp-mobile-signin-btn');
-    if (btn && HHP_Auth) {
+    if (btn && typeof HHP_Auth !== 'undefined') {
       if (HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
         btn.textContent = 'Sign Out';
       } else {
         btn.textContent = 'Sign In';
       }
     }
+    // Also update the sign-in link inside the mobile nav overlay
+    var mobileSignIn = document.getElementById('hhp-mnav-signin-link');
+    if (mobileSignIn && typeof HHP_Auth !== 'undefined') {
+      if (HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
+        mobileSignIn.textContent = 'Sign Out';
+      } else {
+        mobileSignIn.textContent = 'Sign In';
+      }
+    }
+    // Show/hide Book Meet & Greet button (owner only)
+    var bookBtn = document.getElementById('hhp-mnav-book-btn');
+    if (bookBtn && typeof HHP_Auth !== 'undefined') {
+      if (HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated() && HHP_Auth.currentRole === 'owner') {
+        bookBtn.style.display = 'block';
+      } else {
+        bookBtn.style.display = 'none';
+      }
+    }
   }
 
   // ─────────────────────────────────────────────
-  // CREATE PORTAL DRAWER (Pull-out Sidebar)
+  // CREATE PORTAL DRAWER (Pull-out from Left, 3-line icon)
   // ─────────────────────────────────────────────
   function createPortalDrawer() {
     // Create drawer elements if not exist
     if (!document.querySelector('.hhp-drawer-tab')) {
       var tab = document.createElement('div');
       tab.className = 'hhp-drawer-tab';
-      tab.textContent = '>';
+      // 3 horizontal lines icon
+      tab.innerHTML = '<span style="display:block;width:16px;height:2px;background:#000;margin:2px auto;"></span>' +
+                      '<span style="display:block;width:16px;height:2px;background:#000;margin:2px auto;"></span>' +
+                      '<span style="display:block;width:16px;height:2px;background:#000;margin:2px auto;"></span>';
       tab.setAttribute('role', 'button');
       tab.setAttribute('tabindex', '0');
       document.body.appendChild(tab);
@@ -541,14 +783,12 @@
   function toggleDrawer() {
     var drawer = document.querySelector('.hhp-drawer');
     var overlay = document.querySelector('.hhp-drawer-overlay');
-    var tab = document.querySelector('.hhp-drawer-tab');
 
     if (drawer.classList.contains('hhp-drawer-open')) {
       closeDrawer();
     } else {
       drawer.classList.add('hhp-drawer-open');
       overlay.classList.add('hhp-drawer-open');
-      tab.textContent = '<';
       scrollPos = window.scrollY;
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
@@ -559,11 +799,9 @@
   function closeDrawer() {
     var drawer = document.querySelector('.hhp-drawer');
     var overlay = document.querySelector('.hhp-drawer-overlay');
-    var tab = document.querySelector('.hhp-drawer-tab');
 
     drawer.classList.remove('hhp-drawer-open');
     overlay.classList.remove('hhp-drawer-open');
-    tab.textContent = '>';
     document.body.style.position = '';
     document.body.style.width = '';
     document.body.style.top = '';
@@ -582,14 +820,25 @@
     var isOwner = document.getElementById('pg-owner') && document.getElementById('pg-owner').style.display !== 'none';
 
     if (!isClient && !isStaff && !isOwner) {
-      // On public page, hide drawer
+      // On public page, hide drawer tab
       var tab = document.querySelector('.hhp-drawer-tab');
       if (tab) tab.style.display = 'none';
       return;
     }
 
     var tab = document.querySelector('.hhp-drawer-tab');
-    if (tab) tab.style.display = 'block';
+    if (tab && window.innerWidth <= 767) tab.style.display = 'flex';
+
+    // Add header with title and close button
+    var header = document.createElement('div');
+    header.className = 'hhp-drawer-header';
+    var portalName = isOwner ? 'Owner Portal' : (isStaff ? 'Staff Portal' : 'Client Portal');
+    header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;">' + portalName + '</span>' +
+                       '<button class="hhp-drawer-close" style="color:#000!important;-webkit-text-fill-color:#000!important;" type="button">\u2715</button>';
+    drawer.appendChild(header);
+
+    // Close button handler
+    header.querySelector('.hhp-drawer-close').addEventListener('click', closeDrawer);
 
     var items = [];
 
@@ -620,6 +869,9 @@
       link.className = 'hhp-drawer-item';
       link.textContent = item.text;
       link.type = 'button';
+      // Force black text inline
+      link.style.color = '#000';
+      link.style.setProperty('-webkit-text-fill-color', '#000', 'important');
 
       if (item.element) {
         link.addEventListener('click', function() {
@@ -641,116 +893,181 @@
   }
 
   // ─────────────────────────────────────────────
-  // FIX ABOUT PHOTO
+  // FIX ABOUT PHOTO — force full width (restored from v7)
   // ─────────────────────────────────────────────
   function fixAboutPhoto() {
+    if (window.innerWidth > 767) return;
     var aboutPhotos = document.querySelector('.about-photos');
-    if (aboutPhotos && window.innerWidth < 768) {
-      aboutPhotos.style.width = '100vw';
-      aboutPhotos.style.marginLeft = 'calc(-50vw + 50%)';
+    if (!aboutPhotos) return;
+    aboutPhotos.style.setProperty('width', '100%', 'important');
+    aboutPhotos.style.setProperty('max-width', '100%', 'important');
+    aboutPhotos.style.setProperty('min-height', '280px', 'important');
+    aboutPhotos.style.setProperty('border-radius', '16px', 'important');
+    aboutPhotos.style.setProperty('overflow', 'hidden', 'important');
+    aboutPhotos.querySelectorAll('img').forEach(function(img) {
+      img.style.setProperty('width', '100%', 'important');
+      img.style.setProperty('height', '100%', 'important');
+      img.style.setProperty('object-fit', 'cover', 'important');
+    });
+    var aboutGrid = document.querySelector('.about-grid');
+    if (aboutGrid) {
+      aboutGrid.style.setProperty('grid-template-columns', '1fr', 'important');
+      aboutGrid.style.setProperty('gap', '24px', 'important');
     }
   }
 
   // ─────────────────────────────────────────────
-  // FIX VIEW SWITCHER
+  // FIX VIEW SWITCHER — restored from v7 (targets viewDropdown select)
   // ─────────────────────────────────────────────
   function fixViewSwitcher() {
-    var switcher = document.getElementById('viewSwitcher');
-    if (!switcher) return;
+    // Both desktop and mobile dropdowns
+    var dropdowns = [
+      document.getElementById('viewDropdown'),
+      document.getElementById('hhpMobileViewDD')
+    ];
 
-    var isAuth = HHP_Auth && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated();
-    var role = HHP_Auth && HHP_Auth.currentRole ? HHP_Auth.currentRole : '';
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+    var isLoggedIn = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? true : false;
 
-    // Show/hide switcher
-    switcher.style.display = isAuth ? 'block' : 'none';
-
-    if (isAuth) {
-      var options = ['public', 'client', 'staff', 'owner'];
-      var allowedOptions = ['public'];
-
-      if (role === 'client') allowedOptions.push('client');
-      if (role === 'staff') allowedOptions.push('staff');
-      if (role === 'owner') allowedOptions = ['public', 'client', 'staff', 'owner'];
-
-      switcher.innerHTML = '';
-      allowedOptions.forEach(function(opt) {
-        var option = document.createElement('option');
-        option.value = opt;
-        option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
-        switcher.appendChild(option);
-      });
-
-      switcher.addEventListener('change', function() {
-        if (this.value) {
-          switchView(this.value);
-          this.value = '';
-          setTimeout(updateDrawerContent, 300);
+    dropdowns.forEach(function(dd) {
+      if (!dd) return;
+      Array.from(dd.options).forEach(function(opt) {
+        var val = opt.value;
+        if (val === 'public') {
+          opt.style.display = '';
+          opt.disabled = false;
+        } else if (!isLoggedIn) {
+          opt.style.display = 'none';
+          opt.disabled = true;
+        } else if (role === 'owner') {
+          opt.style.display = '';
+          opt.disabled = false;
+        } else if (role === 'staff') {
+          if (val === 'staff' || val === 'client') {
+            opt.style.display = '';
+            opt.disabled = false;
+          } else {
+            opt.style.display = 'none';
+            opt.disabled = true;
+          }
+        } else if (role === 'client') {
+          if (val === 'client') {
+            opt.style.display = '';
+            opt.disabled = false;
+          } else {
+            opt.style.display = 'none';
+            opt.disabled = true;
+          }
+        } else {
+          if (val !== 'public') {
+            opt.style.display = 'none';
+            opt.disabled = true;
+          }
         }
       });
-    }
+    });
 
-    // Update mobile nav portal section
+    // Update mobile nav portal section (v10 hamburger view switcher)
     var mobilePortalSection = document.getElementById('hhp-mnav-portal-section');
     if (mobilePortalSection) {
-      mobilePortalSection.style.display = isAuth ? 'block' : 'none';
-      if (isAuth) {
+      mobilePortalSection.style.display = isLoggedIn ? 'block' : 'none';
+      if (isLoggedIn) {
         var mobileSelect = document.getElementById('hhp-mnav-view-switcher');
         if (mobileSelect) {
-          var role = HHP_Auth && HHP_Auth.currentRole ? HHP_Auth.currentRole : '';
-          var options = ['public'];
-          if (role === 'client') options.push('client');
-          if (role === 'staff') options.push('staff');
-          if (role === 'owner') options = ['public', 'client', 'staff', 'owner'];
+          var allowedOptions = ['public'];
+          if (role === 'client') allowedOptions.push('client');
+          if (role === 'staff') { allowedOptions.push('staff'); allowedOptions.push('client'); }
+          if (role === 'owner') allowedOptions = ['public', 'client', 'staff', 'owner'];
 
           mobileSelect.innerHTML = '<option value="">-- Switch View --</option>';
-          options.forEach(function(opt) {
+          allowedOptions.forEach(function(opt) {
             var opt_el = document.createElement('option');
             opt_el.value = opt;
             opt_el.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
             mobileSelect.appendChild(opt_el);
           });
 
-          mobileSelect.addEventListener('change', function() {
+          // Remove old listeners by cloning
+          var newSelect = mobileSelect.cloneNode(true);
+          mobileSelect.parentNode.replaceChild(newSelect, mobileSelect);
+          newSelect.addEventListener('change', function() {
             if (this.value) {
-              switchView(this.value);
+              if (typeof switchView === 'function') switchView(this.value);
               this.value = '';
-              var mobileNav = document.querySelector('.hhp-mobile-nav-v9');
+              var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
               if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
+              document.body.style.overflow = '';
               setTimeout(updateDrawerContent, 300);
             }
           });
         }
       }
     }
-  }
 
-  // ─────────────────────────────────────────────
-  // FIX MEET & GREET BUTTON
-  // ─────────────────────────────────────────────
-  function fixMeetGreetButton() {
-    // This would require Supabase integration
-    // For now, placeholder that can be expanded
-    var bookBtn = document.querySelector('.btn-ink:contains("Book")') ||
-                  Array.from(document.querySelectorAll('.btn-ink')).find(function(b) {
-                    return b.textContent.includes('Book') || b.textContent.includes('Meet');
-                  });
-
-    if (bookBtn && HHP_Auth && HHP_Auth.currentRole === 'client') {
-      // Check for existing bookings (placeholder)
-      // If they exist, hide the button
-      var hasBooking = false;
-      if (hasBooking) {
-        hideMeetGreetButtons();
+    // Also hide SWITCH VIEW section in old mobile nav if present
+    var oldMobileNav = document.querySelector('.hhp-mobile-nav');
+    if (oldMobileNav) {
+      var switchDiv = oldMobileNav.children[5];
+      if (switchDiv && switchDiv.tagName === 'DIV') {
+        switchDiv.style.display = isLoggedIn ? '' : 'none';
       }
     }
   }
 
+  // ─────────────────────────────────────────────
+  // MEET & GREET — restored from v7 (Supabase booking query)
+  // ─────────────────────────────────────────────
+  function fixMeetGreetButton() {
+    var isLoggedIn = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? true : false;
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+
+    // Only check for clients
+    if (!isLoggedIn || role !== 'client') return;
+
+    var userId = HHP_Auth.currentUser.id;
+    if (!userId) return;
+
+    var supabase = HHP_Auth.supabase;
+    if (!supabase) return;
+
+    supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .single()
+      .then(function(profileResult) {
+        if (!profileResult.data || profileResult.error) return;
+        var profileId = profileResult.data.id;
+        return supabase
+          .from('bookings')
+          .select('id')
+          .eq('client_id', profileId)
+          .limit(1);
+      })
+      .then(function(result) {
+        if (result && result.data && result.data.length > 0) {
+          hideMeetGreetButtons();
+        }
+      })
+      .catch(function() {
+        // If query fails, don't hide anything
+      });
+  }
+
   function hideMeetGreetButtons() {
-    document.querySelectorAll('.btn-ink, .btn-outline, .floating-book-btn').forEach(function(btn) {
-      if (btn.textContent.includes('Meet') || btn.textContent.includes('Book')) {
-        btn.style.display = 'none';
+    document.querySelectorAll('a, button').forEach(function(el) {
+      var text = el.textContent.trim().toLowerCase();
+      if (text.includes('meet') && text.includes('greet')) {
+        el.style.display = 'none';
       }
     });
+    var floatingBtn = document.getElementById('floatingBookBtn');
+    if (floatingBtn) {
+      var txt = floatingBtn.textContent.trim().toLowerCase();
+      if (txt.includes('meet') && txt.includes('greet')) {
+        floatingBtn.style.display = 'none';
+      }
+    }
   }
 
   // ─────────────────────────────────────────────
@@ -761,13 +1078,14 @@
     if (!track) return;
 
     window.scrollReviews = function(direction) {
-      var cardWidth = track.querySelector('.review-card').offsetWidth;
-      var scrollAmount = cardWidth; // ONE card width, not * 2
+      var card = track.querySelector('.review-card');
+      if (!card) return;
+      var cardWidth = card.offsetWidth;
 
       if (direction === 'left') {
-        track.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        track.scrollBy({ left: -cardWidth, behavior: 'smooth' });
       } else {
-        track.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        track.scrollBy({ left: cardWidth, behavior: 'smooth' });
       }
     };
 
@@ -785,33 +1103,43 @@
   }
 
   // ─────────────────────────────────────────────
-  // INJECT PREVIEW TOOL
+  // INJECT PREVIEW TOOL — restored from v7 (iframe-based)
   // ─────────────────────────────────────────────
   function injectPreviewTool() {
-    var editSite = document.getElementById('o-edit-site');
-    if (!editSite) return;
+    var editPanel = document.getElementById('o-edit-site');
+    if (!editPanel) return;
+    if (editPanel.querySelector('.hhp-preview-bar')) return;
 
-    if (document.getElementById('hhp-preview-tool')) return;
+    var bar = document.createElement('div');
+    bar.className = 'hhp-preview-bar';
+    bar.innerHTML = '<span class="preview-label">Preview Site:</span>' +
+      '<button class="hhp-preview-btn active" data-width="100%" data-height="600">Desktop</button>' +
+      '<button class="hhp-preview-btn" data-width="768px" data-height="600">Tablet</button>' +
+      '<button class="hhp-preview-btn" data-width="375px" data-height="667">Phone</button>';
 
-    var toolContainer = document.createElement('div');
-    toolContainer.id = 'hhp-preview-tool';
-    toolContainer.style.cssText = 'position: fixed; top: 60px; right: 10px; z-index: 5000; background: white; border: 1px solid #ccc; border-radius: 8px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);';
-    toolContainer.innerHTML =
-      '<div style="font-size: 12px; font-weight: bold; margin-bottom: 8px;">Viewport Preview</div>' +
-      '<button id="hhp-preview-desktop" style="display: block; width: 100%; padding: 6px; margin: 4px 0; background: #f0f0f0; border: 1px solid #999; border-radius: 4px; cursor: pointer; font-size: 11px;">Desktop (1200px)</button>' +
-      '<button id="hhp-preview-tablet" style="display: block; width: 100%; padding: 6px; margin: 4px 0; background: #f0f0f0; border: 1px solid #999; border-radius: 4px; cursor: pointer; font-size: 11px;">Tablet (768px)</button>' +
-      '<button id="hhp-preview-phone" style="display: block; width: 100%; padding: 6px; margin: 4px 0; background: #f0f0f0; border: 1px solid #999; border-radius: 4px; cursor: pointer; font-size: 11px;">Phone (375px)</button>';
+    var wrap = document.createElement('div');
+    wrap.className = 'hhp-preview-frame-wrap';
+    wrap.style.width = '100%';
+    wrap.style.height = '600px';
 
-    editSite.appendChild(toolContainer);
+    var iframe = document.createElement('iframe');
+    iframe.src = window.location.origin + '/?preview=1';
+    iframe.style.height = '100%';
+    iframe.title = 'Site Preview';
+    wrap.appendChild(iframe);
 
-    document.getElementById('hhp-preview-desktop').addEventListener('click', function() {
-      if (window.innerWidth !== 1200) window.resizeTo(1200, window.innerHeight);
-    });
-    document.getElementById('hhp-preview-tablet').addEventListener('click', function() {
-      if (window.innerWidth !== 768) window.resizeTo(768, window.innerHeight);
-    });
-    document.getElementById('hhp-preview-phone').addEventListener('click', function() {
-      if (window.innerWidth !== 375) window.resizeTo(375, window.innerHeight);
+    var firstChild = editPanel.firstChild;
+    editPanel.insertBefore(wrap, firstChild);
+    editPanel.insertBefore(bar, wrap);
+
+    bar.querySelectorAll('.hhp-preview-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        bar.querySelectorAll('.hhp-preview-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        wrap.style.width = btn.getAttribute('data-width');
+        wrap.style.height = btn.getAttribute('data-height') + 'px';
+        iframe.style.height = '100%';
+      });
     });
   }
 
@@ -819,13 +1147,13 @@
   // INJECT PORTAL NAV (Desktop Dropdowns)
   // ─────────────────────────────────────────────
   function injectPortalNav() {
-    if (window.innerWidth < 768) return; // Mobile only has drawer
+    if (window.innerWidth < 768) return;
 
     var navRight = document.querySelector('.nav-right');
     if (!navRight) return;
 
-    var isAuth = HHP_Auth && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated();
-    var role = HHP_Auth && HHP_Auth.currentRole ? HHP_Auth.currentRole : '';
+    var isAuth = typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated();
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : '';
 
     if (!isAuth) return;
 
@@ -834,40 +1162,38 @@
     var dropdowns = [];
 
     if (role === 'client') {
-      dropdowns = [
-        {
-          label: 'Client Portal',
-          items: [
-            { text: 'Overview', selector: 'c-overview' },
-            { text: 'My Pet', selector: 'c-pets' },
-            { text: 'Account', selector: 'c-account' }
-          ]
-        }
-      ];
+      dropdowns = [{
+        label: 'Client Portal',
+        items: [
+          { text: 'Overview', selector: 'c-overview' },
+          { text: 'My Pet', selector: 'c-pets' },
+          { text: 'Account', selector: 'c-account' }
+        ]
+      }];
     } else if (role === 'staff') {
-      dropdowns = [
-        {
-          label: 'Staff Portal',
-          items: [
-            { text: 'My Work', selector: 's-work' },
-            { text: 'Communication', selector: 's-comm' }
-          ]
-        }
-      ];
+      dropdowns = [{
+        label: 'Staff Portal',
+        items: [
+          { text: 'My Work', selector: 's-work' },
+          { text: 'Communication', selector: 's-comm' }
+        ]
+      }];
     } else if (role === 'owner') {
-      dropdowns = [
-        {
-          label: 'Owner Portal',
-          items: [
-            { text: 'Overview', selector: 'o-overview' }
-          ]
-        }
-      ];
+      dropdowns = [{
+        label: 'Owner Portal',
+        items: [
+          { text: 'Overview', selector: 'o-overview' }
+        ]
+      }];
     }
+
+    var wrapper = document.createElement('div');
+    wrapper.id = 'hhp-portal-nav';
+    wrapper.style.display = 'inline-flex';
 
     dropdowns.forEach(function(dropdown) {
       var btn = document.createElement('button');
-      btn.textContent = dropdown.label + ' ▼';
+      btn.textContent = dropdown.label + ' \u25BC';
       btn.style.cssText = 'background: transparent; border: none; color: #c8963e; font-weight: 600; cursor: pointer; position: relative; padding: 8px 12px;';
       btn.className = 'hhp-portal-dropdown-btn';
 
@@ -879,12 +1205,8 @@
         link.textContent = item.text;
         link.href = '#';
         link.style.cssText = 'display: block; padding: 10px 16px; color: #1e1409; text-decoration: none; border-bottom: 1px solid #eee; cursor: pointer;';
-        link.addEventListener('mouseenter', function() {
-          this.style.background = '#f5f5f5';
-        });
-        link.addEventListener('mouseleave', function() {
-          this.style.background = 'transparent';
-        });
+        link.addEventListener('mouseenter', function() { this.style.background = '#f5f5f5'; });
+        link.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
         link.addEventListener('click', function(e) {
           e.preventDefault();
           var targetItem = document.querySelector('.sb-item[onclick*="' + item.selector + '"]');
@@ -910,8 +1232,10 @@
         }
       });
 
-      navRight.appendChild(btn);
+      wrapper.appendChild(btn);
     });
+
+    navRight.appendChild(wrapper);
   }
 
   // ─────────────────────────────────────────────
@@ -919,10 +1243,23 @@
   // ─────────────────────────────────────────────
   function handleResize() {
     updateDrawerContent();
+    fixMobileSidebar();
+    fixAboutPhoto();
+
     if (window.innerWidth >= 768) {
       // Close mobile nav on desktop
-      var mobileNav = document.querySelector('.hhp-mobile-nav-v9');
+      var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
       if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
+      // Show nav-right
+      var navRight = document.querySelector('.nav-right');
+      if (navRight) navRight.style.removeProperty('display');
+      // Hide old mobile nav
+      var oldMobileNav = document.querySelector('.hhp-mobile-nav');
+      if (oldMobileNav) {
+        oldMobileNav.classList.remove('hhp-mobile-nav-open');
+        oldMobileNav.classList.remove('open');
+        oldMobileNav.style.setProperty('display', 'none', 'important');
+      }
     }
   }
 
@@ -930,13 +1267,15 @@
   // HANDLE AUTH STATE CHANGE
   // ─────────────────────────────────────────────
   function handleAuthChange() {
-    fixViewSwitcher();
-    fixMeetGreetButton();
-    updateMobileSignInBtn();
-    updateDrawerContent();
-    if (window.innerWidth >= 768) {
-      injectPortalNav();
-    }
+    setTimeout(function() {
+      fixViewSwitcher();
+      fixMeetGreetButton();
+      updateMobileSignInBtn();
+      updateDrawerContent();
+      if (window.innerWidth >= 768) {
+        injectPortalNav();
+      }
+    }, 500);
   }
 
   // ─────────────────────────────────────────────
@@ -961,11 +1300,11 @@
     // Event listeners
     window.addEventListener('resize', handleResize);
     document.addEventListener('click', function(e) {
-      if (e.target.classList.contains('sb-item')) {
-        updateDrawerContent();
-        if (window.innerWidth >= 768) {
+      if (e.target.classList.contains('sb-item') || (e.target.closest && e.target.closest('.sb-item'))) {
+        setTimeout(function() {
+          updateDrawerContent();
           injectPreviewTool();
-        }
+        }, 300);
       }
     });
 
@@ -975,5 +1314,7 @@
         handleAuthChange();
       });
     }
+
+    console.log('\uD83D\uDC3E HHP UX Patch v10 applied (hamburger=public links, drawer=portal nav, all black text, 3-line icons)');
   });
 })();
