@@ -302,23 +302,50 @@
           'width: 100vw !important; min-width: 100vw !important; height: 100vh !important;' +
           'max-width: 100vw !important; z-index: 9999 !important;' +
           'background: #fefcf8 !important; flex-direction: column !important;' +
-          'overflow-y: auto !important; padding: 20px !important; padding-top: 70px !important;' +
-          'pointer-events: auto !important;' +
+          'overflow-y: scroll !important; -webkit-overflow-scrolling: touch !important;' +
+          'padding: 20px !important; padding-top: 70px !important; padding-bottom: 100px !important;' +
+          'pointer-events: auto !important; overscroll-behavior: contain !important;' +
+          'touch-action: pan-y !important;' +
         '}' +
+
+        /* Force ALL text dark inside open sidebar — nuclear approach */
         '.sidebar.hhp-sidebar-open .sb-item {' +
           'display: flex !important; padding: 16px 20px !important; font-size: 1.05rem !important;' +
           'border-bottom: 1px solid #e0d5c5 !important; margin: 0 !important;' +
           'border-radius: 0 !important; width: 100% !important; cursor: pointer !important;' +
-          'color: #1e1409 !important; font-weight: 600 !important;' +
+          'color: #1a1008 !important; font-weight: 700 !important;' +
           'background: transparent !important; opacity: 1 !important;' +
-          'text-shadow: none !important; -webkit-text-fill-color: #1e1409 !important;' +
+          'text-shadow: none !important; -webkit-text-fill-color: #1a1008 !important;' +
+          'letter-spacing: 0.01em !important;' +
         '}' +
+        '.sidebar.hhp-sidebar-open .sb-item *,' +
         '.sidebar.hhp-sidebar-open .sb-item span,' +
         '.sidebar.hhp-sidebar-open .sb-item div,' +
         '.sidebar.hhp-sidebar-open .sb-item a,' +
-        '.sidebar.hhp-sidebar-open .sb-item * {' +
-          'color: #1e1409 !important; opacity: 1 !important;' +
-          '-webkit-text-fill-color: #1e1409 !important;' +
+        '.sidebar.hhp-sidebar-open .sb-item p,' +
+        '.sidebar.hhp-sidebar-open .sb-item label,' +
+        '.sidebar.hhp-sidebar-open > *,' +
+        '.sidebar.hhp-sidebar-open > div,' +
+        '.sidebar.hhp-sidebar-open > a,' +
+        '.sidebar.hhp-sidebar-open > span {' +
+          'color: #1a1008 !important; opacity: 1 !important;' +
+          '-webkit-text-fill-color: #1a1008 !important;' +
+          'visibility: visible !important;' +
+        '}' +
+        /* Also target the sidebar itself for any direct text */
+        '.sidebar.hhp-sidebar-open {' +
+          'color: #1a1008 !important; -webkit-text-fill-color: #1a1008 !important;' +
+        '}' +
+        /* Active/highlighted items keep their gold background but also get dark text */
+        '.sidebar.hhp-sidebar-open .sb-item.active,' +
+        '.sidebar.hhp-sidebar-open .sb-item[class*="active"],' +
+        '.sidebar.hhp-sidebar-open .sb-item.selected {' +
+          'color: #1a1008 !important; -webkit-text-fill-color: #1a1008 !important;' +
+        '}' +
+        '.sidebar.hhp-sidebar-open .sb-item.active *,' +
+        '.sidebar.hhp-sidebar-open .sb-item[class*="active"] *,' +
+        '.sidebar.hhp-sidebar-open .sb-item.selected * {' +
+          'color: #1a1008 !important; -webkit-text-fill-color: #1a1008 !important;' +
         '}' +
 
         /* -- Portal hamburger: top-right -- */
@@ -620,25 +647,33 @@
     sidebar.style.setProperty('z-index', '9999', 'important');
     sidebar.style.setProperty('background', '#fefcf8', 'important');
     sidebar.style.setProperty('flex-direction', 'column', 'important');
-    sidebar.style.setProperty('overflow-y', 'auto', 'important');
+    sidebar.style.setProperty('overflow-y', 'scroll', 'important');
     sidebar.style.setProperty('overflow-x', 'hidden', 'important');
+    sidebar.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
+    sidebar.style.setProperty('overscroll-behavior', 'contain', 'important');
+    sidebar.style.setProperty('touch-action', 'pan-y', 'important');
     sidebar.style.setProperty('padding', '20px', 'important');
     sidebar.style.setProperty('padding-top', '70px', 'important');
+    sidebar.style.setProperty('padding-bottom', '120px', 'important');
     sidebar.style.setProperty('pointer-events', 'auto', 'important');
+    sidebar.style.setProperty('color', '#1a1008', 'important');
+    sidebar.style.setProperty('-webkit-text-fill-color', '#1a1008', 'important');
     document.body.style.overflow = 'hidden';
 
-    // Force text visibility on all sidebar items
+    // Force text visibility on ALL elements inside sidebar — nuclear approach
+    sidebar.querySelectorAll('*').forEach(function(el) {
+      el.style.setProperty('color', '#1a1008', 'important');
+      el.style.setProperty('-webkit-text-fill-color', '#1a1008', 'important');
+      el.style.setProperty('opacity', '1', 'important');
+      el.style.setProperty('visibility', 'visible', 'important');
+    });
+    // Extra emphasis on sb-items
     sidebar.querySelectorAll('.sb-item').forEach(function(item) {
-      item.style.setProperty('color', '#1e1409', 'important');
-      item.style.setProperty('font-weight', '600', 'important');
-      item.style.setProperty('opacity', '1', 'important');
-      item.style.setProperty('-webkit-text-fill-color', '#1e1409', 'important');
-      // Also fix any child text elements
-      item.querySelectorAll('*').forEach(function(child) {
-        child.style.setProperty('color', '#1e1409', 'important');
-        child.style.setProperty('opacity', '1', 'important');
-        child.style.setProperty('-webkit-text-fill-color', '#1e1409', 'important');
-      });
+      item.style.setProperty('font-weight', '700', 'important');
+      item.style.setProperty('font-size', '1.05rem', 'important');
+      item.style.setProperty('display', 'flex', 'important');
+      item.style.setProperty('padding', '16px 20px', 'important');
+      item.style.setProperty('border-bottom', '1px solid #e0d5c5', 'important');
     });
   }
 
@@ -1359,6 +1394,73 @@
   }
 
   // ─────────────────────────────────────────────
+  // 16. v8: SIDEBAR WATCHER — observe for sidebar visibility changes
+  //     Catches sidebars opened by the ORIGINAL site code (not just our hamburger)
+  //     Forces dark text + scrollability every time a sidebar appears
+  // ─────────────────────────────────────────────
+  function startSidebarWatcher() {
+    if (window.innerWidth > 767) return;
+
+    // Force-fix any currently visible sidebar
+    function fixVisibleSidebars() {
+      document.querySelectorAll('.sidebar').forEach(function(sb) {
+        // Check if sidebar is actually visible (has meaningful dimensions)
+        var rect = sb.getBoundingClientRect();
+        if (rect.width > 100 && rect.height > 100) {
+          // This sidebar is visible — force dark text and scroll
+          sb.style.setProperty('overflow-y', 'scroll', 'important');
+          sb.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
+          sb.style.setProperty('overscroll-behavior', 'contain', 'important');
+          sb.style.setProperty('touch-action', 'pan-y', 'important');
+          sb.style.setProperty('padding-bottom', '120px', 'important');
+          sb.style.setProperty('color', '#1a1008', 'important');
+          sb.style.setProperty('-webkit-text-fill-color', '#1a1008', 'important');
+
+          sb.querySelectorAll('*').forEach(function(el) {
+            el.style.setProperty('color', '#1a1008', 'important');
+            el.style.setProperty('-webkit-text-fill-color', '#1a1008', 'important');
+            el.style.setProperty('opacity', '1', 'important');
+            el.style.setProperty('visibility', 'visible', 'important');
+          });
+        }
+      });
+    }
+
+    // Run immediately
+    fixVisibleSidebars();
+
+    // Use MutationObserver to watch for sidebar changes
+    var observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(m) {
+        if (m.type === 'attributes' && (m.attributeName === 'class' || m.attributeName === 'style')) {
+          var el = m.target;
+          if (el.classList && el.classList.contains('sidebar')) {
+            setTimeout(fixVisibleSidebars, 50);
+          }
+        }
+        // Also check for added nodes that are sidebars
+        if (m.addedNodes) {
+          m.addedNodes.forEach(function(node) {
+            if (node.classList && node.classList.contains('sidebar')) {
+              setTimeout(fixVisibleSidebars, 50);
+            }
+          });
+        }
+      });
+    });
+
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class', 'style'],
+      childList: true,
+      subtree: true
+    });
+
+    // Also poll every 500ms as a safety net
+    setInterval(fixVisibleSidebars, 500);
+  }
+
+  // ─────────────────────────────────────────────
   // 15. v8: FIX VIEWPORT — ensure proper meta tag + prevent zoom/bounce
   // ─────────────────────────────────────────────
   function fixViewport() {
@@ -1392,7 +1494,8 @@
     fixGreetings();
     fixFooterEmail();
     fixMobileSidebar();
-    createMobileNav();      // v8: create hamburger + mobile nav from scratch
+    startSidebarWatcher();   // v8: watch for sidebar opens + force dark text + scroll
+    createMobileNav();       // v8: create hamburger + mobile nav from scratch
     addMobileSignIn();       // v8: add Sign In button on mobile
     fixAboutPhoto();
     fixViewSwitcher();
