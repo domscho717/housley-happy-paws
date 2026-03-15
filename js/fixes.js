@@ -131,3 +131,6 @@ console.log('[fixes.js] Function overrides loaded successfully');
 
 // Load UI enhancements (role-based dropdown, remember me, floating booking, synced services)
 var _enhScript = document.createElement('script'); _enhScript.src = '/js/enhancements.js'; _enhScript.defer = true; document.head.appendChild(_enhScript);
+
+// Load gallery & slideshow features (About slideshow, Hero carousel, photo gallery, staff gallery)
+var _galScript = document.createElement('script'); _galScript.src = '/js/gallery.js'; _galScript.defer = true; document.head.appendChild(_galScript);
