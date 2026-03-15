@@ -1,5 +1,5 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v6 (ux-patch.js)
+// Housley Happy Paws â UX Patch v7 (ux-patch.js)
 // 1. Fix greeting emojis (garbled from encoding) + add decorative icons
 // 2. Hero: shrink slideshow, enlarge text & Meet button
 // 3. About Rachel: enlarge slideshow
@@ -8,7 +8,8 @@
 // 6. Fix mobile: comprehensive CSS + JS sidebar/hamburger
 // 7. Add viewport preview tool to Edit Website page
 // 8. v5: Fix nav-right hiding, add missing mobile breakpoints
-// 9. v6: Fix mobile nav (hidden by default, toggle on hamburger tap)
+// 9. v7: Bulletproof mobile nav (polling + new button + touch + inline styles)
+// 9b. v7: About photo full-width fix with inline styles
 // 10. v6: Role-based view switcher (hide portals from unauthorized users)
 // 11. v6: Hide Meet & Greet for clients with existing bookings
 // ============================================================
@@ -20,9 +21,9 @@
     else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 800); });
   }
 
-  // ─────────────────────────────────────────────
-  // 1. FIX GREETINGS — replace garbled emoji with proper icons
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 1. FIX GREETINGS â replace garbled emoji with proper icons
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   function fixGreetings() {
     var hour = new Date().getHours();
     var greeting, iconHTML;
@@ -78,9 +79,9 @@
     setTimeout(fixGreetings, 60000);
   }
 
-  // ─────────────────────────────────────────────
-  // 2, 5, 6, 8. ALL CSS — Hero + Mobile + Comprehensive Responsive
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 2, 5, 6, 8. ALL CSS â Hero + Mobile + Comprehensive Responsive
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   function injectAllCSS() {
     var css = document.createElement('style');
     css.id = 'hhp-ux-patch-css';
@@ -94,7 +95,7 @@
       '.hero .btn-ink { padding: 18px 42px !important; font-size: 1.1rem !important; border-radius: 14px !important; }' +
       '.hero .btn-outline { padding: 16px 36px !important; font-size: 1.05rem !important; border-radius: 14px !important; }' +
 
-      /* Meet Rachel CTA — wide rectangle */
+      /* Meet Rachel CTA â wide rectangle */
       '.hero .hero-photo-sm-cta {' +
         'width: auto !important; min-width: 180px !important; height: auto !important;' +
         'max-height: 48px !important; background: #faf6f1 !important;' +
@@ -116,7 +117,7 @@
       '.about-photos { min-height: 440px !important; border-radius: 18px !important; }' +
       '.about-photos img { object-fit: cover !important; width: 100% !important; height: 100% !important; }' +
 
-      /* ===== TABLET (768–1024px) ===== */
+      /* ===== TABLET (768â1024px) ===== */
       '@media (min-width: 768px) and (max-width: 1024px) {' +
         '.hero { grid-template-columns: 1fr 1fr !important; }' +
         '.hero h1 { font-size: 3rem !important; }' +
@@ -130,7 +131,7 @@
         '.future-grid { grid-template-columns: repeat(2, 1fr) !important; }' +
       '}' +
 
-      /* ===== PHONE (max 767px) — COMPREHENSIVE ===== */
+      /* ===== PHONE (max 767px) â COMPREHENSIVE ===== */
       '@media (max-width: 767px) {' +
 
         /* -- Nav: hide desktop elements, show hamburger -- */
@@ -139,7 +140,7 @@
         '.nav-center { display: none !important; }' +
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
-        /* -- Hamburger: gold button, hide black-line spans -- */
+        /* -- Hamburger: gold button, hide the black-line spans from ux-upgrades -- */
         '.hhp-hamburger { display: flex !important; order: 99; margin-left: auto;' +
           'background: var(--gold, #c8963e) !important; border: none !important;' +
           'width: 44px !important; height: 44px !important; border-radius: 10px !important;' +
@@ -195,7 +196,6 @@
         '.cal-event-dot { font-size: 0.55rem !important; }' +
         '.cal-dow { font-size: 0.62rem !important; padding: 4px 0 !important; }' +
 
-        /* -- Reviews -- */
         /* -- Reviews: one card at a time, no partial/cut-off -- */
         '.reviews-section { padding: 48px 16px !important; overflow: hidden !important; }' +
         '.reviews-track {' +
@@ -368,9 +368,9 @@
     document.head.appendChild(css);
   }
 
-  // ─────────────────────────────────────────────
-  // 6. MOBILE SIDEBAR — JS-based force hide + fix navigation
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 6. MOBILE SIDEBAR â JS-based force hide + fix navigation
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   function fixMobileSidebar() {
     var isMobile = window.innerWidth <= 767;
     if (!isMobile) return;
@@ -529,9 +529,9 @@
     if (h) h.innerHTML = '\u2630';
   }
 
-  // ─────────────────────────────────────────────
-  // 4. FOOTER — set email to housleyhappypaws@gmail.com
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 4. FOOTER â set email to housleyhappypaws@gmail.com
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   function fixFooterEmail() {
     var footer = document.querySelector('footer');
     if (!footer) return;
@@ -551,9 +551,9 @@
     });
   }
 
-  // ─────────────────────────────────────────────
-  // 7. VIEWPORT PREVIEW — inject into Edit Website page
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 7. VIEWPORT PREVIEW â inject into Edit Website page
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   function injectPreviewTool() {
     var editPanel = document.getElementById('o-edit-site');
     if (!editPanel) return;
@@ -592,94 +592,166 @@
     });
   }
 
-  // ─────────────────────────────────────────────
-  // 9. MOBILE NAV TOGGLE — hide by default, open on hamburger tap
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 9. MOBILE NAV TOGGLE â hide by default, open on hamburger tap
+  //    Uses polling to reliably find elements created by ux-upgrades.js
+  //    Creates a brand-new button to avoid event handler conflicts
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  var _mobileNavPatched = false;
+
   function fixMobileNavToggle() {
+    if (_mobileNavPatched) return;
     var isMobile = window.innerWidth <= 767;
     if (!isMobile) return;
 
     var mobileNav = document.querySelector('.hhp-mobile-nav');
-    var hamburger = document.querySelector('.hhp-hamburger');
-    if (!mobileNav || !hamburger) return;
+    var oldHamburger = document.querySelector('.hhp-hamburger');
+    if (!mobileNav || !oldHamburger) return;
 
-    // Replace span children with hamburger icon for gold button look
-    if (!hamburger.dataset.hhpV6Styled) {
-      hamburger.dataset.hhpV6Styled = 'true';
-      hamburger.innerHTML = '\u2630';
-    }
+    _mobileNavPatched = true;
 
-    // Ensure mobile nav starts closed (remove both class variants)
+    // Ensure mobile nav starts closed
     mobileNav.classList.remove('hhp-mobile-nav-open');
     mobileNav.classList.remove('open');
+    mobileNav.style.setProperty('display', 'none', 'important');
 
-    // Clone hamburger to remove ALL old listeners from ux-upgrades.js
-    if (!hamburger.dataset.hhpV6Bound) {
-      var newHamburger = hamburger.cloneNode(true);
-      newHamburger.dataset.hhpV6Bound = 'true';
-      newHamburger.innerHTML = '\u2630';
-      hamburger.parentNode.replaceChild(newHamburger, hamburger);
-      hamburger = newHamburger;
+    // Create a BRAND NEW button (not a clone) to guarantee zero old handlers
+    var btn = document.createElement('button');
+    btn.className = 'hhp-hamburger';
+    btn.setAttribute('aria-label', 'Open menu');
+    btn.textContent = '\u2630';
+    btn.dataset.hhpV7 = 'true';
+    // Force inline styles so nothing can override
+    btn.style.cssText =
+      'display:flex!important;order:99!important;margin-left:auto!important;' +
+      'background:#c8963e!important;border:none!important;' +
+      'width:44px!important;height:44px!important;border-radius:10px!important;' +
+      'align-items:center!important;justify-content:center!important;' +
+      'cursor:pointer!important;padding:0!important;z-index:9999!important;' +
+      'font-size:20px!important;color:white!important;line-height:1!important;' +
+      'pointer-events:auto!important;-webkit-tap-highlight-color:transparent!important;' +
+      'touch-action:manipulation!important;user-select:none!important;' +
+      'position:relative!important;';
 
-      hamburger.addEventListener('click', function(e) {
-        e.stopPropagation();
-        e.preventDefault();
-        var isOpen = mobileNav.classList.contains('open');
-        if (isOpen) {
-          mobileNav.classList.remove('open');
-          mobileNav.classList.remove('hhp-mobile-nav-open');
-          hamburger.innerHTML = '\u2630';
-          document.body.style.overflow = '';
-        } else {
-          mobileNav.classList.add('open');
-          mobileNav.classList.add('hhp-mobile-nav-open');
-          hamburger.innerHTML = '\u2715';
-          document.body.style.overflow = 'hidden';
-        }
-      });
+    // Replace old hamburger in DOM
+    oldHamburger.parentNode.replaceChild(btn, oldHamburger);
 
-      // Close mobile nav when any link inside is clicked
-      mobileNav.querySelectorAll('a').forEach(function(link) {
-        link.addEventListener('click', function() {
-          setTimeout(function() {
-            mobileNav.classList.remove('open');
-            mobileNav.classList.remove('hhp-mobile-nav-open');
-            hamburger.innerHTML = '\u2630';
-            document.body.style.overflow = '';
-          }, 150);
-        });
-      });
+    // Helper: close the mobile nav
+    function closeMobileNav() {
+      mobileNav.classList.remove('open');
+      mobileNav.classList.remove('hhp-mobile-nav-open');
+      mobileNav.style.setProperty('display', 'none', 'important');
+      btn.textContent = '\u2630';
+      document.body.style.overflow = '';
+    }
 
-      // Close mobile nav when any button inside is clicked
-      mobileNav.querySelectorAll('button').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          setTimeout(function() {
-            mobileNav.classList.remove('open');
-            mobileNav.classList.remove('hhp-mobile-nav-open');
-            hamburger.innerHTML = '\u2630';
-            document.body.style.overflow = '';
-          }, 150);
-        });
-      });
+    // Helper: open the mobile nav
+    function openMobileNav() {
+      mobileNav.classList.add('open');
+      mobileNav.classList.add('hhp-mobile-nav-open');
+      mobileNav.style.setProperty('display', 'flex', 'important');
+      mobileNav.style.setProperty('flex-direction', 'column', 'important');
+      mobileNav.style.setProperty('position', 'fixed', 'important');
+      mobileNav.style.setProperty('top', '0', 'important');
+      mobileNav.style.setProperty('left', '0', 'important');
+      mobileNav.style.setProperty('width', '100vw', 'important');
+      mobileNav.style.setProperty('height', '100vh', 'important');
+      mobileNav.style.setProperty('z-index', '9997', 'important');
+      mobileNav.style.setProperty('background', '#fdfaf5', 'important');
+      mobileNav.style.setProperty('padding', '70px 20px 20px', 'important');
+      mobileNav.style.setProperty('overflow-y', 'auto', 'important');
+      btn.textContent = '\u2715';
+      document.body.style.overflow = 'hidden';
+    }
 
-      // Close when view dropdown changes
-      var mobileDD = document.getElementById('hhpMobileViewDD');
-      if (mobileDD) {
-        mobileDD.addEventListener('change', function() {
-          setTimeout(function() {
-            mobileNav.classList.remove('open');
-            mobileNav.classList.remove('hhp-mobile-nav-open');
-            hamburger.innerHTML = '\u2630';
-            document.body.style.overflow = '';
-          }, 200);
-        });
+    // Bind click on new button â use CAPTURE phase for maximum priority
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      var isOpen = mobileNav.classList.contains('open');
+      if (isOpen) {
+        closeMobileNav();
+      } else {
+        openMobileNav();
       }
+    }, true);
+
+    // Also handle touch for mobile devices
+    btn.addEventListener('touchend', function(e) {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      var isOpen = mobileNav.classList.contains('open');
+      if (isOpen) {
+        closeMobileNav();
+      } else {
+        openMobileNav();
+      }
+    }, true);
+
+    // Close mobile nav when any link/button inside is clicked
+    mobileNav.querySelectorAll('a, button').forEach(function(el) {
+      el.addEventListener('click', function() {
+        setTimeout(closeMobileNav, 150);
+      });
+    });
+
+    // Close when view dropdown changes
+    var mobileDD = document.getElementById('hhpMobileViewDD');
+    if (mobileDD) {
+      mobileDD.addEventListener('change', function() {
+        setTimeout(closeMobileNav, 200);
+      });
+    }
+
+    c/nsole.log('\u2705 HHP: Mobile nav hamburger patched (v7 new-button approach)');
+  }
+
+  // Poll for hamburger element â ux-upgrades.js creates it at 500ms,
+  // but on slow devices it may take longer
+  function startMobileNavPoll() {
+    if (window.innerWidth > 767) return;
+    var attempts = 0;
+    var pollTimer = setInterval(function() {
+      attempts++;
+      if (_mobileNavPatched || attempts > 25) {
+        clearInterval(pollTimer);
+        return;
+      }
+      fixMobileNavToggle();
+    }, 200); // Poll every 200ms for up to 5 seconds
+  }
+
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 9b. FIX ABOUT PHOTO â force full width with inline styles
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  function fixAboutPhoto() {
+    if (window.innerWidth > 767) return;
+    var aboutPhotos = document.querySelector('.about-photos');
+    if (!aboutPhotos) return;
+    aboutPhotos.style.setProperty('width', '100%', 'important');
+    aboutPhotos.style.setProperty('max-width', '100%', 'important');
+    aboutPhotos.style.setProperty('min-height', '280px', 'important');
+    aboutPhotos.style.setProperty('border-radius', '16px', 'important');
+    aboutPhotos.style.setProperty('overflow', 'hidden', 'important');
+    // Also fix images inside
+    aboutPhotos.querySelectorAll('img').forEach(function(i-g) {
+      img.style.setProperty('width', '100%', 'important');
+      img.style.setProperty('height', '100%', 'important');
+      img.style.setProperty('object-fit', 'cover', 'important');
+    });
+    // Fix the grid parent too
+    var aboutGrid = document.querySelector('.about-grid');
+    if (aboutGrid) {
+      aboutGrid.style.setProperty('grid-template-columns', '1fr', 'important');
+      aboutGrid.style.setProperty('gap', '24px', 'important');
     }
   }
 
-  // ─────────────────────────────────────────────
-  // 10. ROLE-BASED VIEW SWITCHER — hide portals based on auth role
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 10. ROLE-BASED VIEW SWITCHER â hide portals based on auth role
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   function fixViewSwitcher() {
     // Both desktop and mobile dropdowns
     var dropdowns = [
@@ -699,7 +771,7 @@
           opt.style.display = '';
           opt.disabled = false;
         } else if (!isLoggedIn) {
-          // Not signed in — hide all portal options
+          // Not signed in â hide all portal options
           opt.style.display = 'none';
           opt.disabled = true;
         } else if (role === 'owner') {
@@ -725,7 +797,7 @@
             opt.disabled = true;
           }
         } else {
-          // Unknown role — hide portals
+          // Unknown role â hide portals
           if (val !== 'public') {
             opt.style.display = 'none';
             opt.disabled = true;
@@ -757,9 +829,9 @@
     }
   }
 
-  // ─────────────────────────────────────────────
-  // 11. HIDE MEET & GREET — for clients with existing bookings
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
+  // 11. HIDE MEET & GREET â for clients with existing bookings
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   function fixMeetGreetButton() {
     var isLoggedIn = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? true : false;
     var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
@@ -791,7 +863,7 @@
       })
       .then(function(result) {
         if (result && result.data && result.data.length > 0) {
-          // Client has at least one booking — hide Meet & Greet buttons
+          // Client has at least one booking â hide Meet & Greet buttons
           hideMeetGreetButtons();
         }
       })
@@ -818,18 +890,22 @@
     }
   }
 
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   // INIT
-  // ─────────────────────────────────────────────
+  // âââââââââââââââââââââââââââââââââââââââââââââ
   onReady(function() {
     injectAllCSS();
     fixGreetings();
     fixFooterEmail();
     fixMobileSidebar();
     fixMobileNavToggle();
+    fixAboutPhoto();
     fixViewSwitcher();
     fixMeetGreetButton();
     injectPreviewTool();
+
+    // Start polling for hamburger (in case ux-upgrades.js hasn't created it yet)
+    startMobileNavPoll();
 
     // Re-check for Edit Website panel when tabs change
     document.addEventListener('click', function(e) {
@@ -843,13 +919,18 @@
       if (window.innerWidth <= 767) {
         fixMobileSidebar();
         fixMobileNavToggle();
+        fixAboutPhoto();
       } else {
         // On desktop, make sure nav-right is visible again
         var navRight = document.querySelector('.nav-right');
         if (navRight) navRight.style.removeProperty('display');
         // On desktop, ensure mobile nav is hidden
         var mobileNav = document.querySelector('.hhp-mobile-nav');
-        if (mobileNav) { mobileNav.classList.remove('hhp-mobile-nav-open'); mobileNav.classList.remove('open'); }
+        if (mobileNav) {
+          mobileNav.classList.remove('hhp-mobile-nav-open');
+          mobileNav.classList.remove('open');
+          mobileNav.style.setProperty('display', 'none', 'important');
+        }
       }
     });
 
@@ -863,6 +944,6 @@
       });
     }
 
-    console.log('\uD83D\uDC1E HHP UX Patch v6 applied (mobile nav toggle + role switcher + meet&greet hide)');
+    console.log('\uD83D\uDC1E HHP UX Patch v7 applied (bulletproof mobile nav + about photo + role switcher + meet&greet hide)');
   });
 })();
