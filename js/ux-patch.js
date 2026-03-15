@@ -3,6 +3,8 @@
 // 1. Fix greeting emojis (garbled from encoding) + add decorative icons
 // 2. Hero: shrink slideshow, enlarge text & Meet button
 // 3. About Rachel: enlarge slideshow
+// 4. Footer: set email to housleyhappypaws@gmail.com
+// 5. Hero: restyle Meet Rachel as light rectangle under slideshow
 // ============================================================
 (function() {
   'use strict';
@@ -73,6 +75,7 @@
 
   // âââââââââââââââââââââââââââââââââââââââââââââââ
   // 2. HERO â shrink slideshow, enlarge text & button
+  // 5. Meet Rachel â light rectangle under slideshow
   // âââââââââââââââââââââââââââââââââââââââââââââââ
   function fixHero() {
     var css = document.createElement('style');
@@ -81,7 +84,7 @@
       /* Hero grid: give text more space, shrink photo */
       '.hero { grid-template-columns: 1.2fr 0.8fr !important; }' +
 
-      /* Hero photo column: constrain and add rounded corners */
+      /* Hero photo column: constrain */
       '.hero .hero-photo-col { max-width: 500px !important; justify-self: center !important; }' +
 
       /* Hero heading: bigger on desktop */
@@ -93,6 +96,38 @@
       /* Meet & Greet button: bigger to match page style */
       '.hero .btn-ink { padding: 18px 42px !important; font-size: 1.1rem !important; border-radius: 14px !important; }' +
       '.hero .btn-outline { padding: 16px 36px !important; font-size: 1.05rem !important; border-radius: 14px !important; }' +
+
+      /* Meet Rachel CTA â restyle from dark square to light rectangle */
+      '.hero .hero-photo-sm-cta {' +
+        'width: auto !important;' +
+        'height: auto !important;' +
+        'background: #faf6f1 !important;' +
+        'border: 1.5px solid rgba(30, 20, 9, 0.12) !important;' +
+        'border-radius: 12px !important;' +
+        'padding: 10px 24px !important;' +
+        'flex-direction: row !important;' +
+        'align-items: center !important;' +
+        'gap: 8px !important;' +
+        'box-shadow: 0 1px 4px rgba(30,20,9,0.06) !important;' +
+        'cursor: pointer !important;' +
+      '}' +
+      '.hero .hero-photo-sm-cta .paw-icon,' +
+      '.hero .hero-photo-sm-cta svg,' +
+      '.hero .hero-photo-sm-cta img {' +
+        'width: 20px !important;' +
+        'height: 20px !important;' +
+      '}' +
+      '.hero .hero-photo-sm-cta div {' +
+        'font-size: 0.85rem !important;' +
+        'font-weight: 600 !important;' +
+        'color: #1e1409 !important;' +
+        'white-space: nowrap !important;' +
+      '}' +
+      /* Reposition the row: center under slideshow */
+      '.hero .hero-photo-row {' +
+        'justify-content: center !important;' +
+        'margin-top: 10px !important;' +
+      '}' +
 
       /* About Rachel slideshow: bigger */
       '.about-grid { grid-template-columns: 1fr 1fr !important; }' +
@@ -120,12 +155,38 @@
   }
 
   // âââââââââââââââââââââââââââââââââââââââââââââââ
+  // 4. FOOTER â set email to housleyhappypaws@gmail.com
+  // âââââââââââââââââââââââââââââââââââââââââââââââ
+  function fixFooterEmail() {
+    var footer = document.querySelector('footer');
+    if (!footer) return;
+
+    footer.querySelectorAll('a').forEach(function(a) {
+      var text = a.textContent.trim();
+      if (text.includes('[email') || text.includes('email protected') || text.includes('email\u00a0protected')) {
+        a.href = 'mailto:housleyhappypaws@gmail.com';
+        a.textContent = '';
+        a.innerHTML = '\uD83D\uDCE7 housleyhappypaws@gmail.com';
+        a.removeAttribute('data-cfemail');
+        a.classList.remove('__cf_email__');
+      }
+    });
+
+    // Also fix any Cloudflare-protected spans inside footer
+    footer.querySelectorAll('.__cf_email__, [data-cfemail]').forEach(function(el) {
+      el.textContent = 'housleyhappypaws@gmail.com';
+      el.removeAttribute('data-cfemail');
+    });
+  }
+
+  // âââââââââââââââââââââââââââââââââââââââââââââââ
   // INIT
   // âââââââââââââââââââââââââââââââââââââââââââââââ
   onReady(function() {
     fixHero();
     fixGreetings();
-    console.log('\u{1F41E} HHP UX Patch applied (greetings + hero + about)');
+    fixFooterEmail();
+    console.log('\u{1F41E} HHP UX Patch v2 applied (greetings + hero + about + footer email + meet rachel btn)');
   });
 
 })();
