@@ -136,4 +136,4 @@ var _enhScript = document.createElement('script'); _enhScript.src = '/js/enhance
 var _galScript = document.createElement('script'); _galScript.src = '/js/gallery.js'; _galScript.defer = true; document.head.appendChild(_galScript);
 var _uxScript = document.createElement('script'); _uxScript.src = '/js/ux-upgrades.js'; _uxScript.defer = true; document.head.appendChild(_uxScript);
 
-var _patchScript = document.createElement('script'); _patchScript.src = '/js/ux-patch.js'; _patchScript.defer = true; document.head.appendChild(_patchScript);
+var _patchScript = document.createElement('script'); _patchScript.src = '/ux-patch.js'; _patchScript.defer = true; document.head.appendChild(_patchScript);
