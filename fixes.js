@@ -170,3 +170,60 @@ document.head.appendChild(_fixStyle);
     setTimeout(fixHome, 3000);
     setTimeout(fixHome, 5000);
 })();
+
+// Clean up mobile menu: remove Switch View, add Client/Staff view links
+(function() {
+  var done = false;
+  function cleanMobileMenu() {
+    if (done) return;
+    var nav = document.querySelector('.hhp-mobile-nav-v10');
+    if (!nav) return;
+    done = true;
+    // Remove Switch View dropdown
+    var allDivs = nav.querySelectorAll('div');
+    for (var i = 0; i < allDivs.length; i++) {
+      if (allDivs[i].querySelector('select')) { allDivs[i].remove(); break; }
+    }
+    // Find the divider to insert after
+    var divider = nav.querySelector('.hhp-mnav-divider');
+    if (!divider) return;
+    // Create Client View link
+    var clientLink = document.createElement('a');
+    clientLink.href = '#';
+    clientLink.className = 'hhp-mnav-link';
+    clientLink.textContent = 'Client View';
+    clientLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      var dd = document.getElementById('viewDropdown');
+      if (dd) { dd.value = 'client'; dd.dispatchEvent(new Event('change')); }
+      var closeBtn = nav.querySelector('.hhp-mnav-close');
+      if (closeBtn) closeBtn.click();
+    });
+    // Create Staff View link
+    var staffLink = document.createElement('a');
+    staffLink.href = '#';
+    staffLink.className = 'hhp-mnav-link';
+    staffLink.textContent = 'Staff View';
+    staffLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      var dd = document.getElementById('viewDropdown');
+      if (dd) { dd.value = 'staff'; dd.dispatchEvent(new Event('change')); }
+      var closeBtn = nav.querySelector('.hhp-mnav-close');
+      if (closeBtn) closeBtn.click();
+    });
+    // Insert after divider
+    divider.parentNode.insertBefore(clientLink, divider.nextSibling);
+    clientLink.parentNode.insertBefore(staffLink, clientLink.nextSibling);
+    // Also fix Home link with MutationObserver approach
+    var homeLink = nav.querySelector('[data-scroll="home"]') || nav.querySelector('a.hhp-mnav-link');
+    if (homeLink && (homeLink.textContent.trim() === 'Home' || homeLink.getAttribute('data-scroll') === 'home')) {
+      homeLink.setAttribute('href', '/');
+      homeLink.removeAttribute('data-scroll');
+      homeLink.onclick = function(e) { e.preventDefault(); e.stopPropagation(); window.location.href = '/'; };
+    }
+  }
+  setTimeout(cleanMobileMenu, 1000);
+  setTimeout(cleanMobileMenu, 3000);
+  setTimeout(cleanMobileMenu, 5000);
+  new MutationObserver(function() { cleanMobileMenu(); }).observe(document.body, {childList: true, subtree: true});
+})();
