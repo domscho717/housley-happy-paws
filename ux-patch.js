@@ -1,7 +1,12 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v13 (ux-patch.js)
+// Housley Happy Paws — UX Patch v15 (ux-patch.js)
 // Merged: v9 architecture (hamburger=public links, drawer=portal nav)
 //       + v7 robust implementations (footer, meet&greet, preview, CSS)
+// Changes from v14:
+//   - Removed Quick Save floating button (CSS hide + DOM removal + MutationObserver)
+// Changes from v13:
+//   - Right hamburger now opens portal drawer (not public nav) when logged in
+//   - Drawer closes and hamburger resets when overlay clicked
 // Changes from v12:
 //   - Fixed drawer tab visible CSS rule (was missing, drawer stayed hidden)
 //   - Fixed scroll-to-top: removed global scroll-behavior:smooth
@@ -129,6 +134,12 @@
       '#pg-public, #pg-client, #pg-staff, #pg-owner {' +
         'overflow-x: hidden !important;' +
         'max-width: 100% !important;' +
+      '}' +
+
+      /* ===== HIDE Quick Save floating button (each page has its own save) ===== */
+      '#qs-float, [id^="qs-float"], button[style*="Quick Save"],' +
+      'button[style*="z-index: 9000"][style*="position: fixed"] {' +
+        'display: none !important; visibility: hidden !important;' +
       '}' +
 
       /* ===== DESKTOP: Hero + About tweaks ===== */
@@ -623,6 +634,24 @@
         e.stopPropagation();
         e.stopImmediatePropagation();
         e.preventDefault();
+
+        if (isUserAuthenticated() && getActivePortal()) {
+          var drawer = document.querySelector('.hhp-drawer');
+          if (drawer && drawer.classList.contains('hhp-drawer-open')) {
+            closeDrawer();
+            hamburger.innerHTML = HAMBURGER_LINES;
+            hamburger.style.fontSize = '';
+            hamburger.style.color = '';
+          } else {
+            updateDrawerContent();
+            toggleDrawer();
+            hamburger.innerHTML = CLOSE_X;
+            hamburger.style.fontSize = '24px';
+            hamburger.style.color = '#000';
+          }
+          return;
+        }
+
         var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
         var isOpen = mobileNav.classList.contains('hhp-mnav-open');
         if (isOpen) {
@@ -850,6 +879,12 @@
     document.body.style.width = '';
     document.body.style.top = '';
     window.scrollTo(0, scrollPos);
+    var hamburger = document.querySelector('.hhp-hamburger-v10');
+    if (hamburger && hamburger.textContent === CLOSE_X) {
+      hamburger.innerHTML = HAMBURGER_LINES;
+      hamburger.style.fontSize = '';
+      hamburger.style.color = '';
+    }
   }
 
   // Detect which portal is currently active
@@ -1363,6 +1398,30 @@
   }
 
   // ─────────────────────────────────────────────
+  // HIDE QUICK SAVE BUTTON
+  // ─────────────────────────────────────────────
+  function hideQuickSave() {
+    document.querySelectorAll('button').forEach(function(btn) {
+      if (btn.textContent && btn.textContent.indexOf('Quick Save') !== -1) btn.remove();
+    });
+    document.querySelectorAll('button[style*="z-index: 9000"]').forEach(function(b) { b.remove(); });
+    if (!window.__hhpQuickSaveObserver) {
+      window.__hhpQuickSaveObserver = new MutationObserver(function(muts) {
+        muts.forEach(function(m) {
+          m.addedNodes.forEach(function(n) {
+            if (n.nodeType === 1) {
+              if (n.tagName === 'BUTTON' && n.textContent && n.textContent.indexOf('Quick Save') !== -1) n.remove();
+              var qs = n.querySelectorAll ? n.querySelectorAll('button') : [];
+              qs.forEach(function(b) { if (b.textContent && b.textContent.indexOf('Quick Save') !== -1) b.remove(); });
+            }
+          });
+        });
+      });
+      window.__hhpQuickSaveObserver.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // MAIN INIT
   // ─────────────────────────────────────────────
   onReady(function() {
@@ -1381,6 +1440,7 @@
     fixReviewArrows();
     injectPreviewTool();
     injectPortalNav();
+    hideQuickSave();
 
     // Event listeners
     window.addEventListener('resize', handleResize);
@@ -1400,6 +1460,6 @@
       });
     }
 
-    console.log('\uD83D\uDC3E HHP UX Patch v11 applied (auth-gated drawer, old nav removed, hamburger=public, drawer=portal, black text, 3-line icons)');
+    console.log('\uD83D\uDC3E HHP UX Patch v15 applied (auth-gated drawer, old nav removed, hamburger=public, drawer=portal, black text, 3-line icons)');
   });
 })();
