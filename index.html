@@ -299,14 +299,14 @@ details summary::-webkit-details-marker{display:none}
 .reviews-section{padding:100px 48px;background:white;overflow:hidden}
 .reviews-track-wrap{position:relative;max-width:1120px;margin:0 auto}
 .reviews-track{
-  display:grid;
-  grid-template-columns:repeat(5,calc(50% - 10px));
+  display:flex;
   gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;
   padding-bottom:12px;scrollbar-width:none;
   scroll-behavior:smooth;
 }
 .reviews-track::-webkit-scrollbar{display:none}
 .review-card{
+  min-width:calc(25% - 17px);max-width:calc(25% - 17px);flex-shrink:0;
   background:var(--warm);border-radius:16px;padding:32px 34px;
   border:1px solid var(--border);scroll-snap-align:start;
   display:flex;flex-direction:column;justify-content:space-between;
