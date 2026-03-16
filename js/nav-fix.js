@@ -275,3 +275,12 @@
 
 })();
 
+// Load nav-hotfix.js for mobile hamburger and viewSwitcher height fixes
+(function(){
+  if (!document.querySelector('script[src*="nav-hotfix"]')) {
+    var s = document.createElement('script');
+    s.src = '/js/nav-hotfix.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  }
+})();
