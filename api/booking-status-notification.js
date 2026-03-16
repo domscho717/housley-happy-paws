@@ -7,12 +7,15 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes } = req.body;
+  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes, paymentLink } = req.body;
 
   let subject, body;
 
   if (status === 'accepted') {
     subject = `Your ${service} booking is confirmed! - Housley Happy Paws`;
+    const paymentLine = paymentLink
+      ? `\nTo complete your booking, please submit payment here:\n${paymentLink}`
+      : `\nPayment will be handled at the time of service.`;
     body = [
       `Hi ${name}!\n`,
       `Great news! Rachel has confirmed your booking request.\n`,
@@ -20,7 +23,7 @@ module.exports = async function handler(req, res) {
       `Date: ${scheduledDate}`,
       `Time: ${scheduledTime}`,
       adminNotes ? `\nNote from Rachel: ${adminNotes}` : '',
-      `\nPayment will be handled at the time of service.`,
+      paymentLine,
       `\nThank you for choosing Housley Happy Paws!`,
       `Questions? Reply to this email or call 717-715-7595`,
     ].filter(Boolean).join('\n');

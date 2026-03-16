@@ -28,6 +28,35 @@
     return null;
   }
 
+  // ── Stripe payment links by service ──
+  var STRIPE_SERVICE_LINKS = {
+    'Dog Walking - 30 min':  'https://buy.stripe.com/test_7sY5kDcu661Mgzx4Lx1kA00',
+    'Dog Walking - 60 min':  'https://buy.stripe.com/test_cNieVdbq2gGqbfdguf1kA01',
+    'Drop-In Visit - 20 min': 'https://buy.stripe.com/test_cNi28rdya75Q3MLdi31kA02',
+    'Drop-In Visit - 40 min': 'https://buy.stripe.com/test_fZu6oHdya9dYdnlem71kA03',
+    'Cat Care Visit - 20 min': 'https://buy.stripe.com/test_3cI6oH51Ebm6831guf1kA04',
+    'Cat Care Visit - 40 min': 'https://buy.stripe.com/test_aFaaEX8dQ75Q8315PB1kA05',
+    'House Sitting':         'https://buy.stripe.com/test_aFa9AT65I9dYbfd5PB1kA06',
+  };
+
+  function getStripePaymentLink(serviceName) {
+    if (!serviceName) return '';
+    var svc = serviceName.toLowerCase();
+    // Try exact match first
+    for (var key in STRIPE_SERVICE_LINKS) {
+      if (svc === key.toLowerCase()) return STRIPE_SERVICE_LINKS[key];
+    }
+    // Fuzzy match
+    if (svc.indexOf('walk') !== -1 && svc.indexOf('60') !== -1) return STRIPE_SERVICE_LINKS['Dog Walking - 60 min'];
+    if (svc.indexOf('walk') !== -1) return STRIPE_SERVICE_LINKS['Dog Walking - 30 min'];
+    if (svc.indexOf('drop') !== -1 && svc.indexOf('40') !== -1) return STRIPE_SERVICE_LINKS['Drop-In Visit - 40 min'];
+    if (svc.indexOf('drop') !== -1) return STRIPE_SERVICE_LINKS['Drop-In Visit - 20 min'];
+    if (svc.indexOf('cat') !== -1 && svc.indexOf('40') !== -1) return STRIPE_SERVICE_LINKS['Cat Care Visit - 40 min'];
+    if (svc.indexOf('cat') !== -1) return STRIPE_SERVICE_LINKS['Cat Care Visit - 20 min'];
+    if (svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1) return STRIPE_SERVICE_LINKS['House Sitting'];
+    return '';
+  }
+
   // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   // 1. DESKTOP SCROLL FIX
   // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
@@ -1025,6 +1054,11 @@
         // Send notification to client about the status change
         var req = this.requests.find(function(r) { return r.id === requestId; });
         if (req) {
+          // If accepting, find the matching Stripe payment link for this service
+          var paymentLink = '';
+          if (newStatus === 'accepted' && req.service) {
+            paymentLink = getStripePaymentLink(req.service);
+          }
           try {
             await fetch('/api/booking-status-notification', {
               method: 'POST',
@@ -1037,6 +1071,7 @@
                 scheduledDate: update.scheduled_date || req.preferred_date,
                 scheduledTime: update.scheduled_time || req.preferred_time,
                 adminNotes: update.admin_notes || '',
+                paymentLink: paymentLink,
               }),
             });
           } catch (e) { console.warn('Status notification failed:', e); }
