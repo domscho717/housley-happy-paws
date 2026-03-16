@@ -155,3 +155,18 @@ document.head.appendChild(_fixStyle);
     setTimeout(killTab, 3000);
     new MutationObserver(killTab).observe(document.body, {childList:true, subtree:true});
 })();
+
+// Fix Home link in mobile menu to go back to public home page
+(function() {
+    function fixHome() {
+          var homeLink = document.querySelector('.hhp-mobile-nav-v10 [data-scroll="home"]');
+          if (!homeLink) return;
+          homeLink.setAttribute('href', '/');
+          homeLink.removeAttribute('data-scroll');
+          homeLink.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); window.location.href = '/'; });
+    }
+    // Retry since mobile nav is created by ux-patch.js which loads after fixes.js
+    setTimeout(fixHome, 1000);
+    setTimeout(fixHome, 3000);
+    setTimeout(fixHome, 5000);
+})();
