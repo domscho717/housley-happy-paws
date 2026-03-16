@@ -230,53 +230,11 @@
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
 
-        /* -- Hamburger button (public nav): 3-line icon -- */
-        '.hhp-hamburger-v10 {' +
-          'display: flex !important; flex-direction: column !important; order: 99; margin-left: auto;' +
-          'background: transparent !important; border: none !important;' +
-          'width: 44px !important; height: 44px !important; border-radius: 10px !important;' +
-          'align-items: center !important; justify-content: center !important;' +
-          'cursor: pointer !important; padding: 0 !important; z-index: 9999 !important;' +
-          'gap: 5px !important;' +
-          '-webkit-tap-highlight-color: transparent !important;' +
-          'touch-action: manipulation !important; user-select: none !important;' +
-        '}' +
-        '.hhp-hamburger-v10 .hhp-hline {' +
-          'display: block !important; width: 26px !important; height: 3px !important;' +
-          'background: #1a1008 !important; border-radius: 2px !important;' +
-        '}' +
-
-        /* -- Mobile nav overlay (public links) -- */
-        '.hhp-mobile-nav-v10 {' +
-          'display: none !important;' +
-        '}' +
-        '.hhp-mobile-nav-v10.hhp-mnav-open {' +
-          'display: flex !important; flex-direction: column !important;' +
-          'position: fixed !important; top: 0 !important; left: 0 !important;' +
-          'width: 100vw !important; height: 100vh !important;' +
-          'z-index: 9997 !important; background: #fdfaf5 !important;' +
-          'padding: 70px 20px 20px !important; overflow-y: auto !important;' +
-        '}' +
-        '.hhp-mnav-link {' +
-          'display: block; padding: 14px 0; font-size: 1.1rem; font-weight: 600;' +
-          'color: #000000 !important; text-decoration: none; border-bottom: 1px solid #e8ddd0;' +
-          'cursor: pointer; -webkit-text-fill-color: #000000 !important;' +
-        '}' +
-        '.hhp-mnav-link:last-child { border-bottom: none; }' +
-        '.hhp-mnav-divider {' +
-          'height: 1px; background: #d4c4ad; margin: 12px 0;' +
-        '}' +
-        '.hhp-mnav-label {' +
-          'font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;' +
-          'color: #000000 !important; font-weight: 700; margin-top: 8px; margin-bottom: 4px;' +
-          '-webkit-text-fill-color: #000000 !important;' +
-        '}' +
-        '.hhp-mnav-signin {' +
-          'display: inline-block; margin-top: 16px; padding: 12px 28px;' +
-          'background: transparent; border: 1.5px solid #c8963e; border-radius: 10px;' +
-          'color: #000000 !important; font-weight: 700; font-size: 0.95rem; cursor: pointer;' +
-          'text-align: center; text-decoration: none; -webkit-text-fill-color: #000000 !important;' +
-        '}' +
+        /* -- OLD hamburger (public nav) — HIDDEN, replaced by drawer-tab -- */
+        '.hhp-hamburger-v10 { display: none !important; }' +
+        /* -- Old mobile nav overlay — HIDDEN (replaced by drawer) -- */
+        '.hhp-mobile-nav-v10 { display: none !important; }' +
+        '.hhp-mobile-nav-v10.hhp-mnav-open { display: none !important; }' +
 
         /* -- Mobile sign-in button in nav -- */
         '.hhp-mobile-signin-btn {' +
@@ -463,28 +421,25 @@
         '#o-payments .card { max-width: 100% !important; overflow-x: hidden !important; }' +
         '#o-payments div[style*="grid-template-columns: repeat(4"], #o-payments div[style*="grid-template-columns:repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }' +
         '.pay-step-lbl { font-size: 0.68rem !important; }' +
-        '/* -- Hide left drawer tab on mobile -- */' +
-        '.hhp-drawer-tab { display: none !important; }' +
-
-        /* -- Pull-out drawer tab (3-line hamburger on left edge) -- */
+        /* -- Drawer tab (hamburger in navbar, top-right) -- */
         '.hhp-drawer-tab {' +
-          'display: flex !important; flex-direction: column !important;' +
-          'position: fixed !important; left: 0 !important;' +
-          'top: 50% !important; transform: translateY(-50%) !important;' +
-          'width: 32px !important; height: 48px !important; z-index: 9996 !important;' +
-          'background: #fefcf8 !important; border: 1px solid #d4c4ad !important;' +
-          'border-left: none !important;' +
-          'border-radius: 0 10px 10px 0 !important; cursor: pointer !important;' +
+          'display: none !important; flex-direction: column !important;' +
+          'position: static !important;' +
+          'order: 2 !important;' +
+          'width: 44px !important; height: 44px !important; z-index: 9999 !important;' +
+          'background: transparent !important; border: none !important;' +
+          'border-radius: 10px !important; cursor: pointer !important;' +
           'align-items: center !important; justify-content: center !important;' +
-          'padding: 0 !important; gap: 4px !important;' +
-          'box-shadow: 2px 0 4px rgba(0,0,0,0.08) !important;' +
+          'padding: 0 !important; gap: 5px !important;' +
+          'flex-shrink: 0 !important;' +
           '-webkit-tap-highlight-color: transparent !important; touch-action: manipulation !important;' +
+          'box-shadow: none !important;' +
         '}' +
         '.hhp-drawer-tab.hhp-drawer-tab-visible {' +
           'display: flex !important;' +
         '}' +
         '.hhp-drawer-tab .hhp-dline {' +
-          'display: block !important; width: 18px !important; height: 3px !important;' +
+          'display: block !important; width: 26px !important; height: 3px !important;' +
           'background: #1a1008 !important; border-radius: 2px !important;' +
         '}' +
 
@@ -941,13 +896,14 @@
     if (!document.querySelector('.hhp-drawer-tab')) {
       var tab = document.createElement('div');
       tab.className = 'hhp-drawer-tab';
-      // 3 horizontal lines icon using CSS-class spans
+      // 3 horizontal lines icon
       tab.innerHTML = '<span class="hhp-dline"></span><span class="hhp-dline"></span><span class="hhp-dline"></span>';
       tab.setAttribute('role', 'button');
       tab.setAttribute('tabindex', '0');
-      // Start hidden — updateDrawerContent will show it if appropriate
       tab.classList.remove('hhp-drawer-tab-visible');
-      document.body.appendChild(tab);
+      // Put drawer tab INSIDE the navbar (not floating on body)
+      var nav = document.getElementById('mainNav');
+      if (nav) { nav.appendChild(tab); } else { document.body.appendChild(tab); }
 
       var drawer = document.createElement('div');
       drawer.className = 'hhp-drawer';
@@ -1036,25 +992,88 @@
     // Clear drawer
     drawer.innerHTML = '';
 
-    // *** AUTH CHECK: Never show drawer if user is not logged in ***
-    if (!isUserAuthenticated()) {
-      var tab = document.querySelector('.hhp-drawer-tab');
-      if (tab) tab.classList.remove('hhp-drawer-tab-visible');
-      closeDrawer();
-      return;
-    }
-
-    var activePortal = getActivePortal();
-
-    if (!activePortal) {
-      // On public page, hide drawer tab
-      var tab = document.querySelector('.hhp-drawer-tab');
-      if (tab) tab.classList.remove('hhp-drawer-tab-visible');
-      return;
-    }
-
+    // Always show drawer tab on mobile/tablet
     var tab = document.querySelector('.hhp-drawer-tab');
     if (tab && window.innerWidth <= 1024) tab.classList.add('hhp-drawer-tab-visible');
+
+    var loggedIn = isUserAuthenticated();
+    var activePortal = getActivePortal();
+
+    // ── PUBLIC NAV LINKS (always shown) ──
+    var navSection = document.createElement('div');
+    navSection.className = 'hhp-drawer-nav-section';
+    navSection.style.cssText = 'padding: 0 20px 8px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
+
+    var publicLinks = [
+      { text: 'Home', scroll: 'home' },
+      { text: 'About Rachel', scroll: '.about-section' },
+      { text: 'Services & Pricing', scroll: '.services-section' },
+      { text: 'Calendar', scroll: '.cal-section' },
+      { text: 'Reviews', scroll: '.reviews-section' },
+      { text: 'Coming Soon', scroll: '.future-section' },
+    ];
+
+    publicLinks.forEach(function(item) {
+      var link = document.createElement('button');
+      link.className = 'hhp-drawer-item';
+      link.textContent = item.text;
+      link.type = 'button';
+      link.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:block;width:100%;text-align:left;background:none;border:none;padding:12px 0;font-size:0.95rem;font-weight:600;cursor:pointer;border-bottom:1px solid #e8ddd0;';
+      link.addEventListener('click', function() {
+        if (item.scroll === 'home') {
+          if (typeof switchView === 'function') switchView('public');
+          window.scrollTo(0, 0);
+        } else {
+          if (typeof switchView === 'function') switchView('public');
+          setTimeout(function() {
+            var target = document.querySelector(item.scroll);
+            if (target) target.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
+        closeDrawer();
+      });
+      navSection.appendChild(link);
+    });
+    drawer.appendChild(navSection);
+
+    // ── VIEW SWITCHER (only if logged in) ──
+    if (loggedIn) {
+      var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+      var viewSection = document.createElement('div');
+      viewSection.style.cssText = 'padding: 8px 20px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
+      var label = document.createElement('div');
+      label.style.cssText = 'font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#000!important;font-weight:700;margin-bottom:6px;-webkit-text-fill-color:#000!important;';
+      label.textContent = 'Switch View';
+      viewSection.appendChild(label);
+
+      var allowedViews = [{ value: 'public', label: 'Home' }];
+      if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal' });
+      if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal' });
+      if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal' });
+
+      allowedViews.forEach(function(v) {
+        var btn = document.createElement('button');
+        btn.className = 'hhp-drawer-item';
+        btn.textContent = v.label;
+        btn.type = 'button';
+        btn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:block;width:100%;text-align:left;background:none;border:none;padding:10px 0;font-size:0.9rem;font-weight:500;cursor:pointer;';
+        if (activePortal === 'pg-' + v.value || (!activePortal && v.value === 'public')) {
+          btn.style.fontWeight = '700';
+          btn.style.color = '#c8963e';
+          btn.style.setProperty('-webkit-text-fill-color', '#c8963e', 'important');
+        }
+        btn.addEventListener('click', function() {
+          if (typeof switchView === 'function') switchView(v.value);
+          closeDrawer();
+          setTimeout(updateDrawerContent, 300);
+        });
+        viewSection.appendChild(btn);
+      });
+      drawer.appendChild(viewSection);
+    }
+
+    // ── PORTAL SIDEBAR ITEMS (only if logged in and on a portal) ──
+    if (!loggedIn || !activePortal) return;
 
     // Determine portal name
     var portalNames = {
@@ -1751,20 +1770,18 @@
   function applyNavOverride() {
     var isMobileOrTablet = window.innerWidth <= 1024;
 
-    // Remove conflicting style elements injected by other scripts
-    ['hhp-mobile-nav-fix', 'ham-fix-style'].forEach(function(id) {
+    // Remove conflicting style/DOM elements from other scripts
+    ['hhp-mobile-nav-fix', 'ham-fix-style', 'nav-hotfix-css', 'hhp-nav-fix-css', 'drawer-fix-style'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.remove();
     });
-
-    // Remove conflicting DOM elements from booking-system.js
     ['hhpMobileSignIn', 'hhpHamburgerBtn', 'hhpMobileMenu'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.remove();
     });
 
     if (isMobileOrTablet) {
-      // Force-hide nav-right and nav-center via inline styles (beats any CSS)
+      // Force-hide desktop nav elements
       var navRight = document.querySelector('.nav-right');
       if (navRight) navRight.style.setProperty('display', 'none', 'important');
       var navCenter = document.querySelector('.nav-center');
@@ -1772,29 +1789,40 @@
       var viewSwitcher = document.getElementById('viewSwitcher');
       if (viewSwitcher) viewSwitcher.style.setProperty('display', 'none', 'important');
 
-      // Fix hamburger — ensure it has .hhp-hline spans (fixes.js replaces with .bar)
-      var hamburger = document.querySelector('.hhp-hamburger-v10');
-      if (hamburger && !hamburger.querySelector('.hhp-hline')) {
-        hamburger.innerHTML = '<span class="hhp-hline"></span><span class="hhp-hline"></span><span class="hhp-hline"></span>';
-      }
-      if (hamburger) {
-        hamburger.style.setProperty('display', 'flex', 'important');
-        hamburger.style.setProperty('position', 'static', 'important');
-        hamburger.style.setProperty('background', 'transparent', 'important');
+      // Hide old hamburger, show drawer tab
+      var oldHam = document.querySelector('.hhp-hamburger-v10');
+      if (oldHam) oldHam.style.setProperty('display', 'none', 'important');
+
+      // Ensure drawer tab is visible and in navbar
+      var drawerTab = document.querySelector('.hhp-drawer-tab');
+      if (drawerTab) {
+        drawerTab.classList.add('hhp-drawer-tab-visible');
+        drawerTab.style.setProperty('display', 'flex', 'important');
+        drawerTab.style.setProperty('position', 'static', 'important');
+        drawerTab.style.setProperty('order', '2', 'important');
+        // Make sure it's inside the nav
+        var nav = document.getElementById('mainNav');
+        if (nav && drawerTab.parentElement !== nav) {
+          nav.appendChild(drawerTab);
+        }
       }
 
       // Show mobile sign-in button
       var mobileSignin = document.querySelector('.hhp-mobile-signin-btn');
       if (mobileSignin) mobileSignin.style.setProperty('display', 'block', 'important');
+
+      // Update drawer content (adds nav links + portal items)
+      updateDrawerContent();
     } else {
       // Desktop: show nav-right, hide mobile stuff
       var navRight = document.querySelector('.nav-right');
       if (navRight) navRight.style.setProperty('display', 'flex', 'important');
-      var hamburger = document.querySelector('.hhp-hamburger-v10');
-      if (hamburger) hamburger.style.setProperty('display', 'none', 'important');
+      var oldHam = document.querySelector('.hhp-hamburger-v10');
+      if (oldHam) oldHam.style.setProperty('display', 'none', 'important');
+      var drawerTab = document.querySelector('.hhp-drawer-tab');
+      if (drawerTab) drawerTab.style.setProperty('display', 'none', 'important');
       var mobileSignin = document.querySelector('.hhp-mobile-signin-btn');
       if (mobileSignin) mobileSignin.style.setProperty('display', 'none', 'important');
-      // View switcher visible
       var viewSwitcher = document.getElementById('viewSwitcher');
       if (viewSwitcher) viewSwitcher.style.setProperty('display', 'inline-flex', 'important');
       var viewDropdown = document.getElementById('viewDropdown');
@@ -1825,20 +1853,22 @@
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
         '.nbtn-gold { display: none !important; }' +
-        // Hamburger (ux-patch creates this)
-        '.hhp-hamburger-v10 {' +
+        '.hhp-hamburger-v10 { display: none !important; }' +
+        '.hhp-mobile-nav-v10 { display: none !important; }' +
+        '.hhp-mobile-nav-v10.hhp-mnav-open { display: none !important; }' +
+        // Drawer tab = the ONE hamburger
+        '.hhp-drawer-tab.hhp-drawer-tab-visible {' +
           'display: flex !important; flex-direction: column !important; order: 2 !important;' +
-          'background: transparent !important; border: none !important;' +
-          'width: 44px !important; height: 44px !important;' +
+          'position: static !important; background: transparent !important; border: none !important;' +
+          'width: 44px !important; height: 44px !important; box-shadow: none !important;' +
           'align-items: center !important; justify-content: center !important;' +
-          'cursor: pointer !important; padding: 0 !important; z-index: 9999 !important;' +
-          'gap: 5px !important; position: static !important;' +
+          'cursor: pointer !important; padding: 0 !important; gap: 5px !important;' +
           'border-radius: 10px !important; flex-shrink: 0 !important;' +
+          'transform: none !important; top: auto !important; left: auto !important;' +
         '}' +
-        '.hhp-hamburger-v10 .hhp-hline, .hhp-hamburger-v10 .bar {' +
+        '.hhp-drawer-tab .hhp-dline {' +
           'display: block !important; width: 26px !important; height: 3px !important;' +
           'background: #1a1008 !important; border-radius: 2px !important;' +
-          'margin: 0 !important;' +
         '}' +
         // Sign-in button
         '.hhp-mobile-signin-btn {' +
@@ -1850,28 +1880,6 @@
           'white-space: nowrap !important; flex-shrink: 0 !important;' +
           '-webkit-text-fill-color: #000 !important;' +
         '}' +
-        // Mobile nav overlay
-        '.hhp-mobile-nav-v10 { display: none !important; }' +
-        '.hhp-mobile-nav-v10.hhp-mnav-open {' +
-          'display: flex !important; flex-direction: column !important;' +
-          'position: fixed !important; top: 0 !important; left: 0 !important;' +
-          'width: 100vw !important; height: 100vh !important;' +
-          'z-index: 9997 !important; background: #fdfaf5 !important;' +
-          'padding: 70px 20px 20px !important; overflow-y: auto !important;' +
-        '}' +
-        '.hhp-mnav-link {' +
-          'display: block !important; padding: 14px 0 !important; font-size: 1.1rem !important;' +
-          'font-weight: 600 !important; color: #000 !important; text-decoration: none !important;' +
-          'border-bottom: 1px solid #e8ddd0 !important; cursor: pointer !important;' +
-          '-webkit-text-fill-color: #000 !important;' +
-        '}' +
-        '.hhp-mnav-signin {' +
-          'display: inline-block !important; margin-top: 16px !important; padding: 12px 28px !important;' +
-          'background: transparent !important; border: 1.5px solid #c8963e !important;' +
-          'border-radius: 10px !important; color: #000 !important; font-weight: 700 !important;' +
-          '-webkit-text-fill-color: #000 !important;' +
-        '}' +
-        // Kill anything from fixes.js / booking-system.js
         '#hhpHamburgerBtn { display: none !important; }' +
         '#hhpMobileMenu { display: none !important; }' +
         '#hhpMobileSignIn { display: none !important; }' +
