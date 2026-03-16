@@ -786,7 +786,7 @@
   // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   function rewireBookButtons() {
     // Find all "Book" buttons and change them to open the request form
-    var bookButtons = document.querySelectorAll('.sc-cta, [class*="book-btn"], a[href*="checkout"]');
+    var bookButtons = document.querySelectorAll('.sc-cta, .btn-book, .nbtn-gold, [class*="book-btn"], a[href*="checkout"]');
     bookButtons.forEach(function(btn) {
       var text = btn.textContent || '';
       var service = '';
