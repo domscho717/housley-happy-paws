@@ -1055,7 +1055,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Overview <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:200px">
         <button class="sb-item active" onclick="sTab('c','c-dash')"><span class="sb-item-icon">🏠</span>Dashboard</button>
-        <button class="sb-item" onclick="sTab('c','c-appts')"><span class="sb-item-icon">📅</span>Appointments<span class="sb-badge">2</span></button>
+        <button class="sb-item" onclick="sTab('c','c-appts')"><span class="sb-item-icon">📅</span>Appointments</button>
       </div>
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">My Pets <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:200px">
@@ -1065,7 +1065,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
       </div>
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Account <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:300px">
-        <button class="sb-item" onclick="sTab('c','c-msgs')"><span class="sb-item-icon">💬</span>Messages<span class="sb-badge" style="background:var(--forest)">3</span></button>
+        <button class="sb-item" onclick="sTab('c','c-msgs')"><span class="sb-item-icon">💬</span>Messages</button>
       <button class="sb-item" onclick="sTab('c','c-notifs')"><span class="sb-item-icon">🔔</span>Notifications</button>
       <button class="sb-item" onclick="sTab('c','c-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
         <button class="sb-item" onclick="sTab('c','c-bill')"><span class="sb-item-icon">💳</span>Billing</button>
@@ -1202,7 +1202,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">My Work <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:300px">
         <button class="sb-item active" onclick="sTab('s','s-sched')"><span class="sb-item-icon">📅</span>My Schedule</button>
-        <button class="sb-item" onclick="sTab('s','s-jobs')"><span class="sb-item-icon">🦮</span>Job Queue<span class="sb-badge">3</span></button>
+        <button class="sb-item" onclick="sTab('s','s-jobs')"><span class="sb-item-icon">🦮</span>Job Queue</button>
         <button class="sb-item" onclick="sTab('s','s-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
         <button class="sb-item" onclick="sTab('s','s-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
       </div>
@@ -1303,7 +1303,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
         <button class="sb-item" onclick="sTab('o','o-sched')"><span class="sb-item-icon">📅</span>Master Schedule</button>
         <button class="sb-item" onclick="sTab('o','o-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
         <button class="sb-item" onclick="sTab('o','o-staff')"><span class="sb-item-icon">🧑‍🤝‍🧑</span>Staff</button>
-        <button class="sb-item" onclick="sTab('o','o-msgs')"><span class="sb-item-icon">💬</span>All Messages<span class="sb-badge">5</span></button>
+        <button class="sb-item" onclick="sTab('o','o-msgs')"><span class="sb-item-icon">💬</span>All Messages</button>
         <button class="sb-item" onclick="sTab('o','o-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
         <button class="sb-item" onclick="sTab('o','o-avail')"><span class="sb-item-icon">🗓️</span>Availability</button>
         <button class="sb-item" onclick="sTab('o','o-auto')"><span class="sb-item-icon">🤖</span>Auto-Replies</button>
@@ -1705,20 +1705,6 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
       <div class="p-panel" id="o-payments">
         <div class="p-header"><h2>💳 Payments & Bank Setup</h2><p>Connect your payment accounts and banking — step by step.</p></div>
 
-        <!-- Progress tracker -->
-        <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg,var(--ink),var(--brown));border:none">
-          <div style="color:white;margin-bottom:16px">
-            <div style="font-weight:700;font-size:1rem;margin-bottom:4px">💳 Payment Setup Progress</div>
-            <div style="font-size:0.82rem;opacity:0.6">Complete these steps to start accepting real payments</div>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-            <div id="pstep1" class="pay-step" onclick="togglePayStep(1)"><div class="pay-step-num">1</div><div class="pay-step-lbl">Create Stripe Account</div></div>
-            <div id="pstep2" class="pay-step" onclick="togglePayStep(2)"><div class="pay-step-num">2</div><div class="pay-step-lbl">Link Bank Account</div></div>
-            <div id="pstep3" class="pay-step" onclick="togglePayStep(3)"><div class="pay-step-num">3</div><div class="pay-step-lbl">Add Payment Button</div></div>
-            <div id="pstep4" class="pay-step" onclick="togglePayStep(4)"><div class="pay-step-num">4</div><div class="pay-step-lbl">Test First Payment</div></div>
-          </div>
-        </div>
-
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
           <!-- Stripe -->
           <div class="card">
@@ -1758,19 +1744,6 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
             </div>
           </div>
 
-          <!-- Bank -->
-          <div class="card">
-            <div class="card-title" style="margin-bottom:14px">🏦 Bank Account (for Stripe payouts)</div>
-            <div style="background:var(--gold-pale);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;color:var(--brown)">🔒 Bank info is entered directly in Stripe's secure dashboard — never stored here. This is just your reference checklist.</div>
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <div class="pay-check-row" id="bc1" onclick="toggleBankCheck(1)"><div class="pay-check-box">☐</div><div style="font-size:0.84rem">Log into stripe.com/dashboard</div></div>
-              <div class="pay-check-row" id="bc2" onclick="toggleBankCheck(2)"><div class="pay-check-box">☐</div><div style="font-size:0.84rem">Go to Settings → Bank Accounts</div></div>
-              <div class="pay-check-row" id="bc3" onclick="toggleBankCheck(3)"><div class="pay-check-box">☐</div><div style="font-size:0.84rem">Add routing & account number</div></div>
-              <div class="pay-check-row" id="bc4" onclick="toggleBankCheck(4)"><div class="pay-check-box">☐</div><div style="font-size:0.84rem">Verify with micro-deposits (1–2 days)</div></div>
-              <div class="pay-check-row" id="bc5" onclick="toggleBankCheck(5)"><div class="pay-check-box">☐</div><div style="font-size:0.84rem">Set payout schedule (weekly recommended)</div></div>
-            </div>
-          </div>
-
           <!-- Deposit & pricing settings -->
           <div class="card">
             <div class="card-title" style="margin-bottom:14px">⚙️ Payment Settings</div>
@@ -1781,20 +1754,6 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
           </div>
         </div>
 
-        <!-- Go live roadmap -->
-        <div class="card" style="margin-top:18px;background:linear-gradient(135deg,var(--forest-pale),var(--gold-pale));border-color:rgba(61,90,71,0.2)">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-            <div><div style="font-weight:700;font-size:1rem;margin-bottom:4px">🚀 Ready to Go Fully Live?</div><div style="font-size:0.84rem;color:var(--brown)">Here's everything you need to turn this into a real hosted website with payments.</div></div>
-            <button class="btn btn-ink btn-sm" onclick="aiQuick('Give me a complete checklist and step-by-step guide to take Housley Happy Paws from this prototype to a fully live website with real payments, real bookings, and real client logins. Include Stripe, Supabase, Vercel, and domain setup. Be specific and friendly.')">✨ Ask AI for Full Guide</button>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
-            <div style="background:white;border-radius:8px;padding:12px;text-align:center;border:1px solid var(--border)"><div style="font-size:1.4rem;margin-bottom:6px">🌐</div><div style="font-size:0.74rem;font-weight:700">Buy Domain</div><div style="font-size:0.66rem;color:var(--mid);margin-top:2px">~$12/yr</div></div>
-            <div style="background:white;border-radius:8px;padding:12px;text-align:center;border:1px solid var(--border)"><div style="font-size:1.4rem;margin-bottom:6px">🗄️</div><div style="font-size:0.74rem;font-weight:700">Supabase DB</div><div style="font-size:0.66rem;color:var(--mid);margin-top:2px">Free</div></div>
-            <div style="background:white;border-radius:8px;padding:12px;text-align:center;border:1px solid var(--border)"><div style="font-size:1.4rem;margin-bottom:6px">🚀</div><div style="font-size:0.74rem;font-weight:700">Vercel Host</div><div style="font-size:0.66rem;color:var(--mid);margin-top:2px">Free</div></div>
-            <div style="background:white;border-radius:8px;padding:12px;text-align:center;border:1px solid var(--border)"><div style="font-size:1.4rem;margin-bottom:6px">💜</div><div style="font-size:0.74rem;font-weight:700">Stripe Pay</div><div style="font-size:0.66rem;color:var(--mid);margin-top:2px">2.9%/txn</div></div>
-            <div style="background:white;border-radius:8px;padding:12px;text-align:center;border:1px solid var(--border)"><div style="font-size:1.4rem;margin-bottom:6px">📱</div><div style="font-size:0.74rem;font-weight:700">React App</div><div style="font-size:0.66rem;color:var(--mid);margin-top:2px">~$124/yr</div></div>
-          </div>
-        </div>
       </div>
 
 
