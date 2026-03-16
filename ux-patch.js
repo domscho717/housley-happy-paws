@@ -446,7 +446,7 @@
         /* -- Pull-out drawer panel -- */
         '.hhp-drawer {' +
           'display: none !important; position: fixed !important; left: 0 !important;' +
-          'top: 0 !important; width: 75vw !important; height: 100vh !important;' +
+          'top: 56px !important; width: 75vw !important; height: calc(100vh - 56px) !important;' +
           'z-index: 9995 !important; background: #fefcf8 !important;' +
           'box-shadow: 2px 0 8px rgba(0,0,0,0.1) !important;' +
           'overflow-y: auto !important; -webkit-overflow-scrolling: touch !important;' +
@@ -999,6 +999,17 @@
     var loggedIn = isUserAuthenticated();
     var activePortal = getActivePortal();
 
+    // ── CLOSE BUTTON at the very top of drawer ──
+    var closeHeader = document.createElement('div');
+    closeHeader.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;padding:12px 16px 4px;';
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.innerHTML = '\u2715';
+    closeBtn.style.cssText = 'background:transparent;border:none;font-size:22px;color:#000;cursor:pointer;padding:4px 8px;-webkit-text-fill-color:#000;';
+    closeBtn.addEventListener('click', closeDrawer);
+    closeHeader.appendChild(closeBtn);
+    drawer.appendChild(closeHeader);
+
     // ── PUBLIC NAV LINKS (only shown when NOT logged in) ──
     if (!loggedIn) {
       var navSection = document.createElement('div');
@@ -1079,15 +1090,12 @@
     };
     var portalName = portalNames[activePortal] || 'Portal';
 
-    // Add header with title and close button
+    // Add portal title header (close button is already at the top)
     var header = document.createElement('div');
     header.className = 'hhp-drawer-header';
-    header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;">' + portalName + '</span>' +
-                       '<button class="hhp-drawer-close" style="color:#000!important;-webkit-text-fill-color:#000!important;" type="button">\u2715</button>';
+    header.style.cssText = 'display:flex;align-items:center;padding:8px 20px 12px;border-bottom:2px solid #e0d5c5;';
+    header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;">' + portalName + '</span>';
     drawer.appendChild(header);
-
-    // Close button handler
-    header.querySelector('.hhp-drawer-close').addEventListener('click', closeDrawer);
 
     // Read ALL .sb-item buttons from the active portal's sidebar
     var portalEl = document.getElementById(activePortal);
