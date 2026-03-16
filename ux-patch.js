@@ -39,6 +39,10 @@
 (function() {
   'use strict';
 
+  // Prevent duplicate execution if script loads multiple times
+  if (window.__uxPatchApplied) return;
+  window.__uxPatchApplied = true;
+
   var scrollPos = 0;
   var HAMBURGER_LINES = '<span class="hhp-hline"></span><span class="hhp-hline"></span><span class="hhp-hline"></span>';
   var CLOSE_X = '\u2715';
@@ -1743,8 +1747,10 @@
   enhancePaymentsSection();
 
   // ── LATE OVERRIDE: neutralize conflicting nav CSS from fixes.js & booking-system.js ──
-  // This runs after all scripts to ensure ux-patch.js controls mobile nav
-  setTimeout(function() {
+  // This runs after all scripts AND repeats to catch late-loading conflicts
+  function applyNavOverride() {
+    var isMobileOrTablet = window.innerWidth <= 1024;
+
     // Remove conflicting style elements injected by other scripts
     ['hhp-mobile-nav-fix', 'ham-fix-style'].forEach(function(id) {
       var el = document.getElementById(id);
@@ -1757,7 +1763,57 @@
       if (el) el.remove();
     });
 
-    // Inject final-authority CSS that wins over everything
+    if (isMobileOrTablet) {
+      // Force-hide nav-right and nav-center via inline styles (beats any CSS)
+      var navRight = document.querySelector('.nav-right');
+      if (navRight) navRight.style.setProperty('display', 'none', 'important');
+      var navCenter = document.querySelector('.nav-center');
+      if (navCenter) navCenter.style.setProperty('display', 'none', 'important');
+      var viewSwitcher = document.getElementById('viewSwitcher');
+      if (viewSwitcher) viewSwitcher.style.setProperty('display', 'none', 'important');
+
+      // Fix hamburger — ensure it has .hhp-hline spans (fixes.js replaces with .bar)
+      var hamburger = document.querySelector('.hhp-hamburger-v10');
+      if (hamburger && !hamburger.querySelector('.hhp-hline')) {
+        hamburger.innerHTML = '<span class="hhp-hline"></span><span class="hhp-hline"></span><span class="hhp-hline"></span>';
+      }
+      if (hamburger) {
+        hamburger.style.setProperty('display', 'flex', 'important');
+        hamburger.style.setProperty('position', 'static', 'important');
+        hamburger.style.setProperty('background', 'transparent', 'important');
+      }
+
+      // Show mobile sign-in button
+      var mobileSignin = document.querySelector('.hhp-mobile-signin-btn');
+      if (mobileSignin) mobileSignin.style.setProperty('display', 'block', 'important');
+    } else {
+      // Desktop: show nav-right, hide mobile stuff
+      var navRight = document.querySelector('.nav-right');
+      if (navRight) navRight.style.setProperty('display', 'flex', 'important');
+      var hamburger = document.querySelector('.hhp-hamburger-v10');
+      if (hamburger) hamburger.style.setProperty('display', 'none', 'important');
+      var mobileSignin = document.querySelector('.hhp-mobile-signin-btn');
+      if (mobileSignin) mobileSignin.style.setProperty('display', 'none', 'important');
+      // View switcher visible
+      var viewSwitcher = document.getElementById('viewSwitcher');
+      if (viewSwitcher) viewSwitcher.style.setProperty('display', 'inline-flex', 'important');
+      var viewDropdown = document.getElementById('viewDropdown');
+      if (viewDropdown) {
+        viewDropdown.style.setProperty('display', 'block', 'important');
+        viewDropdown.style.setProperty('border', '1.5px solid #c8963e', 'important');
+      }
+    }
+  }
+
+  // Run override multiple times to catch late-loading scripts
+  setTimeout(applyNavOverride, 300);
+  setTimeout(applyNavOverride, 800);
+  setTimeout(applyNavOverride, 1500);
+  setTimeout(applyNavOverride, 3000);
+  window.addEventListener('resize', applyNavOverride);
+
+  // Inject final-authority CSS as well (belt and suspenders)
+  if (!document.getElementById('ux-patch-final-override')) {
     var finalCSS = document.createElement('style');
     finalCSS.id = 'ux-patch-final-override';
     finalCSS.textContent =
@@ -1779,9 +1835,10 @@
           'gap: 5px !important; position: static !important;' +
           'border-radius: 10px !important; flex-shrink: 0 !important;' +
         '}' +
-        '.hhp-hamburger-v10 .hhp-hline {' +
+        '.hhp-hamburger-v10 .hhp-hline, .hhp-hamburger-v10 .bar {' +
           'display: block !important; width: 26px !important; height: 3px !important;' +
           'background: #1a1008 !important; border-radius: 2px !important;' +
+          'margin: 0 !important;' +
         '}' +
         // Sign-in button
         '.hhp-mobile-signin-btn {' +
@@ -1841,13 +1898,7 @@
       '}';
     document.head.appendChild(finalCSS);
 
-    // Re-create hamburger inner HTML if fixes.js replaced it with .bar spans
-    var hamburger = document.querySelector('.hhp-hamburger-v10');
-    if (hamburger && !hamburger.querySelector('.hhp-hline')) {
-      hamburger.innerHTML = '<span class="hhp-hline"></span><span class="hhp-hline"></span><span class="hhp-hline"></span>';
-    }
-
-    console.log('🐾 UX Patch: final nav override applied');
-  }, 500);
+    console.log('🐾 UX Patch: final nav CSS override applied');
+  }
 
 })();
