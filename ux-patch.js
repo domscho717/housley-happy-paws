@@ -652,150 +652,13 @@
   }
 
   // ─────────────────────────────────────────────
-  // CREATE MOBILE NAV (Hamburger = 3 lines + Public Links Overlay)
+  // CLEANUP OLD MOBILE NAV (v10 hamburger+overlay removed — drawer-tab is the only system now)
   // ─────────────────────────────────────────────
   function createMobileNav() {
-    var nav = document.getElementById('mainNav');
-    if (!nav) return;
-
-    // Remove old hamburgers
-    var oldHamburgers = nav.querySelectorAll('.hhp-hamburger:not(.hhp-hamburger-v10)');
-    oldHamburgers.forEach(function(h) { h.remove(); });
-
-    // Create hamburger button if not exists
-    if (!nav.querySelector('.hhp-hamburger-v10')) {
-      var hamburger = document.createElement('button');
-      hamburger.className = 'hhp-hamburger-v10';
-      // 3 horizontal lines using CSS-class spans
-      hamburger.innerHTML = HAMBURGER_LINES;
-      hamburger.setAttribute('aria-label', 'Menu');
-      hamburger.setAttribute('type', 'button');
-      nav.appendChild(hamburger);
-
-      // Create mobile nav overlay if not exists
-      if (!document.querySelector('.hhp-mobile-nav-v10')) {
-        var overlay = document.createElement('div');
-        overlay.className = 'hhp-mobile-nav-v10';
-        overlay.innerHTML =
-          '<a class="hhp-mnav-link" data-scroll="home" style="color:#000!important;-webkit-text-fill-color:#000!important;">Home</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".about-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">About Rachel</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".services-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">Services & Pricing</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".cal-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">Calendar</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".reviews-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">Reviews</a>' +
-          '<a class="hhp-mnav-link" data-scroll=".future-section" style="color:#000!important;-webkit-text-fill-color:#000!important;">Coming Soon</a>' +
-          '<div class="hhp-mnav-divider"></div>' +
-          '<div id="hhp-mnav-portal-section" style="display:none;">' +
-            '<div class="hhp-mnav-label" style="color:#000!important;-webkit-text-fill-color:#000!important;">Switch View</div>' +
-            '<select id="hhp-mnav-view-switcher" style="padding:12px 0;font-size:1rem;border:none;background:transparent;color:#000!important;-webkit-text-fill-color:#000!important;cursor:pointer;width:100%;">' +
-              '<option value="">-- Switch View --</option>' +
-            '</select>' +
-            '<div class="hhp-mnav-divider"></div>' +
-          '</div>' +
-          '<button id="hhp-mnav-book-btn" style="display:none;background:transparent;border:none;padding:14px 0;text-align:left;color:#000!important;-webkit-text-fill-color:#000!important;font-weight:600;font-size:1.1rem;cursor:pointer;">Book Meet & Greet</button>' +
-          '<button id="hhp-mnav-signin-link" class="hhp-mnav-signin" style="color:#000!important;-webkit-text-fill-color:#000!important;">Sign In</button>';
-        document.body.appendChild(overlay);
-      }
-
-      // Helper to close hamburger menu
-      function closeHamburgerMenu() {
-        var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
-        if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
-        hamburger.innerHTML = HAMBURGER_LINES;
-        document.body.style.overflow = '';
-      }
-
-      // Hamburger click handler
-      hamburger.addEventListener('click', function(e) {
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        e.preventDefault();
-
-        if (isUserAuthenticated() && getActivePortal()) {
-          var drawer = document.querySelector('.hhp-drawer');
-          if (drawer && drawer.classList.contains('hhp-drawer-open')) {
-            closeDrawer();
-            hamburger.innerHTML = HAMBURGER_LINES;
-            hamburger.style.fontSize = '';
-            hamburger.style.color = '';
-          } else {
-            updateDrawerContent();
-            toggleDrawer();
-            hamburger.innerHTML = CLOSE_X;
-            hamburger.style.fontSize = '24px';
-            hamburger.style.color = '#000';
-          }
-          return;
-        }
-
-        var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
-        var isOpen = mobileNav.classList.contains('hhp-mnav-open');
-        if (isOpen) {
-          closeHamburgerMenu();
-        } else {
-          mobileNav.classList.add('hhp-mnav-open');
-          hamburger.innerHTML = CLOSE_X;
-          hamburger.style.fontSize = '24px';
-          hamburger.style.color = '#000';
-          document.body.style.overflow = 'hidden';
-        }
-      }, true);
-
-      // Also handle touch
-      hamburger.addEventListener('touchend', function(e) {
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        e.preventDefault();
-        hamburger.click();
-      }, true);
-
-      // Mobile nav scroll handlers
-      var scrollLinks = document.querySelectorAll('.hhp-mnav-link[data-scroll]');
-      scrollLinks.forEach(function(link) {
-        link.addEventListener('click', function(e) {
-          e.preventDefault();
-          var selector = this.getAttribute('data-scroll');
-          if (selector === 'home') {
-            if (typeof switchView === 'function') switchView('public');
-            window.scrollTo(0, 0);
-          } else {
-            if (typeof switchView === 'function') switchView('public');
-            setTimeout(function() {
-              var target = document.querySelector(selector);
-              if (target) target.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-          }
-          closeHamburgerMenu();
-        });
-      });
-
-      // Mobile nav sign-in handler
-      var mobileSignInLink = document.getElementById('hhp-mnav-signin-link');
-      if (mobileSignInLink) {
-        mobileSignInLink.addEventListener('click', function() {
-          if (typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated && HHP_Auth.isAuthenticated()) {
-            if (HHP_Auth.logout) HHP_Auth.logout();
-          } else {
-            if (typeof HHP_Auth !== 'undefined' && HHP_Auth.showLoginScreen) {
-          HHP_Auth.showLoginScreen();
-        } else {
-          var overlay = document.getElementById('authOverlay');
-          if (overlay) overlay.style.display = 'flex';
-        }
-          }
-          closeHamburgerMenu();
-        });
-      }
-
-      // Book Meet & Greet handler
-      var bookBtn = document.getElementById('hhp-mnav-book-btn');
-      if (bookBtn) {
-        bookBtn.addEventListener('click', function() {
-          var floatingBtn = document.getElementById('floatingBookBtn');
-          if (floatingBtn) floatingBtn.click();
-          closeHamburgerMenu();
-        });
-      }
-    }
+    // Remove any leftover v10 hamburger or overlay elements from the DOM
+    document.querySelectorAll('.hhp-hamburger-v10, .hhp-mobile-nav-v10').forEach(function(el) {
+      el.remove();
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -1655,12 +1518,12 @@
           setTimeout(function() { window.open(payLink, '_blank'); }, 400);
         };
         confirmBtn.textContent = 'Confirm & Pay Now';
-        confirmBtn.style.background = 'linear-gradient(135deg, #635bff, #7c3aed)';
+        confirmBtn.style.background = 'var(--ink, #1e1409)';
       }
     }
 
-    // Add "Book & Pay" buttons to service cards
-    var cards = document.querySelectorAll('.service-card');
+    // Add "Book & Pay" buttons to paid service cards (skip Meet & Greet and Coming Soon)
+    var cards = document.querySelectorAll('.service-card:not(.mg-card):not(.coming)');
     var cardLinks = [
       { link: STRIPE_LINKS.walk30, label: 'Book Walk · $25' },
       { link: STRIPE_LINKS.dropin20, label: 'Book Visit · $18' },
@@ -1674,7 +1537,7 @@
         btn.target = '_blank';
         btn.className = 'stripe-pay-btn';
         btn.textContent = cardLinks[i].label;
-        btn.style.cssText = 'display:block;text-align:center;margin-top:14px;padding:10px 16px;background:linear-gradient(135deg,#635bff,#7c3aed);color:white;border-radius:8px;font-weight:700;font-size:0.88rem;text-decoration:none;transition:opacity 0.2s;cursor:pointer;';
+        btn.style.cssText = 'display:block;text-align:center;margin-top:auto;padding:10px 16px;background:var(--ink, #1e1409);color:#fff;border-radius:8px;font-weight:700;font-size:0.88rem;text-decoration:none;transition:opacity 0.2s;cursor:pointer;';
         btn.onmouseover = function() { this.style.opacity = '0.85'; };
         btn.onmouseout = function() { this.style.opacity = '1'; };
         card.appendChild(btn);

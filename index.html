@@ -259,12 +259,15 @@ body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);over
 
 /* SERVICES / PRICING */
 .services-section{padding:100px 48px;background:var(--warm)}
-.services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;max-width:1120px;margin:48px auto 0}
+.services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1120px;margin:48px auto 0}
 .service-card{
   background:white;border-radius:12px;padding:32px;
   border:1px solid var(--border);box-shadow:var(--shadow);
   transition:all 0.3s ease;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;
 }
+.service-card .sc-desc{flex:1}
+.service-card.mg-card{border-color:rgba(200,150,62,0.3);background:var(--gold-pale)}
 .service-card::after{
   content:'';position:absolute;bottom:0;left:0;right:0;
   height:3px;background:var(--gold);
@@ -852,6 +855,20 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
         <p class="section-p">Every service includes GPS tracking, photo updates, and a personal walk report. What you see is what you pay.</p>
       </div>
       <div class="services-grid">
+        <!-- Meet & Greet — free intro, first card -->
+        <div class="service-card mg-card fadeup">
+          <div class="sc-icon">🤝</div>
+          <div class="sc-name">Meet &amp; Greet</div>
+          <div class="sc-price" style="color:var(--forest)">Free</div>
+          <div class="sc-desc">An introductory visit so your pet can get comfortable with their new sitter. We'll go over your pet's routine, preferences, and any special needs.</div>
+          <ul class="sc-features">
+            <li>In-home introduction with your pet</li>
+            <li>Review feeding, walking &amp; medication routines</li>
+            <li>Exchange keys &amp; emergency contacts</li>
+            <li>No obligation — just a chance to meet!</li>
+          </ul>
+        </div>
+        <!-- Active Services -->
         <div class="service-card fadeup">
           <div class="sc-icon">🦮</div>
           <div class="sc-name">Dog Walking</div>
@@ -907,13 +924,14 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
             <li>Regular photo updates</li><li>Medication admin if needed</li>
           </ul>
         </div>
+        <!-- Coming Soon -->
         <div class="service-card coming fadeup">
           <div class="coming-tag">Coming Soon</div>
           <div class="sc-icon">🌙</div>
           <div class="sc-name">Dog Boarding</div>
           <div class="sc-price">TBD</div>
           <div class="sc-desc">Your dog stays with Rachel in a warm, loving home environment. Included walks, play sessions, and daily photo updates so you always know how they're doing.</div>
-          <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="openModal('boardingModal')">I'm Interested — Reach Out</button>
+          <button class="btn btn-outline btn-sm" style="margin-top:auto;padding-top:12px" onclick="openModal('boardingModal')">I'm Interested — Reach Out</button>
         </div>
         <div class="service-card coming fadeup">
           <div class="coming-tag">Coming Soon</div>
@@ -921,7 +939,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
           <div class="sc-name">Doggy Day Care</div>
           <div class="sc-price">TBD</div>
           <div class="sc-desc">A dedicated full-day care experience with enrichment activities, social play, multiple walks, and lots of love. Your pup's home away from home!</div>
-          <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="openModal('daycareModal')">I'm Interested — Reach Out</button>
+          <button class="btn btn-outline btn-sm" style="margin-top:auto;padding-top:12px" onclick="openModal('daycareModal')">I'm Interested — Reach Out</button>
         </div>
         <div class="service-card coming fadeup">
           <div class="coming-tag">Coming Soon</div>
@@ -929,21 +947,9 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
           <div class="sc-name">The Paw Bus</div>
           <div class="sc-price">TBD</div>
           <div class="sc-desc">A fun group adventure — I pick up your dog, join a small crew of friendly pups, and head out on a real outing together. Think field trip, but for dogs. Stay tuned!</div>
-          <button class="btn btn-outline btn-sm" style="margin-top:12px" onclick="openModal('pawbusModal')">I'm Interested — Reach Out</button>
+          <button class="btn btn-outline btn-sm" style="margin-top:auto;padding-top:12px" onclick="openModal('pawbusModal')">I'm Interested — Reach Out</button>
         </div>
       </div>
-          <div class="service-card fadeup">
-            <div class="sc-icon">🤝</div>
-            <div class="sc-name">Meet &amp; Greet</div>
-            <div class="sc-price">Free</div>
-            <div class="sc-desc">An introductory visit so your pet can get comfortable with their new sitter. We'll go over your pet's routine, preferences, and any special needs.</div>
-            <ul class="sc-features">
-              <li>In-home introduction with your pet</li>
-              <li>Review feeding, walking &amp; medication routines</li>
-              <li>Exchange keys &amp; emergency contacts</li>
-              <li>No obligation — just a chance to meet!</li>
-            </ul>
-          </div>
     </div>
   </section>
 
