@@ -18,7 +18,7 @@
       btn.addEventListener('click', clickFn);
       return btn;
     }
-    // Home button ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ at the very top after header
+    // Home button ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ at the very top after header
     var homeBtn = makeItem(String.fromCodePoint(0x1F3E0) + ' ', 'Home', function() {
       var dd = document.getElementById('viewDropdown');
       if (dd) { dd.value = 'public'; dd.dispatchEvent(new Event('change')); }
@@ -31,7 +31,7 @@
     divider.style.cssText = 'border-bottom:1px solid #e5d5c0;margin:4px 0;';
     divider.setAttribute('data-fixes-added', 'true');
     homeBtn.after(divider);
-    // Client View button ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ after Edit Link Page (last item)
+    // Client View button ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ after Edit Link Page (last item)
     var allItems = drawer.querySelectorAll('.hhp-drawer-item:not([data-fixes-added])');
     var lastItem = allItems[allItems.length - 1];
     // Add divider before view switches
@@ -213,37 +213,30 @@ _fixStyle.textContent = '@media (min-width: 768px) { #hhp-portal-nav { display: 
 
 // Ensure mobile nav overlay is always visible when open
 (function fixHamburgerMenu() {
-  function patchHamburger() {
-    var ham = document.querySelector(".hhp-hamburger-v10");
-    if (!ham || ham.dataset.fixesPatched) return;
-    ham.dataset.fixesPatched = "1";
-    ham.addEventListener("click", function() {
-      setTimeout(function() {
-        var nav = document.querySelector(".hhp-mobile-nav-v10");
-        if (nav) {
-          nav.style.setProperty("display", "flex", "important");
-          nav.style.setProperty("position", "fixed", "important");
-          nav.style.setProperty("z-index", "99999", "important");
-          nav.style.setProperty("top", "0", "important");
-          nav.style.setProperty("left", "0", "important");
-          nav.style.setProperty("width", "100vw", "important");
-          nav.style.setProperty("height", "100vh", "important");
-          nav.style.setProperty("visibility", "visible", "important");
-          nav.style.setProperty("opacity", "1", "important");
-          nav.style.setProperty("flex-direction", "column", "important");
-          nav.style.setProperty("align-items", "center", "important");
-          nav.style.setProperty("justify-content", "center", "important");
-          nav.style.setProperty("background", "rgba(0,0,0,0.95)", "important");
-          nav.classList.add("hhp-mnav-open");
-        }
-      }, 50);
-    });
-  }
-  setTimeout(patchHamburger, 1000);
-  setTimeout(patchHamburger, 3000);
-  setTimeout(patchHamburger, 5000);
-  setTimeout(patchHamburger, 8000);
-  new MutationObserver(function() { patchHamburger(); }).observe(document.body, {childList: true, subtree: true});
+  // Use capture phase to intercept before ux-patch.js stopImmediatePropagation
+  document.addEventListener("click", function(e) {
+    var target = e.target.closest(".hhp-hamburger-v10");
+    if (!target) return;
+    setTimeout(function() {
+      var nav = document.querySelector(".hhp-mobile-nav-v10");
+      if (nav) {
+        nav.style.setProperty("display", "flex", "important");
+        nav.style.setProperty("position", "fixed", "important");
+        nav.style.setProperty("z-index", "99999", "important");
+        nav.style.setProperty("top", "0", "important");
+        nav.style.setProperty("left", "0", "important");
+        nav.style.setProperty("width", "100vw", "important");
+        nav.style.setProperty("height", "100vh", "important");
+        nav.style.setProperty("visibility", "visible", "important");
+        nav.style.setProperty("opacity", "1", "important");
+        nav.style.setProperty("flex-direction", "column", "important");
+        nav.style.setProperty("align-items", "center", "important");
+        nav.style.setProperty("justify-content", "center", "important");
+        nav.style.setProperty("background", "rgba(0,0,0,0.95)", "important");
+        nav.classList.add("hhp-mnav-open");
+      }
+    }, 50);
+  }, true);  // true = capture phase
 })();
 
 // Remove duplicate empty drawers created by ux-patch.js running twice
