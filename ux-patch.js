@@ -1,7 +1,9 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v15 (ux-patch.js)
+// Housley Happy Paws — UX Patch v16 (ux-patch.js)
 // Merged: v9 architecture (hamburger=public links, drawer=portal nav)
 //       + v7 robust implementations (footer, meet&greet, preview, CSS)
+// Changes from v15:
+//   - Mobile fixes for Availability, AI Studio, Edit Website, Photos & Media
 // Changes from v14:
 //   - Removed Quick Save floating button (CSS hide + DOM removal + MutationObserver)
 // Changes from v13:
@@ -392,6 +394,38 @@
 
         /* -- Portal form inputs -- */
         '.form-group input, .form-group textarea { font-size: 16px !important; }' +
+
+        /* -- Availability section (mobile fix) -- */
+        '#o-avail .card > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; gap: 12px !important; }' +
+        '#o-avail .form-row { grid-template-columns: 1fr !important; }' +
+
+        /* -- AI Studio section (mobile fix) -- */
+        '#o-studio > div > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; gap: 12px !important; }' +
+        '#o-studio .card { max-width: 100% !important; overflow-x: hidden !important; }' +
+        '#aiChatLog { max-height: 50vh !important; }' +
+        '#aiQuickBtns { flex-wrap: wrap !important; gap: 6px !important; }' +
+
+        /* -- Edit Website section (mobile fix) -- */
+        '#o-content > div > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; gap: 12px !important; }' +
+        '#contentSections { flex-direction: column !important; gap: 4px !important; }' +
+        '#contentSections > div { width: 100% !important; }' +
+        '.content-edit-panel { padding: 12px !important; }' +
+        '.content-edit-panel .form-group textarea { min-height: 80px !important; }' +
+        '#contentEditArea { max-width: 100% !important; overflow-x: hidden !important; }' +
+        '#pricingEditorRows, #serviceDescRows { flex-direction: column !important; gap: 8px !important; }' +
+        '#pricingEditorRows > div, #serviceDescRows > div { width: 100% !important; }' +
+
+        /* -- Photos & Media section (mobile fix) -- */
+        '#o-photos > div > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; gap: 12px !important; }' +
+        '#o-photos div[style*="grid-template-columns: 1fr 1fr 1fr"],' +
+        '#o-photos div[style*="grid-template-columns:1fr 1fr 1fr"],' +
+        '#o-photos div[style*="grid-template-columns: repeat(3"],' +
+        '#o-photos div[style*="grid-template-columns:repeat(3"] {' +
+          'grid-template-columns: 1fr 1fr !important; gap: 8px !important;' +
+        '}' +
+        '.photo-upload-slot { width: 100% !important; max-width: 100% !important; }' +
+        '#heroPhotoPreview { max-width: 100% !important; }' +
+        '#heroPhotoPreview img { max-width: 100% !important; height: auto !important; }' +
 
         /* -- Pull-out drawer tab (3-line hamburger on left edge) -- */
         '.hhp-drawer-tab {' +
