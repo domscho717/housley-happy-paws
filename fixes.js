@@ -142,3 +142,16 @@ var _patchScript = document.createElement('script'); _patchScript.src = '/ux-pat
 var _fixStyle = document.createElement('style');
 _fixStyle.textContent = '@media (min-width: 768px) { #hhp-portal-nav { display: none !important; } }';
 document.head.appendChild(_fixStyle);
+
+// NUKE left drawer-tab hamburger completely (CSS + DOM removal + observer)
+(function() {
+    var s = document.createElement('style');
+    s.textContent = '.hhp-drawer-tab, .hhp-drawer-tab.hhp-drawer-tab-visible { display:none!important;visibility:hidden!important;width:0!important;height:0!important;pointer-events:none!important; }';
+    document.head.appendChild(s);
+    function killTab() { var t = document.querySelector('.hhp-drawer-tab'); if (t) t.remove(); }
+    killTab();
+    setTimeout(killTab, 500);
+    setTimeout(killTab, 1500);
+    setTimeout(killTab, 3000);
+    new MutationObserver(killTab).observe(document.body, {childList:true, subtree:true});
+})();
