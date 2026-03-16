@@ -18,9 +18,12 @@
       btn.addEventListener('click', clickFn);
       return btn;
     }
-    // Home button ÃÂ¢ÃÂÃÂ at the very top after header
+    // Home button ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ at the very top after header
     var homeBtn = makeItem(String.fromCodePoint(0x1F3E0) + ' ', 'Home', function() {
-      window.location.href = '/';
+      var dd = document.getElementById('viewDropdown');
+      if (dd) { dd.value = 'public'; dd.dispatchEvent(new Event('change')); }
+      var closeBtn = drawer.querySelector('.hhp-drawer-close') || drawer.querySelector('.hhp-drawer-header button');
+      if (closeBtn) closeBtn.click();
     });
     header.after(homeBtn);
     // Divider after Home
@@ -28,7 +31,7 @@
     divider.style.cssText = 'border-bottom:1px solid #e5d5c0;margin:4px 0;';
     divider.setAttribute('data-fixes-added', 'true');
     homeBtn.after(divider);
-    // Client View button ÃÂ¢ÃÂÃÂ after Edit Link Page (last item)
+    // Client View button ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ after Edit Link Page (last item)
     var allItems = drawer.querySelectorAll('.hhp-drawer-item:not([data-fixes-added])');
     var lastItem = allItems[allItems.length - 1];
     // Add divider before view switches
@@ -50,6 +53,14 @@
       if (closeBtn) closeBtn.click();
     });
     clientBtn.after(staffBtn);
+    // Owner View button - to switch back to owner dashboard
+    var ownerBtn = makeItem(String.fromCodePoint(0x1F451) + ' ', 'Owner View', function() {
+      var dd = document.getElementById('viewDropdown');
+      if (dd) { dd.value = 'owner'; dd.dispatchEvent(new Event('change')); }
+      var closeBtn = drawer.querySelector('.hhp-drawer-close') || drawer.querySelector('.hhp-drawer-header button');
+      if (closeBtn) closeBtn.click();
+    });
+    staffBtn.after(ownerBtn);
   }
   setTimeout(patchDrawer, 1000);
   setTimeout(patchDrawer, 3000);
