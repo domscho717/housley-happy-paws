@@ -18,8 +18,8 @@
       btn.addEventListener('click', clickFn);
       return btn;
     }
-    // Home button Ã¢ÂÂ at the very top after header
-    var homeBtn = makeItem('Ã°ÂÂÂ ', 'Home', function() {
+    // Home button ÃÂ¢ÃÂÃÂ at the very top after header
+    var homeBtn = makeItem(String.fromCodePoint(0x1F3E0) + ' ', 'Home', function() {
       window.location.href = '/';
     });
     header.after(homeBtn);
@@ -28,7 +28,7 @@
     divider.style.cssText = 'border-bottom:1px solid #e5d5c0;margin:4px 0;';
     divider.setAttribute('data-fixes-added', 'true');
     homeBtn.after(divider);
-    // Client View button Ã¢ÂÂ after Edit Link Page (last item)
+    // Client View button ÃÂ¢ÃÂÃÂ after Edit Link Page (last item)
     var allItems = drawer.querySelectorAll('.hhp-drawer-item:not([data-fixes-added])');
     var lastItem = allItems[allItems.length - 1];
     // Add divider before view switches
@@ -36,14 +36,14 @@
     divider2.style.cssText = 'border-bottom:1px solid #e5d5c0;margin:4px 0;';
     divider2.setAttribute('data-fixes-added', 'true');
     lastItem.after(divider2);
-    var clientBtn = makeItem('Ã°ÂÂÂ¤', 'Client View', function() {
+    var clientBtn = makeItem(String.fromCodePoint(0x1F464) + ' ', 'Client View', function() {
       var dd = document.getElementById('viewDropdown');
       if (dd) { dd.value = 'client'; dd.dispatchEvent(new Event('change')); }
       var closeBtn = drawer.querySelector('.hhp-drawer-close') || drawer.querySelector('.hhp-drawer-header button');
       if (closeBtn) closeBtn.click();
     });
     divider2.after(clientBtn);
-    var staffBtn = makeItem('Ã°ÂÂÂ·', 'Staff View', function() {
+    var staffBtn = makeItem(String.fromCodePoint(0x1F477) + ' ', 'Staff View', function() {
       var dd = document.getElementById('viewDropdown');
       if (dd) { dd.value = 'staff'; dd.dispatchEvent(new Event('change')); }
       var closeBtn = drawer.querySelector('.hhp-drawer-close') || drawer.querySelector('.hhp-drawer-header button');
