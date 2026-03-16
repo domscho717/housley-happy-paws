@@ -1517,34 +1517,37 @@
           if (typeof toast === 'function') toast('Redirecting to secure payment...');
           setTimeout(function() { window.open(payLink, '_blank'); }, 400);
         };
-        confirmBtn.textContent = 'Confirm & Pay Now';
+        confirmBtn.textContent = 'Submit Request';
         confirmBtn.style.background = 'var(--ink, #1e1409)';
       }
     }
 
     // Add "Book & Pay" buttons to paid service cards (skip Meet & Greet and Coming Soon)
     var cards = document.querySelectorAll('.service-card:not(.mg-card):not(.coming)');
-    var cardLinks = [
-      { link: STRIPE_LINKS.walk30, label: 'Book Walk · $25' },
-      { link: STRIPE_LINKS.dropin20, label: 'Book Visit · $18' },
-      { link: STRIPE_LINKS.cat20, label: 'Book Visit · $18' },
-      { link: STRIPE_LINKS.housesit, label: 'Book Stay · $125' }
+    var cardLabels = [
+      'Request a Walk',
+      'Request a Visit',
+      'Request a Visit',
+      'Request a Stay'
     ];
     cards.forEach(function(card, i) {
-      if (i < cardLinks.length && !card.querySelector('.stripe-pay-btn')) {
-        var btn = document.createElement('a');
-        btn.href = cardLinks[i].link;
-        btn.target = '_blank';
+      if (i < cardLabels.length && !card.querySelector('.stripe-pay-btn')) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'stripe-pay-btn';
-        btn.textContent = cardLinks[i].label;
-        btn.style.cssText = 'display:block;text-align:center;margin-top:auto;padding:10px 16px;background:var(--ink, #1e1409);color:#fff;border-radius:8px;font-weight:700;font-size:0.88rem;text-decoration:none;transition:opacity 0.2s;cursor:pointer;';
+        btn.textContent = cardLabels[i];
+        btn.style.cssText = 'display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;text-decoration:none;transition:opacity 0.2s;cursor:pointer;font-family:inherit;';
         btn.onmouseover = function() { this.style.opacity = '0.85'; };
         btn.onmouseout = function() { this.style.opacity = '1'; };
+        btn.addEventListener('click', function() {
+          if (typeof openModal === 'function') openModal('bookModal');
+          else if (typeof mgModal === 'function') mgModal();
+        });
         card.appendChild(btn);
       }
     });
 
-    console.log('Stripe payment links wired to booking flow and service cards');
+    console.log('Service request buttons wired to booking flow');
   }
 
   wireStripeBooking();
