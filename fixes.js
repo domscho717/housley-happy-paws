@@ -729,3 +729,168 @@ document.head.appendChild(_fixStyle);
   setTimeout(cleanMobileMenu, 5000);
   new MutationObserver(function() { cleanMobileMenu(); }).observe(document.body, {childList: true, subtree: true});
 })();
+
+
+/* ============================================================
+   COMPREHENSIVE FIX BLOCK v2
+   Fixes: page duplication, mojibake emojis, dropdown visibility,
+          Meet & Greet full service card, hamburger menu
+   ============================================================ */
+(function comprehensiveFix() {
+
+  function dedupPages() {
+    var ids = ["pg-public","pg-client","pg-staff","pg-owner"];
+    ids.forEach(function(id) {
+      var els = document.querySelectorAll("#" + id);
+      for (var i = 1; i < els.length; i++) els[i].remove();
+    });
+  }
+
+  function fixMojibake() {
+    var re = /[\u00C0-\u00DF][\u0080-\u00BF]|[\u00E0-\u00EF][\u0080-\u00BF]{2}|[\u00F0-\u00F7][\u0080-\u00BF]{3}/;
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    var nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function(node) {
+      var t = node.textContent;
+      if (re.test(t)) {
+        try {
+          var bytes = new Uint8Array(t.length);
+          for (var i = 0; i < t.length; i++) bytes[i] = t.charCodeAt(i) & 0xFF;
+          var decoded = new TextDecoder("utf-8").decode(bytes);
+          if (decoded !== t) node.textContent = decoded;
+        } catch(e) {}
+      }
+    });
+    var attrEls = document.querySelectorAll("[title],[alt],[placeholder],[aria-label]");
+    attrEls.forEach(function(el) {
+      ["title","alt","placeholder","aria-label"].forEach(function(attr) {
+        var val = el.getAttribute(attr);
+        if (val && re.test(val)) {
+          try {
+            var bytes = new Uint8Array(val.length);
+            for (var i = 0; i < val.length; i++) bytes[i] = val.charCodeAt(i) & 0xFF;
+            var decoded = new TextDecoder("utf-8").decode(bytes);
+            if (decoded !== val) el.setAttribute(attr, decoded);
+          } catch(e) {}
+        }
+      });
+    });
+  }
+  function hideDropdownOnPublic() {
+    var dd = document.querySelector("#viewDropdown");
+    if (!dd) return;
+    var wrap = dd.closest(".hhp-view-switcher") || dd.parentElement;
+    var current = dd.value;
+    if (current === "public" || !current) {
+      if (wrap) wrap.style.display = "none";
+    }
+    dd.addEventListener("change", function() {
+      if (dd.value === "public") { if (wrap) wrap.style.display = "none"; }
+      else { if (wrap) wrap.style.display = ""; }
+    });
+  }
+
+  function ensureMeetGreetCard() {
+    var grid = document.querySelector(".services-grid");
+    if (!grid) return;
+    var cards = grid.querySelectorAll(".service-card");
+    var mgCard = null;
+    for (var i = 0; i < cards.length; i++) {
+      var nameEl = cards[i].querySelector(".sc-name");
+      if (nameEl && nameEl.textContent.indexOf("Meet") >= 0 && nameEl.textContent.indexOf("Greet") >= 0) {
+        mgCard = cards[i]; break;
+      }
+    }
+    var handshake = String.fromCodePoint(0x1F91D);
+    var fullHTML = '<div class="sc-icon">' + handshake + '</div>' +
+      '<div class="sc-name">Meet &amp; Greet</div>' +
+      '<div class="sc-price">Free</div>' +
+      '<div class="sc-desc">An introductory visit so your pet can get comfortable with their new sitter. We\u2019ll go over your pet\u2019s routine, preferences, and any special needs.</div>' +
+      '<ul class="sc-features">' +
+        '<li>\u2714 In-home introduction with your pet</li>' +
+        '<li>\u2714 Review feeding, walking &amp; medication routines</li>' +
+        '<li>\u2714 Exchange keys &amp; emergency contacts</li>' +
+        '<li>\u2714 No obligation \u2014 just a chance to meet!</li>' +
+      '</ul>' +
+      '<a href="#book" class="btn-book" onclick="if(window.openBooking){window.openBooking(\'meet-greet\');return false;}">Book Meet &amp; Greet \u00B7 Free</a>';
+    if (mgCard) {
+      if (!mgCard.querySelector(".btn-book, a[href*=book]")) mgCard.innerHTML = fullHTML;
+    } else {
+      var card = document.createElement("div");
+      card.className = "service-card fadeup";
+      card.innerHTML = fullHTML;
+      if (grid.firstChild) grid.insertBefore(card, grid.firstChild);
+      else grid.appendChild(card);
+    }
+    if (!document.querySelector("#mg-btn-style")) {
+      var s = document.createElement("style"); s.id = "mg-btn-style";
+      s.textContent = ".service-card .btn-book{display:block;width:100%;padding:14px 0;text-align:center;background:#7c6420;color:#fff;border-radius:10px;text-decoration:none;font-weight:600;font-size:1rem;margin-top:auto;transition:background 0.2s;cursor:pointer;border:none;}.service-card .btn-book:hover{background:#5a4a18;}";
+      document.head.appendChild(s);
+    }
+  }
+  function fixHamburger() {
+    var ham = document.querySelector(".hhp-hamburger-v10");
+    if (!ham) return;
+    if (!document.querySelector("#ham-fix-style")) {
+      var s = document.createElement("style"); s.id = "ham-fix-style";
+      s.textContent = "@media(max-width:768px){.hhp-hamburger-v10{display:flex!important;position:fixed;top:12px;right:12px;z-index:10001;width:44px;height:44px;align-items:center;justify-content:center;background:#7c6420;border-radius:8px;cursor:pointer;border:none;padding:0;}.hhp-hamburger-v10 .bar{display:block;width:22px;height:2px;background:#fff;margin:3px auto;border-radius:2px;}.site-nav .nav-links,.site-nav .nav-right{display:none!important;}}";
+      document.head.appendChild(s);
+    }
+    if (!ham.innerHTML.trim() || ham.children.length === 0) {
+      ham.innerHTML = '<span class="bar"></span><span class="bar"></span><span class="bar"></span>';
+    }
+    if (!window._hamFixBound) {
+      window._hamFixBound = true;
+      document.addEventListener("click", function(e) {
+        var target = e.target.closest(".hhp-hamburger-v10");
+        if (!target) return;
+        e.stopPropagation(); e.preventDefault();
+        var drawer = document.querySelector(".hhp-drawer");
+        if (drawer) {
+          var isOpen = drawer.classList.contains("open") || drawer.style.transform === "translateX(0px)";
+          if (isOpen) { drawer.classList.remove("open"); drawer.style.transform = "translateX(100%)"; }
+          else { drawer.classList.add("open"); drawer.style.transform = "translateX(0px)"; }
+        }
+      }, true);
+    }
+    if (!document.querySelector("#drawer-fix-style")) {
+      var ds = document.createElement("style"); ds.id = "drawer-fix-style";
+      ds.textContent = ".hhp-drawer{position:fixed;top:0;right:0;width:280px;height:100vh;background:#fff;z-index:10002;transform:translateX(100%);transition:transform 0.3s ease;box-shadow:-2px 0 10px rgba(0,0,0,0.15);padding:60px 20px 20px;overflow-y:auto;}.hhp-drawer.open{transform:translateX(0px)!important;}.hhp-drawer a{display:block;padding:12px 0;color:#333;text-decoration:none;font-size:1.1rem;border-bottom:1px solid #eee;}.hhp-drawer a:hover{color:#7c6420;}";
+      document.head.appendChild(ds);
+    }
+    var drawer = document.querySelector(".hhp-drawer");
+    if (drawer && !drawer.querySelector(".drawer-close")) {
+      var cb = document.createElement("button"); cb.className = "drawer-close";
+      cb.innerHTML = "\u00D7";
+      cb.style.cssText = "position:absolute;top:12px;right:12px;font-size:28px;background:none;border:none;cursor:pointer;color:#333;z-index:10003;";
+      cb.addEventListener("click", function() { drawer.classList.remove("open"); drawer.style.transform = "translateX(100%)"; });
+      drawer.insertBefore(cb, drawer.firstChild);
+    }
+  }
+
+  function cleanOrphans() {
+    var allCards = document.querySelectorAll(".service-card");
+    allCards.forEach(function(c) { if (!c.closest(".services-grid")) c.remove(); });
+  }
+
+  function runAllFixes() {
+    dedupPages(); fixMojibake(); hideDropdownOnPublic();
+    ensureMeetGreetCard(); fixHamburger(); cleanOrphans();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function() {
+      setTimeout(runAllFixes, 1500); setTimeout(runAllFixes, 4000); setTimeout(runAllFixes, 8000);
+    });
+  } else {
+    setTimeout(runAllFixes, 1500); setTimeout(runAllFixes, 4000); setTimeout(runAllFixes, 8000);
+  }
+
+  var obsRan = 0;
+  var obs = new MutationObserver(function() {
+    var pages = document.querySelectorAll("#pg-public");
+    if (pages.length > 1 && obsRan < 10) { obsRan++; runAllFixes(); }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+})();
