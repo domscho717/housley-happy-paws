@@ -137,3 +137,8 @@ var _galScript = document.createElement('script'); _galScript.src = '/js/gallery
 var _uxScript = document.createElement('script'); _uxScript.src = '/js/ux-upgrades.js'; _uxScript.defer = true; document.head.appendChild(_uxScript);
 
 var _patchScript = document.createElement('script'); _patchScript.src = '/ux-patch.js'; _patchScript.defer = true; document.head.appendChild(_patchScript);
+
+// Hide Owner Portal dropdown button on desktop (CSS fix for timing issue)
+var _fixStyle = document.createElement('style');
+_fixStyle.textContent = '@media (min-width: 768px) { #hhp-portal-nav { display: none !important; } }';
+document.head.appendChild(_fixStyle);
