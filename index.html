@@ -250,14 +250,12 @@ body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);over
 /* ABOUT SECTION */
 .about-section{padding:100px 48px;background:white}
 .about-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:60px;align-items:start;max-width:1120px;margin:0 auto;overflow:hidden}
-.about-photos{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:14px;width:100%;min-width:0;min-width:0;overflow:hidden}
-.about-photo{
-  border-radius:10px;display:flex;align-items:center;justify-content:center;
-  font-size:3.5rem;border:1px solid var(--border);
+.about-photos{display:flex;width:100%;min-width:0;overflow:hidden}
+.about-photo-single{
+  width:100%;min-height:420px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+  font-size:5rem;border:1px solid var(--border);overflow:hidden;
 }
-.ap1{aspect-ratio:1;background:linear-gradient(135deg,var(--gold-pale),var(--gold-light));grid-row:1/3}
-.ap2{aspect-ratio:1.4;background:linear-gradient(135deg,var(--forest-pale),var(--forest-light))}
-.ap3{aspect-ratio:1.4;background:linear-gradient(135deg,var(--rose-pale),var(--rose-light))}
+.about-photo-single img{width:100%;height:100%;object-fit:cover;border-radius:16px}
 
 /* SERVICES / PRICING */
 .services-section{padding:100px 48px;background:var(--warm)}
@@ -775,7 +773,6 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
       </select>
       <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--mid);font-size:0.7rem">▼</span>
     </div>
-    <button class="nbtn nbtn-gold" onclick="openModal('mgModal')">Book Meet & Greet</button>
     <button id="navLoginBtn" class="nbtn nbtn-outline" onclick="if(typeof HHP_Auth!=='undefined'){HHP_Auth.showLoginScreen()}else{switchView('client')}" style="font-size:0.78rem">Sign In</button>
     <button id="navLogoutBtn" class="nbtn nbtn-outline" onclick="if(typeof HHP_Auth!=='undefined')HHP_Auth.logout()" style="display:none;font-size:0.78rem;color:var(--rose)">Sign Out</button>
   </div>
@@ -828,9 +825,9 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   <section class="about-section" id="about">
     <div class="about-grid">
       <div class="about-photos fadeup">
-        <div class="about-photo ap1">🐕</div>
-        <div class="about-photo ap2">🐱</div>
-        <div class="about-photo ap3">🐾</div>
+        <div class="about-photo-single" style="width:100%;min-height:420px;border-radius:16px;background:linear-gradient(135deg,var(--gold-pale),var(--forest-pale));display:flex;align-items:center;justify-content:center;font-size:5rem;border:1px solid var(--border);overflow:hidden;">
+          <span>🐾</span>
+        </div>
       </div>
       <div class="fadeup">
         <div class="section-eyebrow">About Rachel</div>
@@ -2994,14 +2991,12 @@ body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);over
 /* ABOUT SECTION */
 .about-section{padding:100px 48px;background:white}
 .about-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:60px;align-items:start;max-width:1120px;margin:0 auto;overflow:hidden}
-.about-photos{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:14px;width:100%;min-width:0;min-width:0;overflow:hidden}
-.about-photo{
-  border-radius:10px;display:flex;align-items:center;justify-content:center;
-  font-size:3.5rem;border:1px solid var(--border);
+.about-photos{display:flex;width:100%;min-width:0;overflow:hidden}
+.about-photo-single{
+  width:100%;min-height:420px;border-radius:16px;display:flex;align-items:center;justify-content:center;
+  font-size:5rem;border:1px solid var(--border);overflow:hidden;
 }
-.ap1{aspect-ratio:1;background:linear-gradient(135deg,var(--gold-pale),var(--gold-light));grid-row:1/3}
-.ap2{aspect-ratio:1.4;background:linear-gradient(135deg,var(--forest-pale),var(--forest-light))}
-.ap3{aspect-ratio:1.4;background:linear-gradient(135deg,var(--rose-pale),var(--rose-light))}
+.about-photo-single img{width:100%;height:100%;object-fit:cover;border-radius:16px}
 
 /* SERVICES / PRICING */
 .services-section{padding:100px 48px;background:var(--warm)}
@@ -3519,7 +3514,6 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
       </select>
       <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--mid);font-size:0.7rem">â¼</span>
     </div>
-    <button class="nbtn nbtn-gold" onclick="openModal('mgModal')">Book Meet & Greet</button>
     <button id="navLoginBtn" class="nbtn nbtn-outline" onclick="if(typeof HHP_Auth!=='undefined'){HHP_Auth.showLoginScreen()}else{switchView('client')}" style="font-size:0.78rem">Sign In</button>
     <button id="navLogoutBtn" class="nbtn nbtn-outline" onclick="if(typeof HHP_Auth!=='undefined')HHP_Auth.logout()" style="display:none;font-size:0.78rem;color:var(--rose)">Sign Out</button>
   </div>

@@ -153,6 +153,25 @@
         'display: none !important; visibility: hidden !important;' +
       '}' +
 
+      /* ===== NAVBAR: hide gold Book Meet & Greet everywhere ===== */
+      '.nbtn-gold[onclick*="mgModal"] { display: none !important; }' +
+
+      /* ===== DESKTOP (>1024px): View Switcher — ensure visible ===== */
+      '@media (min-width: 1025px) {' +
+        '#viewSwitcher {' +
+          'display: inline-flex !important; visibility: visible !important;' +
+          'opacity: 1 !important; position: relative !important;' +
+        '}' +
+        '#viewDropdown {' +
+          'display: block !important; visibility: visible !important;' +
+          'background: #fdfaf5 !important; border: 1.5px solid #c8963e !important;' +
+          'border-radius: 8px !important; padding: 8px 38px 8px 14px !important;' +
+          'font-family: Jost, sans-serif !important; font-size: 0.82rem !important;' +
+          'font-weight: 600 !important; color: #1e1409 !important;' +
+          'cursor: pointer !important; min-width: 120px !important;' +
+        '}' +
+      '}' +
+
       /* ===== DESKTOP: Hero + About tweaks ===== */
       '.hero { grid-template-columns: 1.2fr 0.8fr !important; }' +
       '.hero .hero-photo-col { max-width: 500px !important; justify-self: center !important; }' +
@@ -228,7 +247,7 @@
           'display: none !important;' +
         '}' +
         '.hhp-mobile-nav-v10.hhp-mnav-open {' +
-          'display: none !important; flex-direction: column !important;' +
+          'display: flex !important; flex-direction: column !important;' +
           'position: fixed !important; top: 0 !important; left: 0 !important;' +
           'width: 100vw !important; height: 100vh !important;' +
           'z-index: 9997 !important; background: #fdfaf5 !important;' +
@@ -540,14 +559,61 @@
       '.hhp-mobile-nav:not(.hhp-mobile-nav-v10) { display: none !important; }' +
       '.hhp-portal-hamburger { display: none !important; }' +
 
-      /* ===== DESKTOP: hide mobile-only elements ===== */
-      '@media (min-width: 768px) {' +
+      /* ===== DESKTOP (>1024px): hide mobile-only elements ===== */
+      '@media (min-width: 1025px) {' +
         '.hhp-drawer-tab { display: none !important; }' +
         '.hhp-drawer { display: none !important; }' +
         '.hhp-drawer-overlay { display: none !important; }' +
         '.hhp-hamburger-v10 { display: none !important; }' +
         '.hhp-mobile-nav-v10 { display: none !important; }' +
         '.hhp-mobile-signin-btn { display: none !important; }' +
+      '}' +
+
+      /* ===== TABLET/iPad (768–1024px): use hamburger nav ===== */
+      '@media (min-width: 768px) and (max-width: 1024px) {' +
+        '.nav-center { display: none !important; }' +
+        '.nav-right { display: none !important; }' +
+        '#viewSwitcher { display: none !important; }' +
+        '.hhp-hamburger-v10 {' +
+          'display: flex !important; flex-direction: column !important; order: 99 !important; margin-left: auto !important;' +
+          'background: transparent !important; border: none !important;' +
+          'width: 44px !important; height: 44px !important; border-radius: 10px !important;' +
+          'align-items: center !important; justify-content: center !important;' +
+          'cursor: pointer !important; padding: 0 !important; z-index: 9999 !important;' +
+          'gap: 5px !important;' +
+        '}' +
+        '.hhp-hamburger-v10 .hhp-hline {' +
+          'display: block !important; width: 26px !important; height: 3px !important;' +
+          'background: #1a1008 !important; border-radius: 2px !important;' +
+        '}' +
+        '.hhp-mobile-nav-v10 { display: none !important; }' +
+        '.hhp-mobile-nav-v10.hhp-mnav-open {' +
+          'display: flex !important; flex-direction: column !important;' +
+          'position: fixed !important; top: 0 !important; left: 0 !important;' +
+          'width: 100vw !important; height: 100vh !important;' +
+          'z-index: 9997 !important; background: #fdfaf5 !important;' +
+          'padding: 70px 20px 20px !important; overflow-y: auto !important;' +
+        '}' +
+        '.hhp-mnav-link {' +
+          'display: block; padding: 14px 0; font-size: 1.1rem; font-weight: 600;' +
+          'color: #000000 !important; text-decoration: none; border-bottom: 1px solid #e8ddd0;' +
+          'cursor: pointer; -webkit-text-fill-color: #000000 !important;' +
+        '}' +
+        '.hhp-mnav-signin {' +
+          'display: inline-block; margin-top: 16px; padding: 12px 28px;' +
+          'background: transparent; border: 1.5px solid #c8963e; border-radius: 10px;' +
+          'color: #000000 !important; font-weight: 700; font-size: 0.95rem; cursor: pointer;' +
+          '-webkit-text-fill-color: #000000 !important;' +
+        '}' +
+        '.hhp-mobile-signin-btn {' +
+          'display: block !important; order: 98 !important; margin-left: 8px !important;' +
+          'padding: 8px 14px !important; border: 1.5px solid #c8963e !important;' +
+          'background: transparent !important; color: #000000 !important;' +
+          'font-weight: 700 !important; font-size: 0.85rem !important;' +
+          'border-radius: 8px !important; cursor: pointer !important;' +
+          '-webkit-text-fill-color: #000000 !important;' +
+        '}' +
+        '.about-grid { grid-template-columns: 1fr !important; gap: 24px !important; }' +
       '}' +
 
       /* ===== Preview tool styles (restored from v7) ===== */
@@ -600,7 +666,7 @@
   // MOBILE SIDEBAR — force-hide on mobile (restored from v7)
   // ─────────────────────────────────────────────
   function fixMobileSidebar() {
-    var isMobile = window.innerWidth <= 767;
+    var isMobile = window.innerWidth <= 1024;
     if (!isMobile) return;
 
     // Force-hide all sidebars via inline style
@@ -984,7 +1050,7 @@
     }
 
     var tab = document.querySelector('.hhp-drawer-tab');
-    if (tab && window.innerWidth <= 767) tab.classList.add('hhp-drawer-tab-visible');
+    if (tab && window.innerWidth <= 1024) tab.classList.add('hhp-drawer-tab-visible');
 
     // Determine portal name
     var portalNames = {
@@ -1063,7 +1129,7 @@
   // FIX ABOUT PHOTO — force full width (restored from v7)
   // ─────────────────────────────────────────────
   function fixAboutPhoto() {
-    if (window.innerWidth > 767) return;
+    if (window.innerWidth > 1024) return;
     var aboutPhotos = document.querySelector('.about-photos');
     if (!aboutPhotos) return;
     aboutPhotos.style.setProperty('width', '100%', 'important');
