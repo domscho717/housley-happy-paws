@@ -972,3 +972,18 @@ document.head.appendChild(_fixStyle);
 
 // Load nav-fix.js dynamically
 (function(){var s=document.createElement("script");s.src="/js/nav-fix.js";s.defer=true;document.body.appendChild(s);})();
+
+// Persistent view-switcher fix - keeps dropdown visible against rogue scripts
+(function(){
+  var ddStyle = "display:inline-block!important;visibility:visible!important;width:auto!important;height:auto!important;min-width:140px!important;min-height:28px!important;padding:5px 10px!important;font-size:13px!important;background:#1a1a1a!important;color:#bfa260!important;border:1px solid #bfa260!important;border-radius:6px!important;cursor:pointer!important;-webkit-appearance:menulist!important;appearance:auto!important;";
+  function forceViewSwitcher(){
+    var vs=document.getElementById("viewSwitcher");
+    var dd=document.getElementById("viewDropdown");
+    var nr=document.querySelector(".nav-right");
+    if(vs){vs.style.cssText="display:inline-block!important;visibility:visible!important;";}
+    if(dd){dd.style.cssText=ddStyle;}
+    if(nr){nr.style.cssText="display:flex!important;visibility:visible!important;align-items:center;gap:10px;";}
+  }
+  var count=0;
+  var iv=setInterval(function(){forceViewSwitcher();count++;if(count>20)clearInterval(iv);},500);
+})();
