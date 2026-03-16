@@ -1,7 +1,9 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v16 (ux-patch.js)
+// Housley Happy Paws — UX Patch v17 (ux-patch.js)
 // Merged: v9 architecture (hamburger=public links, drawer=portal nav)
 //       + v7 robust implementations (footer, meet&greet, preview, CSS)
+// Changes from v16:
+//   - Stripe payment integration: booking confirm → checkout, Pay Now on service cards
 // Changes from v15:
 //   - Mobile fixes for Availability, AI Studio, Edit Website, Photos & Media
 // Changes from v14:
@@ -1494,6 +1496,81 @@
       });
     }
 
-    console.log('\uD83D\uDC3E HHP UX Patch v15 applied (auth-gated drawer, old nav removed, hamburger=public, drawer=portal, black text, 3-line icons)');
+    console.log('\uD83D\uDC3E HHP UX Patch v17 applied (auth-gated drawer, old nav removed, hamburger=public, drawer=portal, black text, 3-line icons)');
   });
+
+  // ── Stripe Payment Integration (v17) ──
+  function wireStripeBooking() {
+    // Payment links map (test mode - switch to live links for production)
+    var STRIPE_LINKS = {
+      'walk30': 'https://buy.stripe.com/test_7sY5kDcu661Mgzx4Lx1kA00',
+      'walk60': 'https://buy.stripe.com/test_cNieVdbq2gGqbfdguf1kA01',
+      'dropin20': 'https://buy.stripe.com/test_cNi28rdya75Q3MLdi31kA02',
+      'dropin40': 'https://buy.stripe.com/test_fZu6oHdya9dYdnlem71kA03',
+      'cat20': 'https://buy.stripe.com/test_3cI6oH51Ebm6831guf1kA04',
+      'cat40': 'https://buy.stripe.com/test_aFaaEX8dQ75Q8315PB1kA05',
+      'housesit': 'https://buy.stripe.com/test_aFa9AT65I9dYbfd5PB1kA06',
+      'housesit_holiday': 'https://buy.stripe.com/test_cNifZhgKmbm65UT4Lx1kA07',
+      'housesit_puppy': 'https://buy.stripe.com/test_28E28r65Icqa6YX3Ht1kA08',
+      'housesit_cat': 'https://buy.stripe.com/test_6oUbJ13XA3TE2IH7XJ1kA09'
+    };
+
+    // Map booking modal select options to payment link keys
+    function getPayLinkFromSelect(val) {
+      val = (val || '').toLowerCase();
+      if (val.indexOf('walk') !== -1 && val.indexOf('30') !== -1) return STRIPE_LINKS.walk30;
+      if (val.indexOf('walk') !== -1 && val.indexOf('60') !== -1) return STRIPE_LINKS.walk60;
+      if (val.indexOf('drop') !== -1 && val.indexOf('20') !== -1) return STRIPE_LINKS.dropin20;
+      if (val.indexOf('drop') !== -1 && val.indexOf('40') !== -1) return STRIPE_LINKS.dropin40;
+      if (val.indexOf('cat') !== -1 && val.indexOf('20') !== -1) return STRIPE_LINKS.cat20;
+      if (val.indexOf('cat') !== -1 && val.indexOf('40') !== -1) return STRIPE_LINKS.cat40;
+      if (val.indexOf('board') !== -1 || val.indexOf('house') !== -1 || val.indexOf('sit') !== -1) return STRIPE_LINKS.housesit;
+      return STRIPE_LINKS.walk30; // fallback
+    }
+
+    // Override booking confirm button to redirect to Stripe
+    var bookModal = document.getElementById('bookModal');
+    if (bookModal) {
+      var confirmBtn = bookModal.querySelector('.submit-btn');
+      if (confirmBtn) {
+        confirmBtn.onclick = function() {
+          var sel = bookModal.querySelector('.form-sel');
+          var selectedService = sel ? sel.value : '';
+          var payLink = getPayLinkFromSelect(selectedService);
+          if (typeof closeModal === 'function') closeModal('bookModal');
+          if (typeof toast === 'function') toast('Redirecting to secure payment...');
+          setTimeout(function() { window.open(payLink, '_blank'); }, 400);
+        };
+        confirmBtn.textContent = 'Confirm & Pay Now';
+        confirmBtn.style.background = 'linear-gradient(135deg, #635bff, #7c3aed)';
+      }
+    }
+
+    // Add "Book & Pay" buttons to service cards
+    var cards = document.querySelectorAll('.service-card');
+    var cardLinks = [
+      { link: STRIPE_LINKS.walk30, label: 'Book Walk · $25' },
+      { link: STRIPE_LINKS.dropin20, label: 'Book Visit · $18' },
+      { link: STRIPE_LINKS.cat20, label: 'Book Visit · $18' },
+      { link: STRIPE_LINKS.housesit, label: 'Book Stay · $125' }
+    ];
+    cards.forEach(function(card, i) {
+      if (i < cardLinks.length && !card.querySelector('.stripe-pay-btn')) {
+        var btn = document.createElement('a');
+        btn.href = cardLinks[i].link;
+        btn.target = '_blank';
+        btn.className = 'stripe-pay-btn';
+        btn.textContent = cardLinks[i].label;
+        btn.style.cssText = 'display:block;text-align:center;margin-top:14px;padding:10px 16px;background:linear-gradient(135deg,#635bff,#7c3aed);color:white;border-radius:8px;font-weight:700;font-size:0.88rem;text-decoration:none;transition:opacity 0.2s;cursor:pointer;';
+        btn.onmouseover = function() { this.style.opacity = '0.85'; };
+        btn.onmouseout = function() { this.style.opacity = '1'; };
+        card.appendChild(btn);
+      }
+    });
+
+    console.log('Stripe payment links wired to booking flow and service cards');
+  }
+
+  wireStripeBooking();
+
 })();
