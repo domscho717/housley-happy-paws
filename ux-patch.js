@@ -1282,6 +1282,9 @@
 
     if (document.getElementById('hhp-portal-nav')) return;
 
+    // Don't create portal nav on desktop — the view switcher dropdown handles it
+    if (window.innerWidth > 1024) return;
+
     var dropdowns = [];
 
     if (role === 'client') {
@@ -1763,6 +1766,7 @@
         '#hhpHamburgerBtn { display: none !important; }' +
         '#hhpMobileMenu { display: none !important; }' +
         '#hhpMobileSignIn { display: none !important; }' +
+        '#hhp-portal-nav { display: none !important; }' +
         '#viewSwitcher {' +
           'display: inline-flex !important; visibility: visible !important;' +
         '}' +
