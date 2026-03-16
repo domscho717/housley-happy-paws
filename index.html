@@ -2092,7 +2092,11 @@ function switchView(view) {
   if(dd) dd.value = view;
   window.scrollTo(0,0);
   const nc = document.querySelector('.nav-center');
-  if(nc) nc.style.display = view === 'public' ? '' : 'none';
+  if(nc) {
+    // On mobile/tablet, always hide nav-center (hamburger handles it)
+    if(window.innerWidth <= 1024) { nc.style.display = 'none'; }
+    else { nc.style.display = view === 'public' ? '' : 'none'; }
+  }
 
   // Show/hide logout button
   const logoutBtn = document.getElementById('navLogoutBtn');
@@ -2731,8 +2735,7 @@ async function loadClientPayments() {
   });
 </script>
 
-  <!-- Function overrides (AI Studio + Editor fixes) -->
-  <script src="/fixes.js" defer></script>
+  <!-- fixes.js REMOVED — was causing nav conflicts. All fixes handled by ux-patch.js -->
   <script src="/js/site-content-client.js" defer></script>
   <script src="/js/profiles.js" defer></script>
   <script src="/js/employee-mgmt.js" defer></script>
@@ -4833,7 +4836,11 @@ function switchView(view) {
   if(dd) dd.value = view;
   window.scrollTo(0,0);
   const nc = document.querySelector('.nav-center');
-  if(nc) nc.style.display = view === 'public' ? '' : 'none';
+  if(nc) {
+    // On mobile/tablet, always hide nav-center (hamburger handles it)
+    if(window.innerWidth <= 1024) { nc.style.display = 'none'; }
+    else { nc.style.display = view === 'public' ? '' : 'none'; }
+  }
 
   // Show/hide logout button
   const logoutBtn = document.getElementById('navLogoutBtn');
@@ -5472,8 +5479,7 @@ async function loadClientPayments() {
   });
 </script>
 
-  <!-- Function overrides (AI Studio + Editor fixes) -->
-  <script src="/fixes.js" defer></script>
+  <!-- fixes.js REMOVED — was causing nav conflicts. All fixes handled by ux-patch.js -->
   <script src="/js/site-content-client.js" defer></script>
   <script src="/js/profiles.js" defer></script>
   <script src="/js/employee-mgmt.js" defer></script>

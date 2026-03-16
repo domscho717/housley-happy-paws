@@ -1901,4 +1901,39 @@
     console.log('🐾 UX Patch: final nav CSS override applied');
   }
 
+  // ── MUTATION OBSERVER: enforce mobile nav whenever any script tries to change it ──
+  function startNavGuard() {
+    var navRight = document.querySelector('.nav-right');
+    if (!navRight) return;
+
+    var observer = new MutationObserver(function() {
+      if (window.innerWidth <= 1024) {
+        if (navRight.style.display !== 'none') {
+          navRight.style.setProperty('display', 'none', 'important');
+        }
+        var vs = document.getElementById('viewSwitcher');
+        if (vs && vs.style.display !== 'none') {
+          vs.style.setProperty('display', 'none', 'important');
+        }
+      }
+    });
+
+    observer.observe(navRight, { attributes: true, attributeFilter: ['style'] });
+
+    // Also watch for new style elements being injected that conflict
+    var headObserver = new MutationObserver(function(mutations) {
+      mutations.forEach(function(m) {
+        m.addedNodes.forEach(function(node) {
+          if (node.tagName === 'STYLE' && node.id &&
+              ['ham-fix-style', 'nav-hotfix-css', 'hhp-nav-fix-css', 'drawer-fix-style'].indexOf(node.id) !== -1) {
+            node.remove();
+          }
+        });
+      });
+    });
+    headObserver.observe(document.head, { childList: true });
+  }
+
+  setTimeout(startNavGuard, 500);
+
 })();
