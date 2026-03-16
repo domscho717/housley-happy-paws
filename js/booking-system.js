@@ -81,6 +81,7 @@
   // 2. MOBILE NAV REDESIGN
   // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   (function fixMobileNav() {
+    return; // Mobile nav fully handled by ux-patch.js v18
     var css = document.createElement('style');
     css.id = 'hhp-mobile-nav-fix';
     css.textContent = [

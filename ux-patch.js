@@ -1742,4 +1742,112 @@
   addHomeToMobileMenu();
   enhancePaymentsSection();
 
+  // ── LATE OVERRIDE: neutralize conflicting nav CSS from fixes.js & booking-system.js ──
+  // This runs after all scripts to ensure ux-patch.js controls mobile nav
+  setTimeout(function() {
+    // Remove conflicting style elements injected by other scripts
+    ['hhp-mobile-nav-fix', 'ham-fix-style'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.remove();
+    });
+
+    // Remove conflicting DOM elements from booking-system.js
+    ['hhpMobileSignIn', 'hhpHamburgerBtn', 'hhpMobileMenu'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.remove();
+    });
+
+    // Inject final-authority CSS that wins over everything
+    var finalCSS = document.createElement('style');
+    finalCSS.id = 'ux-patch-final-override';
+    finalCSS.textContent =
+      // Phone + iPad: clean mobile nav
+      '@media (max-width: 1024px) {' +
+        '.nav { padding: 0 12px !important; height: 56px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; background: rgba(253,250,245,0.97) !important; }' +
+        '.nav-logo { font-size: 1.2rem !important; flex: 1 !important; text-align: center !important; order: 1 !important; }' +
+        '.nav-center { display: none !important; }' +
+        '.nav-right { display: none !important; }' +
+        '#viewSwitcher { display: none !important; }' +
+        '.nbtn-gold { display: none !important; }' +
+        // Hamburger (ux-patch creates this)
+        '.hhp-hamburger-v10 {' +
+          'display: flex !important; flex-direction: column !important; order: 2 !important;' +
+          'background: transparent !important; border: none !important;' +
+          'width: 44px !important; height: 44px !important;' +
+          'align-items: center !important; justify-content: center !important;' +
+          'cursor: pointer !important; padding: 0 !important; z-index: 9999 !important;' +
+          'gap: 5px !important; position: static !important;' +
+          'border-radius: 10px !important; flex-shrink: 0 !important;' +
+        '}' +
+        '.hhp-hamburger-v10 .hhp-hline {' +
+          'display: block !important; width: 26px !important; height: 3px !important;' +
+          'background: #1a1008 !important; border-radius: 2px !important;' +
+        '}' +
+        // Sign-in button
+        '.hhp-mobile-signin-btn {' +
+          'display: block !important; order: 0 !important;' +
+          'padding: 6px 12px !important; border: 1.5px solid #c8963e !important;' +
+          'background: transparent !important; color: #000 !important;' +
+          'font-weight: 700 !important; font-size: 0.78rem !important;' +
+          'border-radius: 8px !important; cursor: pointer !important;' +
+          'white-space: nowrap !important; flex-shrink: 0 !important;' +
+          '-webkit-text-fill-color: #000 !important;' +
+        '}' +
+        // Mobile nav overlay
+        '.hhp-mobile-nav-v10 { display: none !important; }' +
+        '.hhp-mobile-nav-v10.hhp-mnav-open {' +
+          'display: flex !important; flex-direction: column !important;' +
+          'position: fixed !important; top: 0 !important; left: 0 !important;' +
+          'width: 100vw !important; height: 100vh !important;' +
+          'z-index: 9997 !important; background: #fdfaf5 !important;' +
+          'padding: 70px 20px 20px !important; overflow-y: auto !important;' +
+        '}' +
+        '.hhp-mnav-link {' +
+          'display: block !important; padding: 14px 0 !important; font-size: 1.1rem !important;' +
+          'font-weight: 600 !important; color: #000 !important; text-decoration: none !important;' +
+          'border-bottom: 1px solid #e8ddd0 !important; cursor: pointer !important;' +
+          '-webkit-text-fill-color: #000 !important;' +
+        '}' +
+        '.hhp-mnav-signin {' +
+          'display: inline-block !important; margin-top: 16px !important; padding: 12px 28px !important;' +
+          'background: transparent !important; border: 1.5px solid #c8963e !important;' +
+          'border-radius: 10px !important; color: #000 !important; font-weight: 700 !important;' +
+          '-webkit-text-fill-color: #000 !important;' +
+        '}' +
+        // Kill anything from fixes.js / booking-system.js
+        '#hhpHamburgerBtn { display: none !important; }' +
+        '#hhpMobileMenu { display: none !important; }' +
+        '#hhpMobileSignIn { display: none !important; }' +
+      '}' +
+      // Desktop (>1024px): show view switcher, hide mobile stuff
+      '@media (min-width: 1025px) {' +
+        '.hhp-hamburger-v10 { display: none !important; }' +
+        '.hhp-mobile-nav-v10 { display: none !important; }' +
+        '.hhp-mobile-signin-btn { display: none !important; }' +
+        '.nbtn-gold { display: none !important; }' +
+        '#hhpHamburgerBtn { display: none !important; }' +
+        '#hhpMobileMenu { display: none !important; }' +
+        '#hhpMobileSignIn { display: none !important; }' +
+        '#viewSwitcher {' +
+          'display: inline-flex !important; visibility: visible !important;' +
+        '}' +
+        '#viewDropdown {' +
+          'display: block !important; visibility: visible !important;' +
+          'background: #fdfaf5 !important; border: 1.5px solid #c8963e !important;' +
+          'border-radius: 8px !important; padding: 8px 38px 8px 14px !important;' +
+          'font-size: 0.82rem !important; font-weight: 600 !important;' +
+          'color: #1e1409 !important; cursor: pointer !important; min-width: 120px !important;' +
+        '}' +
+      '}';
+    document.head.appendChild(finalCSS);
+
+    // Re-create hamburger inner HTML if fixes.js replaced it with .bar spans
+    var hamburger = document.querySelector('.hhp-hamburger-v10');
+    if (hamburger && !hamburger.querySelector('.hhp-hline')) {
+      hamburger.innerHTML = '<span class="hhp-hline"></span><span class="hhp-hline"></span><span class="hhp-hline"></span>';
+    }
+
+    console.log('🐾 UX Patch: final nav override applied');
+  }, 500);
+
 })();
