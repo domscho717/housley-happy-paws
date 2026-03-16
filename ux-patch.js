@@ -225,7 +225,7 @@
 
         /* -- Nav: hide desktop elements -- */
         '.nav { padding: 0 12px !important; height: 56px !important; display: flex !important; align-items: center !important; justify-content: flex-start !important; }' +
-        '.nav-logo { font-size: 1.2rem !important; flex: 1 !important; text-align: center !important; order: 1 !important; }' +
+        '.nav-logo { font-size: 1.35rem !important; flex: 1 !important; text-align: center !important; order: 1 !important; }' +
         '.nav-center { display: none !important; }' +
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
@@ -236,16 +236,16 @@
         '.hhp-mobile-nav-v10 { display: none !important; }' +
         '.hhp-mobile-nav-v10.hhp-mnav-open { display: none !important; }' +
 
-        /* -- Mobile sign-in button in nav -- */
+        /* -- Mobile sign-in button in nav (plain text, no box) -- */
         '.hhp-mobile-signin-btn {' +
-          'display: block !important; order: 98; margin-left: 8px;' +
-          'padding: 8px 14px !important; border: 1.5px solid #c8963e !important;' +
-          'background: transparent !important; color: #000000 !important;' +
-          'font-weight: 700 !important; font-size: 0.85rem !important;' +
-          'border-radius: 8px !important; cursor: pointer !important;' +
+          'display: block !important; order: 0 !important; margin: 0 !important;' +
+          'padding: 6px 8px !important; border: none !important;' +
+          'background: transparent !important; color: #1e1409 !important;' +
+          'font-weight: 600 !important; font-size: 0.78rem !important;' +
+          'border-radius: 0 !important; cursor: pointer !important;' +
           'white-space: nowrap !important; line-height: 1 !important;' +
           'z-index: 9998 !important; -webkit-tap-highlight-color: transparent !important;' +
-          '-webkit-text-fill-color: #000000 !important;' +
+          '-webkit-text-fill-color: #1e1409 !important; flex-shrink: 0 !important;' +
         '}' +
 
         /* -- Hero (restored from v7) -- */
@@ -560,17 +560,17 @@
         '}' +
         '.hhp-mnav-signin {' +
           'display: inline-block; margin-top: 16px; padding: 12px 28px;' +
-          'background: transparent; border: 1.5px solid #c8963e; border-radius: 10px;' +
-          'color: #000000 !important; font-weight: 700; font-size: 0.95rem; cursor: pointer;' +
-          '-webkit-text-fill-color: #000000 !important;' +
+          'background: transparent; border: none; border-radius: 0;' +
+          'color: #1e1409 !important; font-weight: 600; font-size: 0.95rem; cursor: pointer;' +
+          '-webkit-text-fill-color: #1e1409 !important;' +
         '}' +
         '.hhp-mobile-signin-btn {' +
-          'display: block !important; order: 98 !important; margin-left: 8px !important;' +
-          'padding: 8px 14px !important; border: 1.5px solid #c8963e !important;' +
-          'background: transparent !important; color: #000000 !important;' +
-          'font-weight: 700 !important; font-size: 0.85rem !important;' +
-          'border-radius: 8px !important; cursor: pointer !important;' +
-          '-webkit-text-fill-color: #000000 !important;' +
+          'display: block !important; order: 0 !important; margin: 0 !important;' +
+          'padding: 6px 8px !important; border: none !important;' +
+          'background: transparent !important; color: #1e1409 !important;' +
+          'font-weight: 600 !important; font-size: 0.78rem !important;' +
+          'border-radius: 0 !important; cursor: pointer !important;' +
+          '-webkit-text-fill-color: #1e1409 !important; flex-shrink: 0 !important;' +
         '}' +
         '.about-grid { grid-template-columns: 1fr !important; gap: 24px !important; }' +
       '}' +
@@ -999,42 +999,38 @@
     var loggedIn = isUserAuthenticated();
     var activePortal = getActivePortal();
 
-    // ── PUBLIC NAV LINKS (always shown) ──
-    var navSection = document.createElement('div');
-    navSection.className = 'hhp-drawer-nav-section';
-    navSection.style.cssText = 'padding: 0 20px 8px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
+    // ── PUBLIC NAV LINKS (only shown when NOT logged in) ──
+    if (!loggedIn) {
+      var navSection = document.createElement('div');
+      navSection.className = 'hhp-drawer-nav-section';
+      navSection.style.cssText = 'padding: 0 20px 8px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
 
-    var publicLinks = [
-      { text: 'Home', scroll: 'home' },
-      { text: 'About Rachel', scroll: '.about-section' },
-      { text: 'Services & Pricing', scroll: '.services-section' },
-      { text: 'Calendar', scroll: '.cal-section' },
-      { text: 'Reviews', scroll: '.reviews-section' },
-      { text: 'Coming Soon', scroll: '.future-section' },
-    ];
+      var publicLinks = [
+        { text: 'About Rachel', scroll: '.about-section' },
+        { text: 'Services & Pricing', scroll: '.services-section' },
+        { text: 'Calendar', scroll: '.cal-section' },
+        { text: 'Reviews', scroll: '.reviews-section' },
+        { text: 'Coming Soon', scroll: '.future-section' },
+      ];
 
-    publicLinks.forEach(function(item) {
-      var link = document.createElement('button');
-      link.className = 'hhp-drawer-item';
-      link.textContent = item.text;
-      link.type = 'button';
-      link.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:block;width:100%;text-align:left;background:none;border:none;padding:12px 0;font-size:0.95rem;font-weight:600;cursor:pointer;border-bottom:1px solid #e8ddd0;';
-      link.addEventListener('click', function() {
-        if (item.scroll === 'home') {
-          if (typeof switchView === 'function') switchView('public');
-          window.scrollTo(0, 0);
-        } else {
+      publicLinks.forEach(function(item) {
+        var link = document.createElement('button');
+        link.className = 'hhp-drawer-item';
+        link.textContent = item.text;
+        link.type = 'button';
+        link.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:block;width:100%;text-align:left;background:none;border:none;padding:12px 0;font-size:0.95rem;font-weight:600;cursor:pointer;border-bottom:1px solid #e8ddd0;';
+        link.addEventListener('click', function() {
           if (typeof switchView === 'function') switchView('public');
           setTimeout(function() {
             var target = document.querySelector(item.scroll);
             if (target) target.scrollIntoView({ behavior: 'smooth' });
           }, 100);
-        }
-        closeDrawer();
+          closeDrawer();
+        });
+        navSection.appendChild(link);
       });
-      navSection.appendChild(link);
-    });
-    drawer.appendChild(navSection);
+      drawer.appendChild(navSection);
+    }
 
     // ── VIEW SWITCHER (only if logged in) ──
     if (loggedIn) {
@@ -1848,7 +1844,7 @@
       // Phone + iPad: clean mobile nav
       '@media (max-width: 1024px) {' +
         '.nav { padding: 0 12px !important; height: 56px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; background: rgba(253,250,245,0.97) !important; }' +
-        '.nav-logo { font-size: 1.2rem !important; flex: 1 !important; text-align: center !important; order: 1 !important; }' +
+        '.nav-logo { font-size: 1.35rem !important; flex: 1 !important; text-align: center !important; order: 1 !important; }' +
         '.nav-center { display: none !important; }' +
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
@@ -1870,15 +1866,15 @@
           'display: block !important; width: 26px !important; height: 3px !important;' +
           'background: #1a1008 !important; border-radius: 2px !important;' +
         '}' +
-        // Sign-in button
+        // Sign-in button (plain text, no box)
         '.hhp-mobile-signin-btn {' +
           'display: block !important; order: 0 !important;' +
-          'padding: 6px 12px !important; border: 1.5px solid #c8963e !important;' +
-          'background: transparent !important; color: #000 !important;' +
-          'font-weight: 700 !important; font-size: 0.78rem !important;' +
-          'border-radius: 8px !important; cursor: pointer !important;' +
+          'padding: 6px 8px !important; border: none !important;' +
+          'background: transparent !important; color: #1e1409 !important;' +
+          'font-weight: 600 !important; font-size: 0.78rem !important;' +
+          'border-radius: 0 !important; cursor: pointer !important;' +
           'white-space: nowrap !important; flex-shrink: 0 !important;' +
-          '-webkit-text-fill-color: #000 !important;' +
+          '-webkit-text-fill-color: #1e1409 !important;' +
         '}' +
         '#hhpHamburgerBtn { display: none !important; }' +
         '#hhpMobileMenu { display: none !important; }' +

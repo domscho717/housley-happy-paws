@@ -773,8 +773,8 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
       </select>
       <span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--mid);font-size:0.7rem">▼</span>
     </div>
-    <button id="navLoginBtn" class="nbtn nbtn-outline" onclick="if(typeof HHP_Auth!=='undefined'){HHP_Auth.showLoginScreen()}else{switchView('client')}" style="font-size:0.78rem">Sign In</button>
-    <button id="navLogoutBtn" class="nbtn nbtn-outline" onclick="if(typeof HHP_Auth!=='undefined')HHP_Auth.logout()" style="display:none;font-size:0.78rem;color:var(--rose)">Sign Out</button>
+    <button id="navLoginBtn" onclick="if(typeof HHP_Auth!=='undefined'){HHP_Auth.showLoginScreen()}else{switchView('client')}" style="font-size:0.78rem;background:none;border:none;color:var(--forest);cursor:pointer;padding:6px 10px;font-family:inherit;font-weight:500">Sign In</button>
+    <button id="navLogoutBtn" onclick="if(typeof HHP_Auth!=='undefined')HHP_Auth.logout()" style="display:none;font-size:0.78rem;background:none;border:none;color:var(--rose);cursor:pointer;padding:6px 10px;font-family:inherit;font-weight:500">Sign Out</button>
   </div>
 </nav>
 
