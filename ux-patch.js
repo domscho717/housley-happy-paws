@@ -1,7 +1,14 @@
 // ============================================================
-// Housley Happy Paws — UX Patch v17 (ux-patch.js)
+// Housley Happy Paws — UX Patch v18 (ux-patch.js)
 // Merged: v9 architecture (hamburger=public links, drawer=portal nav)
 //       + v7 robust implementations (footer, meet&greet, preview, CSS)
+// Changes from v17:
+//   - Payments & Bank mobile layout fix
+//   - Remove Owner Portal desktop button + left drawer-tab hamburger
+//   - Add Home link to mobile hamburger menu
+//   - Password show/hide eye toggle on login
+//   - Enhanced owner dropdown with Staff/Clients overview
+//   - Stripe direct links in Payments section
 // Changes from v16:
 //   - Stripe payment integration: booking confirm → checkout, Pay Now on service cards
 // Changes from v15:
@@ -428,6 +435,13 @@
         '.photo-upload-slot { width: 100% !important; max-width: 100% !important; }' +
         '#heroPhotoPreview { max-width: 100% !important; }' +
         '#heroPhotoPreview img { max-width: 100% !important; height: auto !important; }' +
+        '/* -- Payments & Bank mobile -- */' +
+        '#o-payments > div[style*="grid-template-columns: 1fr 1fr"], #o-payments > div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; gap: 14px !important; }' +
+        '#o-payments .card { max-width: 100% !important; overflow-x: hidden !important; }' +
+        '#o-payments div[style*="grid-template-columns: repeat(4"], #o-payments div[style*="grid-template-columns:repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }' +
+        '.pay-step-lbl { font-size: 0.68rem !important; }' +
+        '/* -- Hide left drawer tab on mobile -- */' +
+        '.hhp-drawer-tab { display: none !important; }' +
 
         /* -- Pull-out drawer tab (3-line hamburger on left edge) -- */
         '.hhp-drawer-tab {' +
@@ -1335,7 +1349,12 @@
       dropdowns = [{
         label: 'Owner Portal',
         items: [
-          { text: 'Overview', selector: 'o-overview' }
+          { text: 'Overview', selector: 'o-overview' },
+          { text: 'All Clients', selector: 'o-clients' },
+          { text: 'Staff Management', selector: 'o-staff' },
+          { text: 'Calendar', selector: 'o-calendar' },
+          { text: 'Payments & Bank', selector: 'o-payments' },
+          { text: 'Home (Public Site)', selector: '__home__' }
         ]
       }];
     }
@@ -1362,6 +1381,7 @@
         link.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
         link.addEventListener('click', function(e) {
           e.preventDefault();
+          if (item.selector === '__home__') { if (typeof switchView === 'function') switchView('public'); menu.style.display = 'none'; return; }
           var targetItem = document.querySelector('.sb-item[onclick*="' + item.selector + '"]');
           if (targetItem) targetItem.click();
           menu.style.display = 'none';
@@ -1496,7 +1516,7 @@
       });
     }
 
-    console.log('\uD83D\uDC3E HHP UX Patch v17 applied (auth-gated drawer, old nav removed, hamburger=public, drawer=portal, black text, 3-line icons)');
+    console.log('\uD83D\uDC3E HHP UX Patch v18 applied (auth-gated drawer, old nav removed, hamburger=public, drawer=portal, black text, 3-line icons)');
   });
 
   // ── Stripe Payment Integration (v17) ──
@@ -1572,5 +1592,88 @@
   }
 
   wireStripeBooking();
+
+
+  // ── v18 Fixes ──
+
+  // 1. Password show/hide eye toggle
+  function addPasswordEyeToggle() {
+    var pwGroup = document.getElementById('authPasswordGroup');
+    var pwInput = document.getElementById('authPassword');
+    if (!pwGroup || !pwInput) return;
+    if (pwGroup.querySelector('.pw-eye-btn')) return;
+    pwGroup.style.position = 'relative';
+    var eyeBtn = document.createElement('button');
+    eyeBtn.type = 'button';
+    eyeBtn.className = 'pw-eye-btn';
+    eyeBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    eyeBtn.style.cssText = 'position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--mid);padding:4px;z-index:2;margin-top:10px;';
+    eyeBtn.addEventListener('click', function() {
+      var isHidden = pwInput.type === 'password';
+      pwInput.type = isHidden ? 'text' : 'password';
+      this.style.color = isHidden ? 'var(--gold)' : 'var(--mid)';
+      this.innerHTML = isHidden
+        ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+        : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    });
+    pwGroup.appendChild(eyeBtn);
+    pwInput.style.paddingRight = '40px';
+  }
+
+  // 2. Remove Owner Portal button text on desktop (keep dropdown functional)
+  function cleanDesktopHeader() {
+    if (window.innerWidth < 768) return;
+    var portalNav = document.getElementById('hhp-portal-nav');
+    if (!portalNav) return;
+    // The dropdown btn already serves as the portal nav - it is fine.
+    // But we should hide the standalone "Owner Portal" label if it exists as a separate element
+    // Actually the user wants to remove the whole "Owner Portal ▼" button from desktop
+    // since the view switcher dropdown already handles navigation
+    // Let's check: on desktop they have the view switcher AND the portal dropdown
+    // User says "no need for this button" pointing at Owner Portal ▼
+    // So hide the portal nav on desktop
+    portalNav.style.display = 'none';
+  }
+
+  // 3. Add Home link to mobile hamburger menu
+  function addHomeToMobileMenu() {
+    if (window.innerWidth >= 768) return;
+    var hamburger = document.querySelector('.hhp-hamburger-v10');
+    if (!hamburger) return;
+    // The hamburger opens a drawer. Let's add a Home item to the drawer content
+    // Check if drawer already has Home link
+    var drawer = document.querySelector('.hhp-drawer');
+    if (!drawer) return;
+    if (drawer.querySelector('.hhp-home-link')) return;
+    var homeLink = document.createElement('a');
+    homeLink.href = '#';
+    homeLink.className = 'hhp-home-link';
+    homeLink.innerHTML = '<span style="margin-right:8px">🏠</span> Home';
+    homeLink.style.cssText = 'display:flex;align-items:center;padding:14px 20px;color:var(--ink);font-weight:700;font-size:0.95rem;text-decoration:none;border-bottom:1px solid var(--border);background:var(--warm);';
+    homeLink.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (typeof switchView === 'function') switchView('public');
+      // Close drawer
+      var overlay = document.querySelector('.hhp-drawer-overlay');
+      if (overlay) overlay.click();
+    });
+    drawer.insertBefore(homeLink, drawer.firstChild);
+  }
+
+  // 4. Add direct Stripe dashboard link to Payments section
+  function enhancePaymentsSection() {
+    var stripeCard = document.querySelector('#o-payments .card');
+    if (!stripeCard) return;
+    var openBtn = stripeCard.querySelector('a[href="https://stripe.com"]');
+    if (openBtn) {
+      openBtn.href = 'https://dashboard.stripe.com';
+      openBtn.textContent = 'Open Stripe Dashboard →';
+    }
+  }
+
+  addPasswordEyeToggle();
+  cleanDesktopHeader();
+  addHomeToMobileMenu();
+  enhancePaymentsSection();
 
 })();
