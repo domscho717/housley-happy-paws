@@ -969,3 +969,6 @@ document.head.appendChild(_fixStyle);
     setTimeout(makeMGVisible, 9000);
   }
 })();
+
+// Load nav-fix.js dynamically
+(function(){var s=document.createElement("script");s.src="/js/nav-fix.js";s.defer=true;document.body.appendChild(s);})();
