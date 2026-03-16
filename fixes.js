@@ -18,7 +18,7 @@
       btn.addEventListener('click', clickFn);
       return btn;
     }
-    // Home button ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ at the very top after header
+    // Home button ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ at the very top after header
     var homeBtn = makeItem(String.fromCodePoint(0x1F3E0) + ' ', 'Home', function() {
       var dd = document.getElementById('viewDropdown');
       if (dd) { dd.value = 'public'; dd.dispatchEvent(new Event('change')); }
@@ -31,7 +31,7 @@
     divider.style.cssText = 'border-bottom:1px solid #e5d5c0;margin:4px 0;';
     divider.setAttribute('data-fixes-added', 'true');
     homeBtn.after(divider);
-    // Client View button ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ after Edit Link Page (last item)
+    // Client View button ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ after Edit Link Page (last item)
     var allItems = drawer.querySelectorAll('.hhp-drawer-item:not([data-fixes-added])');
     var lastItem = allItems[allItems.length - 1];
     // Add divider before view switches
@@ -213,7 +213,6 @@ _fixStyle.textContent = '@media (min-width: 768px) { #hhp-portal-nav { display: 
 
 // Ensure mobile nav overlay is always visible when open
 (function fixHamburgerMenu() {
-  // Use capture phase to intercept before ux-patch.js stopImmediatePropagation
   document.addEventListener("click", function(e) {
     var target = e.target.closest(".hhp-hamburger-v10");
     if (!target) return;
@@ -236,7 +235,7 @@ _fixStyle.textContent = '@media (min-width: 768px) { #hhp-portal-nav { display: 
         nav.classList.add("hhp-mnav-open");
       }
     }, 50);
-  }, true);  // true = capture phase
+  }, true);
 })();
 
 // Remove duplicate empty drawers created by ux-patch.js running twice
