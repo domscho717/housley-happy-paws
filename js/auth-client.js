@@ -174,6 +174,10 @@ const HHP_Auth = {
         }
         dropdown.innerHTML = opts;
 
+        // Show the view switcher now that it has the correct options
+        const switcher = document.getElementById('viewSwitcher');
+        if (switcher) switcher.style.display = 'inline-flex';
+
         const nameEls = document.querySelectorAll('.sb-name');
         const displayName = this.currentUser?.profile?.full_name
             || this.currentUser?.email?.split('@')[0]

@@ -35,6 +35,9 @@ html{scroll-behavior:smooth;overscroll-behavior:none}
 body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;overscroll-behavior:none}
 .page{display:none;min-height:100vh}
 .page.active{display:block}
+/* Hide portal pages until JS settles to prevent flash of unstyled sidebar/drawers */
+#pg-client,#pg-staff,#pg-owner{opacity:0;transition:opacity 0.15s ease}
+#pg-client.settled,#pg-staff.settled,#pg-owner.settled{opacity:1}
 
 /* NAV */
 .nav{
@@ -811,7 +814,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
     <li><a href="#coming-soon">Coming Soon</a></li>
   </ul>
   <div class="nav-right">
-    <div id="viewSwitcher" style="position:relative;display:inline-flex;align-items:center">
+    <div id="viewSwitcher" style="position:relative;display:none;align-items:center">
       <select id="viewDropdown" onchange="switchViewFromDrop(this.value)" style="appearance:none;-webkit-appearance:none;background:var(--warm);border:1.5px solid var(--border);border-radius:8px;padding:8px 38px 8px 14px;font-family:'Jost',sans-serif;font-size:0.82rem;font-weight:600;color:var(--ink);cursor:pointer;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
         <option value="public">🐾 Home</option>
         <option value="client">👤 My Portal</option>
@@ -2127,7 +2130,12 @@ function switchView(view) {
   ['public','client','staff','owner'].forEach(v => {
     document.getElementById('pg-'+v).classList.remove('active');
   });
-  document.getElementById('pg-'+view).classList.add('active');
+  var targetPage = document.getElementById('pg-'+view);
+  targetPage.classList.add('active');
+  // Mark portal as settled so it fades in (prevents flash of unstyled content)
+  if (view !== 'public') {
+    requestAnimationFrame(function(){ targetPage.classList.add('settled'); });
+  }
   const dd = document.getElementById('viewDropdown');
   if(dd) dd.value = view;
   window.scrollTo(0,0);
