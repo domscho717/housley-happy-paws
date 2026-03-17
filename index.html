@@ -1944,8 +1944,9 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
     <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll receive an instant confirmation and Rachel will personally follow up within a few hours with available times.</div></div>
     <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">First Name</label><input class="form-in" placeholder="Sarah"></div><div><label class="form-lbl">Last Name</label><input class="form-in" placeholder="Davis"></div></div>
     <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Phone / Text</label><input class="form-in" type="tel" placeholder="(717) 000-0000"></div><div><label class="form-lbl">Email</label><input class="form-in" type="email" placeholder="sarah@email.com"></div></div>
-    <div class="form-group"><label class="form-lbl">Pet's Name, Type & Breed</label><input class="form-in" placeholder="e.g. Max — 2-year-old Golden Retriever"></div>
-    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Date</label><input class="form-in" type="date"></div><div><label class="form-lbl">Time</label><input class="form-in" type="time"></div></div>
+    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Pet's Name</label><input class="form-in" id="mg-petname" placeholder="e.g. Max"></div><div><label class="form-lbl">Breed</label><input class="form-in" id="mg-breed" placeholder="e.g. Golden Retriever"></div></div>
+    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Pet's Birthday / Date of Birth</label><input class="form-in" id="mg-petbday" type="date"></div><div><label class="form-lbl">Pet Age</label><input class="form-in" id="mg-petage" readonly placeholder="Auto-calculated" style="background:#f5f2ed;color:var(--mid)"></div></div>
+    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Preferred Date</label><input class="form-in" type="date"></div><div><label class="form-lbl">Preferred Time</label><input class="form-in" type="time"></div></div>
     <div class="form-group"><label class="form-lbl">Anything Rachel Should Know?</label><textarea class="form-ta" placeholder="e.g. Friendly but a little shy with new people at first..."></textarea></div>
     <button class="submit-btn gold" onclick="submitMG()">📅 Request Meet & Greet</button>
   </div>
@@ -2021,7 +2022,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   <div style="background:var(--gold-pale);border-radius:8px;padding:14px 16px;margin-bottom:20px;border:1px solid rgba(200,150,62,0.2);font-size:0.85rem;color:var(--brown)">🚌 The Paw Bus is a group pick-up adventure where Rachel drives a small crew of friendly, temperament-matched dogs to a park for a real outing. We're building the interest list now — be one of the first to know when it launches!</div>
   <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" placeholder="Your name"></div>
   <div class="form-group"><label class="form-lbl">Phone / Email</label><input class="form-in" placeholder="Best way to reach you"></div>
-  <div class="form-group"><label class="form-lbl">Pet's Name & Breed</label><input class="form-in" placeholder="e.g. Max — 3-year-old Labrador"></div>
+  <div class="form-group"><label class="form-lbl">Pet's Name, Breed & Age</label><input class="form-in" placeholder="e.g. Max — Golden Retriever, 3 years old"></div>
   <div class="form-group"><label class="form-lbl">Any Questions for Rachel?</label><textarea class="form-ta" placeholder="Anything you'd like to know..."></textarea></div>
   <button class="submit-btn gold" onclick="closeModal('pawbusModal');toast('🚌 Added to Paw Bus interest list! Rachel will reach out soon.')">Join the Interest List</button></div>
 </div>
@@ -2128,6 +2129,31 @@ function closeModal(id) {
 document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
 
 function submitMG() { document.getElementById('mgForm').style.display='none'; document.getElementById('mgSuccess').style.display='block'; }
+
+// Pet birthday → auto-calculate age
+(function() {
+  var bdayInput = document.getElementById('mg-petbday');
+  var ageInput = document.getElementById('mg-petage');
+  if (bdayInput && ageInput) {
+    bdayInput.addEventListener('change', function() {
+      var bday = new Date(this.value);
+      if (isNaN(bday.getTime())) { ageInput.value = ''; return; }
+      var today = new Date();
+      var years = today.getFullYear() - bday.getFullYear();
+      var months = today.getMonth() - bday.getMonth();
+      if (months < 0 || (months === 0 && today.getDate() < bday.getDate())) { years--; months += 12; }
+      if (today.getDate() < bday.getDate()) months--;
+      if (months < 0) months = 0;
+      if (years < 1) {
+        ageInput.value = months + (months === 1 ? ' month old' : ' months old');
+      } else if (months > 0) {
+        ageInput.value = years + (years === 1 ? ' year' : ' years') + ', ' + months + (months === 1 ? ' month old' : ' months old');
+      } else {
+        ageInput.value = years + (years === 1 ? ' year old' : ' years old');
+      }
+    });
+  }
+})();
 
 // ---- TOAST ----
 function toast(msg) {
