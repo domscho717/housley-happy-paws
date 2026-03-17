@@ -2102,6 +2102,9 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ---- NAVIGATION ----
+// Track whether user explicitly chose to go home (prevents auth re-routing)
+let _userChosePublic = false;
+
 function switchView(view) {
   // Auth gating — if trying to access private portal, check login
   if (view !== 'public' && typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) {
@@ -2134,8 +2137,11 @@ function switchView(view) {
   if (logoutBtn) {
     logoutBtn.style.display = (typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated()) ? 'inline-flex' : 'none';
   }
+
+  // Remember current view so reload goes straight here (no flash)
+  try { sessionStorage.setItem('hhp_last_view', view); } catch(e) {}
 }
-function switchViewFromDrop(view) { switchView(view); }
+function switchViewFromDrop(view) { _userChosePublic = false; switchView(view); }
 
 function toggleSbGroup(btn) {
   btn.classList.toggle('collapsed');
@@ -2144,7 +2150,29 @@ function toggleSbGroup(btn) {
     group.classList.toggle('collapsed');
   }
 }
-function showPublic() { switchView('public'); }
+function showPublic() { _userChosePublic = true; switchView('public'); }
+
+// Instant view restore: if user was on a portal, show it immediately (no flash)
+(function() {
+  try {
+    var lastView = sessionStorage.getItem('hhp_last_view');
+    if (lastView && lastView !== 'public') {
+      // Also cache the role so we know they were logged in
+      var cachedRole = sessionStorage.getItem('hhp_cached_role');
+      if (cachedRole) {
+        ['public','client','staff','owner'].forEach(function(v) {
+          var el = document.getElementById('pg-' + v);
+          if (el) el.classList.remove('active');
+        });
+        var target = document.getElementById('pg-' + lastView);
+        if (target) target.classList.add('active');
+        // Hide nav-center for portal views
+        var nc = document.querySelector('.nav-center');
+        if (nc) nc.style.display = 'none';
+      }
+    }
+  } catch(e) {}
+})();
 
 // ---- TABS ----
 function sTab(portal, panelId) {

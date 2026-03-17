@@ -33,10 +33,15 @@ const HHP_Auth = {
         // Listen for auth state changes
         this.supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session) {
-                await this.handleSession(session);
+                // Only re-handle if this is a NEW sign-in (not the initial session restore)
+                if (!this._initialLoad) {
+                    await this.handleSession(session);
+                }
             } else if (event === 'SIGNED_OUT') {
                 this.currentUser = null;
                 this.currentRole = null;
+                this.session = null;
+                try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); } catch(e) {}
                 this.showLoginScreen();
             }
         });
@@ -44,9 +49,28 @@ const HHP_Auth = {
         return true;
     },
 
+    // Track whether this is the initial page load (vs a fresh login)
+    _initialLoad: true,
+    session: null,
+
     // ── Handle session after login ──
     async handleSession(session) {
         this.currentUser = session.user;
+        this.session = session;
+
+        // Use cached role instantly to avoid flash, then verify from DB
+        let usedCache = false;
+        try {
+            const cachedRole = sessionStorage.getItem('hhp_cached_role');
+            if (cachedRole && this._initialLoad) {
+                this.currentRole = cachedRole;
+                usedCache = true;
+                // Show the right portal immediately while we verify
+                this.hideLoginScreen();
+                this.routeToPortal();
+                this.updateUIForUser();
+            }
+        } catch(e) {}
 
         try {
             // Get user role from profiles table
@@ -75,9 +99,16 @@ const HHP_Auth = {
             this.currentRole = 'client';
         }
 
+        // Cache the verified role for next page load
+        try { sessionStorage.setItem('hhp_cached_role', this.currentRole); } catch(e) {}
+
         this.hideLoginScreen();
-        this.routeToPortal();
+        // Only route to portal if user hasn't explicitly navigated away
+        if (typeof _userChosePublic === 'undefined' || !_userChosePublic) {
+            this.routeToPortal();
+        }
         this.updateUIForUser();
+        this._initialLoad = false;
     },
 
     // ── Route user to their portal based on role ──
@@ -168,6 +199,8 @@ const HHP_Auth = {
         await this.supabase.auth.signOut();
         this.currentUser = null;
         this.currentRole = null;
+        this.session = null;
+        try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); } catch(e) {}
         if (typeof switchView === 'function') switchView('public');
         this.showLoginScreen();
     },
