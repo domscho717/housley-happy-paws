@@ -1310,33 +1310,51 @@ try {
 
       <!-- STAFF REPORT CREATOR -->
       <div class="p-panel" id="s-reports">
-        <div class="p-header"><h2>Create Walk Report 📋</h2><p>Build a detailed report card for your client — AI will help you write the note.</p></div>
+        <div class="p-header"><h2>Create Service Report 📋</h2><p>Build a detailed report card for your client — AI will help you write the note.</p></div>
         <div class="card" style="max-width:680px">
           <div style="background:var(--forest-pale);border-radius:10px;padding:16px;margin-bottom:20px;border-left:3px solid var(--forest)">
             <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest);margin-bottom:6px">🤖 AI Note Assistant Active</div>
             <div style="font-size:0.84rem;color:var(--ink);line-height:1.5">Answer 3 quick questions below and the AI will draft your personal note for this visit automatically.</div>
           </div>
+
+          <!-- Client & Service -->
           <div class="form-row" style="margin-bottom:16px">
-            <div><label class="form-lbl">Client Name</label><input class="form-in" placeholder="Client name"></div>
-            <div><label class="form-lbl">Service Type</label><select class="form-sel"><option>Dog Walk</option><option>Cat Drop-In</option><option>Drop-In Visit</option><option>Dog Boarding</option><option>Day Care</option></select></div>
+            <div><label class="form-lbl">Client</label><select class="form-sel" id="srpt-client"><option value="">Select client...</option></select></div>
+            <div><label class="form-lbl">Service</label><select class="form-sel" id="srpt-service" onchange="toggleStaffReportDistance()"><option value="Dog Walk">Dog Walk</option><option value="Cat Drop-In">Cat Drop-In</option><option value="Drop-In Visit">Drop-In Visit</option><option value="Dog Boarding">Dog Boarding</option><option value="Day Care">Day Care</option><option value="House Sitting (Dog)">House Sitting (Dog)</option><option value="House Sitting (Cat)">House Sitting (Cat)</option></select></div>
           </div>
+
+          <!-- Date & Duration -->
           <div class="form-row" style="margin-bottom:16px">
-            <div><label class="form-lbl">Date</label><input class="form-in" type="date"></div>
-            <div><label class="form-lbl">Duration</label><input class="form-in" placeholder="45 min"></div>
+            <div><label class="form-lbl">Date</label><input class="form-in" id="srpt-date" type="date" readonly style="background:#f5f5f5;cursor:default"></div>
+            <div><label class="form-lbl">Duration</label><select class="form-sel" id="srpt-duration"><option value="30 min">30 Minutes</option><option value="1 hour">1 Hour</option></select></div>
           </div>
+
+          <!-- Distance & Mood -->
           <div class="form-row" style="margin-bottom:16px">
-            <div><label class="form-lbl">Distance Walked</label><input class="form-in" placeholder="1.8 mi (walks only)"></div>
-            <div><label class="form-lbl">Photos Taken</label><input class="form-in" placeholder="5 photos attached"></div>
+            <div id="srpt-distance-wrap"><label class="form-lbl">Distance</label><input class="form-in" id="srpt-distance" placeholder="e.g. 1.8 mi"></div>
+            <div><label class="form-lbl">Mood</label><select class="form-sel" id="srpt-mood"><option value="great">😄 Great</option><option value="happy">😊 Happy</option><option value="calm">😌 Calm</option><option value="shy">🙈 Shy</option><option value="energetic">⚡ Energetic</option></select></div>
           </div>
+
+          <!-- Photo & Video Upload -->
+          <div style="margin-bottom:20px">
+            <label class="form-lbl" style="margin-bottom:10px">Photos & Videos</label>
+            <div id="rpt-media-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px"></div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="openReportMediaUpload()" style="width:100%;justify-content:center;padding:14px;border:2px dashed var(--border);border-radius:10px;font-size:0.84rem">
+              📷 Add Photos or Videos
+            </button>
+            <div style="font-size:0.72rem;color:var(--mid);margin-top:6px">Supports photos (JPG, PNG) and videos (MP4, MOV) up to 50MB each</div>
+          </div>
+
+          <!-- AI Note Generator -->
           <div style="background:var(--gold-pale);border-radius:10px;padding:20px;margin-bottom:16px;border:1px solid rgba(200,150,62,0.2)">
-            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:14px">🤖 AI Note — Answer 3 Quick Questions</div>
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:14px">🤖 AI Note — 3 Quick Questions</div>
             <div class="form-group"><label class="form-lbl">1. Dog or cat?</label><select class="form-sel" id="aiQ1"><option value="">Select...</option><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
-            <div class="form-group"><label class="form-lbl">2. Pet name(s)</label><input class="form-in" id="aiQ2" placeholder="e.g. Buddy, or Buddy & Daisy"></div>
+            <div class="form-group"><label class="form-lbl">2. Pet name(s)</label><input class="form-in" id="aiQ2" placeholder="e.g. Buddy"></div>
             <div class="form-group"><label class="form-lbl">3. Did anything out of the ordinary happen?</label><select class="form-sel" id="aiQ3"><option value="all_good">Everything went great!</option><option value="new_friend">Made a new friend</option><option value="shy">A little shy today</option><option value="extra_energy">Lots of extra energy</option><option value="potty">Potty break needed extra time</option><option value="other">Other (add in note)</option></select></div>
             <button class="btn btn-forest btn-sm" onclick="generateNote()" style="width:100%;justify-content:center">✨ Generate Note with AI</button>
           </div>
-          <div class="form-group"><label class="form-lbl">Personal Note (editable after AI generates)</label><textarea class="form-ta" id="reportNote" style="min-height:110px" placeholder="AI will generate this — or write your own..."></textarea></div>
-          <button class="submit-btn gold" onclick="toast('📋 Report sent to client! They'll receive it with all photos.')">Send Report to Client</button>
+          <div class="form-group"><label class="form-lbl">Personal Note</label><textarea class="form-ta" id="reportNote" style="min-height:110px" placeholder="AI will generate this — or write your own..."></textarea></div>
+          <button class="submit-btn gold" id="srpt-submit-btn" onclick="submitStaffServiceReport()">Send Report to Client</button>
         </div>
       </div>
 
@@ -1452,12 +1470,39 @@ try {
 
       <!-- OWNER REPORT CREATOR (same as staff but with all client access) -->
       <div class="p-panel" id="o-reports">
-        <div class="p-header"><h2>Create Walk Report 📋</h2><p>Send a detailed report card to any client.</p></div>
+        <div class="p-header"><h2>Create Service Report 📋</h2><p>Send a detailed report card to any client after a completed service.</p></div>
         <div class="card" style="max-width:680px">
           <div style="background:var(--forest-pale);border-radius:10px;padding:16px;margin-bottom:20px;border-left:3px solid var(--forest)"><div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest);margin-bottom:6px">🤖 AI Note Assistant</div><div style="font-size:0.84rem;color:var(--ink)">Answer 3 questions and get a personalized note drafted instantly.</div></div>
-          <div class="form-row" style="margin-bottom:16px"><div><label class="form-lbl">Client</label><select class="form-sel"><option>Select client...</option></select></div><div><label class="form-lbl">Service</label><select class="form-sel"><option>Dog Walk</option><option>Cat Drop-In</option><option>Drop-In Visit</option><option>Dog Boarding</option><option>Day Care</option></select></div></div>
-          <div class="form-row" style="margin-bottom:16px"><div><label class="form-lbl">Date</label><input class="form-in" type="date"></div><div><label class="form-lbl">Duration</label><input class="form-in" placeholder="45 min"></div></div>
-          <div class="form-row" style="margin-bottom:16px"><div><label class="form-lbl">Distance (walks)</label><input class="form-in" placeholder="1.8 mi"></div><div><label class="form-lbl">Photos</label><input class="form-in" placeholder="5 photos"></div></div>
+
+          <!-- Client & Service -->
+          <div class="form-row" style="margin-bottom:16px">
+            <div><label class="form-lbl">Client</label><select class="form-sel" id="rpt-client"><option value="">Select client...</option></select></div>
+            <div><label class="form-lbl">Service</label><select class="form-sel" id="rpt-service" onchange="toggleReportDistance()"><option value="Dog Walk">Dog Walk</option><option value="Cat Drop-In">Cat Drop-In</option><option value="Drop-In Visit">Drop-In Visit</option><option value="Dog Boarding">Dog Boarding</option><option value="Day Care">Day Care</option><option value="House Sitting (Dog)">House Sitting (Dog)</option><option value="House Sitting (Cat)">House Sitting (Cat)</option></select></div>
+          </div>
+
+          <!-- Date (auto today) & Duration dropdown -->
+          <div class="form-row" style="margin-bottom:16px">
+            <div><label class="form-lbl">Date</label><input class="form-in" id="rpt-date" type="date" readonly style="background:#f5f5f5;cursor:default"></div>
+            <div><label class="form-lbl">Duration</label><select class="form-sel" id="rpt-duration"><option value="30 min">30 Minutes</option><option value="1 hour">1 Hour</option></select></div>
+          </div>
+
+          <!-- Distance (only for Dog Walk) & Mood -->
+          <div class="form-row" style="margin-bottom:16px">
+            <div id="rpt-distance-wrap"><label class="form-lbl">Distance</label><input class="form-in" id="rpt-distance" placeholder="e.g. 1.8 mi"></div>
+            <div><label class="form-lbl">Mood</label><select class="form-sel" id="rpt-mood"><option value="great">😄 Great</option><option value="happy">😊 Happy</option><option value="calm">😌 Calm</option><option value="shy">🙈 Shy</option><option value="energetic">⚡ Energetic</option></select></div>
+          </div>
+
+          <!-- Photo & Video Upload -->
+          <div style="margin-bottom:20px">
+            <label class="form-lbl" style="margin-bottom:10px">Photos & Videos</label>
+            <div id="rpt-media-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px"></div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="openReportMediaUpload()" style="width:100%;justify-content:center;padding:14px;border:2px dashed var(--border);border-radius:10px;font-size:0.84rem">
+              📷 Add Photos or Videos
+            </button>
+            <div style="font-size:0.72rem;color:var(--mid);margin-top:6px">Supports photos (JPG, PNG) and videos (MP4, MOV) up to 50MB each</div>
+          </div>
+
+          <!-- AI Note Generator -->
           <div style="background:var(--gold-pale);border-radius:10px;padding:20px;margin-bottom:16px;border:1px solid rgba(200,150,62,0.2)">
             <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:14px">🤖 AI Note — 3 Quick Questions</div>
             <div class="form-group"><label class="form-lbl">1. Dog or cat?</label><select class="form-sel" id="oAiQ1"><option value="">Select...</option><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
@@ -1466,7 +1511,7 @@ try {
             <button class="btn btn-forest btn-sm" onclick="generateOwnerNote()" style="width:100%;justify-content:center">✨ Generate Note with AI</button>
           </div>
           <div class="form-group"><label class="form-lbl">Personal Note</label><textarea class="form-ta" id="ownerNote" style="min-height:110px" placeholder="AI will generate this — or write your own..."></textarea></div>
-          <button class="submit-btn gold" onclick="toast('📋 Report sent to client!')">Send Report to Client</button>
+          <button class="submit-btn gold" id="rpt-submit-btn" onclick="submitServiceReport()">Send Report to Client</button>
         </div>
       </div>
 
@@ -2969,6 +3014,474 @@ async function loadClientPayments() {
     container.innerHTML = '<div style="text-align:center;color:var(--rose);padding:18px;font-size:0.88rem">Could not load payments.</div>';
   }
 }
+
+// ============================================================
+// SERVICE REPORTS — Owner & Staff
+// ============================================================
+
+// ── Toggle distance field (only show for Dog Walk) ──
+function toggleReportDistance() {
+  var wrap = document.getElementById('rpt-distance-wrap');
+  var svc = document.getElementById('rpt-service');
+  if (wrap && svc) {
+    wrap.style.display = (svc.value === 'Dog Walk') ? '' : 'none';
+    if (svc.value !== 'Dog Walk') {
+      var distIn = document.getElementById('rpt-distance');
+      if (distIn) distIn.value = '';
+    }
+  }
+}
+// Same for staff form
+function toggleStaffReportDistance() {
+  var wrap = document.getElementById('srpt-distance-wrap');
+  var svc = document.getElementById('srpt-service');
+  if (wrap && svc) {
+    wrap.style.display = (svc.value === 'Dog Walk') ? '' : 'none';
+    if (svc.value !== 'Dog Walk') {
+      var distIn = document.getElementById('srpt-distance');
+      if (distIn) distIn.value = '';
+    }
+  }
+}
+
+// ── Auto-set report date to today ──
+function initReportDate() {
+  var today = new Date().toISOString().split('T')[0];
+  var rptDate = document.getElementById('rpt-date');
+  if (rptDate) rptDate.value = today;
+  var srptDate = document.getElementById('srpt-date');
+  if (srptDate) srptDate.value = today;
+}
+
+// ── Populate client dropdown from profiles table ──
+async function populateReportClients() {
+  if (typeof HHP_Auth === 'undefined' || !HHP_Auth.supabase) return;
+  try {
+    var { data, error } = await HHP_Auth.supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('role', 'client')
+      .order('full_name');
+    if (error) { console.error('Error loading clients:', error); return; }
+    // Owner dropdown
+    var sel = document.getElementById('rpt-client');
+    if (sel) {
+      sel.innerHTML = '<option value="">Select client...</option>';
+      (data || []).forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.full_name || c.email || 'Unnamed Client';
+        sel.appendChild(opt);
+      });
+    }
+    // Staff dropdown
+    var sSel = document.getElementById('srpt-client');
+    if (sSel) {
+      sSel.innerHTML = '<option value="">Select client...</option>';
+      (data || []).forEach(function(c) {
+        var opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.full_name || c.email || 'Unnamed Client';
+        sSel.appendChild(opt);
+      });
+    }
+  } catch (e) { console.error('populateReportClients error:', e); }
+}
+
+// ── Report media upload (photos + videos via Cloudinary) ──
+window._reportMedia = [];
+
+function openReportMediaUpload() {
+  if (typeof cloudinary === 'undefined') {
+    toast('Photo upload not available — please refresh the page.');
+    return;
+  }
+  var widget = cloudinary.createUploadWidget({
+    cloudName: 'dg1p1zjgv',
+    uploadPreset: 'hhp_unsigned',
+    folder: 'housley-happy-paws/reports',
+    sources: ['local', 'camera'],
+    multiple: true,
+    resourceType: 'auto',
+    maxFileSize: 50000000,
+    clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov'],
+    theme: 'minimal',
+    styles: {
+      palette: {
+        window: '#FDFAF5', windowBorder: '#C8963E', tabIcon: '#3D5A47',
+        menuIcons: '#5C3D1E', textDark: '#1E1409', textLight: '#FDFAF5',
+        link: '#C8963E', action: '#3D5A47', inactiveTabIcon: '#8C6B4A',
+        error: '#C4756A', inProgress: '#C8963E', complete: '#3D5A47',
+        sourceBg: '#FAF6EE'
+      },
+      fonts: {
+        default: null,
+        "'Jost', sans-serif": { url: 'https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&display=swap', active: true }
+      }
+    }
+  }, function(error, result) {
+    if (error) { toast('Upload failed — please try again.'); return; }
+    if (result.event === 'success') {
+      var info = result.info;
+      var mediaItem = {
+        public_id: info.public_id,
+        url: info.secure_url,
+        thumbnail: info.thumbnail_url || info.secure_url,
+        type: info.resource_type,
+        format: info.format
+      };
+      window._reportMedia.push(mediaItem);
+      renderReportMediaGrid();
+    }
+  });
+  widget.open();
+}
+
+function renderReportMediaGrid() {
+  var grid = document.getElementById('rpt-media-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  window._reportMedia.forEach(function(m, i) {
+    var div = document.createElement('div');
+    div.style.cssText = 'position:relative;border-radius:10px;overflow:hidden;aspect-ratio:1;background:var(--warm);border:1px solid var(--border)';
+    if (m.type === 'video') {
+      div.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1a1a1a;color:white;font-size:1.5rem">🎬</div>';
+    } else {
+      div.innerHTML = '<img src="' + m.thumbnail + '" style="width:100%;height:100%;object-fit:cover" alt="Upload">';
+    }
+    div.innerHTML += '<button onclick="removeReportMedia(' + i + ')" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);color:white;border:none;cursor:pointer;font-size:0.7rem;display:flex;align-items:center;justify-content:center">✕</button>';
+    grid.appendChild(div);
+  });
+}
+
+function removeReportMedia(index) {
+  window._reportMedia.splice(index, 1);
+  renderReportMediaGrid();
+}
+
+// ── Submit service report to Supabase ──
+async function submitServiceReport() {
+  if (typeof HHP_Auth === 'undefined' || !HHP_Auth.supabase || !HHP_Auth.currentUser) {
+    toast('Please log in to submit reports.');
+    return;
+  }
+  var clientId = document.getElementById('rpt-client')?.value;
+  var service = document.getElementById('rpt-service')?.value;
+  var reportDate = document.getElementById('rpt-date')?.value;
+  var duration = document.getElementById('rpt-duration')?.value;
+  var distance = document.getElementById('rpt-distance')?.value?.trim();
+  var mood = document.getElementById('rpt-mood')?.value;
+  var petName = document.getElementById('oAiQ2')?.value?.trim();
+  var personalNote = document.getElementById('ownerNote')?.value?.trim();
+
+  if (!clientId) { toast('Please select a client.'); return; }
+  if (!service) { toast('Please select a service.'); return; }
+  if (!personalNote) { toast('Please write or generate a note first.'); return; }
+
+  var btn = document.getElementById('rpt-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+  try {
+    var reportRow = {
+      client_id: clientId,
+      author_id: HHP_Auth.currentUser.id,
+      service: service,
+      report_date: reportDate || new Date().toISOString().split('T')[0],
+      duration: duration || '30 min',
+      distance: (service === 'Dog Walk' && distance) ? distance : null,
+      mood: mood || 'great',
+      pet_name: petName || null,
+      personal_note: personalNote,
+      media: window._reportMedia || []
+    };
+
+    var { data, error } = await HHP_Auth.supabase
+      .from('service_reports')
+      .insert([reportRow])
+      .select();
+
+    if (error) throw error;
+
+    toast('📋 Report sent to client!');
+    // Send email notification
+    sendReportEmailNotification(clientId, service, reportDate);
+    // Reset the form
+    resetReportForm();
+  } catch (e) {
+    console.error('submitServiceReport error:', e);
+    toast('⚠️ Error sending report: ' + (e.message || 'Unknown error'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send Report to Client'; }
+  }
+}
+
+// ── Staff submit report (uses different field IDs) ──
+async function submitStaffServiceReport() {
+  if (typeof HHP_Auth === 'undefined' || !HHP_Auth.supabase || !HHP_Auth.currentUser) {
+    toast('Please log in to submit reports.');
+    return;
+  }
+  var clientId = document.getElementById('srpt-client')?.value;
+  var service = document.getElementById('srpt-service')?.value;
+  var reportDate = document.getElementById('srpt-date')?.value;
+  var duration = document.getElementById('srpt-duration')?.value;
+  var distance = document.getElementById('srpt-distance')?.value?.trim();
+  var mood = document.getElementById('srpt-mood')?.value;
+  var petName = document.getElementById('aiQ2')?.value?.trim();
+  var personalNote = document.getElementById('reportNote')?.value?.trim();
+
+  if (!clientId) { toast('Please select a client.'); return; }
+  if (!service) { toast('Please select a service.'); return; }
+  if (!personalNote) { toast('Please write or generate a note first.'); return; }
+
+  var btn = document.getElementById('srpt-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+
+  try {
+    var reportRow = {
+      client_id: clientId,
+      author_id: HHP_Auth.currentUser.id,
+      service: service,
+      report_date: reportDate || new Date().toISOString().split('T')[0],
+      duration: duration || '30 min',
+      distance: (service === 'Dog Walk' && distance) ? distance : null,
+      mood: mood || 'great',
+      pet_name: petName || null,
+      personal_note: personalNote,
+      media: window._reportMedia || []
+    };
+
+    var { data, error } = await HHP_Auth.supabase
+      .from('service_reports')
+      .insert([reportRow])
+      .select();
+
+    if (error) throw error;
+
+    toast('📋 Report sent to client!');
+    sendReportEmailNotification(clientId, service, reportDate);
+    resetStaffReportForm();
+  } catch (e) {
+    console.error('submitStaffServiceReport error:', e);
+    toast('⚠️ Error sending report: ' + (e.message || 'Unknown error'));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send Report to Client'; }
+  }
+}
+
+// ── Email notification (mailto fallback) ──
+async function sendReportEmailNotification(clientId, service, reportDate) {
+  try {
+    var { data } = await HHP_Auth.supabase
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', clientId)
+      .single();
+    if (data && data.email) {
+      var subject = encodeURIComponent('New Service Report from Housley Happy Paws');
+      var body = encodeURIComponent(
+        'Hi ' + (data.full_name || 'there') + '!\n\n' +
+        'Rachel just submitted a new ' + service + ' report' +
+        (reportDate ? ' for ' + reportDate : '') + '.\n\n' +
+        'Log in to your Housley Happy Paws portal to view photos, notes, and all the details!\n\n' +
+        '🐾 Housley Happy Paws\nhttps://housleyhappypaws.com'
+      );
+      window.open('mailto:' + data.email + '?subject=' + subject + '&body=' + body, '_blank');
+    }
+  } catch (e) { console.warn('Could not send email notification:', e); }
+}
+
+// ── Reset owner report form ──
+function resetReportForm() {
+  var rptClient = document.getElementById('rpt-client');
+  if (rptClient) rptClient.selectedIndex = 0;
+  var rptService = document.getElementById('rpt-service');
+  if (rptService) rptService.selectedIndex = 0;
+  initReportDate();
+  var rptDuration = document.getElementById('rpt-duration');
+  if (rptDuration) rptDuration.selectedIndex = 0;
+  var rptDist = document.getElementById('rpt-distance');
+  if (rptDist) rptDist.value = '';
+  var rptMood = document.getElementById('rpt-mood');
+  if (rptMood) rptMood.selectedIndex = 0;
+  var oAiQ1 = document.getElementById('oAiQ1');
+  if (oAiQ1) oAiQ1.selectedIndex = 0;
+  var oAiQ2 = document.getElementById('oAiQ2');
+  if (oAiQ2) oAiQ2.value = '';
+  var oAiQ3 = document.getElementById('oAiQ3');
+  if (oAiQ3) oAiQ3.selectedIndex = 0;
+  var ownerNote = document.getElementById('ownerNote');
+  if (ownerNote) ownerNote.value = '';
+  window._reportMedia = [];
+  renderReportMediaGrid();
+  toggleReportDistance();
+}
+
+// ── Reset staff report form ──
+function resetStaffReportForm() {
+  var el;
+  el = document.getElementById('srpt-client'); if (el) el.selectedIndex = 0;
+  el = document.getElementById('srpt-service'); if (el) el.selectedIndex = 0;
+  initReportDate();
+  el = document.getElementById('srpt-duration'); if (el) el.selectedIndex = 0;
+  el = document.getElementById('srpt-distance'); if (el) el.value = '';
+  el = document.getElementById('srpt-mood'); if (el) el.selectedIndex = 0;
+  el = document.getElementById('aiQ1'); if (el) el.selectedIndex = 0;
+  el = document.getElementById('aiQ2'); if (el) el.value = '';
+  el = document.getElementById('aiQ3'); if (el) el.selectedIndex = 0;
+  el = document.getElementById('reportNote'); if (el) el.value = '';
+  window._reportMedia = [];
+  renderReportMediaGrid();
+  toggleStaffReportDistance();
+}
+
+// ── Report data cache for modal lookup ──
+window._reportCache = {};
+
+// ── Load client reports feed ──
+async function loadClientReports() {
+  if (typeof HHP_Auth === 'undefined' || !HHP_Auth.supabase || !HHP_Auth.currentUser) return;
+  var container = document.querySelector('#c-reports .card') || document.querySelector('#c-reports > div');
+  if (!container) return;
+
+  // Get client's profile id
+  try {
+    var { data: profile } = await HHP_Auth.supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', HHP_Auth.currentUser.id)
+      .single();
+    if (!profile) {
+      container.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📋</div><div style="font-weight:600;margin-bottom:6px">No reports yet</div><div style="font-size:0.84rem">Walk and visit reports will appear here after each service.</div></div>';
+      return;
+    }
+
+    var { data: reports, error } = await HHP_Auth.supabase
+      .from('service_reports')
+      .select('*')
+      .eq('client_id', profile.id)
+      .order('report_date', { ascending: false });
+
+    if (error) throw error;
+
+    if (!reports || reports.length === 0) {
+      container.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📋</div><div style="font-weight:600;margin-bottom:6px">No reports yet</div><div style="font-size:0.84rem">Walk and visit reports will appear here after each service.</div></div>';
+      return;
+    }
+
+    // Replace the entire panel content with a scrollable feed
+    var feedParent = document.getElementById('c-reports');
+    if (!feedParent) return;
+    var header = '<div class="p-header"><h2>Walk Reports 📋</h2><p>Detailed reports from every visit with Rachel.</p></div>';
+    var cards = reports.map(function(r) {
+      window._reportCache[r.id] = r;
+      var moodEmoji = { great:'😄', happy:'😊', calm:'😌', shy:'🙈', energetic:'⚡' };
+      var mediaCount = (r.media && r.media.length) || 0;
+      var dateStr = r.report_date ? new Date(r.report_date + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : '';
+      var thumbsHtml = '';
+      if (r.media && r.media.length > 0) {
+        var thumbs = r.media.slice(0, 3).map(function(m) {
+          if (m.type === 'video') {
+            return '<div style="width:48px;height:48px;border-radius:6px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:white;font-size:0.9rem">🎬</div>';
+          }
+          return '<img src="' + (m.thumbnail || m.url) + '" style="width:48px;height:48px;border-radius:6px;object-fit:cover" alt="">';
+        }).join('');
+        if (r.media.length > 3) {
+          thumbs += '<div style="width:48px;height:48px;border-radius:6px;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--mid)">+' + (r.media.length - 3) + '</div>';
+        }
+        thumbsHtml = '<div style="display:flex;gap:6px;margin-top:10px">' + thumbs + '</div>';
+      }
+
+      return '<div class="card" style="cursor:pointer;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 6px 20px rgba(30,20,9,0.1)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'" onclick="openReportDetail(\'' + r.id + '\')">' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
+          '<div>' +
+            '<div style="font-weight:700;font-size:0.95rem;color:var(--ink)">' + (r.pet_name || 'Pet Visit') + ' — ' + r.service + '</div>' +
+            '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + dateStr + ' · ' + (r.duration || '30 min') + (r.distance ? ' · ' + r.distance : '') + '</div>' +
+          '</div>' +
+          '<div style="font-size:1.2rem">' + (moodEmoji[r.mood] || '😄') + '</div>' +
+        '</div>' +
+        (r.personal_note ? '<div style="font-size:0.84rem;color:var(--ink);line-height:1.6;margin-top:6px">' + r.personal_note.substring(0, 150) + (r.personal_note.length > 150 ? '...' : '') + '</div>' : '') +
+        thumbsHtml +
+        (mediaCount > 0 ? '<div style="font-size:0.72rem;color:var(--mid);margin-top:8px">📷 ' + mediaCount + ' photo' + (mediaCount !== 1 ? 's' : '') + '/video' + (mediaCount !== 1 ? 's' : '') + '</div>' : '') +
+      '</div>';
+    }).join('');
+
+    feedParent.innerHTML = header + '<div style="display:flex;flex-direction:column;gap:14px;max-height:70vh;overflow-y:auto;padding-right:4px">' + cards + '</div>';
+  } catch (e) {
+    console.error('loadClientReports error:', e);
+  }
+}
+
+// ── Open report detail modal with real data ──
+function openReportDetail(reportOrId) {
+  var report = reportOrId;
+  if (typeof reportOrId === 'string') {
+    report = window._reportCache[reportOrId];
+    if (!report) return;
+  }
+  var modal = document.getElementById('reportModal');
+  if (!modal) return;
+
+  var moodEmoji = { great:'😄', happy:'😊', calm:'😌', shy:'🙈', energetic:'⚡' };
+  var dateStr = report.report_date ? new Date(report.report_date + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' }) : '';
+  var mediaCount = (report.media && report.media.length) || 0;
+
+  // Update modal content
+  var card = modal.querySelector('.report-card');
+  if (!card) return;
+
+  // Build photos HTML
+  var photosHtml = '';
+  if (report.media && report.media.length > 0) {
+    photosHtml = '<div class="report-photos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:16px">';
+    report.media.forEach(function(m) {
+      if (m.type === 'video') {
+        photosHtml += '<div style="border-radius:10px;overflow:hidden;aspect-ratio:1;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="window.open(\'' + m.url + '\',\'_blank\')"><div style="color:white;text-align:center"><div style="font-size:2rem">🎬</div><div style="font-size:0.7rem;margin-top:4px">Play Video</div></div></div>';
+      } else {
+        photosHtml += '<img src="' + m.url + '" style="width:100%;border-radius:10px;aspect-ratio:1;object-fit:cover;cursor:pointer" onclick="window.open(\'' + m.url + '\',\'_blank\')" alt="">';
+      }
+    });
+    photosHtml += '</div>';
+  }
+
+  card.innerHTML =
+    '<div class="report-header">' +
+      '<div class="report-brand"><div class="report-logo">Housley <span>Happy</span> Paws</div><span class="badge badge-green">Completed</span></div>' +
+      '<div style="font-size:0.82rem;color:var(--mid)">' + (report.pet_name || 'Your pet') + ' · ' + report.service + ' · ' + dateStr + '</div>' +
+    '</div>' +
+    '<div class="report-stats">' +
+      '<div class="rstat"><div class="rstat-num">' + (report.duration || '30 min') + '</div><div class="rstat-lbl">Duration</div></div>' +
+      (report.distance ? '<div class="rstat"><div class="rstat-num">' + report.distance + '</div><div class="rstat-lbl">Distance</div></div>' : '') +
+      '<div class="rstat"><div class="rstat-num">' + mediaCount + '</div><div class="rstat-lbl">Media</div></div>' +
+      '<div class="rstat"><div class="rstat-num">' + (moodEmoji[report.mood] || '😄') + '</div><div class="rstat-lbl">Mood</div></div>' +
+    '</div>' +
+    photosHtml +
+    '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
+    '<div style="display:flex;gap:10px"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button></div>';
+
+  // Show modal
+  modal.style.display = 'flex';
+  modal.classList.add('active');
+}
+
+// ── Initialize reports on page load ──
+document.addEventListener('DOMContentLoaded', function() {
+  initReportDate();
+  toggleReportDistance();
+
+  // Watch for panel switches to load data
+  var origSTab = window.sTab;
+  if (typeof origSTab === 'function') {
+    window.sTab = function(portal, panelId) {
+      origSTab(portal, panelId);
+      if (panelId === 'c-reports') loadClientReports();
+      if (panelId === 'o-reports' || panelId === 's-reports') {
+        initReportDate();
+        populateReportClients();
+      }
+    };
+  }
+});
 
 </script>
 
