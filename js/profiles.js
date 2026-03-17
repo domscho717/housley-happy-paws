@@ -160,7 +160,7 @@ async function showStaffProfile(profileId) {
         ${schedule.length ? schedule.map(s => `
           <div style="padding:8px 12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;">
             <strong>${days[s.day_of_week]}</strong>
-            <span>${s.start_time?.slice(0,5)} - ${s.end_time?.slice(0,5)} ${s.is_available ? '' : '(Off)'}</span>
+            <span>${s.is_available ? 'Available (Anytime)' : 'Off'}</span>
           </div>
         `).join('') : '<p style="color:#888;">No schedule set.</p>'}
       </div>

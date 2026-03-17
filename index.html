@@ -1458,10 +1458,15 @@ try {
         <div class="p-header"><h2>All Clients 👥</h2><p>Your full client roster.</p></div>
         <div class="card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <span class="card-title">0 Active Clients</span>
-            <button class="btn btn-gold btn-sm" onclick="openInviteModal()">+ Invite New Client</button>
+            <span class="card-title" id="oc-count">0 Active Clients</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="text" id="oc-search" placeholder="Search clients..." oninput="filterOwnerClients()" style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.82rem;width:180px">
+              <button class="btn btn-gold btn-sm" onclick="openInviteModal()">+ Invite New Client</button>
+            </div>
           </div>
-          <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No clients yet. Share your booking link to get started!</div>
+          <div id="oc-list" style="display:flex;flex-direction:column;gap:10px">
+            <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading clients...</div>
+          </div>
         </div>
       </div>
 
@@ -2244,6 +2249,7 @@ function sTab(portal, panelId) {
   if(el) el.classList.add('active');
   // Auto-load data when switching to specific panels
   if (panelId === 'c-bill' && typeof loadSavedCard === 'function') loadSavedCard();
+  if (panelId === 'o-clients' && typeof loadOwnerClients === 'function') loadOwnerClients();
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -3084,6 +3090,107 @@ async function addPaymentMethod() {
     window.history.replaceState({}, '', window.location.pathname);
   }
 })();
+
+// ── Owner: All Clients Panel ──
+var _ownerClientsData = [];
+
+async function loadOwnerClients() {
+  var listEl = document.getElementById('oc-list');
+  var countEl = document.getElementById('oc-count');
+  if (!listEl) return;
+
+  listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading clients...</div>';
+
+  try {
+    var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+    if (!sb) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Database not available.</div>'; return; }
+
+    var { data: clients, error } = await sb
+      .from('profiles')
+      .select('id, full_name, email, phone, role, stripe_customer_id, pets, customer_number, created_at')
+      .eq('role', 'client')
+      .order('full_name', { ascending: true });
+
+    if (error) throw error;
+
+    _ownerClientsData = clients || [];
+    if (countEl) countEl.textContent = _ownerClientsData.length + ' Active Client' + (_ownerClientsData.length !== 1 ? 's' : '');
+    renderOwnerClients(_ownerClientsData);
+  } catch (err) {
+    console.error('Load owner clients error:', err);
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Could not load clients.</div>';
+  }
+}
+
+function renderOwnerClients(clients) {
+  var listEl = document.getElementById('oc-list');
+  if (!listEl) return;
+
+  if (!clients || clients.length === 0) {
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No clients yet. Share your booking link to get started!</div>';
+    return;
+  }
+
+  listEl.innerHTML = clients.map(function(c) {
+    var hasCard = !!c.stripe_customer_id;
+    var cardBadge = hasCard
+      ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:600">💳 Card on file</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:6px;font-size:0.72rem;font-weight:600">No card</span>';
+
+    var pets = '';
+    if (c.pets) {
+      try {
+        var petArr = typeof c.pets === 'string' ? JSON.parse(c.pets) : c.pets;
+        if (Array.isArray(petArr) && petArr.length > 0) {
+          pets = petArr.map(function(p) { return (p.name || p) + (p.species ? ' (' + p.species + ')' : ''); }).join(', ');
+        }
+      } catch(e) { pets = String(c.pets); }
+    }
+
+    var joinDate = c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '';
+
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--border);border-radius:10px;gap:12px;flex-wrap:wrap">' +
+      '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">' +
+        '<div style="width:40px;height:40px;border-radius:50%;background:var(--forest-pale);display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:var(--forest)">' +
+          (c.full_name ? c.full_name.charAt(0).toUpperCase() : '?') +
+        '</div>' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:0.92rem">' + (c.full_name || 'Unnamed Client') + '</div>' +
+          '<div style="font-size:0.78rem;color:var(--mid)">' + (c.email || '') + (c.phone ? ' · ' + c.phone : '') + '</div>' +
+          (pets ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px">🐾 ' + pets + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+        cardBadge +
+        (c.customer_number ? '<span style="font-size:0.72rem;color:var(--mid)">#' + c.customer_number + '</span>' : '') +
+        (joinDate ? '<span style="font-size:0.72rem;color:var(--mid)">Joined ' + joinDate + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function filterOwnerClients() {
+  var q = (document.getElementById('oc-search')?.value || '').toLowerCase().trim();
+  if (!q) { renderOwnerClients(_ownerClientsData); return; }
+
+  var filtered = _ownerClientsData.filter(function(c) {
+    var searchable = ((c.full_name || '') + ' ' + (c.email || '') + ' ' + (c.phone || '') + ' ' + (c.customer_number || '')).toLowerCase();
+    // Also search pets
+    if (c.pets) {
+      try {
+        var petArr = typeof c.pets === 'string' ? JSON.parse(c.pets) : c.pets;
+        if (Array.isArray(petArr)) {
+          searchable += ' ' + petArr.map(function(p) { return (p.name || p) + ' ' + (p.species || ''); }).join(' ').toLowerCase();
+        }
+      } catch(e) {}
+    }
+    return searchable.indexOf(q) !== -1;
+  });
+
+  var countEl = document.getElementById('oc-count');
+  if (countEl) countEl.textContent = filtered.length + ' of ' + _ownerClientsData.length + ' Client' + (_ownerClientsData.length !== 1 ? 's' : '');
+  renderOwnerClients(filtered);
+}
 
 // ── Load Client Payment History (real Stripe) ──
 async function loadClientPayments() {
