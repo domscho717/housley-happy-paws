@@ -96,6 +96,7 @@ async function saveFooter() {
   });
 
   setSiteData(updates);
+  applySavedData();
 
   try {
     const token = (typeof HHP_Auth !== 'undefined' && HHP_Auth.session)
@@ -113,6 +114,64 @@ async function saveFooter() {
     toast('\u2705 Contact info saved!');
   } catch (err) {
     toast('\u2705 Contact info saved locally!');
+  }
+}
+
+// Override savePricing to persist to Supabase
+async function savePricing() {
+  const pricing = {};
+  document.querySelectorAll('[data-price-key]').forEach(el => {
+    pricing[el.dataset.priceKey] = el.value;
+  });
+
+  setSiteData({ pricing });
+  applySavedData();
+
+  try {
+    const token = (typeof HHP_Auth !== 'undefined' && HHP_Auth.session)
+      ? HHP_Auth.session.access_token : null;
+    if (token) {
+      await fetch('/api/site-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ section_key: 'pricing', content: { pricing } })
+      });
+    }
+    toast('\u2705 All pricing saved!');
+  } catch (err) {
+    toast('\u2705 Pricing saved locally!');
+  }
+}
+
+// Override saveServices to persist to Supabase
+async function saveServices() {
+  const u = {};
+  document.querySelectorAll('[data-svc-key]').forEach(el => {
+    u[el.dataset.svcKey] = el.value;
+  });
+
+  setSiteData(u);
+  applySavedData();
+
+  try {
+    const token = (typeof HHP_Auth !== 'undefined' && HHP_Auth.session)
+      ? HHP_Auth.session.access_token : null;
+    if (token) {
+      await fetch('/api/site-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ section_key: 'services', content: u })
+      });
+    }
+    toast('\u2705 Service descriptions saved!');
+  } catch (err) {
+    toast('\u2705 Service descriptions saved locally!');
   }
 }
 

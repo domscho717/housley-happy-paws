@@ -2380,10 +2380,55 @@ function setSiteData(updates) {
 }
 function applySavedData() {
   const d = getSiteData();
+  if(!d || Object.keys(d).length === 0) return;
+
+  // Hero section
   if(d.heroH1) { const el = document.querySelector('.hero-h1'); if(el) el.innerHTML = d.heroH1; }
   if(d.heroPara) { const el = document.querySelector('.hero-p'); if(el) el.textContent = d.heroPara; }
   if(d.heroTag) { const el = document.querySelector('.hero-tag'); if(el) el.textContent = d.heroTag; }
+
+  // Trust badges
+  const trustMap = { trust1: 0, trust2: 1, trust3: 2 };
+  Object.entries(trustMap).forEach(([key, idx]) => {
+    if(d[key]) { const chips = document.querySelectorAll('.trust-chip'); if(chips[idx]) { const txt = chips[idx].querySelector('.trust-mark'); if(txt) txt.nextSibling && (txt.nextSibling.textContent = d[key]); } }
+  });
+
+  // About section
+  const aboutPs = document.querySelectorAll('.about-section .section-p');
+  if(d.aboutP1 && aboutPs[0]) aboutPs[0].textContent = d.aboutP1;
+  if(d.aboutP2 && aboutPs[1]) aboutPs[1].textContent = d.aboutP2;
+  if(d.aboutQuote) { const q = document.querySelector('.about-section p[style*="italic"]'); if(q) q.textContent = d.aboutQuote; }
+  if(d.aboutH) { const h = document.querySelector('.about-section .section-title'); if(h) h.textContent = d.aboutH; }
+
+  // Footer / Contact
+  if(d.phone) { document.querySelectorAll('a[href^="tel:"]').forEach(el => { el.href = 'tel:' + d.phone.replace(/[^0-9+]/g,''); el.textContent = d.phone; }); }
+  if(d.email) { document.querySelectorAll('a[href^="mailto:"]').forEach(el => { el.href = 'mailto:' + d.email; el.textContent = d.email; }); }
+
+  // Pricing display
   if(d.pricing) { Object.entries(d.pricing).forEach(([k,v]) => { const el = document.querySelector(`[data-price-key="${k}"]`); if(el) el.textContent = v; }); }
+
+  // Service descriptions on the actual service cards
+  const svcDescMap = { desc_walk: 'Dog Walking', desc_dropin: 'Drop-In Visit', desc_cat: 'Cat Care Visit', desc_boarding: 'Dog Boarding', desc_housesit: 'House Sitting' };
+  Object.entries(svcDescMap).forEach(([key, cardName]) => {
+    if(d[key]) {
+      document.querySelectorAll('.service-card').forEach(card => {
+        const nameEl = card.querySelector('.sc-name');
+        if(nameEl && nameEl.textContent.trim() === cardName) {
+          const descEl = card.querySelector('.sc-desc');
+          if(descEl) descEl.textContent = d[key];
+        }
+      });
+    }
+  });
+
+  // Pre-fill all ce-field inputs/textareas with saved values
+  document.querySelectorAll('.ce-field').forEach(f => {
+    const key = f.dataset.field;
+    if(key && d[key] !== undefined) {
+      if(f.tagName === 'INPUT' || f.tagName === 'TEXTAREA') f.value = d[key];
+      else f.textContent = d[key];
+    }
+  });
 }
 applySavedData();
 
@@ -2481,7 +2526,7 @@ function saveContentSection(section) {
 function saveFooter() {
   const updates={};
   document.querySelectorAll('#ce-footer .ce-field').forEach(f=>{updates[f.dataset.field]=f.value;});
-  setSiteData(updates); toast('✅ Contact info saved!');
+  setSiteData(updates); applySavedData(); toast('✅ Contact info saved!');
 }
 function aiRewrite(section) {
   const prompts={ hero:'Rewrite the hero headline and intro paragraph for Housley Happy Paws. Make it warm, professional, compelling. Provide the headline and paragraph text separately so I can paste them in.', about:'Rewrite the About Rachel section. Make it personal, warm, professional. 2 paragraphs + a memorable quote from Rachel.', services:'Rewrite the service descriptions for Dog Walking, Drop-In Visits, Dog Boarding, and Cat Care. Each 2-3 sentences, warm and specific.' };
@@ -2508,7 +2553,7 @@ function buildPricingEditor() {
 function savePricing() {
   const pricing={};
   document.querySelectorAll('[data-price-key]').forEach(el=>{pricing[el.dataset.priceKey]=el.value;});
-  setSiteData({pricing}); toast('✅ All pricing saved and applied to your site!');
+  setSiteData({pricing}); applySavedData(); toast('✅ All pricing saved and applied to your site!');
 }
 
 // ============================================================
@@ -2529,7 +2574,7 @@ function buildServiceEditor() {
 function saveServices() {
   const u={};
   document.querySelectorAll('[data-svc-key]').forEach(el=>{u[el.dataset.svcKey]=el.value;});
-  setSiteData(u); toast('✅ Service descriptions saved!');
+  setSiteData(u); applySavedData(); toast('✅ Service descriptions saved!');
 }
 
 // ============================================================
