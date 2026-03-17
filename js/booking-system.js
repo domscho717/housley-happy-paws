@@ -1021,25 +1021,15 @@
       }
     });
 
-    // Also rewire the hero CTA buttons
-    var heroCTAs = document.querySelectorAll('.hero-section a, .hero-section button');
-    heroCTAs.forEach(function(btn) {
+    // Rewire Meet & Greet buttons to use the proper mgModal
+    var allBtns = document.querySelectorAll('.hero-section a, .hero-section button, button, a');
+    allBtns.forEach(function(btn) {
       var text = btn.textContent || '';
-      if (text.indexOf('Meet & Greet') >= 0 || text.indexOf('Schedule') >= 0) {
+      if ((text.indexOf('Meet & Greet') >= 0 || text.indexOf('Meet &amp; Greet') >= 0) &&
+          (text.indexOf('Book') >= 0 || text.indexOf('Schedule') >= 0 || text.indexOf('Request') >= 0)) {
         btn.onclick = function(e) {
           e.preventDefault();
-          openBookingModal('Meet & Greet');
-        };
-      }
-    });
-
-    // Rewire any Meet & Greet specific buttons
-    document.querySelectorAll('button, a').forEach(function(btn) {
-      var text = btn.textContent || '';
-      if (text.indexOf('Meet & Greet') >= 0 && (text.indexOf('Book') >= 0 || text.indexOf('Schedule') >= 0)) {
-        btn.onclick = function(e) {
-          e.preventDefault();
-          openBookingModal('Meet & Greet');
+          if (typeof openModal === 'function') openModal('mgModal');
         };
       }
     });
