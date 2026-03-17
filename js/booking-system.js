@@ -32,10 +32,10 @@
   var STRIPE_SERVICE_LINKS = {
     'Dog Walking - 30 min':    'https://buy.stripe.com/test_7sY5kDcu661Mgzx4Lx1kA00',
     'Dog Walking - 1 hour':    'https://buy.stripe.com/test_cNieVdbq2gGqbfdguf1kA01',
-    'Drop-In Visit - 30 min':  'https://buy.stripe.com/test_cNi28rdya75Q3MLdi31kA02',
-    'Drop-In Visit - 1 hour':  'https://buy.stripe.com/test_fZu6oHdya9dYdnlem71kA03',
-    'Cat Care Visit - 30 min': 'https://buy.stripe.com/test_3cI6oH51Ebm6831guf1kA04',
-    'Cat Care Visit - 1 hour': 'https://buy.stripe.com/test_aFaaEX8dQ75Q8315PB1kA05',
+    'Drop-In Visit - 30 min':  'https://buy.stripe.com/test_5kQ8wP0Loai21ED3Ht1kA0a',
+    'Drop-In Visit - 1 hour':  'https://buy.stripe.com/test_cNi7sLeCeai26YX5PB1kA0b',
+    'Cat Care Visit - 30 min': 'https://buy.stripe.com/test_14AeVd0Loai2gzx5PB1kA0c',
+    'Cat Care Visit - 1 hour': 'https://buy.stripe.com/test_eVqbJ1alY3TEbfdb9V1kA0d',
     'House Sitting':           'https://buy.stripe.com/test_aFa9AT65I9dYbfd5PB1kA06',
   };
 
@@ -395,45 +395,67 @@
     return HOLIDAYS.indexOf(md) !== -1;
   }
 
-  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType) {
+  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType, nights) {
     var svc = null;
     for (var i = 0; i < SERVICES.length; i++) {
       if (SERVICES[i].name === serviceName) { svc = SERVICES[i]; break; }
     }
     if (!svc || svc.base === 0) return { total: 0, breakdown: 'Free', base: 0 };
 
-    var total = svc.base;
-    var parts = [svc.name + ': $' + svc.base];
+    nights = nights || 1;
+    var isMultiNight = svc.group === 'House Sitting' && nights > 0;
 
-    // Additional pets — use correct rate based on pet type
+    // For House Sitting: calculate PER-NIGHT cost then multiply
+    var perNight = svc.base;
+    var parts = [];
+
+    if (isMultiNight) {
+      parts.push(svc.name + ': $' + svc.base + '/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (svc.base * nights));
+    } else {
+      parts.push(svc.name + ': $' + svc.base);
+    }
+
+    // Additional pets — per night for house sitting, flat for others
+    var extraPetCost = 0;
     if (numPets > 1) {
       var extraCount = numPets - 1;
       if (petType === 'both') {
-        // Mixed combo (e.g. 1 dog + 1 cat) — charge the dog extra rate for the extra pet
         var extraRate = svc.extraPet || 15;
-        total += extraRate;
-        parts.push('Additional pet (mixed): +$' + extraRate);
+        extraPetCost = extraRate * (isMultiNight ? nights : 1);
+        parts.push('Additional pet (mixed): +$' + extraRate + (isMultiNight ? '/night x ' + nights + ' = $' + extraPetCost : ''));
       } else {
         var extraRate = (petType === 'cat' && svc.extraCat) ? svc.extraCat : (svc.extraPet || 0);
-        var extraCost = extraCount * extraRate;
-        total += extraCost;
-        if (extraCost > 0) parts.push(extraCount + ' extra ' + (petType === 'cat' ? 'cat(s)' : 'dog(s)') + ': +$' + extraCost);
+        extraPetCost = extraCount * extraRate * (isMultiNight ? nights : 1);
+        if (extraPetCost > 0) parts.push(extraCount + ' extra ' + (petType === 'cat' ? 'cat(s)' : 'dog(s)') + ': +$' + extraRate + (isMultiNight ? '/night x ' + nights + ' = $' + extraPetCost : ''));
       }
     }
 
-    // Puppy surcharge (dog services only)
+    // Puppy surcharge (dog services only) — per night for house sitting
+    var puppyCost = 0;
     if (isPuppy && svc.puppy > 0 && petType !== 'cat') {
-      total += svc.puppy;
-      parts.push('Puppy surcharge: +$' + svc.puppy);
+      puppyCost = svc.puppy * (isMultiNight ? nights : 1);
+      parts.push('Puppy surcharge: +$' + svc.puppy + (isMultiNight ? '/night x ' + nights + ' = $' + puppyCost : ''));
     }
 
-    // Holiday surcharge
+    // Holiday surcharge — per night for house sitting
+    var holidayCost = 0;
     if (isHolidayDate && svc.holiday > 0) {
-      total += svc.holiday;
-      parts.push('Holiday rate: +$' + svc.holiday);
+      holidayCost = svc.holiday * (isMultiNight ? nights : 1);
+      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' = $' + holidayCost : ''));
     }
 
-    return { total: total, breakdown: parts.join(' | '), base: svc.base };
+    var total = (isMultiNight ? svc.base * nights : svc.base) + extraPetCost + puppyCost + holidayCost;
+
+    return { total: total, breakdown: parts.join(' | '), base: svc.base, nights: nights };
+  }
+
+  // Calculate number of nights between two dates (used by price estimator and submit)
+  function calcNights(startStr, endStr) {
+    if (!startStr || !endStr) return 1;
+    var start = new Date(startStr + 'T12:00:00');
+    var end = new Date(endStr + 'T12:00:00');
+    var diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 1;
   }
 
   function createBookingModal() {
@@ -457,10 +479,14 @@
       '',
       '    <div class="brm-row">',
       '      <div class="brm-col">',
-      '        <label class="brm-label">Preferred Date *</label>',
+      '        <label class="brm-label" id="brm-date-label">Preferred Date *</label>',
       '        <input type="date" id="brm-date" class="brm-input" required>',
       '      </div>',
-      '      <div class="brm-col">',
+      '      <div class="brm-col" id="brm-enddate-col" style="display:none">',
+      '        <label class="brm-label">End Date *</label>',
+      '        <input type="date" id="brm-enddate" class="brm-input">',
+      '      </div>',
+      '      <div class="brm-col" id="brm-time-col">',
       '        <label class="brm-label">Preferred Time *</label>',
       '        <select id="brm-time" class="brm-input" required>',
       '          <option value="">Select time...</option>',
@@ -577,7 +603,11 @@
         return;
       }
 
-      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType);
+      var nights = 1;
+      if (svcName.toLowerCase().indexOf('house sitting') !== -1) {
+        nights = calcNights(document.getElementById('brm-date').value, document.getElementById('brm-enddate').value);
+      }
+      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights);
       if (estimateEl) estimateEl.style.display = 'block';
       if (breakdownEl) breakdownEl.innerHTML = result.breakdown.split(' | ').join('<br>');
       if (totalEl) totalEl.textContent = result.total.toFixed(2);
@@ -618,11 +648,50 @@
       updatePriceEstimate();
     }
 
+    // Show/hide end date field for House Sitting
+    function toggleHouseSittingFields() {
+      var svcName = (document.getElementById('brm-service').value || '').toLowerCase();
+      var isHS = svcName.indexOf('house sitting') !== -1;
+      var endCol = document.getElementById('brm-enddate-col');
+      var endInput = document.getElementById('brm-enddate');
+      var dateLabel = document.getElementById('brm-date-label');
+      var timeCol = document.getElementById('brm-time-col');
+
+      if (endCol) endCol.style.display = isHS ? '' : 'none';
+      if (endInput) endInput.required = isHS;
+      if (dateLabel) dateLabel.textContent = isHS ? 'Start Date *' : 'Preferred Date *';
+      // For house sitting, change time label to check-in time
+      if (timeCol) {
+        var timeLabel = timeCol.querySelector('.brm-label');
+        if (timeLabel) timeLabel.textContent = isHS ? 'Check-In Time *' : 'Preferred Time *';
+      }
+
+      // Auto-set end date to next day if start date is set and end date is empty
+      if (isHS && endInput) {
+        var startDate = document.getElementById('brm-date').value;
+        if (startDate && !endInput.value) {
+          var next = new Date(startDate + 'T12:00:00');
+          next.setDate(next.getDate() + 1);
+          endInput.value = next.toISOString().split('T')[0];
+        }
+        // Set min of end date to day after start
+        if (startDate) {
+          var minEnd = new Date(startDate + 'T12:00:00');
+          minEnd.setDate(minEnd.getDate() + 1);
+          endInput.setAttribute('min', minEnd.toISOString().split('T')[0]);
+        }
+      }
+    }
+
     // Attach listeners for live update
     setTimeout(function() {
-      ['brm-service', 'brm-date'].forEach(function(id) {
+      ['brm-service', 'brm-date', 'brm-enddate'].forEach(function(id) {
         var el = document.getElementById(id);
-        if (el) el.addEventListener('change', updatePriceEstimate);
+        if (el) el.addEventListener('change', function() {
+          if (id === 'brm-service') toggleHouseSittingFields();
+          if (id === 'brm-date') toggleHouseSittingFields(); // update end date min/default
+          updatePriceEstimate();
+        });
       });
       var comboEl = document.getElementById('brm-petcombo');
       if (comboEl) comboEl.addEventListener('change', syncPetCombo);
@@ -885,14 +954,26 @@
     var isPuppy = document.getElementById('brm-puppy') ? document.getElementById('brm-puppy').checked : false;
     var address = document.getElementById('brm-address').value.trim();
     var notes = document.getElementById('brm-notes').value.trim();
+    var endDateEl = document.getElementById('brm-enddate');
+    var endDate = endDateEl ? endDateEl.value : '';
 
-    // Calculate price
+    // Calculate price (with nights for House Sitting)
     var holidayFlag = isHoliday(date);
     var petCombo = document.getElementById('brm-petcombo') ? document.getElementById('brm-petcombo').value : '';
-    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType);
+    var isHouseSitting = service.toLowerCase().indexOf('house sitting') !== -1;
+    var nights = 1;
+    if (isHouseSitting) {
+      nights = calcNights(date, endDate);
+    }
+    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights);
 
     if (!service || !date || !time || !name || !email || !pets || !address || !petCombo) {
       if (errEl) errEl.textContent = 'Please fill in all required fields.';
+      return;
+    }
+    // House Sitting requires end date
+    if (isHouseSitting && !endDate) {
+      if (errEl) errEl.textContent = 'Please select an end date for House Sitting.';
       return;
     }
 
@@ -912,6 +993,7 @@
         .insert({
           service: service,
           preferred_date: date,
+          preferred_end_date: isHouseSitting ? endDate : null,
           preferred_time: time,
           contact_name: name,
           contact_email: email,
@@ -937,14 +1019,14 @@
       try {
         await sendBookingNotification({
           service: service,
-          date: date,
+          date: isHouseSitting ? date + ' to ' + endDate : date,
           time: time,
           name: name,
           email: email,
           phone: phone,
           pets: pets,
           address: address,
-          notes: notes,
+          notes: isHouseSitting ? (notes ? notes + ' | ' + nights + ' night(s)' : nights + ' night(s)') : notes,
         });
       } catch (emailErr) {
         console.warn('Email notification failed:', emailErr);
@@ -1127,6 +1209,13 @@
 
       container.innerHTML = this.requests.map(function(r) {
         var dateStr = r.preferred_date ? new Date(r.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+        var isHS = (r.service || '').toLowerCase().indexOf('house sitting') !== -1;
+        var endDateStr = '';
+        if (isHS && r.preferred_end_date) {
+          endDateStr = new Date(r.preferred_end_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          var hsNights = Math.round((new Date(r.preferred_end_date + 'T12:00:00') - new Date(r.preferred_date + 'T12:00:00')) / (1000*60*60*24));
+          dateStr = dateStr + ' → ' + endDateStr + ' (' + hsNights + ' night' + (hsNights !== 1 ? 's' : '') + ')';
+        }
         var createdStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 
         var actionsHTML = '';
@@ -1158,7 +1247,7 @@
           '    <span class="arc-status ' + r.status + '">' + r.status + '</span>',
           '  </div>',
           '  <div class="arc-detail" style="display:flex;align-items:center;gap:10px">' + clientAvaHTML + '<div><strong>' + (r.contact_name || '') + '</strong><br><span style="font-size:0.78rem;color:#8c6b4a">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</span></div></div>',
-          '  <div class="arc-detail"><strong>Preferred:</strong> ' + dateStr + ' at ' + (r.preferred_time || '') + '</div>',
+          '  <div class="arc-detail"><strong>' + (isHS ? 'Dates:' : 'Preferred:') + '</strong> ' + dateStr + (isHS ? ' · Check-in ' : ' at ') + (r.preferred_time || '') + '</div>',
           '  <div class="arc-detail"><strong>Pets:</strong> ' + (r.pet_names || '') + ' (' + (r.pet_types || '') + ', ' + (r.number_of_pets || 1) + ')' + (r.is_puppy ? ' <span style="color:#c8963e;font-weight:600">🐶 Puppy</span>' : '') + '</div>',
           '  <div class="arc-detail"><strong>Address:</strong> ' + (r.address || '') + '</div>',
           r.estimated_total ? '  <div class="arc-detail" style="background:#f9f6f0;padding:8px 10px;border-radius:6px;margin:6px 0;border:1px solid #e0d5c5"><strong>Total: $' + Number(r.estimated_total).toFixed(2) + '</strong>' + (r.price_breakdown ? '<div style="font-size:0.78rem;color:#6b5c4d;margin-top:2px">' + r.price_breakdown.replace(/\|/g, '<br>') + '</div>' : '') + (r.is_holiday ? '<div style="color:#c8963e;font-size:0.78rem;margin-top:2px">Holiday rate applied</div>' : '') + '</div>' : '',

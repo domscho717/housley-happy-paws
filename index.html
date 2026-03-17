@@ -244,8 +244,8 @@ body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);over
   display:flex;align-items:center;gap:10px;
   font-size:0.78rem;font-weight:600;border:1px solid var(--border);
 }
-.fb-top{top:-16px;right:-16px;animation:flt1 4s ease-in-out infinite}
-.fb-bot{bottom:50px;left:-24px;animation:flt2 5s ease-in-out 1s infinite}
+.fb-top{top:-16px;right:-16px}
+.fb-bot{bottom:50px;left:-24px}
 
 /* ABOUT SECTION */
 .about-section{padding:100px 48px;background:white}
@@ -1882,9 +1882,11 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
             <div><label class="form-lbl">Amount ($)</label><input class="form-in" id="inv-amount" type="number" placeholder="125"></div>
           </div>
           <div class="form-row" style="margin-bottom:14px">
-            <div><label class="form-lbl">Date of Service</label><input class="form-in" id="inv-date" type="date"></div>
+            <div><label class="form-lbl" id="inv-date-label">Date of Service</label><input class="form-in" id="inv-date" type="date"></div>
+            <div id="inv-enddate-col" style="display:none"><label class="form-lbl">End Date</label><input class="form-in" id="inv-enddate" type="date"></div>
             <div><label class="form-lbl">Due Date</label><input class="form-in" id="inv-due" type="date"></div>
           </div>
+          <div id="inv-nights-info" style="display:none;margin-bottom:14px;padding:8px 12px;background:var(--gold-pale);border-radius:8px;font-size:0.85rem;color:var(--forest);font-weight:600"></div>
           <div class="form-group" style="margin-bottom:18px">
             <label class="form-lbl">Personal Note (optional)</label>
             <textarea class="form-ta" id="inv-note" placeholder="Thanks so much for trusting me with your fur baby! 🐾"></textarea>
@@ -2712,6 +2714,60 @@ function addDeal() {
   document.getElementById('addDealForm').style.display = 'none';
   toast('🏷️ Deal added!');
 }
+
+// ── Invoice: House Sitting date range toggle ──
+(function() {
+  function invHouseSittingToggle() {
+    var svcEl = document.getElementById('inv-service');
+    var endCol = document.getElementById('inv-enddate-col');
+    var dateLabel = document.getElementById('inv-date-label');
+    var nightsInfo = document.getElementById('inv-nights-info');
+    if (!svcEl) return;
+    var isHS = svcEl.value.toLowerCase().indexOf('house sitting') !== -1;
+    if (endCol) endCol.style.display = isHS ? '' : 'none';
+    if (dateLabel) dateLabel.textContent = isHS ? 'Start Date' : 'Date of Service';
+    if (nightsInfo) nightsInfo.style.display = 'none';
+    if (isHS) invCalcNights();
+  }
+  function invCalcNights() {
+    var startVal = document.getElementById('inv-date')?.value;
+    var endVal = document.getElementById('inv-enddate')?.value;
+    var nightsInfo = document.getElementById('inv-nights-info');
+    var amountEl = document.getElementById('inv-amount');
+    if (!startVal || !endVal) { if (nightsInfo) nightsInfo.style.display = 'none'; return; }
+    var start = new Date(startVal + 'T12:00:00');
+    var end = new Date(endVal + 'T12:00:00');
+    var nights = Math.round((end - start) / (1000*60*60*24));
+    if (nights < 1) nights = 1;
+    if (nightsInfo) {
+      nightsInfo.textContent = nights + ' night' + (nights !== 1 ? 's' : '') + ' × $125/night = $' + (nights * 125);
+      nightsInfo.style.display = 'block';
+    }
+    if (amountEl) amountEl.value = nights * 125;
+    // Set min end date
+    var endInput = document.getElementById('inv-enddate');
+    if (endInput && startVal) {
+      var minEnd = new Date(startVal + 'T12:00:00');
+      minEnd.setDate(minEnd.getDate() + 1);
+      endInput.setAttribute('min', minEnd.toISOString().split('T')[0]);
+      if (!endVal) endInput.value = minEnd.toISOString().split('T')[0];
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    var svcEl = document.getElementById('inv-service');
+    if (svcEl) svcEl.addEventListener('change', invHouseSittingToggle);
+    var invDate = document.getElementById('inv-date');
+    var invEnd = document.getElementById('inv-enddate');
+    if (invDate) invDate.addEventListener('change', function() {
+      var svc = document.getElementById('inv-service');
+      if (svc && svc.value.toLowerCase().indexOf('house sitting') !== -1) invCalcNights();
+    });
+    if (invEnd) invEnd.addEventListener('change', function() {
+      var svc = document.getElementById('inv-service');
+      if (svc && svc.value.toLowerCase().indexOf('house sitting') !== -1) invCalcNights();
+    });
+  });
+})();
 
 // ── Send Invoice (Real Stripe) ──
 async function sendInvoice() {
