@@ -1945,7 +1945,14 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
     <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">First Name</label><input class="form-in" placeholder="Sarah"></div><div><label class="form-lbl">Last Name</label><input class="form-in" placeholder="Davis"></div></div>
     <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Phone / Text</label><input class="form-in" type="tel" placeholder="(717) 000-0000"></div><div><label class="form-lbl">Email</label><input class="form-in" type="email" placeholder="sarah@email.com"></div></div>
     <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Pet's Name</label><input class="form-in" id="mg-petname" placeholder="e.g. Max"></div><div><label class="form-lbl">Breed</label><input class="form-in" id="mg-breed" placeholder="e.g. Golden Retriever"></div></div>
-    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Pet's Birthday / Date of Birth</label><input class="form-in" id="mg-petbday" type="date"></div><div><label class="form-lbl">Pet Age</label><input class="form-in" id="mg-petage" readonly placeholder="Auto-calculated" style="background:#f5f2ed;color:var(--mid)"></div></div>
+    <div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Pet's Birthday / Date of Birth</label><input class="form-in" id="mg-petbday" type="date"></div>
+    <div id="mg-age-display" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:14px 16px;margin-bottom:14px;text-align:center">
+      <div style="display:flex;justify-content:center;gap:24px;align-items:center;flex-wrap:wrap">
+        <div><div style="font-size:0.72rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Human Age</div><div id="mg-petage" style="font-weight:700;font-size:1.1rem;color:var(--ink)"></div></div>
+        <div style="width:1px;height:32px;background:#e0d5c5"></div>
+        <div><div style="font-size:0.72rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Dog Years</div><div id="mg-dogyears" style="font-weight:700;font-size:1.1rem;color:var(--gold-deep)">🐾</div></div>
+      </div>
+    </div>
     <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Preferred Date</label><input class="form-in" type="date"></div><div><label class="form-lbl">Preferred Time</label><input class="form-in" type="time"></div></div>
     <div class="form-group"><label class="form-lbl">Anything Rachel Should Know?</label><textarea class="form-ta" placeholder="e.g. Friendly but a little shy with new people at first..."></textarea></div>
     <button class="submit-btn gold" onclick="submitMG()">📅 Request Meet & Greet</button>
@@ -2130,27 +2137,36 @@ document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e
 
 function submitMG() { document.getElementById('mgForm').style.display='none'; document.getElementById('mgSuccess').style.display='block'; }
 
-// Pet birthday → auto-calculate age
+// Pet birthday → auto-calculate age + dog years
 (function() {
   var bdayInput = document.getElementById('mg-petbday');
-  var ageInput = document.getElementById('mg-petage');
-  if (bdayInput && ageInput) {
+  var ageEl = document.getElementById('mg-petage');
+  var dogYearsEl = document.getElementById('mg-dogyears');
+  var displayEl = document.getElementById('mg-age-display');
+  if (bdayInput && ageEl) {
     bdayInput.addEventListener('change', function() {
       var bday = new Date(this.value);
-      if (isNaN(bday.getTime())) { ageInput.value = ''; return; }
+      if (isNaN(bday.getTime())) { if (displayEl) displayEl.style.display = 'none'; return; }
       var today = new Date();
       var years = today.getFullYear() - bday.getFullYear();
       var months = today.getMonth() - bday.getMonth();
       if (months < 0 || (months === 0 && today.getDate() < bday.getDate())) { years--; months += 12; }
       if (today.getDate() < bday.getDate()) months--;
       if (months < 0) months = 0;
+      var ageText;
       if (years < 1) {
-        ageInput.value = months + (months === 1 ? ' month old' : ' months old');
+        ageText = months + (months === 1 ? ' month old' : ' months old');
       } else if (months > 0) {
-        ageInput.value = years + (years === 1 ? ' year' : ' years') + ', ' + months + (months === 1 ? ' month old' : ' months old');
+        ageText = years + (years === 1 ? ' year' : ' years') + ', ' + months + (months === 1 ? ' month' : ' months');
       } else {
-        ageInput.value = years + (years === 1 ? ' year old' : ' years old');
+        ageText = years + (years === 1 ? ' year old' : ' years old');
       }
+      ageEl.textContent = ageText;
+      // Dog years (multiply by 7)
+      var totalMonths = years * 12 + months;
+      var dogYrs = Math.round(totalMonths * 7 / 12);
+      if (dogYearsEl) dogYearsEl.textContent = dogYrs + (dogYrs === 1 ? ' year old 🐾' : ' years old 🐾');
+      if (displayEl) displayEl.style.display = 'block';
     });
   }
 })();
