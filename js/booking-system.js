@@ -368,7 +368,8 @@
     { name: 'Drop-In Visit - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Cat Care Visit - 30 min', price: '$20', base: 20, type: 'cat', group: 'Cat Care Visit', extraPet: 10, puppy: 0, holiday: 10 },
     { name: 'Cat Care Visit - 1 hour', price: '$35', base: 35, type: 'cat', group: 'Cat Care Visit', extraPet: 10, puppy: 0, holiday: 10 },
-    { name: 'House Sitting', price: '$125/night', base: 125, baseCat: 80, type: 'both', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 5, holiday: 10 },
+    { name: 'House Sitting (Dog)', price: '$125/night', base: 125, type: 'dog', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 5, holiday: 10 },
+    { name: 'House Sitting (Cat)', price: '$80/night', base: 80, type: 'cat', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 0, holiday: 10 },
     { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
   ];
 
@@ -405,15 +406,11 @@
     nights = nights || 1;
     var isMultiNight = svc.group === 'House Sitting' && nights > 0;
 
-    // For House Sitting: use cat base rate if pet type is cat
     var baseRate = svc.base;
-    if (isMultiNight && petType === 'cat' && svc.baseCat) {
-      baseRate = svc.baseCat;
-    }
     var parts = [];
 
     if (isMultiNight) {
-      parts.push(svc.name + (petType === 'cat' ? ' (Cat)' : '') + ': $' + baseRate + '/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (baseRate * nights));
+      parts.push(svc.name + ': $' + baseRate + '/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (baseRate * nights));
     } else {
       parts.push(svc.name + ': $' + baseRate);
     }
@@ -1097,7 +1094,7 @@
           else service = 'Drop-In Visit';
         }
       }
-      else if (text.indexOf('Stay') >= 0 || text.indexOf('125') >= 0) service = 'House Sitting';
+      else if (text.indexOf('Stay') >= 0 || text.indexOf('125') >= 0) service = 'House Sitting (Dog)';
       else if (text.indexOf('Meet') >= 0 || text.indexOf('Greet') >= 0) service = 'Meet & Greet';
 
       btn.onclick = function(e) {
