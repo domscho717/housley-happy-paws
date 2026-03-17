@@ -35,9 +35,9 @@ html{scroll-behavior:smooth;overscroll-behavior:none}
 body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;overscroll-behavior:none}
 .page{display:none;min-height:100vh}
 .page.active{display:block}
-/* Hide portal pages until JS settles to prevent flash of unstyled sidebar/drawers */
-#pg-client,#pg-staff,#pg-owner{opacity:0;transition:opacity 0.15s ease}
-#pg-client.settled,#pg-staff.settled,#pg-owner.settled{opacity:1}
+/* Hide everything until auth settles — prevents any flash of wrong view */
+body.loading-auth .page{visibility:hidden}
+body.loading-auth .nav{visibility:hidden}
 
 /* NAV */
 .nav{
@@ -767,7 +767,14 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
 </style>
 </head>
-<body>
+<body class="loading-auth">
+<script>
+// If user was on the public page (or first visit), show immediately — no auth needed to see it
+try {
+  var lv = sessionStorage.getItem('hhp_last_view');
+  if (!lv || lv === 'public') document.body.classList.remove('loading-auth');
+} catch(e) { document.body.classList.remove('loading-auth'); }
+</script>
 
 <!-- ========= AUTH OVERLAY ========= -->
 <div id="authOverlay">
@@ -2132,10 +2139,8 @@ function switchView(view) {
   });
   var targetPage = document.getElementById('pg-'+view);
   targetPage.classList.add('active');
-  // Mark portal as settled so it fades in (prevents flash of unstyled content)
-  if (view !== 'public') {
-    requestAnimationFrame(function(){ targetPage.classList.add('settled'); });
-  }
+  // Remove loading screen — auth has settled, safe to show content
+  document.body.classList.remove('loading-auth');
   const dd = document.getElementById('viewDropdown');
   if(dd) dd.value = view;
   window.scrollTo(0,0);
@@ -2166,27 +2171,8 @@ function toggleSbGroup(btn) {
 }
 function showPublic() { _userChosePublic = true; switchView('public'); }
 
-// Instant view restore: if user was on a portal, show it immediately (no flash)
-(function() {
-  try {
-    var lastView = sessionStorage.getItem('hhp_last_view');
-    if (lastView && lastView !== 'public') {
-      // Also cache the role so we know they were logged in
-      var cachedRole = sessionStorage.getItem('hhp_cached_role');
-      if (cachedRole) {
-        ['public','client','staff','owner'].forEach(function(v) {
-          var el = document.getElementById('pg-' + v);
-          if (el) el.classList.remove('active');
-        });
-        var target = document.getElementById('pg-' + lastView);
-        if (target) target.classList.add('active');
-        // Hide nav-center for portal views
-        var nc = document.querySelector('.nav-center');
-        if (nc) nc.style.display = 'none';
-      }
-    }
-  } catch(e) {}
-})();
+// View restore is now handled entirely by handleSession in auth-client.js
+// No IIFE needed — portals stay hidden (opacity:0) until auth settles
 
 // ---- TABS ----
 function sTab(portal, panelId) {
