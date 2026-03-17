@@ -30,13 +30,13 @@
 
   // ── Stripe payment links by service ──
   var STRIPE_SERVICE_LINKS = {
-    'Dog Walking - 30 min':  'https://buy.stripe.com/test_7sY5kDcu661Mgzx4Lx1kA00',
-    'Dog Walking - 60 min':  'https://buy.stripe.com/test_cNieVdbq2gGqbfdguf1kA01',
-    'Drop-In Visit - 20 min': 'https://buy.stripe.com/test_cNi28rdya75Q3MLdi31kA02',
-    'Drop-In Visit - 40 min': 'https://buy.stripe.com/test_fZu6oHdya9dYdnlem71kA03',
-    'Cat Care Visit - 20 min': 'https://buy.stripe.com/test_3cI6oH51Ebm6831guf1kA04',
-    'Cat Care Visit - 40 min': 'https://buy.stripe.com/test_aFaaEX8dQ75Q8315PB1kA05',
-    'House Sitting':         'https://buy.stripe.com/test_aFa9AT65I9dYbfd5PB1kA06',
+    'Dog Walking - 30 min':    'https://buy.stripe.com/test_7sY5kDcu661Mgzx4Lx1kA00',
+    'Dog Walking - 1 hour':    'https://buy.stripe.com/test_cNieVdbq2gGqbfdguf1kA01',
+    'Drop-In Visit - 30 min':  'https://buy.stripe.com/test_cNi28rdya75Q3MLdi31kA02',
+    'Drop-In Visit - 1 hour':  'https://buy.stripe.com/test_fZu6oHdya9dYdnlem71kA03',
+    'Cat Care Visit - 30 min': 'https://buy.stripe.com/test_3cI6oH51Ebm6831guf1kA04',
+    'Cat Care Visit - 1 hour': 'https://buy.stripe.com/test_aFaaEX8dQ75Q8315PB1kA05',
+    'House Sitting':           'https://buy.stripe.com/test_aFa9AT65I9dYbfd5PB1kA06',
   };
 
   function getStripePaymentLink(serviceName) {
@@ -47,12 +47,12 @@
       if (svc === key.toLowerCase()) return STRIPE_SERVICE_LINKS[key];
     }
     // Fuzzy match
-    if (svc.indexOf('walk') !== -1 && svc.indexOf('60') !== -1) return STRIPE_SERVICE_LINKS['Dog Walking - 60 min'];
+    if (svc.indexOf('walk') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1)) return STRIPE_SERVICE_LINKS['Dog Walking - 1 hour'];
     if (svc.indexOf('walk') !== -1) return STRIPE_SERVICE_LINKS['Dog Walking - 30 min'];
-    if (svc.indexOf('drop') !== -1 && svc.indexOf('40') !== -1) return STRIPE_SERVICE_LINKS['Drop-In Visit - 40 min'];
-    if (svc.indexOf('drop') !== -1) return STRIPE_SERVICE_LINKS['Drop-In Visit - 20 min'];
-    if (svc.indexOf('cat') !== -1 && svc.indexOf('40') !== -1) return STRIPE_SERVICE_LINKS['Cat Care Visit - 40 min'];
-    if (svc.indexOf('cat') !== -1) return STRIPE_SERVICE_LINKS['Cat Care Visit - 20 min'];
+    if (svc.indexOf('drop') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1 || svc.indexOf('40') !== -1)) return STRIPE_SERVICE_LINKS['Drop-In Visit - 1 hour'];
+    if (svc.indexOf('drop') !== -1) return STRIPE_SERVICE_LINKS['Drop-In Visit - 30 min'];
+    if (svc.indexOf('cat') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1 || svc.indexOf('40') !== -1)) return STRIPE_SERVICE_LINKS['Cat Care Visit - 1 hour'];
+    if (svc.indexOf('cat') !== -1) return STRIPE_SERVICE_LINKS['Cat Care Visit - 30 min'];
     if (svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1) return STRIPE_SERVICE_LINKS['House Sitting'];
     return '';
   }
@@ -362,15 +362,72 @@
 
   // Services list for the form
   var SERVICES = [
-    { name: 'Dog Walking (30 min)', price: '$25' },
-    { name: 'Dog Walking (60 min)', price: '$45' },
-    { name: 'Drop-In Visit (20 min)', price: '$18' },
-    { name: 'Drop-In Visit (40 min)', price: '$25' },
-    { name: 'Cat Care Visit (20 min)', price: '$18' },
-    { name: 'Cat Care Visit (40 min)', price: '$30' },
-    { name: 'House Sitting', price: '$125/night' },
-    { name: 'Meet & Greet', price: 'Free' },
+    { name: 'Dog Walking - 30 min', price: '$25', base: 25, type: 'dog', extraPet: 15, puppy: 5, holiday: 10 },
+    { name: 'Dog Walking - 1 hour', price: '$45', base: 45, type: 'dog', extraPet: 15, puppy: 5, holiday: 10 },
+    { name: 'Drop-In Visit - 30 min', price: '$25', base: 25, type: 'dog', extraPet: 15, puppy: 5, holiday: 10 },
+    { name: 'Drop-In Visit - 1 hour', price: '$45', base: 45, type: 'dog', extraPet: 15, puppy: 5, holiday: 10 },
+    { name: 'Cat Care Visit - 30 min', price: '$20', base: 20, type: 'cat', extraPet: 10, puppy: 0, holiday: 10 },
+    { name: 'Cat Care Visit - 1 hour', price: '$35', base: 35, type: 'cat', extraPet: 10, puppy: 0, holiday: 10 },
+    { name: 'House Sitting', price: '$125/night', base: 125, type: 'both', extraPet: 15, extraCat: 10, puppy: 5, holiday: 10 },
+    { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', extraPet: 0, puppy: 0, holiday: 0 },
   ];
+
+  // Holiday dates (month-day format, add more as needed)
+  var HOLIDAYS = [
+    '01-01', // New Year's Day
+    '01-20', // MLK Day (approx)
+    '02-17', // Presidents Day (approx)
+    '05-26', // Memorial Day (approx)
+    '07-04', // Independence Day
+    '09-01', // Labor Day (approx)
+    '10-13', // Columbus Day (approx)
+    '11-11', // Veterans Day
+    '11-27', // Thanksgiving (approx)
+    '11-28', // Day after Thanksgiving
+    '12-24', // Christmas Eve
+    '12-25', // Christmas Day
+    '12-31', // New Year's Eve
+  ];
+
+  function isHoliday(dateStr) {
+    if (!dateStr) return false;
+    var md = dateStr.slice(5); // "YYYY-MM-DD" -> "MM-DD"
+    return HOLIDAYS.indexOf(md) !== -1;
+  }
+
+  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate) {
+    var svc = null;
+    for (var i = 0; i < SERVICES.length; i++) {
+      if (SERVICES[i].name === serviceName) { svc = SERVICES[i]; break; }
+    }
+    if (!svc || svc.base === 0) return { total: 0, breakdown: 'Free', base: 0 };
+
+    var total = svc.base;
+    var parts = [svc.name + ': $' + svc.base];
+
+    // Additional pets
+    if (numPets > 1) {
+      var extraCount = numPets - 1;
+      var extraRate = svc.extraPet || 0;
+      var extraCost = extraCount * extraRate;
+      total += extraCost;
+      if (extraCost > 0) parts.push(extraCount + ' extra pet(s): +$' + extraCost);
+    }
+
+    // Puppy surcharge (per puppy/dog pet)
+    if (isPuppy && svc.puppy > 0) {
+      total += svc.puppy;
+      parts.push('Puppy surcharge: +$' + svc.puppy);
+    }
+
+    // Holiday surcharge
+    if (isHolidayDate && svc.holiday > 0) {
+      total += svc.holiday;
+      parts.push('Holiday rate: +$' + svc.holiday);
+    }
+
+    return { total: total, breakdown: parts.join(' | '), base: svc.base };
+  }
 
   function createBookingModal() {
     if (document.getElementById('bookingRequestModal')) return;
@@ -443,6 +500,16 @@
       '      </div>',
       '    </div>',
       '',
+      '    <div style="display:flex;align-items:center;gap:10px;margin:8px 0 12px">',
+      '      <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="brm-puppy"> Puppy (under 1 year)</label>',
+      '    </div>',
+      '',
+      '    <div id="brm-price-estimate" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:14px 16px;margin:10px 0 14px">',
+      '      <div style="font-weight:700;font-size:0.88rem;margin-bottom:6px">Estimated Total</div>',
+      '      <div id="brm-price-breakdown" style="font-size:0.82rem;color:#6b5c4d;line-height:1.6"></div>',
+      '      <div style="font-weight:700;font-size:1.15rem;color:#1e1409;margin-top:6px">$<span id="brm-price-total">0</span></div>',
+      '    </div>',
+      '',
       '    <label class="brm-label">Home Address / Area *</label>',
       '    <input type="text" id="brm-address" class="brm-input" placeholder="Street address or neighborhood in Lancaster" required>',
       '',
@@ -483,6 +550,56 @@
       var today = new Date().toISOString().split('T')[0];
       dateInput.setAttribute('min', today);
     }
+
+    // Live price estimator
+    function updatePriceEstimate() {
+      var svcName = document.getElementById('brm-service').value;
+      var numPets = parseInt(document.getElementById('brm-numpets').value) || 1;
+      var isPuppy = document.getElementById('brm-puppy').checked;
+      var dateVal = document.getElementById('brm-date').value;
+      var holidayFlag = isHoliday(dateVal);
+
+      var estimateEl = document.getElementById('brm-price-estimate');
+      var breakdownEl = document.getElementById('brm-price-breakdown');
+      var totalEl = document.getElementById('brm-price-total');
+
+      if (!svcName || svcName === 'Meet & Greet') {
+        if (estimateEl) estimateEl.style.display = svcName === 'Meet & Greet' ? 'block' : 'none';
+        if (svcName === 'Meet & Greet') {
+          if (breakdownEl) breakdownEl.textContent = 'Meet & Greet is free!';
+          if (totalEl) totalEl.textContent = '0 (Free)';
+        }
+        return;
+      }
+
+      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag);
+      if (estimateEl) estimateEl.style.display = 'block';
+      if (breakdownEl) breakdownEl.innerHTML = result.breakdown.split(' | ').join('<br>');
+      if (totalEl) totalEl.textContent = result.total.toFixed(2);
+
+      if (holidayFlag && dateVal) {
+        var holidayNote = breakdownEl.querySelector('.brm-holiday-note');
+        if (!holidayNote) {
+          var note = document.createElement('div');
+          note.className = 'brm-holiday-note';
+          note.style.cssText = 'color:#c8963e;font-size:0.78rem;margin-top:4px;font-style:italic';
+          note.textContent = 'Holiday rate applies for this date';
+          breakdownEl.appendChild(note);
+        }
+      }
+    }
+
+    // Attach listeners for live update
+    setTimeout(function() {
+      ['brm-service', 'brm-numpets', 'brm-date'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('change', updatePriceEstimate);
+      });
+      var puppyEl = document.getElementById('brm-puppy');
+      if (puppyEl) puppyEl.addEventListener('change', updatePriceEstimate);
+      var numEl = document.getElementById('brm-numpets');
+      if (numEl) numEl.addEventListener('input', updatePriceEstimate);
+    }, 100);
   }
 
   // Inject modal CSS
@@ -718,8 +835,13 @@
     var pets = document.getElementById('brm-pets').value.trim();
     var petType = document.getElementById('brm-pettype').value;
     var numPets = parseInt(document.getElementById('brm-numpets').value) || 1;
+    var isPuppy = document.getElementById('brm-puppy') ? document.getElementById('brm-puppy').checked : false;
     var address = document.getElementById('brm-address').value.trim();
     var notes = document.getElementById('brm-notes').value.trim();
+
+    // Calculate price
+    var holidayFlag = isHoliday(date);
+    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag);
 
     if (!service || !date || !time || !name || !email || !pets || !address) {
       if (errEl) errEl.textContent = 'Please fill in all required fields.';
@@ -749,6 +871,10 @@
           pet_names: pets,
           pet_types: petType,
           number_of_pets: numPets,
+          is_puppy: isPuppy,
+          is_holiday: holidayFlag,
+          estimated_total: priceResult.total,
+          price_breakdown: priceResult.breakdown,
           special_notes: notes || null,
           address: address,
           house_area: address,
@@ -969,8 +1095,9 @@
           '  </div>',
           '  <div class="arc-detail"><strong>Client:</strong> ' + (r.contact_name || '') + ' &mdash; ' + (r.contact_email || '') + (r.contact_phone ? ' &mdash; ' + r.contact_phone : '') + '</div>',
           '  <div class="arc-detail"><strong>Preferred:</strong> ' + dateStr + ' at ' + (r.preferred_time || '') + '</div>',
-          '  <div class="arc-detail"><strong>Pets:</strong> ' + (r.pet_names || '') + ' (' + (r.pet_types || '') + ', ' + (r.number_of_pets || 1) + ')</div>',
+          '  <div class="arc-detail"><strong>Pets:</strong> ' + (r.pet_names || '') + ' (' + (r.pet_types || '') + ', ' + (r.number_of_pets || 1) + ')' + (r.is_puppy ? ' <span style="color:#c8963e;font-weight:600">🐶 Puppy</span>' : '') + '</div>',
           '  <div class="arc-detail"><strong>Address:</strong> ' + (r.address || '') + '</div>',
+          r.estimated_total ? '  <div class="arc-detail" style="background:#f9f6f0;padding:8px 10px;border-radius:6px;margin:6px 0;border:1px solid #e0d5c5"><strong>Total: $' + Number(r.estimated_total).toFixed(2) + '</strong>' + (r.price_breakdown ? '<div style="font-size:0.78rem;color:#6b5c4d;margin-top:2px">' + r.price_breakdown.replace(/\|/g, '<br>') + '</div>' : '') + (r.is_holiday ? '<div style="color:#c8963e;font-size:0.78rem;margin-top:2px">Holiday rate applied</div>' : '') + '</div>' : '',
           r.special_notes ? '  <div class="arc-detail"><strong>Notes:</strong> ' + r.special_notes + '</div>' : '',
           r.admin_notes ? '  <div class="arc-detail" style="color:var(--gold)"><strong>Your Note:</strong> ' + r.admin_notes + '</div>' : '',
           r.scheduled_date ? '  <div class="arc-detail" style="color:var(--forest)"><strong>Scheduled:</strong> ' + r.scheduled_date + ' at ' + (r.scheduled_time || r.preferred_time) + '</div>' : '',
@@ -1072,6 +1199,8 @@
                 scheduledTime: update.scheduled_time || req.preferred_time,
                 adminNotes: update.admin_notes || '',
                 paymentLink: paymentLink,
+                estimatedTotal: req.estimated_total || null,
+                priceBreakdown: req.price_breakdown || '',
               }),
             });
           } catch (e) { console.warn('Status notification failed:', e); }

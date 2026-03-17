@@ -209,11 +209,11 @@
     var sel = bookModal.querySelector('.form-sel');
     if (!sel) return;
     sel.innerHTML = '<option value="dog-walk-30">\ud83e\uddae Dog Walk (30 min) \u2014 $25</option>' +
-      '<option value="dog-walk-60">\ud83e\uddae Dog Walk (60 min) \u2014 $45</option>' +
-      '<option value="dropin-20">\ud83c\udfe0 Drop-In Visit (20 min) \u2014 $18</option>' +
-      '<option value="dropin-40">\ud83c\udfe0 Drop-In Visit (40 min) \u2014 $25</option>' +
-      '<option value="cat-care-20">\ud83d\udc31 Cat Care (20 min) \u2014 $18</option>' +
-      '<option value="cat-care-40">\ud83d\udc31 Cat Care (40 min) \u2014 $30</option>' +
+      '<option value="dog-walk-60">\ud83e\uddae Dog Walk (1 hour) \u2014 $45</option>' +
+      '<option value="dropin-30">\ud83c\udfe0 Drop-In Visit (30 min) \u2014 $25</option>' +
+      '<option value="dropin-60">\ud83c\udfe0 Drop-In Visit (1 hour) \u2014 $45</option>' +
+      '<option value="cat-care-30">\ud83d\udc31 Cat Care (30 min) \u2014 $20</option>' +
+      '<option value="cat-care-60">\ud83d\udc31 Cat Care (1 hour) \u2014 $35</option>' +
       '<option value="house-sitting">\ud83c\udfe1 House Sitting \u2014 $125/night</option>';
     updateBookingSummary(sel);
     sel.addEventListener('change', function() { updateBookingSummary(sel); });

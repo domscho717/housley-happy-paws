@@ -7,12 +7,28 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes, paymentLink } = req.body;
+  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes, paymentLink, estimatedTotal, priceBreakdown } = req.body;
 
   let subject, body;
 
   if (status === 'accepted') {
     subject = `Your ${service} booking is confirmed! - Housley Happy Paws`;
+
+    // Build invoice/price section
+    let invoiceSection = '';
+    if (estimatedTotal && estimatedTotal > 0) {
+      const breakdownLines = priceBreakdown
+        ? priceBreakdown.split(' | ').map(line => `  - ${line}`).join('\n')
+        : `  - ${service}`;
+      invoiceSection = [
+        `\n--- Invoice ---`,
+        breakdownLines,
+        `  ─────────────`,
+        `  Total: $${Number(estimatedTotal).toFixed(2)}`,
+        `--- End Invoice ---`,
+      ].join('\n');
+    }
+
     const paymentLine = paymentLink
       ? `\nTo complete your booking, please submit payment here:\n${paymentLink}`
       : `\nPayment will be handled at the time of service.`;
@@ -23,6 +39,7 @@ module.exports = async function handler(req, res) {
       `Date: ${scheduledDate}`,
       `Time: ${scheduledTime}`,
       adminNotes ? `\nNote from Rachel: ${adminNotes}` : '',
+      invoiceSection,
       paymentLine,
       `\nThank you for choosing Housley Happy Paws!`,
       `Questions? Reply to this email or call 717-715-7595`,
