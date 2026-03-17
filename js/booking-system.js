@@ -1,6 +1,6 @@
 /* ============================================================
-   Housley Happy Paws â Booking Request System + UI Fixes
-   v1.0 â March 2026
+   Housley Happy Paws - Booking Request System + UI Fixes
+   v1.0 - March 2026
 
    This file handles:
    1. Desktop scroll fix (ux-patch.js loads 6x, causing scroll issues)
@@ -452,7 +452,7 @@
       '    <label class="brm-label">Service *</label>',
       '    <select id="brm-service" class="brm-input" required>',
       '      <option value="">Choose a service...</option>',
-             SERVICES.map(function(s) { return '<option value="' + s.name + '">' + s.name + ' â ' + s.price + '</option>'; }).join(''),
+             SERVICES.map(function(s) { return '<option value="' + s.name + '">' + s.name + ' - ' + s.price + '</option>'; }).join(''),
       '    </select>',
       '',
       '    <div class="brm-row">',
@@ -1250,7 +1250,7 @@
   };
 
   // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-  // 6. CALENDAR INTEGRATION â Show accepted bookings on calendar
+  // 6. CALENDAR INTEGRATION - Show accepted bookings on calendar
   // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   async function loadAcceptedBookingsToCalendar() {
     var sb = getSB();
