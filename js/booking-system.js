@@ -485,8 +485,27 @@
       '    <label class="brm-label">Service *</label>',
       '    <select id="brm-service" class="brm-input" required>',
       '      <option value="">Choose a service...</option>',
-             SERVICES.map(function(s) { return '<option value="' + s.name + '">' + s.name + ' - ' + s.price + '</option>'; }).join(''),
+             (function() {
+               var seen = {};
+               return SERVICES.map(function(s) {
+                 if (seen[s.group]) return '';
+                 seen[s.group] = true;
+                 if (s.group === 'House Sitting') return '';
+                 if (s.group === 'Meet & Greet') return '<option value="Meet & Greet">Meet & Greet - Free</option>';
+                 return '<option value="' + s.group + '">' + s.group + '</option>';
+               }).join('') +
+               '<option value="House Sitting (Dog)">House Sitting (Dog) - $125/night</option>' +
+               '<option value="House Sitting (Cat)">House Sitting (Cat) - $80/night</option>';
+             })(),
       '    </select>',
+      '',
+      '    <div id="brm-duration-col" style="display:none;margin-bottom:4px">',
+      '      <label class="brm-label">Duration *</label>',
+      '      <select id="brm-duration" class="brm-input">',
+      '        <option value="30 min">30 Minutes</option>',
+      '        <option value="1 hour">1 Hour</option>',
+      '      </select>',
+      '    </div>',
       '',
       '    <div class="brm-row">',
       '      <div class="brm-col">',
@@ -592,9 +611,32 @@
       dateInput.setAttribute('min', today);
     }
 
+    // Resolve full service name from group dropdown + duration dropdown
+    window._resolveBookingServiceName = resolveServiceName;
+    function resolveServiceName() {
+      var svcGroup = document.getElementById('brm-service').value;
+      if (!svcGroup) return '';
+      var isHS = svcGroup.toLowerCase().indexOf('house sitting') !== -1;
+      var isMG = svcGroup === 'Meet & Greet';
+      if (isHS || isMG) return svcGroup;
+      var dur = document.getElementById('brm-duration') ? document.getElementById('brm-duration').value : '30 min';
+      return svcGroup + ' - ' + dur;
+    }
+
+    // Show/hide duration dropdown based on service
+    function toggleDurationField() {
+      var svcGroup = document.getElementById('brm-service').value;
+      var durCol = document.getElementById('brm-duration-col');
+      if (!durCol) return;
+      var isHS = svcGroup.toLowerCase().indexOf('house sitting') !== -1;
+      var isMG = svcGroup === 'Meet & Greet';
+      var isEmpty = !svcGroup;
+      durCol.style.display = (isEmpty || isHS || isMG) ? 'none' : '';
+    }
+
     // Live price estimator
     function updatePriceEstimate() {
-      var svcName = document.getElementById('brm-service').value;
+      var svcName = resolveServiceName();
       var numPets = parseInt(document.getElementById('brm-numpets').value) || 1;
       var petType = document.getElementById('brm-pettype').value;
       var isPuppy = document.getElementById('brm-puppy').checked;
@@ -661,6 +703,7 @@
 
     // Show/hide end date field for House Sitting
     function toggleHouseSittingFields() {
+      toggleDurationField();
       var svcName = (document.getElementById('brm-service').value || '').toLowerCase();
       var isHS = svcName.indexOf('house sitting') !== -1;
       var endCol = document.getElementById('brm-enddate-col');
@@ -730,6 +773,8 @@
           updatePriceEstimate();
         });
       });
+      var durEl = document.getElementById('brm-duration');
+      if (durEl) durEl.addEventListener('change', updatePriceEstimate);
       var comboEl = document.getElementById('brm-petcombo');
       if (comboEl) comboEl.addEventListener('change', syncPetCombo);
       var puppyEl = document.getElementById('brm-puppy');
@@ -912,34 +957,53 @@
       modal.classList.add('open');
       document.body.style.overflow = 'hidden';
 
-      // Filter service dropdown to only show relevant options
+      // Filter service dropdown to only show relevant group options
       var sel = document.getElementById('brm-service');
       if (sel) {
-        // Rebuild options based on whether a service group was preselected
-        var filtered = SERVICES;
         if (preselectedService) {
-          filtered = SERVICES.filter(function(s) {
-            return s.group === preselectedService;
-          });
-          // If no exact group match, try partial match
-          if (filtered.length === 0) {
-            filtered = SERVICES.filter(function(s) {
-              return s.group.toLowerCase().indexOf(preselectedService.toLowerCase()) >= 0 ||
-                     preselectedService.toLowerCase().indexOf(s.group.toLowerCase()) >= 0;
-            });
+          // Build group-based options matching the preselected service
+          var matchGroup = preselectedService;
+          // Check if it's a House Sitting variant
+          var isHS = matchGroup.toLowerCase().indexOf('house sitting') !== -1;
+          var isMG = matchGroup === 'Meet & Greet';
+
+          if (isHS) {
+            // Show only House Sitting options
+            sel.innerHTML = '<option value="">Choose a service...</option>' +
+              '<option value="House Sitting (Dog)">House Sitting (Dog) - $125/night</option>' +
+              '<option value="House Sitting (Cat)">House Sitting (Cat) - $80/night</option>';
+          } else if (isMG) {
+            sel.innerHTML = '<option value="">Choose a service...</option>' +
+              '<option value="Meet & Greet">Meet &amp; Greet - Free</option>';
+            sel.selectedIndex = 1;
+          } else {
+            // Check if the preselected group exists
+            var groupExists = SERVICES.some(function(s) { return s.group === matchGroup; });
+            if (groupExists) {
+              sel.innerHTML = '<option value="">Choose a service...</option>' +
+                '<option value="' + matchGroup + '">' + matchGroup + '</option>';
+              sel.selectedIndex = 1;
+            } else {
+              // Partial match fallback — try to find matching group
+              var found = '';
+              SERVICES.forEach(function(s) {
+                if (!found && (s.group.toLowerCase().indexOf(matchGroup.toLowerCase()) >= 0 ||
+                    matchGroup.toLowerCase().indexOf(s.group.toLowerCase()) >= 0)) {
+                  found = s.group;
+                }
+              });
+              if (found) {
+                sel.innerHTML = '<option value="">Choose a service...</option>' +
+                  '<option value="' + found + '">' + found + '</option>';
+                sel.selectedIndex = 1;
+              }
+              // If still nothing, leave default dropdown as-is (all groups)
+            }
           }
-          // Fall back to all services if still no match
-          if (filtered.length === 0) filtered = SERVICES;
-        }
-
-        sel.innerHTML = '<option value="">Choose a service...</option>' +
-          filtered.map(function(s) { return '<option value="' + s.name + '">' + s.name + ' - ' + s.price + '</option>'; }).join('');
-
-        // Auto-select if only one option (like House Sitting)
-        if (filtered.length === 1) {
-          sel.selectedIndex = 1;
+          // Trigger change to show duration / house sitting fields
           sel.dispatchEvent(new Event('change'));
         }
+        // If no preselectedService, the default group-based dropdown from createBookingModal is fine
       }
 
       // Pre-fill if logged in
@@ -979,7 +1043,8 @@
     if (errEl) errEl.textContent = '';
     if (successEl) successEl.textContent = '';
 
-    var service = document.getElementById('brm-service').value;
+    // Resolve full service name from group + duration dropdowns
+    var service = window._resolveBookingServiceName ? window._resolveBookingServiceName() : document.getElementById('brm-service').value;
     var date = document.getElementById('brm-date').value;
     var time = document.getElementById('brm-time').value;
     var name = document.getElementById('brm-name').value.trim();
