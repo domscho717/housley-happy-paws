@@ -35,7 +35,9 @@ async function showClientProfile(profileId) {
     <div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:32px;position:relative;">
       <button onclick="document.getElementById('profile-modal').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
-        <div style="width:60px;height:60px;border-radius:50%;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">\u{1F43E}</div>
+        ${p.avatar_url
+          ? '<img src="' + p.avatar_url + '" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid var(--gold-light);flex-shrink:0">'
+          : '<div style="width:60px;height:60px;border-radius:50%;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">\u{1F43E}</div>'}
         <div>
           <h2 style="margin:0;font-family:'Cormorant Garamond',serif;color:var(--forest);">${p.full_name || 'Client'}</h2>
           <span style="color:var(--gold);font-weight:600;">Customer #${p.customer_number || 'N/A'}</span>
@@ -121,7 +123,9 @@ async function showStaffProfile(profileId) {
     <div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:32px;position:relative;">
       <button onclick="document.getElementById('profile-modal').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
-        <div style="width:60px;height:60px;border-radius:50%;background:var(--forest-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:white;">\u{1F464}</div>
+        ${s.avatar_url
+          ? '<img src="' + s.avatar_url + '" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid var(--forest-light);flex-shrink:0">'
+          : '<div style="width:60px;height:60px;border-radius:50%;background:var(--forest-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:white;">\u{1F464}</div>'}
         <div>
           <h2 style="margin:0;font-family:'Cormorant Garamond',serif;color:var(--forest);">${s.full_name || 'Staff Member'}</h2>
           <span style="color:var(--forest);font-weight:600;">Staff · ${s.is_active ? 'Active' : 'Inactive'}</span>

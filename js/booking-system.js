@@ -1093,6 +1093,23 @@
         if (error) throw error;
 
         this.requests = data || [];
+
+        // Batch-fetch avatar URLs for all client_ids
+        var clientIds = this.requests.map(function(r) { return r.client_id; }).filter(Boolean);
+        if (clientIds.length > 0) {
+          try {
+            var uniqueIds = clientIds.filter(function(v, i, a) { return a.indexOf(v) === i; });
+            var { data: profiles } = await sb.from('profiles').select('user_id, avatar_url').in('user_id', uniqueIds);
+            if (profiles) {
+              var avatarMap = {};
+              profiles.forEach(function(p) { if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url; });
+              this.requests.forEach(function(r) {
+                if (r.client_id && avatarMap[r.client_id]) r.avatar_url = avatarMap[r.client_id];
+              });
+            }
+          } catch(e) { /* avatar fetch failed, no big deal */ }
+        }
+
         this.render();
       } catch (err) {
         console.error('Failed to load booking requests:', err);
@@ -1125,13 +1142,22 @@
           actionsHTML = '<div class="arc-actions"><span style="color:#888;font-size:13px;">Waiting for client response</span></div>';
         }
 
+        // Build avatar for the client on this request
+        var clientAvaHTML = '';
+        if (r.avatar_url) {
+          clientAvaHTML = '<img src="' + r.avatar_url + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid #e0d5c5;flex-shrink:0">';
+        } else {
+          var initials = (r.contact_name || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
+          clientAvaHTML = '<div style="width:36px;height:36px;border-radius:50%;background:var(--gold-light,#f5e6c8);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--ink,#1e1409);flex-shrink:0;border:2px solid #e0d5c5">' + initials + '</div>';
+        }
+
         return [
           '<div class="admin-request-card" id="arc-' + r.id + '">',
           '  <div class="arc-header">',
           '    <span class="arc-service">' + (r.service || 'Unknown Service') + '</span>',
           '    <span class="arc-status ' + r.status + '">' + r.status + '</span>',
           '  </div>',
-          '  <div class="arc-detail"><strong>Client:</strong> ' + (r.contact_name || '') + ' &mdash; ' + (r.contact_email || '') + (r.contact_phone ? ' &mdash; ' + r.contact_phone : '') + '</div>',
+          '  <div class="arc-detail" style="display:flex;align-items:center;gap:10px">' + clientAvaHTML + '<div><strong>' + (r.contact_name || '') + '</strong><br><span style="font-size:0.78rem;color:#8c6b4a">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</span></div></div>',
           '  <div class="arc-detail"><strong>Preferred:</strong> ' + dateStr + ' at ' + (r.preferred_time || '') + '</div>',
           '  <div class="arc-detail"><strong>Pets:</strong> ' + (r.pet_names || '') + ' (' + (r.pet_types || '') + ', ' + (r.number_of_pets || 1) + ')' + (r.is_puppy ? ' <span style="color:#c8963e;font-weight:600">🐶 Puppy</span>' : '') + '</div>',
           '  <div class="arc-detail"><strong>Address:</strong> ' + (r.address || '') + '</div>',

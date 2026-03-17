@@ -76,7 +76,7 @@ const HHP_Auth = {
             // Get user role from profiles table
             const { data: profile, error } = await this.supabase
                 .from('profiles')
-                .select('role, full_name, phone, pet_names')
+                .select('role, full_name, phone, pet_names, avatar_url')
                 .eq('user_id', session.user.id)
                 .single();
 
@@ -86,6 +86,10 @@ const HHP_Auth = {
             } else if (profile) {
                 this.currentRole = profile.role || 'client';
                 this.currentUser.profile = profile;
+                // Cache avatar for instant display
+                if (profile.avatar_url) {
+                    try { sessionStorage.setItem('hhp_avatar_url', profile.avatar_url); } catch(e) {}
+                }
             } else {
                 this.currentRole = 'client';
                 await this.supabase.from('profiles').insert({

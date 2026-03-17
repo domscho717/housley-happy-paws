@@ -2256,12 +2256,25 @@ function sendMsg(p) {
   const inp = document.getElementById(p+'MsgIn');
   const list = document.getElementById(p+'Msgs');
   if(!inp?.value.trim()) return;
-  const d = document.createElement('div'); d.style.alignSelf='flex-end';
-  d.innerHTML=`<div class="msg-out">${inp.value}</div><div class="msg-meta" style="text-align:right">You · Just now</div>`;
+
+  // Get current user's avatar
+  const myAva = (typeof HHP_Avatar !== 'undefined') ? HHP_Avatar.getCurrentAvatarUrl() : '';
+  const myAvaHTML = myAva
+    ? '<img src="'+myAva+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid var(--gold-light)">'
+    : '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">🐾</div>';
+
+  // Rachel's avatar (owner) — could be loaded from her profile
+  const rachelAva = '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-deep));display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0;color:white;font-weight:700">R</div>';
+
+  const d = document.createElement('div');
+  d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
+  d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">'+inp.value+'</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + myAvaHTML;
   list.appendChild(d); inp.value=''; list.scrollTop=list.scrollHeight;
+
   setTimeout(()=>{
-    const r=document.createElement('div'); r.style.alignSelf='flex-start';
-    r.innerHTML='<div class="msg-in">Got it! I\'ll get back to you soon 🐾</div><div class="msg-meta">Rachel · Just now</div>';
+    const r = document.createElement('div');
+    r.style.cssText = 'display:flex;gap:8px;align-items:flex-end';
+    r.innerHTML = rachelAva + '<div><div class="msg-in">Got it! I\'ll get back to you soon 🐾</div><div class="msg-meta">Rachel · Just now</div></div>';
     list.appendChild(r); list.scrollTop=list.scrollHeight;
   },1500);
 }
@@ -2878,5 +2891,6 @@ async function loadClientPayments() {
   <script src="/js/profiles.js" defer></script>
   <script src="/js/employee-mgmt.js" defer></script>
 
-  <script src="/js/booking-system.js" defer></script></body>
+  <script src="/js/booking-system.js" defer></script>
+  <script src="/js/avatar-system.js" defer></script></body>
 </html>
