@@ -1325,7 +1325,7 @@ try {
 
           <!-- Date & Duration -->
           <div class="form-row" style="margin-bottom:16px;align-items:end">
-            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="srpt-date" type="date" readonly style="text-align:left;width:100%;box-sizing:border-box"></div>
+            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="srpt-date" type="text" readonly style="width:100%;box-sizing:border-box" data-date=""></div>
             <div style="flex:1"><label class="form-lbl">Duration</label><select class="form-sel" id="srpt-duration"><option value="30 min">30 Minutes</option><option value="1 hour">1 Hour</option></select></div>
           </div>
 
@@ -1482,7 +1482,7 @@ try {
 
           <!-- Date (auto today) & Duration dropdown -->
           <div class="form-row" style="margin-bottom:16px;align-items:end">
-            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="rpt-date" type="date" readonly style="text-align:left;width:100%;box-sizing:border-box"></div>
+            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="rpt-date" type="text" readonly style="width:100%;box-sizing:border-box" data-date=""></div>
             <div style="flex:1"><label class="form-lbl">Duration</label><select class="form-sel" id="rpt-duration"><option value="30 min">30 Minutes</option><option value="1 hour">1 Hour</option></select></div>
           </div>
 
@@ -3046,11 +3046,13 @@ function toggleStaffReportDistance() {
 
 // ── Auto-set report date to today ──
 function initReportDate() {
-  var today = new Date().toISOString().split('T')[0];
+  var now = new Date();
+  var isoDate = now.toISOString().split('T')[0];
+  var display = now.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
   var rptDate = document.getElementById('rpt-date');
-  if (rptDate) rptDate.value = today;
+  if (rptDate) { rptDate.value = display; rptDate.setAttribute('data-date', isoDate); }
   var srptDate = document.getElementById('srpt-date');
-  if (srptDate) srptDate.value = today;
+  if (srptDate) { srptDate.value = display; srptDate.setAttribute('data-date', isoDate); }
 }
 
 // ── Populate client dropdown from profiles table ──
@@ -3167,7 +3169,7 @@ async function submitServiceReport() {
   }
   var clientId = document.getElementById('rpt-client')?.value;
   var service = document.getElementById('rpt-service')?.value;
-  var reportDate = document.getElementById('rpt-date')?.value;
+  var reportDate = document.getElementById('rpt-date')?.getAttribute('data-date');
   var duration = document.getElementById('rpt-duration')?.value;
   var distance = document.getElementById('rpt-distance')?.value?.trim();
   var mood = document.getElementById('rpt-mood')?.value;
@@ -3223,7 +3225,7 @@ async function submitStaffServiceReport() {
   }
   var clientId = document.getElementById('srpt-client')?.value;
   var service = document.getElementById('srpt-service')?.value;
-  var reportDate = document.getElementById('srpt-date')?.value;
+  var reportDate = document.getElementById('srpt-date')?.getAttribute('data-date');
   var duration = document.getElementById('srpt-duration')?.value;
   var distance = document.getElementById('srpt-distance')?.value?.trim();
   var mood = document.getElementById('srpt-mood')?.value;
