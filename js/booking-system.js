@@ -64,7 +64,7 @@
     var css = document.createElement('style');
     css.id = 'hhp-scroll-fix';
     css.textContent = [
-      'html, body { overscroll-behavior: auto !important; scroll-behavior: auto !important; }',
+      'html, body { overscroll-behavior: none !important; scroll-behavior: auto !important; }',
       'html { overflow-y: scroll !important; overflow-x: hidden !important; }',
       'body { overflow-y: auto !important; overflow-x: hidden !important; }',
       '#pg-public, #pg-client, #pg-staff, #pg-owner { overflow: visible !important; }',
@@ -83,9 +83,9 @@
     function cleanupScrollListeners() {
       // Clone and replace html/body to remove all event listeners from ux-patch duplicates
       // Instead, just ensure scroll works by removing any blocking styles
-      document.documentElement.style.overscrollBehavior = 'auto';
+      document.documentElement.style.overscrollBehavior = 'none';
       document.documentElement.style.scrollBehavior = 'auto';
-      document.body.style.overscrollBehavior = 'auto';
+      document.body.style.overscrollBehavior = 'none';
 
       // Remove any inline overflow styles that block scrolling
       var pgPublic = document.getElementById('pg-public');
