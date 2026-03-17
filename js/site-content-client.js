@@ -8,10 +8,9 @@ let _siteDataCache = null;
 let _siteDataLoaded = false;
 
 // Load all site content from Supabase API on page load
-// IMPORTANT: Merges Supabase data WITH localStorage — localStorage edits win
-// so that unsaved-to-cloud edits aren't wiped out on reload.
+// Supabase is the single source of truth — localStorage is only an offline fallback
 async function loadSiteContent() {
-  // Always grab existing localStorage edits first
+  // Grab localStorage as offline fallback only
   let localData = {};
   try { localData = JSON.parse(localStorage.getItem('hhp_site_data')) || {}; } catch(e) {}
 
@@ -29,15 +28,16 @@ async function loadSiteContent() {
       });
     }
 
-    // Merge: Supabase as base, localStorage overrides (local edits take priority)
-    _siteDataCache = { ...supabaseData, ...localData };
+    // Supabase wins — it's the global source of truth
+    // Only use localStorage keys if they DON'T exist in Supabase (brand new unsaved fields)
+    _siteDataCache = { ...localData, ...supabaseData };
     _siteDataLoaded = true;
 
-    // Sync merged result back to localStorage
+    // Sync Supabase data down to localStorage (replaces stale local edits)
     try { localStorage.setItem('hhp_site_data', JSON.stringify(_siteDataCache)); } catch(e) {}
     return _siteDataCache;
   } catch (err) {
-    console.warn('[site-content] Failed to load from API, using localStorage:', err);
+    console.warn('[site-content] Failed to load from API, using localStorage fallback:', err);
     _siteDataCache = localData;
     _siteDataLoaded = true;
     return _siteDataCache;
@@ -51,10 +51,16 @@ function getSiteData() {
   try { return JSON.parse(localStorage.getItem('hhp_site_data')) || {}; } catch(e) { return {}; }
 }
 
-// Override setSiteData to update cache + localStorage (sync) + Supabase (async)
+// Override setSiteData to update cache + localStorage (sync)
+// localStorage is only for instant UI — Supabase is the real store
 function setSiteData(updates) {
   _siteDataCache = { ...getSiteData(), ...updates };
-  // Sync to localStorage immediately for instant UI feedback
+  // Sync to localStorage for instant UI feedback (Supabase save happens in save functions)
+  try { localStorage.setItem('hhp_site_data', JSON.stringify(_siteDataCache)); } catch(e) {}
+}
+
+// After a successful Supabase save, sync localStorage to match
+function _syncLocalAfterSave() {
   try { localStorage.setItem('hhp_site_data', JSON.stringify(_siteDataCache)); } catch(e) {}
 }
 

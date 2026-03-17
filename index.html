@@ -2590,6 +2590,9 @@ const pricingData=[
   {key:'cat30',label:'🐱 Cat Care (30 min)',price:'$20'},{key:'cat60',label:'🐱 Cat Care (1 hour)',price:'$35'},
   {key:'boarding',label:'🌙 Dog Boarding (per night)',price:'$55'},{key:'boarding24',label:'🌙 Dog Boarding (24hr)',price:'$75'},
   {key:'daycare_half',label:'☀️ Day Care (half day)',price:'$40'},{key:'daycare_full',label:'☀️ Day Care (full day)',price:'$65'},
+  {key:'housesit_dog',label:'🏡 House Sitting - Dog (per night)',price:'$125'},{key:'housesit_cat',label:'🏡 House Sitting - Cat (per night)',price:'$80'},
+  {key:'housesit_extra_dog',label:'🏡 Additional Dog (per night)',price:'$35'},{key:'housesit_extra_cat',label:'🏡 Additional Cat (per night)',price:'$15'},
+  {key:'housesit_mixed',label:'🏡 House Sitting - Mixed Dog+Cat (per night)',price:'$140'},
 ];
 function buildPricingEditor() {
   const saved=getSiteData().pricing||{};
@@ -2611,6 +2614,7 @@ const serviceDescs=[
   {key:'desc_dropin',label:'🏠 Drop-In Visit',text:"I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! I also can address any special needs or requests, such as medication, etc.!"},
   {key:'desc_boarding',label:'🌙 Dog Boarding',text:"Your dog stays with Rachel in a warm, loving home environment. Included walks, play sessions, and daily photo updates so you always know how they're doing."},
   {key:'desc_cat',label:'🐱 Cat Care Visit',text:"Cats deserve great care too! I visit your cat at home, drop ins can include feeding, litter box cleaning, fresh water, and playtime. I also can address any special needs or requests, such as medication, etc.!"},
+  {key:'desc_housesit',label:'🏡 House Sitting',text:"Going away? I stay at your home and care for your pets in their own environment — keeping their routine, giving medication if needed, and sending regular updates and photos so you have complete peace of mind while you're gone!"},
 ];
 function buildServiceEditor() {
   const saved=getSiteData();
