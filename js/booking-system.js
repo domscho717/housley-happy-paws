@@ -395,7 +395,7 @@
     return HOLIDAYS.indexOf(md) !== -1;
   }
 
-  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate) {
+  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType) {
     var svc = null;
     for (var i = 0; i < SERVICES.length; i++) {
       if (SERVICES[i].name === serviceName) { svc = SERVICES[i]; break; }
@@ -405,17 +405,24 @@
     var total = svc.base;
     var parts = [svc.name + ': $' + svc.base];
 
-    // Additional pets
+    // Additional pets — use correct rate based on pet type
     if (numPets > 1) {
       var extraCount = numPets - 1;
-      var extraRate = svc.extraPet || 0;
-      var extraCost = extraCount * extraRate;
-      total += extraCost;
-      if (extraCost > 0) parts.push(extraCount + ' extra pet(s): +$' + extraCost);
+      if (petType === 'both') {
+        // Mixed combo (e.g. 1 dog + 1 cat) — charge the dog extra rate for the extra pet
+        var extraRate = svc.extraPet || 15;
+        total += extraRate;
+        parts.push('Additional pet (mixed): +$' + extraRate);
+      } else {
+        var extraRate = (petType === 'cat' && svc.extraCat) ? svc.extraCat : (svc.extraPet || 0);
+        var extraCost = extraCount * extraRate;
+        total += extraCost;
+        if (extraCost > 0) parts.push(extraCount + ' extra ' + (petType === 'cat' ? 'cat(s)' : 'dog(s)') + ': +$' + extraCost);
+      }
     }
 
-    // Puppy surcharge (per puppy/dog pet)
-    if (isPuppy && svc.puppy > 0) {
+    // Puppy surcharge (dog services only)
+    if (isPuppy && svc.puppy > 0 && petType !== 'cat') {
       total += svc.puppy;
       parts.push('Puppy surcharge: +$' + svc.puppy);
     }
@@ -481,24 +488,21 @@
       '      </div>',
       '    </div>',
       '',
-      '    <label class="brm-label">Pet Name(s) *</label>',
+      '    <label class="brm-label">Name(s) *</label>',
       '    <input type="text" id="brm-pets" class="brm-input" placeholder="e.g., Moose, Cookie" required>',
       '',
-      '    <div class="brm-row">',
-      '      <div class="brm-col">',
-      '        <label class="brm-label">Pet Type(s)</label>',
-      '        <select id="brm-pettype" class="brm-input">',
-      '          <option value="dog">Dog(s)</option>',
-      '          <option value="cat">Cat(s)</option>',
-      '          <option value="both">Dogs & Cats</option>',
-      '          <option value="other">Other</option>',
-      '        </select>',
-      '      </div>',
-      '      <div class="brm-col">',
-      '        <label class="brm-label">Number of Pets</label>',
-      '        <input type="number" id="brm-numpets" class="brm-input" value="1" min="1" max="10">',
-      '      </div>',
-      '    </div>',
+      '    <label class="brm-label">Pet(s) *</label>',
+      '    <select id="brm-petcombo" class="brm-input" required>',
+      '      <option value="">Choose...</option>',
+      '      <option value="1dog">1 Dog</option>',
+      '      <option value="1cat">1 Cat</option>',
+      '      <option value="2dogs">2 Dogs</option>',
+      '      <option value="2cats">2 Cats</option>',
+      '      <option value="1dog1cat">1 Dog &amp; 1 Cat</option>',
+      '      <option value="3plus">3 or More+</option>',
+      '    </select>',
+      '    <input type="hidden" id="brm-pettype" value="dog">',
+      '    <input type="hidden" id="brm-numpets" value="1">',
       '',
       '    <div style="display:flex;align-items:center;gap:10px;margin:8px 0 12px">',
       '      <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="brm-puppy"> Puppy (under 1 year)</label>',
@@ -555,6 +559,7 @@
     function updatePriceEstimate() {
       var svcName = document.getElementById('brm-service').value;
       var numPets = parseInt(document.getElementById('brm-numpets').value) || 1;
+      var petType = document.getElementById('brm-pettype').value;
       var isPuppy = document.getElementById('brm-puppy').checked;
       var dateVal = document.getElementById('brm-date').value;
       var holidayFlag = isHoliday(dateVal);
@@ -572,7 +577,7 @@
         return;
       }
 
-      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag);
+      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType);
       if (estimateEl) estimateEl.style.display = 'block';
       if (breakdownEl) breakdownEl.innerHTML = result.breakdown.split(' | ').join('<br>');
       if (totalEl) totalEl.textContent = result.total.toFixed(2);
@@ -589,16 +594,40 @@
       }
     }
 
+    // Map pet combo dropdown to hidden fields
+    function syncPetCombo() {
+      var combo = document.getElementById('brm-petcombo');
+      var typeEl = document.getElementById('brm-pettype');
+      var numEl = document.getElementById('brm-numpets');
+      if (!combo || !typeEl || !numEl) return;
+
+      var map = {
+        '1dog':    { type: 'dog',  num: 1 },
+        '1cat':    { type: 'cat',  num: 1 },
+        '2dogs':   { type: 'dog',  num: 2 },
+        '2cats':   { type: 'cat',  num: 2 },
+        '1dog1cat':{ type: 'both', num: 2 },
+        '3plus':   { type: 'dog',  num: 3 },
+      };
+
+      var val = map[combo.value];
+      if (val) {
+        typeEl.value = val.type;
+        numEl.value = val.num;
+      }
+      updatePriceEstimate();
+    }
+
     // Attach listeners for live update
     setTimeout(function() {
-      ['brm-service', 'brm-numpets', 'brm-date'].forEach(function(id) {
+      ['brm-service', 'brm-date'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', updatePriceEstimate);
       });
+      var comboEl = document.getElementById('brm-petcombo');
+      if (comboEl) comboEl.addEventListener('change', syncPetCombo);
       var puppyEl = document.getElementById('brm-puppy');
       if (puppyEl) puppyEl.addEventListener('change', updatePriceEstimate);
-      var numEl = document.getElementById('brm-numpets');
-      if (numEl) numEl.addEventListener('input', updatePriceEstimate);
     }, 100);
   }
 
@@ -841,9 +870,10 @@
 
     // Calculate price
     var holidayFlag = isHoliday(date);
-    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag);
+    var petCombo = document.getElementById('brm-petcombo') ? document.getElementById('brm-petcombo').value : '';
+    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType);
 
-    if (!service || !date || !time || !name || !email || !pets || !address) {
+    if (!service || !date || !time || !name || !email || !pets || !address || !petCombo) {
       if (errEl) errEl.textContent = 'Please fill in all required fields.';
       return;
     }
