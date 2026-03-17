@@ -58,16 +58,26 @@ const HHP_Auth = {
         this.currentUser = session.user;
         this.session = session;
 
+        // On initial page load (session restore), respect where the user was
+        // Only force-navigate to portal on a FRESH login (not reload)
+        let isSessionRestore = this._initialLoad;
+
         // Use cached role instantly to avoid flash, then verify from DB
         let usedCache = false;
         try {
             const cachedRole = sessionStorage.getItem('hhp_cached_role');
-            if (cachedRole && this._initialLoad) {
+            if (cachedRole && isSessionRestore) {
                 this.currentRole = cachedRole;
                 usedCache = true;
-                // Show the right portal immediately while we verify
                 this.hideLoginScreen();
-                this.routeToPortal();
+                // On reload: restore the LAST VIEW (could be public/home)
+                // On fresh login: go to portal
+                var lastView = sessionStorage.getItem('hhp_last_view');
+                if (lastView) {
+                    if (typeof switchView === 'function') switchView(lastView);
+                } else {
+                    this.routeToPortal();
+                }
                 this.updateUIForUser();
             }
         } catch(e) {}
@@ -107,10 +117,22 @@ const HHP_Auth = {
         try { sessionStorage.setItem('hhp_cached_role', this.currentRole); } catch(e) {}
 
         this.hideLoginScreen();
-        // Only route to portal if user hasn't explicitly navigated away
-        if (typeof _userChosePublic === 'undefined' || !_userChosePublic) {
+
+        // Only route to portal on FRESH LOGIN (not session restore / page reload)
+        if (!isSessionRestore) {
+            // Fresh login — always go to their portal
             this.routeToPortal();
+        } else if (!usedCache) {
+            // Session restore but no cache was used — restore last view or go to portal
+            var lastView = sessionStorage.getItem('hhp_last_view');
+            if (lastView) {
+                if (typeof switchView === 'function') switchView(lastView);
+            } else {
+                this.routeToPortal();
+            }
         }
+        // If usedCache + isSessionRestore, we already handled it above
+
         this.updateUIForUser();
         this._initialLoad = false;
     },
