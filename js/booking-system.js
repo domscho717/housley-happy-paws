@@ -362,14 +362,14 @@
 
   // Services list for the form
   var SERVICES = [
-    { name: 'Dog Walking - 30 min', price: '$25', base: 25, type: 'dog', extraPet: 15, puppy: 5, holiday: 10 },
-    { name: 'Dog Walking - 1 hour', price: '$45', base: 45, type: 'dog', extraPet: 15, puppy: 5, holiday: 10 },
-    { name: 'Drop-In Visit - 30 min', price: '$25', base: 25, type: 'dog', extraPet: 15, puppy: 5, holiday: 10 },
-    { name: 'Drop-In Visit - 1 hour', price: '$45', base: 45, type: 'dog', extraPet: 15, puppy: 5, holiday: 10 },
-    { name: 'Cat Care Visit - 30 min', price: '$20', base: 20, type: 'cat', extraPet: 10, puppy: 0, holiday: 10 },
-    { name: 'Cat Care Visit - 1 hour', price: '$35', base: 35, type: 'cat', extraPet: 10, puppy: 0, holiday: 10 },
-    { name: 'House Sitting', price: '$125/night', base: 125, type: 'both', extraPet: 15, extraCat: 10, puppy: 5, holiday: 10 },
-    { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', extraPet: 0, puppy: 0, holiday: 0 },
+    { name: 'Dog Walking - 30 min', price: '$25', base: 25, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
+    { name: 'Dog Walking - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
+    { name: 'Drop-In Visit - 30 min', price: '$25', base: 25, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
+    { name: 'Drop-In Visit - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
+    { name: 'Cat Care Visit - 30 min', price: '$20', base: 20, type: 'cat', group: 'Cat Care Visit', extraPet: 10, puppy: 0, holiday: 10 },
+    { name: 'Cat Care Visit - 1 hour', price: '$35', base: 35, type: 'cat', group: 'Cat Care Visit', extraPet: 10, puppy: 0, holiday: 10 },
+    { name: 'House Sitting', price: '$125/night', base: 125, type: 'both', group: 'House Sitting', extraPet: 15, extraCat: 10, puppy: 5, holiday: 10 },
+    { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
   ];
 
   // Holiday dates (month-day format, add more as needed)
@@ -806,15 +806,33 @@
       modal.classList.add('open');
       document.body.style.overflow = 'hidden';
 
-      if (preselectedService) {
-        var sel = document.getElementById('brm-service');
-        if (sel) {
-          for (var i = 0; i < sel.options.length; i++) {
-            if (sel.options[i].value.indexOf(preselectedService) >= 0) {
-              sel.selectedIndex = i;
-              break;
-            }
+      // Filter service dropdown to only show relevant options
+      var sel = document.getElementById('brm-service');
+      if (sel) {
+        // Rebuild options based on whether a service group was preselected
+        var filtered = SERVICES;
+        if (preselectedService) {
+          filtered = SERVICES.filter(function(s) {
+            return s.group === preselectedService;
+          });
+          // If no exact group match, try partial match
+          if (filtered.length === 0) {
+            filtered = SERVICES.filter(function(s) {
+              return s.group.toLowerCase().indexOf(preselectedService.toLowerCase()) >= 0 ||
+                     preselectedService.toLowerCase().indexOf(s.group.toLowerCase()) >= 0;
+            });
           }
+          // Fall back to all services if still no match
+          if (filtered.length === 0) filtered = SERVICES;
+        }
+
+        sel.innerHTML = '<option value="">Choose a service...</option>' +
+          filtered.map(function(s) { return '<option value="' + s.name + '">' + s.name + ' - ' + s.price + '</option>'; }).join('');
+
+        // Auto-select if only one option (like House Sitting)
+        if (filtered.length === 1) {
+          sel.selectedIndex = 1;
+          sel.dispatchEvent(new Event('change'));
         }
       }
 
