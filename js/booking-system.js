@@ -428,9 +428,10 @@
         extraPetCost = extraCount * extraRate * nights;
         parts.push(extraCount + ' extra pet(s) (3+): +$' + extraRate + '/night x ' + nights + ' = $' + extraPetCost);
       } else if (petType === 'both') {
-        var extraRate = svc.extraPet || 15;
+        // Mixed (dog + cat): use dog base rate + cat additional rate for the extra
+        var extraRate = (isMultiNight && svc.extraCat) ? svc.extraCat : (svc.extraPet || 15);
         extraPetCost = extraRate * (isMultiNight ? nights : 1);
-        parts.push('Additional pet (mixed): +$' + extraRate + (isMultiNight ? '/night x ' + nights + ' = $' + extraPetCost : ''));
+        parts.push('Additional cat: +$' + extraRate + (isMultiNight ? '/night x ' + nights + ' = $' + extraPetCost : ''));
       } else {
         var extraRate = (petType === 'cat' && svc.extraCat) ? svc.extraCat : (svc.extraPet || 0);
         extraPetCost = extraCount * extraRate * (isMultiNight ? nights : 1);
