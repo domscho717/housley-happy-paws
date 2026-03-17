@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Housley Happy Paws — Rachel Housley · Lancaster, PA</title>
+<!-- Critical: hide portal pages BEFORE anything else loads to prevent flash -->
+<style id="early-hide">
+#pg-client,#pg-staff,#pg-owner{display:none!important;visibility:hidden!important}
+</style>
+<script>
+// On public pages or first visit, no hiding needed — remove early-hide immediately
+try{var v=sessionStorage.getItem('hhp_last_view');if(!v||v==='public'){var s=document.getElementById('early-hide');if(s)s.remove();}}catch(e){var s=document.getElementById('early-hide');if(s)s.remove();}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <!-- Supabase JS Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -36,7 +44,9 @@ body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);over
 .page{display:none;min-height:100vh}
 .page.active{display:block}
 /* Hide everything until auth settles — prevents any flash of wrong view */
-body.loading-auth .page{visibility:hidden}
+body.loading-auth #pg-client,
+body.loading-auth #pg-staff,
+body.loading-auth #pg-owner{display:none!important}
 body.loading-auth .nav{visibility:hidden}
 
 /* NAV */
@@ -2139,7 +2149,9 @@ function switchView(view) {
   });
   var targetPage = document.getElementById('pg-'+view);
   targetPage.classList.add('active');
-  // Remove loading screen — auth has settled, safe to show content
+  // Remove early-hide style and loading-auth — auth has settled, safe to show content
+  var earlyHide = document.getElementById('early-hide');
+  if (earlyHide) earlyHide.remove();
   document.body.classList.remove('loading-auth');
   const dd = document.getElementById('viewDropdown');
   if(dd) dd.value = view;
