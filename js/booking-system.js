@@ -425,10 +425,15 @@
         extraPetCost = extraCount * extraRate * nights;
         parts.push(extraCount + ' extra pet(s) (3+): +$' + extraRate + '/night x ' + nights + ' = $' + extraPetCost);
       } else if (petType === 'both') {
-        // Mixed (dog + cat): use dog base rate + cat additional rate for the extra
-        var extraRate = (isMultiNight && svc.extraCat) ? svc.extraCat : (svc.extraPet || 15);
-        extraPetCost = extraRate * (isMultiNight ? nights : 1);
-        parts.push('Additional cat: +$' + extraRate + (isMultiNight ? '/night x ' + nights + ' = $' + extraPetCost : ''));
+        // Mixed (1 dog + 1 cat): always $140/night for House Sitting
+        if (isMultiNight) {
+          baseRate = 140;
+          parts[0] = 'House Sitting (Mixed): $140/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (140 * nights);
+        } else {
+          var extraRate = svc.extraPet || 15;
+          extraPetCost = extraRate;
+          parts.push('Additional pet: +$' + extraRate);
+        }
       } else {
         var extraRate = (petType === 'cat' && svc.extraCat) ? svc.extraCat : (svc.extraPet || 0);
         extraPetCost = extraCount * extraRate * (isMultiNight ? nights : 1);
@@ -670,6 +675,32 @@
       if (timeCol) {
         var timeLabel = timeCol.querySelector('.brm-label');
         if (timeLabel) timeLabel.textContent = isHS ? 'Check-In Time *' : 'Preferred Time *';
+      }
+
+      // Filter pet combo options based on selected service
+      var combo = document.getElementById('brm-petcombo');
+      if (combo) {
+        var isDogHS = svcName.indexOf('house sitting (dog)') !== -1;
+        var isCatHS = svcName.indexOf('house sitting (cat)') !== -1;
+        var allOpts = [
+          { val: '',          lbl: 'How many pets?',  show: true },
+          { val: '1dog',      lbl: '1 Dog',           show: !isCatHS },
+          { val: '1cat',      lbl: '1 Cat',           show: !isDogHS },
+          { val: '2dogs',     lbl: '2 Dogs',          show: !isCatHS },
+          { val: '2cats',     lbl: '2 Cats',           show: !isDogHS },
+          { val: '1dog1cat',  lbl: '1 Dog & 1 Cat',   show: true },
+          { val: '3plus',     lbl: '3 or More+',       show: true },
+        ];
+        var curVal = combo.value;
+        combo.innerHTML = allOpts.filter(function(o){ return o.show; }).map(function(o){
+          return '<option value="' + o.val + '">' + o.lbl + '</option>';
+        }).join('');
+        // Restore selection if still valid, otherwise reset
+        combo.value = curVal;
+        if (combo.selectedIndex <= 0 && curVal) {
+          combo.selectedIndex = 0;
+          syncPetCombo();
+        }
       }
 
       // Auto-set end date to next day if start date is set and end date is empty
