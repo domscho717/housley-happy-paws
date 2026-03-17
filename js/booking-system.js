@@ -1843,11 +1843,40 @@
         // Send notification to client about the status change
         var req = this.requests.find(function(r) { return r.id === requestId; });
         if (req) {
-          // If accepting, find the matching Stripe payment link for this service
+          // If accepting, try to auto-charge saved card first
           var paymentLink = '';
-          if (newStatus === 'accepted' && req.service) {
+          var autoCharged = false;
+          if (newStatus === 'accepted' && req.service && req.estimated_total > 0 && req.client_id) {
+            try {
+              var chargeResp = await fetch('/api/charge-saved-card', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  bookingRequestId: requestId,
+                  amount: req.estimated_total,
+                  service: req.service,
+                  clientProfileId: req.client_id,
+                }),
+              });
+              var chargeData = await chargeResp.json();
+              if (chargeData.success) {
+                autoCharged = true;
+                if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + ' automatically!');
+              } else if (chargeData.error === 'no_card') {
+                // No saved card — fall back to payment link
+                paymentLink = getStripePaymentLink(req.service);
+              } else if (chargeData.error === 'authentication_required') {
+                paymentLink = getStripePaymentLink(req.service);
+                if (typeof toast === 'function') toast('Card requires authentication — payment link sent instead.');
+              }
+            } catch (chargeErr) {
+              console.warn('Auto-charge failed, falling back to payment link:', chargeErr);
+              paymentLink = getStripePaymentLink(req.service);
+            }
+          } else if (newStatus === 'accepted' && req.service) {
             paymentLink = getStripePaymentLink(req.service);
           }
+
           try {
             await fetch('/api/booking-status-notification', {
               method: 'POST',
@@ -1860,9 +1889,10 @@
                 scheduledDate: update.scheduled_date || req.preferred_date,
                 scheduledTime: update.scheduled_time || req.preferred_time,
                 adminNotes: update.admin_notes || '',
-                paymentLink: paymentLink,
+                paymentLink: autoCharged ? '' : paymentLink,
                 estimatedTotal: req.estimated_total || null,
                 priceBreakdown: req.price_breakdown || '',
+                autoCharged: autoCharged,
               }),
             });
           } catch (e) { console.warn('Status notification failed:', e); }
@@ -1872,7 +1902,11 @@
         await this.loadRequests();
 
         if (typeof toast === 'function') {
-          toast('Request ' + newStatus + '!');
+          var msg = 'Request ' + newStatus + '!';
+          if (newStatus === 'accepted' && !autoCharged && req && req.estimated_total > 0) {
+            msg += ' Payment link sent to client.';
+          }
+          toast(msg);
         }
       } catch (err) {
         console.error('Failed to update request:', err);

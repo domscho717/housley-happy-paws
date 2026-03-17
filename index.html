@@ -1248,9 +1248,14 @@ try {
       <div class="p-panel" id="c-bill">
         <div class="p-header"><h2>Billing 💳</h2></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-          <div class="card"><div class="card-title">Payment Method</div>
-            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No payment method on file yet.</div>
-            <div class="form-group"><label class="form-lbl">Discount Code</label><div style="display:flex;gap:8px"><input class="form-in" style="flex:1" placeholder="Enter code"><button class="btn btn-gold btn-sm" onclick="toast('✅ Discount applied!')">Apply</button></div></div>
+          <div class="card">
+            <div class="card-title">Payment Method</div>
+            <div id="savedCardDisplay" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
+            <div id="savedCardActions" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+              <button id="addCardBtn" class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="addPaymentMethod()">💳 Add Payment Method</button>
+            </div>
+            <div style="font-size:0.75rem;color:var(--mid);margin-top:10px;text-align:center">Your card is saved securely through Stripe. When Rachel accepts your booking, payment is processed automatically.</div>
+            <div class="form-group" style="margin-top:14px"><label class="form-lbl">Discount Code</label><div style="display:flex;gap:8px"><input class="form-in" style="flex:1" placeholder="Enter code"><button class="btn btn-gold btn-sm" onclick="toast('✅ Discount applied!')">Apply</button></div></div>
           </div>
           <div class="card"><div class="card-title">Payment History</div>
             <div id="clientPaymentHistory" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No payment history yet.</div>
@@ -2237,6 +2242,8 @@ function sTab(portal, panelId) {
   document.querySelectorAll('.p-panel[id^="'+prefix+'"]').forEach(p => p.classList.remove('active'));
   const el = document.getElementById(panelId);
   if(el) el.classList.add('active');
+  // Auto-load data when switching to specific panels
+  if (panelId === 'c-bill' && typeof loadSavedCard === 'function') loadSavedCard();
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -2988,6 +2995,95 @@ function downloadLandingPage() {
   a.click();
   toast('Downloaded links.html! Upload to GitHub to deploy.');
 }
+
+// ── Saved Card Management ──
+async function loadSavedCard() {
+  var display = document.getElementById('savedCardDisplay');
+  var addBtn = document.getElementById('addCardBtn');
+  if (!display) return;
+
+  if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
+    display.innerHTML = 'Sign in to manage payment methods.';
+    return;
+  }
+
+  var u = window.HHP_Auth.currentUser;
+  var profileId = u.id;
+  var email = u.email;
+
+  try {
+    var resp = await fetch('/api/get-payment-methods?profileId=' + profileId + '&email=' + encodeURIComponent(email));
+    var data = await resp.json();
+
+    if (data.hasCard && data.methods.length > 0) {
+      var card = data.methods[0];
+      var brandIcon = { visa: '💳', mastercard: '💳', amex: '💳', discover: '💳' };
+      display.innerHTML =
+        '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--forest-pale);border:1px solid var(--forest-light);border-radius:10px">' +
+        '<div style="font-size:1.8rem">💳</div>' +
+        '<div style="text-align:left">' +
+        '<div style="font-weight:700;font-size:0.95rem;text-transform:capitalize">' + card.brand + ' •••• ' + card.last4 + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--mid)">Expires ' + card.expMonth + '/' + card.expYear + '</div>' +
+        '</div>' +
+        '</div>';
+      if (addBtn) addBtn.textContent = '🔄 Update Payment Method';
+    } else {
+      display.innerHTML = '<div style="padding:14px;text-align:center;color:var(--mid);font-size:0.88rem">No payment method on file yet.</div>';
+      if (addBtn) addBtn.textContent = '💳 Add Payment Method';
+    }
+  } catch (err) {
+    console.warn('Could not load saved card:', err);
+    display.innerHTML = '<div style="padding:14px;text-align:center;color:var(--mid);font-size:0.88rem">No payment method on file yet.</div>';
+  }
+}
+
+async function addPaymentMethod() {
+  if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
+    toast('Please sign in first.');
+    return;
+  }
+
+  var u = window.HHP_Auth.currentUser;
+  var p = u.profile || {};
+  var btn = document.getElementById('addCardBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting to Stripe...'; }
+
+  try {
+    var resp = await fetch('/api/create-setup-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: u.email,
+        name: p.full_name || '',
+        profileId: u.id,
+      }),
+    });
+    var data = await resp.json();
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      throw new Error(data.error || 'Could not create setup session');
+    }
+  } catch (err) {
+    console.error('Add payment method error:', err);
+    toast('Could not connect to Stripe. Please try again.');
+    if (btn) { btn.disabled = false; btn.textContent = '💳 Add Payment Method'; }
+  }
+}
+
+// Handle card_saved return from Stripe
+(function checkCardSaved() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('card_saved') === 'success') {
+    setTimeout(function() { toast('✅ Payment method saved! Your card is on file for future bookings.'); loadSavedCard(); }, 500);
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+  } else if (params.get('card_saved') === 'cancelled') {
+    setTimeout(function() { toast('Card setup was cancelled.'); }, 500);
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+})();
 
 // ── Load Client Payment History (real Stripe) ──
 async function loadClientPayments() {
