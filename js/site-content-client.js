@@ -8,26 +8,37 @@ let _siteDataCache = null;
 let _siteDataLoaded = false;
 
 // Load all site content from Supabase API on page load
+// IMPORTANT: Merges Supabase data WITH localStorage — localStorage edits win
+// so that unsaved-to-cloud edits aren't wiped out on reload.
 async function loadSiteContent() {
+  // Always grab existing localStorage edits first
+  let localData = {};
+  try { localData = JSON.parse(localStorage.getItem('hhp_site_data')) || {}; } catch(e) {}
+
   try {
     const res = await fetch('/api/site-content');
     if (!res.ok) throw new Error('Failed to load site content');
     const rows = await res.json();
+
+    let supabaseData = {};
     if (Array.isArray(rows)) {
-      _siteDataCache = {};
       rows.forEach(row => {
         if (row.content && typeof row.content === 'object') {
-          Object.assign(_siteDataCache, row.content);
+          Object.assign(supabaseData, row.content);
         }
       });
     }
+
+    // Merge: Supabase as base, localStorage overrides (local edits take priority)
+    _siteDataCache = { ...supabaseData, ...localData };
     _siteDataLoaded = true;
-    // Also sync to localStorage as fallback
+
+    // Sync merged result back to localStorage
     try { localStorage.setItem('hhp_site_data', JSON.stringify(_siteDataCache)); } catch(e) {}
     return _siteDataCache;
   } catch (err) {
-    console.warn('[site-content] Failed to load from API, falling back to localStorage:', err);
-    try { _siteDataCache = JSON.parse(localStorage.getItem('hhp_site_data')) || {}; } catch(e) { _siteDataCache = {}; }
+    console.warn('[site-content] Failed to load from API, using localStorage:', err);
+    _siteDataCache = localData;
     _siteDataLoaded = true;
     return _siteDataCache;
   }
