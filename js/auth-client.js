@@ -33,14 +33,15 @@ const HHP_Auth = {
         // Listen for auth state changes
         this.supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session) {
-                // Only re-handle if this is a NEW sign-in (not the initial session restore)
-                if (!this._initialLoad) {
-                    await this.handleSession(session);
-                }
+                // Only handle if this is a genuinely NEW sign-in
+                // Skip if we already handled the session from getSession() above
+                if (this._sessionHandled) return;
+                await this.handleSession(session);
             } else if (event === 'SIGNED_OUT') {
                 this.currentUser = null;
                 this.currentRole = null;
                 this.session = null;
+                this._sessionHandled = false;
                 try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); } catch(e) {}
                 this.showLoginScreen();
             }
@@ -51,6 +52,7 @@ const HHP_Auth = {
 
     // Track whether this is the initial page load (vs a fresh login)
     _initialLoad: true,
+    _sessionHandled: false, // true after first handleSession completes
     session: null,
 
     // ── Handle session after login ──
@@ -135,6 +137,7 @@ const HHP_Auth = {
 
         this.updateUIForUser();
         this._initialLoad = false;
+        this._sessionHandled = true;
     },
 
     // ── Route user to their portal based on role ──
@@ -226,6 +229,7 @@ const HHP_Auth = {
         this.currentUser = null;
         this.currentRole = null;
         this.session = null;
+        this._sessionHandled = false;
         try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); } catch(e) {}
         if (typeof switchView === 'function') switchView('public');
         this.showLoginScreen();
