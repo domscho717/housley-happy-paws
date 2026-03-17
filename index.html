@@ -682,6 +682,47 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .form-row{grid-template-columns:1fr}
   footer{padding:48px 20px 24px}
   .footer-grid{grid-template-columns:1fr;gap:28px}
+
+  /* ── Owner Portal: stack all panels to single column on mobile ── */
+  .p-panel > div[style*="grid"] { grid-template-columns: 1fr !important; }
+  .p-panel div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+
+  /* AI Studio: full width, shorter chat */
+  #o-studio > div[style*="grid"] { grid-template-columns: 1fr !important; }
+  #aiChatLog { height: 280px !important; }
+
+  /* Edit Website: stack sidebar + content, horizontal section tabs */
+  #o-content > div[style*="grid"] { grid-template-columns: 1fr !important; }
+  #contentSections {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    gap: 6px !important;
+    padding-bottom: 6px !important;
+    scrollbar-width: none !important;
+  }
+  #contentSections::-webkit-scrollbar { display: none; }
+  #contentSections .content-sec-btn {
+    white-space: nowrap !important;
+    font-size: 0.78rem !important;
+    padding: 8px 14px !important;
+  }
+
+  /* Availability */
+  #o-avail > div[style*="grid"] { grid-template-columns: 1fr !important; }
+  .avail-grid { gap: 4px !important; }
+  .avail-day { font-size: 0.78rem !important; padding: 8px 6px !important; }
+
+  /* Photos & Media */
+  #o-photos > div[style*="grid"] { grid-template-columns: 1fr !important; }
+
+  /* Payments & Bank */
+  #o-payments > div[style*="grid"] { grid-template-columns: 1fr !important; }
+
+  /* General panel spacing */
+  .p-panel { padding: 10px !important; }
+  .p-panel .card { padding: 16px !important; }
+  .p-header h2 { font-size: 1.15rem !important; }
+  .p-header p { font-size: 0.8rem !important; }
 }
 
 /* Collapsible sidebar nav */
