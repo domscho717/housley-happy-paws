@@ -368,7 +368,7 @@
     { name: 'Drop-In Visit - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Cat Care Visit - 30 min', price: '$20', base: 20, type: 'cat', group: 'Cat Care Visit', extraPet: 10, puppy: 0, holiday: 10 },
     { name: 'Cat Care Visit - 1 hour', price: '$35', base: 35, type: 'cat', group: 'Cat Care Visit', extraPet: 10, puppy: 0, holiday: 10 },
-    { name: 'House Sitting', price: '$125/night', base: 125, type: 'both', group: 'House Sitting', extraPet: 15, extraCat: 10, puppy: 5, holiday: 10 },
+    { name: 'House Sitting', price: '$125/night', base: 125, baseCat: 80, type: 'both', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 5, holiday: 10 },
     { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
   ];
 
@@ -405,21 +405,29 @@
     nights = nights || 1;
     var isMultiNight = svc.group === 'House Sitting' && nights > 0;
 
-    // For House Sitting: calculate PER-NIGHT cost then multiply
-    var perNight = svc.base;
+    // For House Sitting: use cat base rate if pet type is cat
+    var baseRate = svc.base;
+    if (isMultiNight && petType === 'cat' && svc.baseCat) {
+      baseRate = svc.baseCat;
+    }
     var parts = [];
 
     if (isMultiNight) {
-      parts.push(svc.name + ': $' + svc.base + '/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (svc.base * nights));
+      parts.push(svc.name + (petType === 'cat' ? ' (Cat)' : '') + ': $' + baseRate + '/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (baseRate * nights));
     } else {
-      parts.push(svc.name + ': $' + svc.base);
+      parts.push(svc.name + ': $' + baseRate);
     }
 
     // Additional pets — per night for house sitting, flat for others
     var extraPetCost = 0;
     if (numPets > 1) {
       var extraCount = numPets - 1;
-      if (petType === 'both') {
+      // House Sitting 3+ animals: all additional at flat $35 rate regardless of type
+      if (isMultiNight && numPets >= 3 && svc.extra3plus) {
+        var extraRate = svc.extra3plus;
+        extraPetCost = extraCount * extraRate * nights;
+        parts.push(extraCount + ' extra pet(s) (3+): +$' + extraRate + '/night x ' + nights + ' = $' + extraPetCost);
+      } else if (petType === 'both') {
         var extraRate = svc.extraPet || 15;
         extraPetCost = extraRate * (isMultiNight ? nights : 1);
         parts.push('Additional pet (mixed): +$' + extraRate + (isMultiNight ? '/night x ' + nights + ' = $' + extraPetCost : ''));
@@ -444,9 +452,9 @@
       parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' = $' + holidayCost : ''));
     }
 
-    var total = (isMultiNight ? svc.base * nights : svc.base) + extraPetCost + puppyCost + holidayCost;
+    var total = (isMultiNight ? baseRate * nights : baseRate) + extraPetCost + puppyCost + holidayCost;
 
-    return { total: total, breakdown: parts.join(' | '), base: svc.base, nights: nights };
+    return { total: total, breakdown: parts.join(' | '), base: baseRate, nights: nights };
   }
 
   // Calculate number of nights between two dates (used by price estimator and submit)
