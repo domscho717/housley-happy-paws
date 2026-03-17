@@ -526,7 +526,7 @@
       '          <option value="">Select time...</option>',
              (function() {
                var opts = '';
-               for (var h = 6; h <= 21; h++) {
+               for (var h = 5; h <= 22; h++) {
                  for (var m = 0; m < 60; m += 30) {
                    var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
                    var ampm = h >= 12 ? 'PM' : 'AM';
@@ -1784,7 +1784,7 @@
         '  <select id="mod-time-' + requestId + '" style="padding:6px;border:1px solid #ddd;border-radius:6px;margin:4px 8px;">',
         (function() {
           var o = '';
-          for (var h = 6; h <= 21; h++) {
+          for (var h = 5; h <= 22; h++) {
             for (var m = 0; m < 60; m += 30) {
               var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
               var ampm = h >= 12 ? 'PM' : 'AM';
