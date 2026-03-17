@@ -33,15 +33,15 @@ const HHP_Auth = {
         // Listen for auth state changes
         this.supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session) {
-                // Only handle if this is a genuinely NEW sign-in
-                // Skip if we already handled the session from getSession() above
-                if (this._sessionHandled) return;
+                // Skip if this is the same session we already handled from getSession()
+                // But allow through if it's a NEW user (actual fresh login)
+                if (this._handledSessionId === session.user.id) return;
                 await this.handleSession(session);
             } else if (event === 'SIGNED_OUT') {
                 this.currentUser = null;
                 this.currentRole = null;
                 this.session = null;
-                this._sessionHandled = false;
+                this._handledSessionId = null;
                 try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); } catch(e) {}
                 this.showLoginScreen();
             }
@@ -52,7 +52,7 @@ const HHP_Auth = {
 
     // Track whether this is the initial page load (vs a fresh login)
     _initialLoad: true,
-    _sessionHandled: false, // true after first handleSession completes
+    _handledSessionId: null, // user ID of the session we already handled
     session: null,
 
     // ── Handle session after login ──
@@ -137,7 +137,7 @@ const HHP_Auth = {
 
         this.updateUIForUser();
         this._initialLoad = false;
-        this._sessionHandled = true;
+        this._handledSessionId = session.user.id;
     },
 
     // ── Route user to their portal based on role ──
@@ -233,7 +233,7 @@ const HHP_Auth = {
         this.currentUser = null;
         this.currentRole = null;
         this.session = null;
-        this._sessionHandled = false;
+        this._handledSessionId = null;
         try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); } catch(e) {}
         if (typeof switchView === 'function') switchView('public');
         this.showLoginScreen();
