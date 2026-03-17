@@ -524,11 +524,22 @@
       '        <label class="brm-label">Preferred Time *</label>',
       '        <select id="brm-time" class="brm-input" required>',
       '          <option value="">Select time...</option>',
-      '          <option value="Anytime">Anytime (Flexible)</option>',
-      '          <option value="Morning">Morning</option>',
-      '          <option value="Afternoon">Afternoon</option>',
-      '          <option value="Evening">Evening</option>',
+             (function() {
+               var opts = '';
+               for (var h = 6; h <= 21; h++) {
+                 for (var m = 0; m < 60; m += 30) {
+                   var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+                   var ampm = h >= 12 ? 'PM' : 'AM';
+                   var mm = m === 0 ? '00' : '30';
+                   var label = hr12 + ':' + mm + ' ' + ampm;
+                   var val24 = (h < 10 ? '0' : '') + h + ':' + mm;
+                   opts += '<option value="' + val24 + '">' + label + '</option>';
+                 }
+               }
+               return opts;
+             })(),
       '        </select>',
+      '        <div id="brm-endtime-display" style="display:none;font-size:0.82rem;color:var(--gold,#C8963E);margin-top:4px;font-weight:600"></div>',
       '      </div>',
       '    </div>',
       '',
@@ -740,6 +751,49 @@
       }
     }
 
+    // Show estimated end time based on start time + duration
+    function updateEndTimeDisplay() {
+      var display = document.getElementById('brm-endtime-display');
+      if (!display) return;
+      var timeVal = (document.getElementById('brm-time') || {}).value;
+      var svcGroup = (document.getElementById('brm-service') || {}).value || '';
+      var isHS = svcGroup.toLowerCase().indexOf('house sitting') !== -1;
+      var isMG = svcGroup === 'Meet & Greet';
+
+      if (!timeVal || isHS) { display.style.display = 'none'; return; }
+
+      // Determine duration in minutes
+      var durMinutes = 30; // default
+      if (isMG) {
+        durMinutes = 15; // Meet & Greet is quick
+      } else {
+        var durVal = (document.getElementById('brm-duration') || {}).value || '30 min';
+        durMinutes = durVal.indexOf('hour') !== -1 || durVal.indexOf('60') !== -1 ? 60 : 30;
+      }
+
+      // Parse start time (HH:MM)
+      var parts = timeVal.split(':');
+      var startH = parseInt(parts[0]);
+      var startM = parseInt(parts[1]);
+      var totalMin = startH * 60 + startM + durMinutes;
+      var endH = Math.floor(totalMin / 60) % 24;
+      var endM = totalMin % 60;
+
+      // Format as 12-hour
+      var hr12 = endH > 12 ? endH - 12 : (endH === 0 ? 12 : endH);
+      var ampm = endH >= 12 ? 'PM' : 'AM';
+      var endStr = hr12 + ':' + (endM === 0 ? '00' : endM < 10 ? '0' + endM : endM) + ' ' + ampm;
+
+      // Format start as 12-hour too
+      var sHr12 = startH > 12 ? startH - 12 : (startH === 0 ? 12 : startH);
+      var sAmpm = startH >= 12 ? 'PM' : 'AM';
+      var startStr = sHr12 + ':' + (startM === 0 ? '00' : startM < 10 ? '0' + startM : startM) + ' ' + sAmpm;
+
+      display.style.display = '';
+      display.textContent = 'Est. ' + startStr + ' → ' + endStr + ' (' + (durMinutes >= 60 ? (durMinutes / 60) + ' hr' : durMinutes + ' min') + ')';
+    }
+    window._updateEndTimeDisplay = updateEndTimeDisplay;
+
     // Map pet combo dropdown to hidden fields
     function syncPetCombo() {
       var combo = document.getElementById('brm-petcombo');
@@ -831,13 +885,17 @@
       ['brm-service', 'brm-date', 'brm-enddate'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', function() {
-          if (id === 'brm-service') toggleHouseSittingFields();
+          if (id === 'brm-service') { toggleHouseSittingFields(); updateEndTimeDisplay(); }
           if (id === 'brm-date') toggleHouseSittingFields(); // update end date min/default
           updatePriceEstimate();
         });
       });
       var durEl = document.getElementById('brm-duration');
-      if (durEl) durEl.addEventListener('change', updatePriceEstimate);
+      if (durEl) durEl.addEventListener('change', function() { updatePriceEstimate(); updateEndTimeDisplay(); });
+
+      // Time + duration → estimated end time
+      var timeEl = document.getElementById('brm-time');
+      if (timeEl) timeEl.addEventListener('change', updateEndTimeDisplay);
       var comboEl = document.getElementById('brm-petcombo');
       if (comboEl) comboEl.addEventListener('change', syncPetCombo);
       var puppyEl = document.getElementById('brm-puppy');
@@ -1535,6 +1593,18 @@
   // 5. ADMIN DASHBOARD (for owner portal)
   // ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
+  // Format 24h time string (HH:MM) to friendly 12h display
+  function fmt12(t) {
+    if (!t) return '';
+    if (t.indexOf(':') === -1 || t.length > 5) return t;
+    var parts = t.split(':');
+    var h = parseInt(parts[0]);
+    var m = parts[1];
+    var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    return hr12 + ':' + m + ' ' + ampm;
+  }
+
   window.HHP_BookingAdmin = {
     currentFilter: 'pending',
     requests: [],
@@ -1678,7 +1748,7 @@
           '    <span class="arc-status ' + r.status + '">' + r.status + '</span>',
           '  </div>',
           '  <div class="arc-detail" style="display:flex;align-items:center;gap:10px">' + clientAvaHTML + '<div><strong>' + (r.contact_name || '') + '</strong><br><span style="font-size:0.78rem;color:#8c6b4a">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</span></div></div>',
-          '  <div class="arc-detail"><strong>' + (isHS ? 'Dates:' : 'Preferred:') + '</strong> ' + dateStr + (isHS ? ' · Check-in ' : ' at ') + (r.preferred_time || '') + '</div>',
+          '  <div class="arc-detail"><strong>' + (isHS ? 'Dates:' : 'Preferred:') + '</strong> ' + dateStr + (isHS ? ' · Check-in ' : ' at ') + fmt12(r.preferred_time || '') + '</div>',
           multiDateHTML,
           recurHTML,
           '  <div class="arc-detail"><strong>Pets:</strong> ' + (r.pet_names || '') + ' (' + (r.pet_types || '') + ', ' + (r.number_of_pets || 1) + ')' + (r.is_puppy ? ' <span style="color:#c8963e;font-weight:600">🐶 Puppy</span>' : '') + '</div>',
@@ -1686,7 +1756,7 @@
           r.estimated_total ? '  <div class="arc-detail" style="background:#f9f6f0;padding:8px 10px;border-radius:6px;margin:6px 0;border:1px solid #e0d5c5"><strong>Total: $' + Number(r.estimated_total).toFixed(2) + '</strong>' + (r.price_breakdown ? '<div style="font-size:0.78rem;color:#6b5c4d;margin-top:2px">' + r.price_breakdown.replace(/\|/g, '<br>') + '</div>' : '') + (r.is_holiday ? '<div style="color:#c8963e;font-size:0.78rem;margin-top:2px">Holiday rate applied</div>' : '') + '</div>' : '',
           r.special_notes ? '  <div class="arc-detail"><strong>Notes:</strong> ' + r.special_notes + '</div>' : '',
           r.admin_notes ? '  <div class="arc-detail" style="color:var(--gold)"><strong>Your Note:</strong> ' + r.admin_notes + '</div>' : '',
-          r.scheduled_date ? '  <div class="arc-detail" style="color:var(--forest)"><strong>Scheduled:</strong> ' + r.scheduled_date + ' at ' + (r.scheduled_time || r.preferred_time) + '</div>' : '',
+          r.scheduled_date ? '  <div class="arc-detail" style="color:var(--forest)"><strong>Scheduled:</strong> ' + r.scheduled_date + ' at ' + fmt12(r.scheduled_time || r.preferred_time) + '</div>' : '',
           '  <div class="arc-detail" style="font-size:12px;color:#aaa;">Requested: ' + createdStr + '</div>',
           '  <div id="arc-modify-' + r.id + '"></div>',
           actionsHTML,
@@ -1712,10 +1782,18 @@
         '  <input type="date" id="mod-date-' + requestId + '" style="padding:6px;border:1px solid #ddd;border-radius:6px;margin:4px 8px;">',
         '  <label style="font-size:13px;font-weight:600;">New Time:</label>',
         '  <select id="mod-time-' + requestId + '" style="padding:6px;border:1px solid #ddd;border-radius:6px;margin:4px 8px;">',
-        '    <option>Anytime (Flexible)</option>',
-        '    <option>Morning</option>',
-        '    <option>Afternoon</option>',
-        '    <option>Evening</option>',
+        (function() {
+          var o = '';
+          for (var h = 6; h <= 21; h++) {
+            for (var m = 0; m < 60; m += 30) {
+              var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+              var ampm = h >= 12 ? 'PM' : 'AM';
+              var mm = m === 0 ? '00' : '30';
+              o += '    <option value="' + ((h<10?'0':'')+h) + ':' + mm + '">' + hr12 + ':' + mm + ' ' + ampm + '</option>';
+            }
+          }
+          return o;
+        })(),
         '  </select>',
         '  <br><label style="font-size:13px;font-weight:600;margin-top:8px;display:block;">Note to Client:</label>',
         '  <textarea id="mod-note-' + requestId + '" rows="2" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;margin:4px 0;font-family:inherit;" placeholder="e.g., That time works but I can only do mornings that day..."></textarea>',
