@@ -1507,18 +1507,16 @@
       return STRIPE_LINKS.walk30; // fallback
     }
 
-    // Override booking confirm button to redirect to Stripe
+    // Override old bookModal to redirect to the new booking request modal
     var bookModal = document.getElementById('bookModal');
     if (bookModal) {
       var confirmBtn = bookModal.querySelector('.submit-btn');
       if (confirmBtn) {
         confirmBtn.onclick = function() {
-          var sel = bookModal.querySelector('.form-sel');
-          var selectedService = sel ? sel.value : '';
-          var payLink = getPayLinkFromSelect(selectedService);
           if (typeof closeModal === 'function') closeModal('bookModal');
-          if (typeof toast === 'function') toast('Redirecting to secure payment...');
-          setTimeout(function() { window.open(payLink, '_blank'); }, 400);
+          if (typeof window.openBookingModal === 'function') {
+            setTimeout(function() { window.openBookingModal(); }, 200);
+          }
         };
         confirmBtn.textContent = 'Submit Request';
         confirmBtn.style.background = 'var(--ink, #1e1409)';
@@ -1528,24 +1526,26 @@
     // Add "Book & Pay" buttons to paid service cards (skip Meet & Greet and Coming Soon)
     var cards = document.querySelectorAll('.service-card:not(.mg-card):not(.coming)');
     var cardLabels = [
-      'Request a Walk',
-      'Request a Visit',
-      'Request a Visit',
-      'Request a Stay'
+      { text: 'Request a Walk', service: 'Dog Walking' },
+      { text: 'Request a Visit', service: 'Drop-In Visit' },
+      { text: 'Request a Visit', service: 'Cat Care Visit' },
+      { text: 'Request a Stay', service: 'House Sitting' }
     ];
     cards.forEach(function(card, i) {
       if (i < cardLabels.length && !card.querySelector('.stripe-pay-btn')) {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'stripe-pay-btn';
-        btn.textContent = cardLabels[i];
+        btn.textContent = cardLabels[i].text;
         btn.style.cssText = 'display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;text-decoration:none;transition:opacity 0.2s;cursor:pointer;font-family:inherit;';
         btn.onmouseover = function() { this.style.opacity = '0.85'; };
         btn.onmouseout = function() { this.style.opacity = '1'; };
-        btn.addEventListener('click', function() {
-          if (typeof openModal === 'function') openModal('bookModal');
-          else if (typeof mgModal === 'function') mgModal();
-        });
+        (function(svc) {
+          btn.addEventListener('click', function() {
+            if (typeof window.openBookingModal === 'function') window.openBookingModal(svc);
+            else if (typeof openModal === 'function') openModal('bookModal');
+          });
+        })(cardLabels[i].service);
         card.appendChild(btn);
       }
     });
