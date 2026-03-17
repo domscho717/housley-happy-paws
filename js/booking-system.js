@@ -478,6 +478,10 @@
       '<div class="brm-backdrop" onclick="closeBookingModal()"></div>',
       '<div class="brm-content">',
       '  <button class="brm-close" onclick="closeBookingModal()" aria-label="Close">&times;</button>',
+      '  <div id="brm-greeting" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:14px 16px;margin-bottom:16px">',
+      '    <span style="font-size:1.1rem;font-weight:700;color:var(--ink,#2C2C2C)">Hi, <span id="brm-greeting-name"></span>!</span>',
+      '    <span style="font-size:0.85rem;color:#6b5c4d;margin-left:6px">Your info is pre-filled below.</span>',
+      '  </div>',
       '  <h2 class="brm-title">Request a Booking</h2>',
       '  <p class="brm-subtitle">Fill out the details below and Rachel will get back to you to confirm your booking!</p>',
       '  <form id="bookingRequestForm" onsubmit="submitBookingRequest(event)">',
@@ -527,6 +531,46 @@
       '          <option value="Late Afternoon (3-5pm)">Late Afternoon (3-5pm)</option>',
       '          <option value="Evening (5-7pm)">Evening (5-7pm)</option>',
       '        </select>',
+      '      </div>',
+      '    </div>',
+      '',
+      '    <!-- Multi-date: add more dates -->',
+      '    <div id="brm-multidate-section" style="margin:6px 0 10px">',
+      '      <div id="brm-extra-dates"></div>',
+      '      <button type="button" id="brm-add-date-btn" onclick="window._brmAddDate()" style="background:none;border:1px dashed var(--gold,#C8963E);color:var(--gold,#C8963E);border-radius:8px;padding:7px 14px;font-size:0.82rem;cursor:pointer;font-family:inherit;margin-top:4px">+ Add Another Date</button>',
+      '    </div>',
+      '',
+      '    <!-- Recurring schedule toggle -->',
+      '    <div id="brm-recur-section" style="margin:4px 0 12px">',
+      '      <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;cursor:pointer;font-weight:600;color:var(--ink,#2C2C2C)">',
+      '        <input type="checkbox" id="brm-recur-toggle"> Set up a recurring schedule',
+      '      </label>',
+      '      <div id="brm-recur-options" style="display:none;margin-top:10px;background:#f9f6f0;border:1px solid #e0d5c5;border-radius:10px;padding:14px">',
+      '        <label class="brm-label" style="margin-top:0">Repeat on</label>',
+      '        <div id="brm-recur-days" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">',
+      '          <label class="brm-day-chip"><input type="checkbox" value="mon" class="brm-recur-day"> Mon</label>',
+      '          <label class="brm-day-chip"><input type="checkbox" value="tue" class="brm-recur-day"> Tue</label>',
+      '          <label class="brm-day-chip"><input type="checkbox" value="wed" class="brm-recur-day"> Wed</label>',
+      '          <label class="brm-day-chip"><input type="checkbox" value="thu" class="brm-recur-day"> Thu</label>',
+      '          <label class="brm-day-chip"><input type="checkbox" value="fri" class="brm-recur-day"> Fri</label>',
+      '          <label class="brm-day-chip"><input type="checkbox" value="sat" class="brm-recur-day"> Sat</label>',
+      '          <label class="brm-day-chip"><input type="checkbox" value="sun" class="brm-recur-day"> Sun</label>',
+      '        </div>',
+      '        <div class="brm-row">',
+      '          <div class="brm-col">',
+      '            <label class="brm-label">Frequency</label>',
+      '            <select id="brm-recur-freq" class="brm-input">',
+      '              <option value="weekly">Every week</option>',
+      '              <option value="biweekly">Every 2 weeks</option>',
+      '              <option value="monthly">Every 4 weeks</option>',
+      '            </select>',
+      '          </div>',
+      '          <div class="brm-col">',
+      '            <label class="brm-label">Until</label>',
+      '            <input type="date" id="brm-recur-end" class="brm-input">',
+      '          </div>',
+      '        </div>',
+      '        <div id="brm-recur-preview" style="margin-top:10px;font-size:0.8rem;color:#6b5c4d;max-height:120px;overflow-y:auto"></div>',
       '      </div>',
       '    </div>',
       '',
@@ -663,7 +707,28 @@
       var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights);
       if (estimateEl) estimateEl.style.display = 'block';
       if (breakdownEl) breakdownEl.innerHTML = result.breakdown.split(' | ').join('<br>');
-      if (totalEl) totalEl.textContent = result.total.toFixed(2);
+
+      // Count total dates (multi-date or recurring)
+      var isHS = svcName.toLowerCase().indexOf('house sitting') !== -1;
+      var totalDates = 1;
+      var isRecurring = document.getElementById('brm-recur-toggle') && document.getElementById('brm-recur-toggle').checked;
+      if (!isHS) {
+        if (isRecurring && window._brmGetRecurDates) {
+          var rd = window._brmGetRecurDates();
+          if (rd.length > 0) totalDates = rd.length;
+        } else if (window._brmExtraDates) {
+          var extras = window._brmExtraDates.filter(function(d) { return !!d; });
+          totalDates = 1 + extras.length;
+        }
+      }
+
+      if (totalDates > 1 && !isHS) {
+        var multiTotal = result.total * totalDates;
+        if (breakdownEl) breakdownEl.innerHTML += '<br><span style="font-weight:600">' + totalDates + ' appointments x $' + result.total.toFixed(2) + '</span>';
+        if (totalEl) totalEl.textContent = multiTotal.toFixed(2);
+      } else {
+        if (totalEl) totalEl.textContent = result.total.toFixed(2);
+      }
 
       if (holidayFlag && dateVal) {
         var holidayNote = breakdownEl.querySelector('.brm-holiday-note');
@@ -779,7 +844,165 @@
       if (comboEl) comboEl.addEventListener('change', syncPetCombo);
       var puppyEl = document.getElementById('brm-puppy');
       if (puppyEl) puppyEl.addEventListener('change', updatePriceEstimate);
+
+      // Recurring schedule toggle
+      var recurToggle = document.getElementById('brm-recur-toggle');
+      var recurOpts = document.getElementById('brm-recur-options');
+      if (recurToggle && recurOpts) {
+        recurToggle.addEventListener('change', function() {
+          recurOpts.style.display = recurToggle.checked ? '' : 'none';
+          // Hide multi-date section when recurring is on (they're mutually exclusive for simplicity)
+          var multiSec = document.getElementById('brm-multidate-section');
+          var addBtn = document.getElementById('brm-add-date-btn');
+          if (recurToggle.checked) {
+            if (multiSec) multiSec.style.display = 'none';
+            // Set default recurrence end to 4 weeks from today
+            var recurEnd = document.getElementById('brm-recur-end');
+            if (recurEnd && !recurEnd.value) {
+              var future = new Date();
+              future.setDate(future.getDate() + 28);
+              recurEnd.value = future.toISOString().split('T')[0];
+            }
+          } else {
+            if (multiSec) multiSec.style.display = '';
+          }
+          updateRecurPreview();
+          updatePriceEstimate();
+        });
+      }
+
+      // Recurrence day checkboxes + frequency + end date → preview
+      var recurDays = document.querySelectorAll('.brm-recur-day');
+      recurDays.forEach(function(cb) {
+        cb.addEventListener('change', function() {
+          // Toggle active class on chip label (fallback for :has() CSS)
+          var chip = cb.closest('.brm-day-chip');
+          if (chip) chip.classList.toggle('active', cb.checked);
+          updateRecurPreview();
+          updatePriceEstimate();
+        });
+      });
+      var recurFreq = document.getElementById('brm-recur-freq');
+      if (recurFreq) recurFreq.addEventListener('change', function() { updateRecurPreview(); updatePriceEstimate(); });
+      var recurEndEl = document.getElementById('brm-recur-end');
+      if (recurEndEl) recurEndEl.addEventListener('change', function() { updateRecurPreview(); updatePriceEstimate(); });
+
+      // Hide multi-date + recurring for House Sitting (already has date range)
+      var svcEl = document.getElementById('brm-service');
+      if (svcEl) {
+        svcEl.addEventListener('change', function() {
+          var isHS = (svcEl.value || '').toLowerCase().indexOf('house sitting') !== -1;
+          var multiSec = document.getElementById('brm-multidate-section');
+          var recurSec = document.getElementById('brm-recur-section');
+          if (multiSec) multiSec.style.display = isHS ? 'none' : '';
+          if (recurSec) recurSec.style.display = isHS ? 'none' : '';
+        });
+      }
     }, 100);
+
+    // ── Multi-date add/remove ──
+    window._brmExtraDates = [];
+
+    window._brmAddDate = function() {
+      var container = document.getElementById('brm-extra-dates');
+      if (!container) return;
+      var idx = window._brmExtraDates.length;
+      var id = 'brm-extra-date-' + idx;
+      window._brmExtraDates.push('');
+
+      // Create a row with date input
+      var row = document.createElement('div');
+      row.id = 'brm-extra-date-row-' + idx;
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+      row.innerHTML = '<input type="date" class="brm-input brm-extra-date-input" id="' + id + '" style="flex:1" min="' + (new Date().toISOString().split('T')[0]) + '"> <button type="button" onclick="window._brmRemoveDate(' + idx + ')" style="background:none;border:none;color:#c4756a;cursor:pointer;font-size:18px;padding:4px">&times;</button>';
+      container.appendChild(row);
+
+      // Listen for changes
+      var inp = document.getElementById(id);
+      if (inp) inp.addEventListener('change', function() {
+        window._brmExtraDates[idx] = inp.value;
+        updatePriceEstimate();
+      });
+    };
+
+    window._brmRemoveDate = function(idx) {
+      var row = document.getElementById('brm-extra-date-row-' + idx);
+      if (row) row.remove();
+      window._brmExtraDates[idx] = null; // mark removed (keep indices stable)
+      updatePriceEstimate();
+    };
+
+    // ── Recurring preview generator ──
+    function getRecurDates() {
+      var toggle = document.getElementById('brm-recur-toggle');
+      if (!toggle || !toggle.checked) return [];
+
+      var selectedDays = [];
+      document.querySelectorAll('.brm-recur-day:checked').forEach(function(cb) { selectedDays.push(cb.value); });
+      if (selectedDays.length === 0) return [];
+
+      var freq = (document.getElementById('brm-recur-freq') || {}).value || 'weekly';
+      var endStr = (document.getElementById('brm-recur-end') || {}).value;
+      var startStr = (document.getElementById('brm-date') || {}).value;
+      if (!endStr || !startStr) return [];
+
+      var dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+      var intervalDays = freq === 'weekly' ? 7 : freq === 'biweekly' ? 14 : 28;
+      var start = new Date(startStr + 'T12:00:00');
+      var end = new Date(endStr + 'T12:00:00');
+      var dates = [];
+
+      // Find all matching days starting from the start date's week
+      var weekStart = new Date(start);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // go to Sunday of that week
+
+      for (var w = new Date(weekStart); w <= end; w.setDate(w.getDate() + intervalDays)) {
+        selectedDays.forEach(function(day) {
+          var d = new Date(w);
+          d.setDate(d.getDate() + dayMap[day]);
+          if (d >= start && d <= end) {
+            dates.push(d.toISOString().split('T')[0]);
+          }
+        });
+      }
+
+      // Deduplicate and sort
+      dates = dates.filter(function(v, i, a) { return a.indexOf(v) === i; }).sort();
+      return dates;
+    }
+    window._brmGetRecurDates = getRecurDates;
+
+    function updateRecurPreview() {
+      var preview = document.getElementById('brm-recur-preview');
+      if (!preview) return;
+      var dates = getRecurDates();
+      if (dates.length === 0) {
+        preview.innerHTML = '<em>Select days, a start date, and end date to preview.</em>';
+        return;
+      }
+      var formatted = dates.map(function(d) {
+        return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      });
+      preview.innerHTML = '<strong>' + dates.length + ' appointment' + (dates.length > 1 ? 's' : '') + ':</strong><br>' +
+        formatted.map(function(f) { return '<span class="brm-date-tag">' + f + '</span>'; }).join(' ');
+    }
+
+    // ── Greeting for logged-in clients ──
+    function showGreeting() {
+      var greetingEl = document.getElementById('brm-greeting');
+      var nameSpan = document.getElementById('brm-greeting-name');
+      if (!greetingEl || !nameSpan) return;
+      if (window.HHP_Auth && window.HHP_Auth.currentUser) {
+        var p = window.HHP_Auth.currentUser.profile || {};
+        var firstName = (p.full_name || '').split(' ')[0];
+        if (firstName) {
+          nameSpan.textContent = firstName;
+          greetingEl.style.display = '';
+        }
+      }
+    }
+
+    setTimeout(showGreeting, 400);
   }
 
   // Inject modal CSS
@@ -853,6 +1076,12 @@
       '.brm-textarea { resize: vertical; min-height: 80px; }',
       '.brm-row { display: flex; gap: 12px; }',
       '.brm-col { flex: 1; }',
+      '.brm-day-chip { display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #ddd;border-radius:20px;font-size:0.82rem;cursor:pointer;user-select:none;transition:all 0.2s; }',
+      '.brm-day-chip:has(input:checked), .brm-day-chip.active { background:var(--gold,#C8963E);color:#fff;border-color:var(--gold,#C8963E); }',
+      '.brm-day-chip input { display:none; }',
+      '.brm-date-tag { display:inline-flex;align-items:center;gap:6px;background:#f0ebe3;border:1px solid #e0d5c5;border-radius:20px;padding:5px 10px;font-size:0.82rem;margin:3px 4px 3px 0; }',
+      '.brm-date-tag button { background:none;border:none;color:#999;cursor:pointer;font-size:14px;line-height:1;padding:0 2px; }',
+      '.brm-date-tag button:hover { color:#c4756a; }',
       '.brm-submit-btn {',
       '  display: block;',
       '  width: 100%;',
@@ -1006,7 +1235,16 @@
         // If no preselectedService, the default group-based dropdown from createBookingModal is fine
       }
 
-      // Pre-fill if logged in
+      // Reset multi-date state on open
+      window._brmExtraDates = [];
+      var extraContainer = document.getElementById('brm-extra-dates');
+      if (extraContainer) extraContainer.innerHTML = '';
+      var recurToggle = document.getElementById('brm-recur-toggle');
+      if (recurToggle) { recurToggle.checked = false; }
+      var recurOpts = document.getElementById('brm-recur-options');
+      if (recurOpts) recurOpts.style.display = 'none';
+
+      // Pre-fill and show greeting if logged in
       if (window.HHP_Auth && window.HHP_Auth.currentUser) {
         var u = window.HHP_Auth.currentUser;
         var p = u.profile || {};
@@ -1020,6 +1258,17 @@
         if (petsEl && !petsEl.value && p.pet_names) petsEl.value = p.pet_names;
         if (phoneEl && !phoneEl.value && p.phone) phoneEl.value = p.phone;
         if (addrEl && !addrEl.value && p.address) addrEl.value = p.address;
+
+        // Show greeting
+        var greetingEl = document.getElementById('brm-greeting');
+        var nameSpan = document.getElementById('brm-greeting-name');
+        if (greetingEl && nameSpan) {
+          var firstName = (p.full_name || '').split(' ')[0];
+          if (firstName) {
+            nameSpan.textContent = firstName;
+            greetingEl.style.display = '';
+          }
+        }
       }
     }
   };
@@ -1059,6 +1308,33 @@
     var endDateEl = document.getElementById('brm-enddate');
     var endDate = endDateEl ? endDateEl.value : '';
 
+    // Collect multi-date and recurrence data
+    var isRecurring = document.getElementById('brm-recur-toggle') && document.getElementById('brm-recur-toggle').checked;
+    var allBookingDates = [date]; // always include the primary date
+
+    if (isRecurring && window._brmGetRecurDates) {
+      var recurDates = window._brmGetRecurDates();
+      if (recurDates.length > 0) allBookingDates = recurDates;
+    } else if (window._brmExtraDates) {
+      // Add any manually-added extra dates
+      window._brmExtraDates.forEach(function(d) { if (d) allBookingDates.push(d); });
+    }
+    // Deduplicate and sort
+    allBookingDates = allBookingDates.filter(function(v, i, a) { return v && a.indexOf(v) === i; }).sort();
+
+    // Build recurrence pattern if recurring
+    var recurrencePattern = null;
+    if (isRecurring) {
+      var selectedDays = [];
+      document.querySelectorAll('.brm-recur-day:checked').forEach(function(cb) { selectedDays.push(cb.value); });
+      recurrencePattern = {
+        days: selectedDays,
+        frequency: (document.getElementById('brm-recur-freq') || {}).value || 'weekly',
+        end_date: (document.getElementById('brm-recur-end') || {}).value || '',
+        time: time
+      };
+    }
+
     // Calculate price (with nights for House Sitting)
     var holidayFlag = isHoliday(date);
     var petCombo = document.getElementById('brm-petcombo') ? document.getElementById('brm-petcombo').value : '';
@@ -1069,6 +1345,14 @@
     }
     var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights);
 
+    // For multi-date, multiply the per-session price by number of dates
+    var totalDates = allBookingDates.length;
+    var multiDateTotal = priceResult.total * totalDates;
+    var multiDateBreakdown = priceResult.breakdown;
+    if (totalDates > 1 && !isHouseSitting) {
+      multiDateBreakdown += ' | x' + totalDates + ' appointments = $' + multiDateTotal.toFixed(2);
+    }
+
     if (!service || !date || !time || !name || !email || !pets || !address || !petCombo) {
       if (errEl) errEl.textContent = 'Please fill in all required fields.';
       return;
@@ -1077,6 +1361,18 @@
     if (isHouseSitting && !endDate) {
       if (errEl) errEl.textContent = 'Please select an end date for House Sitting.';
       return;
+    }
+    // Recurring requires at least one day selected
+    if (isRecurring) {
+      var selDays = document.querySelectorAll('.brm-recur-day:checked');
+      if (selDays.length === 0) {
+        if (errEl) errEl.textContent = 'Please select at least one day for your recurring schedule.';
+        return;
+      }
+      if (!document.getElementById('brm-recur-end').value) {
+        if (errEl) errEl.textContent = 'Please select an end date for your recurring schedule.';
+        return;
+      }
     }
 
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending request...'; }
@@ -1105,13 +1401,15 @@
           number_of_pets: numPets,
           is_puppy: isPuppy,
           is_holiday: holidayFlag,
-          estimated_total: priceResult.total,
-          price_breakdown: priceResult.breakdown,
+          estimated_total: isHouseSitting ? priceResult.total : multiDateTotal,
+          price_breakdown: multiDateBreakdown,
           special_notes: notes || null,
           address: address,
           house_area: address,
           client_id: clientId,
           status: 'pending',
+          booking_dates: totalDates > 1 ? allBookingDates : null,
+          recurrence_pattern: recurrencePattern,
         })
         .select();
 
@@ -1119,9 +1417,16 @@
 
       // Send email notification to Rachel
       try {
+        var dateDisplay = isHouseSitting ? date + ' to ' + endDate : date;
+        if (totalDates > 1 && !isHouseSitting) {
+          dateDisplay = allBookingDates.join(', ') + ' (' + totalDates + ' dates)';
+        }
+        if (isRecurring && recurrencePattern) {
+          dateDisplay += ' [Recurring: ' + recurrencePattern.days.join(', ') + ' ' + recurrencePattern.frequency + ' until ' + recurrencePattern.end_date + ']';
+        }
         await sendBookingNotification({
           service: service,
-          date: isHouseSitting ? date + ' to ' + endDate : date,
+          date: dateDisplay,
           time: time,
           name: name,
           email: email,
@@ -1144,6 +1449,15 @@
       setTimeout(function() {
         var form = document.getElementById('bookingRequestForm');
         if (form) form.reset();
+        // Clear extra dates
+        window._brmExtraDates = [];
+        var extraContainer = document.getElementById('brm-extra-dates');
+        if (extraContainer) extraContainer.innerHTML = '';
+        // Hide recurring options
+        var recurOpts = document.getElementById('brm-recur-options');
+        if (recurOpts) recurOpts.style.display = 'none';
+        var recurPreview = document.getElementById('brm-recur-preview');
+        if (recurPreview) recurPreview.innerHTML = '';
         closeBookingModal();
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Request to Rachel'; }
         if (successEl) successEl.textContent = '';
@@ -1318,6 +1632,23 @@
           var hsNights = Math.round((new Date(r.preferred_end_date + 'T12:00:00') - new Date(r.preferred_date + 'T12:00:00')) / (1000*60*60*24));
           dateStr = dateStr + ' → ' + endDateStr + ' (' + hsNights + ' night' + (hsNights !== 1 ? 's' : '') + ')';
         }
+        // Multi-date / recurring display
+        var multiDateHTML = '';
+        if (r.booking_dates && Array.isArray(r.booking_dates) && r.booking_dates.length > 1) {
+          var formattedDates = r.booking_dates.map(function(d) {
+            return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          });
+          multiDateHTML = '<div class="arc-detail"><strong>' + r.booking_dates.length + ' Appointments:</strong><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">' +
+            formattedDates.map(function(f) { return '<span style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:12px;padding:2px 8px;font-size:0.78rem">' + f + '</span>'; }).join('') + '</div></div>';
+        }
+        var recurHTML = '';
+        if (r.recurrence_pattern) {
+          var rp = typeof r.recurrence_pattern === 'string' ? JSON.parse(r.recurrence_pattern) : r.recurrence_pattern;
+          var dayNames = (rp.days || []).map(function(d) { return d.charAt(0).toUpperCase() + d.slice(1); });
+          var freqLabel = rp.frequency === 'weekly' ? 'Every week' : rp.frequency === 'biweekly' ? 'Every 2 weeks' : 'Every 4 weeks';
+          recurHTML = '<div class="arc-detail" style="background:#eef6ff;border:1px solid #b8d4f0;border-radius:6px;padding:8px 10px;margin:4px 0"><strong>🔄 Recurring:</strong> ' + dayNames.join(', ') + ' · ' + freqLabel + (rp.end_date ? ' · Until ' + new Date(rp.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '') + '</div>';
+        }
+
         var createdStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 
         var actionsHTML = '';
@@ -1350,6 +1681,8 @@
           '  </div>',
           '  <div class="arc-detail" style="display:flex;align-items:center;gap:10px">' + clientAvaHTML + '<div><strong>' + (r.contact_name || '') + '</strong><br><span style="font-size:0.78rem;color:#8c6b4a">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</span></div></div>',
           '  <div class="arc-detail"><strong>' + (isHS ? 'Dates:' : 'Preferred:') + '</strong> ' + dateStr + (isHS ? ' · Check-in ' : ' at ') + (r.preferred_time || '') + '</div>',
+          multiDateHTML,
+          recurHTML,
           '  <div class="arc-detail"><strong>Pets:</strong> ' + (r.pet_names || '') + ' (' + (r.pet_types || '') + ', ' + (r.number_of_pets || 1) + ')' + (r.is_puppy ? ' <span style="color:#c8963e;font-weight:600">🐶 Puppy</span>' : '') + '</div>',
           '  <div class="arc-detail"><strong>Address:</strong> ' + (r.address || '') + '</div>',
           r.estimated_total ? '  <div class="arc-detail" style="background:#f9f6f0;padding:8px 10px;border-radius:6px;margin:6px 0;border:1px solid #e0d5c5"><strong>Total: $' + Number(r.estimated_total).toFixed(2) + '</strong>' + (r.price_breakdown ? '<div style="font-size:0.78rem;color:#6b5c4d;margin-top:2px">' + r.price_breakdown.replace(/\|/g, '<br>') + '</div>' : '') + (r.is_holiday ? '<div style="color:#c8963e;font-size:0.78rem;margin-top:2px">Holiday rate applied</div>' : '') + '</div>' : '',
