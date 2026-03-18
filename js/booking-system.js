@@ -2110,9 +2110,9 @@
     requests: [],
 
     async init() {
-      // Check if owner portal exists, inject dashboard there
-      var ownerPage = document.getElementById('pg-owner');
-      if (!ownerPage) return;
+      // Check if owner overview panel exists, inject dashboard there
+      var overviewPanel = document.getElementById('o-overview');
+      if (!overviewPanel) return;
 
       // Find or create dashboard container
       var dashboard = document.getElementById('hhpAdminDashboard');
@@ -2120,17 +2120,13 @@
         dashboard = document.createElement('div');
         dashboard.id = 'hhpAdminDashboard';
 
-        // Insert at top of owner portal
-        var firstChild = ownerPage.querySelector('.owner-content, .portal-content, section');
-        if (firstChild) {
-          firstChild.parentNode.insertBefore(dashboard, firstChild);
-        } else {
-          ownerPage.appendChild(dashboard);
-        }
+        // Insert inside the overview panel (at the end)
+        overviewPanel.appendChild(dashboard);
       }
 
       dashboard.innerHTML = [
-        '<h2 style="font-family:Playfair Display,Georgia,serif; margin-bottom:16px;">Booking Requests</h2>',
+        '<div class="card" style="margin-top:18px;border:2px solid rgba(200,150,62,0.25)">',
+        '<div class="card-title" style="font-size:1.05rem;margin-bottom:14px">📋 Booking Requests</div>',
         '<div class="admin-filter-bar" id="adminFilterBar">',
         '  <button class="admin-filter-btn active" data-filter="pending" onclick="HHP_BookingAdmin.filter(\'pending\',this)">Pending</button>',
         '  <button class="admin-filter-btn" data-filter="accepted" onclick="HHP_BookingAdmin.filter(\'accepted\',this)">Accepted</button>',
@@ -2139,6 +2135,7 @@
         '  <button class="admin-filter-btn" data-filter="all" onclick="HHP_BookingAdmin.filter(\'all\',this)">All</button>',
         '</div>',
         '<div id="adminRequestsList"></div>',
+        '</div>',
       ].join('');
 
       await this.loadRequests();
