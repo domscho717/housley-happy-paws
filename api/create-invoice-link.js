@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
   try {
-    const { clientName, clientEmail, service, amount, petNames, dueDate, notes } = req.body || {};
+    const { clientName, clientEmail, service, amount, petNames, dueDate, serviceDate, endDate, notes } = req.body || {};
 
     if (!clientEmail || !amount || !service) {
       return res.status(400).json({ error: 'Missing required fields: clientEmail, amount, service' });
@@ -44,6 +44,10 @@ module.exports = async function handler(req, res) {
         service,
         petNames: petNames || '',
         notes: notes || '',
+        clientName: clientName || '',
+        serviceDate: serviceDate || '',
+        endDate: endDate || '',
+        source: 'owner_invoice',
       },
     });
 

@@ -54,7 +54,7 @@ const HHP_Stripe = {
   /**
    * Send a real Stripe invoice to a client
    */
-  async sendInvoice({ clientName, clientEmail, service, amount, petNames, dueDate, notes }) {
+  async sendInvoice({ clientName, clientEmail, service, amount, petNames, dueDate, serviceDate, endDate, notes }) {
     try {
       const resp = await fetch('/api/create-invoice-link', {
         method: 'POST',
@@ -66,6 +66,8 @@ const HHP_Stripe = {
           amount,
           petNames: petNames || '',
           dueDate: dueDate || '',
+          serviceDate: serviceDate || '',
+          endDate: endDate || '',
           notes: notes || '',
         }),
       });

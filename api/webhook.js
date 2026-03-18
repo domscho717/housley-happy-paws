@@ -72,6 +72,68 @@ module.exports = async function handler(req, res) {
       break;
     }
 
+    case 'invoice.paid': {
+      const invoice = event.data.object;
+      const meta = invoice.metadata || {};
+      console.log('Invoice paid!', {
+        id: invoice.id,
+        amount: invoice.amount_paid,
+        email: invoice.customer_email,
+        metadata: meta,
+      });
+
+      try {
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+        // 1. Record the payment
+        await supabase.from('payments').insert({
+          stripe_session_id: invoice.id,
+          client_email: invoice.customer_email || '',
+          amount: invoice.amount_paid / 100,
+          service: meta.service || 'Pet Care',
+          client_name: meta.clientName || '',
+          pet_names: meta.petNames || '',
+          status: 'paid',
+          notes: 'Paid via Stripe invoice' + (meta.source === 'owner_invoice' ? ' (sent from owner portal)' : ''),
+          paid_at: new Date().toISOString(),
+        });
+
+        // 2. If this invoice was sent from the owner portal and has a service date, create a booking
+        if (meta.source === 'owner_invoice' && meta.serviceDate) {
+          // Look up client_id from profiles by email
+          let clientId = null;
+          if (invoice.customer_email) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('email', invoice.customer_email)
+              .single();
+            if (profile) clientId = profile.id;
+          }
+
+          await supabase.from('booking_requests').insert({
+            service: meta.service || 'Pet Care',
+            preferred_date: meta.serviceDate,
+            preferred_end_date: meta.endDate || null,
+            scheduled_date: meta.serviceDate,
+            contact_name: meta.clientName || '',
+            contact_email: invoice.customer_email || '',
+            pet_names: meta.petNames || '',
+            estimated_total: invoice.amount_paid / 100,
+            client_id: clientId,
+            status: 'accepted',
+            special_notes: 'Booked via owner invoice #' + invoice.number,
+          });
+
+          console.log('Booking created from paid invoice:', invoice.id);
+        }
+      } catch (dbErr) {
+        console.error('Failed to process invoice.paid:', dbErr.message);
+      }
+
+      break;
+    }
+
     case 'checkout.session.expired': {
       const session = event.data.object;
       console.log('Checkout expired:', session.id);

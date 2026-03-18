@@ -2066,6 +2066,9 @@ try {
             <div><label class="form-lbl">Due Date</label><input class="form-in" id="inv-due" type="date"></div>
           </div>
           <div id="inv-nights-info" style="display:none;margin-bottom:14px;padding:8px 12px;background:var(--gold-pale);border-radius:8px;font-size:0.85rem;color:var(--forest);font-weight:600"></div>
+          <div class="form-group" style="margin-bottom:14px">
+            <label class="form-lbl">Pet Name(s)</label><input class="form-in" id="inv-pets" placeholder="e.g. Luna, Max">
+          </div>
           <div class="form-group" style="margin-bottom:18px">
             <label class="form-lbl">Personal Note (optional)</label>
             <textarea class="form-ta" id="inv-note" placeholder="Thanks so much for trusting me with your fur baby! 🐾"></textarea>
@@ -3062,6 +3065,9 @@ async function sendInvoice() {
   const service = document.getElementById('inv-service')?.value;
   const amount = parseFloat(document.getElementById('inv-amount')?.value);
   const dueDate = document.getElementById('inv-due')?.value;
+  const serviceDate = document.getElementById('inv-date')?.value;
+  const endDate = document.getElementById('inv-enddate')?.value;
+  const petNames = document.getElementById('inv-pets')?.value?.trim();
   const note = document.getElementById('inv-note')?.value?.trim();
 
   if (!name || !email) { toast('Please fill in client name and email'); return; }
@@ -3076,7 +3082,10 @@ async function sendInvoice() {
         clientEmail: email,
         service: service?.replace(/^[^\s]+\s/, '').replace(/\s—.*/, '') || 'Pet Care',
         amount: amount,
+        petNames: petNames || '',
         dueDate: dueDate,
+        serviceDate: serviceDate || '',
+        endDate: endDate || '',
         notes: note,
       });
       toast('✅ Invoice sent to ' + email + '! Amount: $' + result.amountDue.toFixed(2));
