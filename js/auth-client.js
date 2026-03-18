@@ -332,23 +332,40 @@ async function handleSignup(e) {
         if (btn) btn.textContent = 'Creating account...';
         if (errEl) errEl.textContent = '';
 
-        await HHP_Auth.signup(email, password, name);
+        const result = await HHP_Auth.signup(email, password, name);
 
+        // Supabase returns user but session is null when email confirmation is required
         if (errEl) {
             errEl.style.color = 'var(--forest)';
-            errEl.textContent = 'Account created! Check your email to confirm, then sign in.';
+            if (result?.user && !result?.session) {
+                errEl.innerHTML = '✅ Account created! Check <strong>' + email + '</strong> for a confirmation link, then come back and sign in.';
+            } else {
+                errEl.textContent = '✅ Account created! You can now sign in.';
+            }
         }
+        // Switch back to login view after a moment
+        if (btn) btn.textContent = '✓ Check Your Email';
+        btn.disabled = true;
+        setTimeout(function() {
+            if (typeof toggleAuthMode === 'function') toggleAuthMode('login');
+            if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
+        }, 5000);
     } catch (err) {
+        console.error('Signup error:', err);
         if (errEl) {
             errEl.style.color = 'var(--rose)';
-            if (err.message?.includes('already registered')) {
+            if (err.message?.includes('already registered') || err.message?.includes('already been registered')) {
                 errEl.textContent = 'An account with this email already exists. Try signing in.';
+            } else if (err.message?.includes('password')) {
+                errEl.textContent = 'Password must be at least 6 characters.';
+            } else if (err.message?.includes('valid email') || err.message?.includes('invalid')) {
+                errEl.textContent = 'Please enter a valid email address.';
             } else {
-                errEl.textContent = 'Signup failed. Please check your details and try again.';
+                errEl.textContent = 'Signup failed: ' + (err.message || 'Please check your details and try again.');
             }
         }
     } finally {
-        if (btn) btn.textContent = 'Create Account';
+        if (btn && !btn.disabled) btn.textContent = 'Create Account';
     }
 }
 
