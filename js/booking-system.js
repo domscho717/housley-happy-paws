@@ -615,14 +615,16 @@
       '        <option value="1dog1cat">1 Dog &amp; 1 Cat</option>',
       '        <option value="3plus">3 or More+</option>',
       '      </select>',
+      '      <div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px">',
+      '        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer">',
+      '          <input type="checkbox" id="brm-puppy-guest" onchange="document.getElementById(\'brm-puppy\').value=this.checked?\'true\':\'\';if(window._brmUpdatePrice)window._brmUpdatePrice()"> Puppy (under 1 year)',
+      '        </label>',
+      '      </div>',
       '    </div>',
       '    <input type="hidden" id="brm-pettype" value="dog">',
       '    <input type="hidden" id="brm-numpets" value="1">',
       '    <input type="hidden" id="brm-pets-selected-ids" value="">',
-      '',
-      '    <div style="display:flex;align-items:center;gap:10px;margin:8px 0 12px">',
-      '      <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="brm-puppy"> Puppy (under 1 year)</label>',
-      '    </div>',
+      '    <input type="hidden" id="brm-puppy" value="">',
       '',
       '    <div id="brm-price-estimate" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:14px 16px;margin:10px 0 14px">',
       '      <div style="font-weight:700;font-size:0.88rem;margin-bottom:6px">Estimated Total</div>',
@@ -700,7 +702,7 @@
       var svcName = resolveServiceName();
       var numPets = parseInt(document.getElementById('brm-numpets').value) || 1;
       var petType = document.getElementById('brm-pettype').value;
-      var isPuppy = document.getElementById('brm-puppy').checked;
+      var isPuppy = document.getElementById('brm-puppy').value === 'true';
       var dateVal = document.getElementById('brm-date').value;
       var holidayFlag = isHoliday(dateVal);
 
@@ -1505,7 +1507,7 @@
           }
         }
       });
-      puppyEl.checked = hasPuppy;
+      puppyEl.value = hasPuppy ? 'true' : '';
     }
 
     // Highlight selected labels
@@ -1555,7 +1557,7 @@
     var pets = document.getElementById('brm-pets').value.trim();
     var petType = document.getElementById('brm-pettype').value;
     var numPets = parseInt(document.getElementById('brm-numpets').value) || 1;
-    var isPuppy = document.getElementById('brm-puppy') ? document.getElementById('brm-puppy').checked : false;
+    var isPuppy = document.getElementById('brm-puppy') ? document.getElementById('brm-puppy').value === 'true' : false;
     var address = document.getElementById('brm-address').value.trim();
     var notes = document.getElementById('brm-notes').value.trim();
     var endDateEl = document.getElementById('brm-enddate');
