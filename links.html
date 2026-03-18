@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Housley Happy Paws</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Jost:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Jost',sans-serif;min-height:100vh;background:linear-gradient(160deg,#FDF6EC,#F5E8CC,#EDD9A3);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+.card{background:#fff;border-radius:28px;padding:36px 28px;max-width:380px;width:100%;box-shadow:0 24px 64px rgba(90,50,10,.14);display:flex;flex-direction:column;align-items:center;opacity:0;animation:fadeIn 0.6s ease forwards}
+@keyframes fadeIn{to{opacity:1}}
+.logo{width:90px;height:90px;border-radius:50%;border:3px solid #C8963E;background:#F9EDDA;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:2.4rem;overflow:hidden}
+.logo img{width:90px;height:90px;object-fit:cover}
+.brand{font-family:'Fredoka One',cursive;font-size:1.75rem;color:#1E1409;text-align:center}
+.tag{font-size:.68rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#9B7B5A;text-align:center;margin:6px 0 3px}
+.loc{font-size:.72rem;color:#9B7B5A;text-align:center;margin-bottom:18px}
+.divider{width:50px;height:2px;background:linear-gradient(90deg,transparent,#C8963E,transparent);margin-bottom:18px}
+.links{display:flex;flex-direction:column;gap:10px;width:100%}
+.lbtn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;text-decoration:none;color:#fff;transition:transform .15s,box-shadow .15s}
+.lbtn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.15)}
+.web{background:linear-gradient(135deg,#C8963E,#9B6E25)}
+.ig{background:linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)}
+.fb{background:#1877F2}
+.icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.inner{display:flex;flex-direction:column}
+.lbl{font-size:.57rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}
+.name{font-size:.88rem;font-weight:700}
+.foot{margin-top:22px;font-size:.6rem;color:#9B7B5A;text-align:center;line-height:1.8}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">🐾</div>
+  <div class="brand">Housley Happy Paws</div>
+  <div class="tag" id="lp-tag">Dog &amp; Cat Care</div>
+  <div class="loc" id="lp-loc">📍 Lancaster, PA</div>
+  <div class="divider"></div>
+  <div class="links">
+    <a href="https://housleyhappypaws.com" class="lbtn web" target="_blank" id="lp-web-link">
+      <div class="icon">🌐</div>
+      <div class="inner"><span class="lbl">Visit Our Website</span><span class="name" id="lp-web-name">housleyhappypaws.com</span></div>
+    </a>
+    <a href="https://www.instagram.com/housleyhappypaws" class="lbtn ig" target="_blank" id="lp-ig-link">
+      <div class="icon">📸</div>
+      <div class="inner"><span class="lbl">Follow on Instagram</span><span class="name" id="lp-ig-name">@housleyhappypaws</span></div>
+    </a>
+    <a href="https://www.facebook.com/share/1ANwxfH7Tk/?mibextid=wwXIfr" class="lbtn fb" target="_blank" id="lp-fb-link">
+      <div class="icon">📘</div>
+      <div class="inner"><span class="lbl">Like on Facebook</span><span class="name" id="lp-fb-name">HousleyHappyPaws</span></div>
+    </a>
+  </div>
+  <div class="foot" id="lp-foot">Est. 2023 · Insured · Background Checked · GPS Tracked<br>housleyhappypaws@gmail.com</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+(async function() {
+  var SB_URL = 'https://niysrippazlkpvdkzepp.supabase.co';
+  var SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5peXNyaXBwYXpsa3B2ZGt6ZXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0OTcxNDYsImV4cCI6MjA3OTA3MzE0Nn0.miAoNZQtOTTbnruWcj1WVn8ZGYtQZB5rh8FbBAS7VZU';
+
+  try {
+    var sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+    // 1. Track this QR scan
+    sb.from('qr_scans').insert({
+      referrer: document.referrer || null,
+      user_agent: navigator.userAgent || null,
+      ip_hint: null
+    }).then(function() {});
+
+    // 2. Load landing page content from Supabase
+    var { data, error } = await sb.from('landing_page').select('*').eq('id', '00000000-0000-0000-0000-000000000001').single();
+    if (error || !data) return;
+
+    // Apply content
+    if (data.tagline) document.getElementById('lp-tag').textContent = data.tagline;
+    if (data.location) document.getElementById('lp-loc').innerHTML = '📍 ' + data.location;
+    if (data.footer_text) document.getElementById('lp-foot').innerHTML = data.footer_text + '<br>housleyhappypaws@gmail.com';
+
+    if (data.web_url) {
+      var webLink = document.getElementById('lp-web-link');
+      webLink.href = data.web_url;
+      document.getElementById('lp-web-name').textContent = data.web_url.replace('https://','').replace('http://','');
+    }
+    if (data.ig_url) document.getElementById('lp-ig-link').href = data.ig_url;
+    if (data.ig_handle) document.getElementById('lp-ig-name').textContent = data.ig_handle;
+    if (data.fb_url) document.getElementById('lp-fb-link').href = data.fb_url;
+    if (data.fb_name) document.getElementById('lp-fb-name').textContent = data.fb_name;
+  } catch(e) {
+    // Fallback: defaults are already in the HTML
+  }
+})();
+</script>
+</body>
+</html>

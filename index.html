@@ -2149,7 +2149,27 @@ try {
       <div class="p-panel" id="o-linkpage">
         <div class="p-header">
           <h2>🔗 Edit Link Page</h2>
-          <p>Your hidden QR code landing page — only reachable by scanning your business card. Invisible on the main site.</p>
+          <p>Your hidden QR code landing page — only reachable by scanning your business card. Changes save instantly.</p>
+        </div>
+
+        <!-- QR Scan Stats -->
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-title" style="margin-bottom:14px">📊 QR Code Scan Stats</div>
+          <div id="qrScanStats" style="display:flex;gap:14px;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px;background:var(--warm);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:1.6rem;font-weight:700;color:var(--forest)" id="qr-total">—</div>
+              <div style="font-size:0.72rem;color:var(--mid);font-weight:600">Total Scans</div>
+            </div>
+            <div style="flex:1;min-width:120px;background:var(--warm);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:1.6rem;font-weight:700;color:var(--gold-deep)" id="qr-week">—</div>
+              <div style="font-size:0.72rem;color:var(--mid);font-weight:600">This Week</div>
+            </div>
+            <div style="flex:1;min-width:120px;background:var(--warm);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:1.6rem;font-weight:700;color:var(--brown)" id="qr-today">—</div>
+              <div style="font-size:0.72rem;color:var(--mid);font-weight:600">Today</div>
+            </div>
+          </div>
+          <div id="qrRecentScans" style="margin-top:12px;font-size:0.78rem;color:var(--mid)"></div>
         </div>
 
         <div style="background:linear-gradient(135deg,var(--gold-pale),#fff);border-radius:12px;padding:14px 18px;margin-bottom:18px;border:1px solid rgba(200,150,62,0.25);display:flex;align-items:center;gap:12px">
@@ -2217,12 +2237,12 @@ try {
             <div><label class="form-lbl">Facebook Name</label><input class="form-in" id="lp-fb-name" value="HousleyHappyPaws" oninput="document.getElementById('lp-prev-fb').textContent=this.value"></div>
             <div><label class="form-lbl">Facebook URL</label><input class="form-in" id="lp-fb-url" value="https://www.facebook.com/share/1ANwxfH7Tk/?mibextid=wwXIfr"></div>
           </div>
-          <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="downloadLandingPage()">⬇️ Download Updated links.html</button>
+          <button class="btn btn-gold" style="width:100%;justify-content:center" id="lpSaveBtn" onclick="saveLandingPage()">💾 Save Changes (Live Instantly)</button>
         </div>
 
         <div class="card" style="background:linear-gradient(135deg,var(--forest-pale),#fff);border-color:rgba(61,90,71,0.2)">
-          <div class="card-title" style="margin-bottom:8px">🚀 How to Deploy</div>
-          <p style="font-size:0.82rem;color:var(--mid);line-height:1.7">1. Click <strong>Download Updated links.html</strong> above<br>2. Go to your GitHub repo → click <strong>links.html</strong> → pencil icon<br>3. Paste the new content → <strong>Commit changes</strong><br>4. Vercel auto-deploys in ~60 seconds ✅</p>
+          <div class="card-title" style="margin-bottom:8px">How It Works</div>
+          <p style="font-size:0.82rem;color:var(--mid);line-height:1.7">Changes you make here save directly to the live landing page at <strong>housleyhappypaws.com/links</strong>. No downloading or deploying needed — just edit and click Save. Anyone who scans your QR code will see your latest content instantly.</p>
         </div>
       </div>
 
@@ -2494,6 +2514,7 @@ function sTab(portal, panelId) {
   }
   if (panelId === 'c-appts' && typeof loadClientAppts === 'function') loadClientAppts('all');
   if (panelId === 'o-staff' && typeof loadStaffTeam === 'function') loadStaffPanel('team');
+  if (panelId === 'o-linkpage') { if (typeof loadLandingPageEditor === 'function') loadLandingPageEditor(); if (typeof loadQRScanStats === 'function') loadQRScanStats(); }
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -3918,7 +3939,108 @@ async function sendInvoice() {
   }
 }
 
-// ── Download Landing Page ──
+// ── Save Landing Page to Supabase (live updates) ──
+async function saveLandingPage() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { toast('Database not connected'); return; }
+
+  var btn = document.getElementById('lpSaveBtn');
+  if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
+
+  try {
+    var { error } = await sb.from('landing_page').update({
+      tagline: document.getElementById('lp-tagline')?.value || 'Dog & Cat Care',
+      location: document.getElementById('lp-location')?.value || 'Lancaster, PA & Surrounding Areas',
+      footer_text: document.getElementById('lp-footer')?.value || 'Est. 2023 · Insured · Background Checked · GPS Tracked',
+      web_url: document.getElementById('lp-web-url')?.value || 'https://housleyhappypaws.com',
+      ig_handle: document.getElementById('lp-ig-handle')?.value || '@housleyhappypaws',
+      ig_url: document.getElementById('lp-ig-url')?.value || 'https://www.instagram.com/housleyhappypaws',
+      fb_name: document.getElementById('lp-fb-name')?.value || 'HousleyHappyPaws',
+      fb_url: document.getElementById('lp-fb-url')?.value || 'https://www.facebook.com/share/1ANwxfH7Tk/?mibextid=wwXIfr',
+      updated_at: new Date().toISOString()
+    }).eq('id', '00000000-0000-0000-0000-000000000001');
+
+    if (error) throw error;
+    toast('Landing page saved! Changes are live at housleyhappypaws.com/links');
+  } catch (err) {
+    toast('Error saving: ' + err.message);
+  } finally {
+    if (btn) { btn.textContent = '💾 Save Changes (Live Instantly)'; btn.disabled = false; }
+  }
+}
+
+// ── Load Landing Page from Supabase into editor ──
+async function loadLandingPageEditor() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  try {
+    var { data, error } = await sb.from('landing_page').select('*').eq('id', '00000000-0000-0000-0000-000000000001').single();
+    if (error || !data) return;
+
+    var fields = {
+      'lp-tagline': data.tagline, 'lp-location': data.location, 'lp-footer': data.footer_text,
+      'lp-web-url': data.web_url, 'lp-ig-handle': data.ig_handle, 'lp-ig-url': data.ig_url,
+      'lp-fb-name': data.fb_name, 'lp-fb-url': data.fb_url
+    };
+    Object.keys(fields).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el && fields[id]) el.value = fields[id];
+    });
+
+    // Update preview
+    if (data.tagline) document.getElementById('lp-prev-tag').textContent = data.tagline;
+    if (data.location) document.getElementById('lp-prev-loc').innerHTML = '📍 ' + data.location;
+    if (data.footer_text) document.getElementById('lp-prev-footer').textContent = data.footer_text;
+    if (data.web_url) document.getElementById('lp-prev-web').textContent = data.web_url.replace('https://','').replace('http://','');
+    if (data.ig_handle) document.getElementById('lp-prev-ig').textContent = data.ig_handle;
+    if (data.fb_name) document.getElementById('lp-prev-fb').textContent = data.fb_name;
+  } catch (e) {}
+}
+
+// ── QR Scan Stats ──
+async function loadQRScanStats() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  try {
+    // Total scans
+    var { count: total } = await sb.from('qr_scans').select('*', { count: 'exact', head: true });
+    document.getElementById('qr-total').textContent = total || 0;
+
+    // This week
+    var weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+    var { count: week } = await sb.from('qr_scans').select('*', { count: 'exact', head: true }).gte('scanned_at', weekAgo.toISOString());
+    document.getElementById('qr-week').textContent = week || 0;
+
+    // Today
+    var todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    var { count: today } = await sb.from('qr_scans').select('*', { count: 'exact', head: true }).gte('scanned_at', todayStart.toISOString());
+    document.getElementById('qr-today').textContent = today || 0;
+
+    // Recent scans list
+    var { data: recent } = await sb.from('qr_scans').select('scanned_at, user_agent').order('scanned_at', { ascending: false }).limit(5);
+    var recentEl = document.getElementById('qrRecentScans');
+    if (recentEl && recent && recent.length > 0) {
+      var html = '<div style="font-weight:600;font-size:0.8rem;margin-bottom:6px;color:var(--brown)">Recent Scans</div>';
+      recent.forEach(function(s) {
+        var dt = new Date(s.scanned_at);
+        var timeStr = dt.toLocaleDateString() + ' at ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        var device = 'Unknown';
+        if (s.user_agent) {
+          if (s.user_agent.indexOf('iPhone') >= 0) device = 'iPhone';
+          else if (s.user_agent.indexOf('Android') >= 0) device = 'Android';
+          else if (s.user_agent.indexOf('Mac') >= 0) device = 'Mac';
+          else if (s.user_agent.indexOf('Windows') >= 0) device = 'Windows';
+        }
+        html += '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:0.76rem"><span>' + timeStr + '</span><span style="color:var(--forest)">' + device + '</span></div>';
+      });
+      recentEl.innerHTML = html;
+    } else if (recentEl) {
+      recentEl.innerHTML = '<div style="font-size:0.8rem;color:var(--mid);text-align:center;padding:8px">No scans yet — hand out those business cards!</div>';
+    }
+  } catch (e) {}
+}
+
+// Legacy fallback — kept for backward compat
 function downloadLandingPage() {
   const tagline = document.getElementById('lp-tagline')?.value || 'Dog & Cat Care';
   const location = document.getElementById('lp-location')?.value || 'Lancaster, PA & Surrounding Areas';
