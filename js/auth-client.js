@@ -81,6 +81,10 @@ const HHP_Auth = {
                     this.routeToPortal();
                 }
                 this.updateUIForUser();
+                // Check pet setup on session restore too
+                if (cachedRole === 'client' && typeof checkNeedsPetSetup === 'function') {
+                    setTimeout(checkNeedsPetSetup, 1200);
+                }
             }
         } catch(e) {}
 
@@ -138,6 +142,11 @@ const HHP_Auth = {
         this.updateUIForUser();
         this._initialLoad = false;
         this._handledSessionId = session.user.id;
+
+        // Check if client needs to set up their first pet profile
+        if (this.currentRole === 'client' && typeof checkNeedsPetSetup === 'function') {
+            setTimeout(checkNeedsPetSetup, 800);
+        }
     },
 
     // ── Route user to their portal based on role ──
