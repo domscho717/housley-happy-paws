@@ -67,7 +67,7 @@
       'body { overflow-y: auto !important; overflow-x: hidden !important; }',
       '#pg-public, #pg-client, #pg-staff, #pg-owner { overflow: visible !important; -webkit-overflow-scrolling: auto !important; }',
       '* { scroll-snap-type: none !important; scroll-snap-align: unset !important; -webkit-overflow-scrolling: auto !important; }',
-      '.reviews-track { scroll-snap-type: x mandatory !important; scroll-behavior: smooth !important; }',
+      '.reviews-track { scroll-snap-type: x mandatory !important; scroll-behavior: auto !important; }',
     ].join('\n');
     document.head.appendChild(css);
 
@@ -325,7 +325,7 @@
 
           var target = document.querySelector(item.target);
           if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            target.scrollIntoView({ behavior: 'auto', block: 'start' });
           }
         };
         menu.appendChild(a);

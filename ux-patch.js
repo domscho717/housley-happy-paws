@@ -290,7 +290,7 @@
           'display: flex !important; grid-template-columns: none !important;' +
           'overflow-x: auto !important; scroll-snap-type: x mandatory !important;' +
           'gap: 0px !important; -webkit-overflow-scrolling: touch !important;' +
-          'scroll-behavior: smooth !important; padding: 0 !important;' +
+          'scroll-behavior: auto !important; padding: 0 !important;' +
         '}' +
         '.reviews-track .review-card {' +
           'flex: 0 0 100% !important; width: 100% !important; min-width: 100% !important;' +
@@ -897,7 +897,7 @@
           if (typeof switchView === 'function') switchView('public');
           setTimeout(function() {
             var target = document.querySelector(item.scroll);
-            if (target) target.scrollIntoView({ behavior: 'smooth' });
+            if (target) target.scrollIntoView({ behavior: 'auto' });
           }, 100);
           closeDrawer();
         });
@@ -1206,9 +1206,9 @@
       var cardWidth = card.offsetWidth;
 
       if (direction === 'left') {
-        track.scrollBy({ left: -cardWidth, behavior: 'smooth' });
+        track.scrollBy({ left: -cardWidth, behavior: 'auto' });
       } else {
-        track.scrollBy({ left: cardWidth, behavior: 'smooth' });
+        track.scrollBy({ left: cardWidth, behavior: 'auto' });
       }
     };
 

@@ -39,7 +39,7 @@ try{var v=sessionStorage.getItem('hhp_last_view');if(!v||v==='public'){var s=doc
   --shadow-lg: 0 12px 48px rgba(30,20,9,0.11);
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth;overscroll-behavior:none;-webkit-overflow-scrolling:auto}
+html{scroll-behavior:auto;overscroll-behavior:none;-webkit-overflow-scrolling:auto}
 body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:auto}
 .page{display:none;min-height:100vh}
 .page.active{display:block}
@@ -315,7 +315,7 @@ details summary::-webkit-details-marker{display:none}
   display:flex;
   gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;
   padding-bottom:12px;scrollbar-width:none;
-  scroll-behavior:smooth;
+  scroll-behavior:auto;
 }
 .reviews-track::-webkit-scrollbar{display:none}
 .review-card{
@@ -866,7 +866,7 @@ try {
       <p class="hero-p">Hi, I'm Rachel Housley — and every dog and cat I care for gets my full heart. GPS-tracked walks, personal check-ins, and a community that celebrates your pets every single day.</p>
       <div class="hero-actions">
         <button class="btn btn-ink" onclick="openModal('mgModal')">Schedule a Meet & Greet</button>
-        <button class="btn btn-outline" onclick="document.getElementById('services').scrollIntoView({behavior:'smooth'})">View Services & Pricing</button>
+        <button class="btn btn-outline" onclick="document.getElementById('services').scrollIntoView({behavior:'auto'})">View Services & Pricing</button>
       </div>
       <div class="hero-trust">
         <div class="trust-chip"><div class="trust-mark">✓</div>Insured & Background Checked</div>
@@ -2876,7 +2876,7 @@ function scrollReviews(dir) {
   const track = document.getElementById('reviewsTrack');
   if(!track) return;
   const cardW = track.querySelector('.review-card')?.offsetWidth || 500;
-  track.scrollBy({ left: dir * (cardW + 22) * 2, behavior:'smooth' });
+  track.scrollBy({ left: dir * (cardW + 22) * 2, behavior:'auto' });
 }
 
 // ---- AVAILABILITY ----
@@ -4099,7 +4099,7 @@ function openPetForm(petData) {
     preview.innerHTML = '📷';
   }
   // Scroll to form
-  document.getElementById('petFormWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('petFormWrap').scrollIntoView({ behavior: 'auto', block: 'start' });
 }
 
 function closePetForm() {
