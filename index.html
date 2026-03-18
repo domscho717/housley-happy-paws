@@ -1273,15 +1273,14 @@ try {
         <div class="p-header"><h2>Appointments 📅</h2><p>All your visits in one place.</p></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
           <div class="tabs" style="margin:0">
-            <button class="tab active">All</button><button class="tab">Upcoming</button><button class="tab">Past</button>
+            <button class="tab active" onclick="loadClientAppts('all',this)">All</button><button class="tab" onclick="loadClientAppts('upcoming',this)">Upcoming</button><button class="tab" onclick="loadClientAppts('past',this)">Past</button>
           </div>
-          <button class="btn btn-gold btn-sm" onclick="openModal('bookModal')">+ Request Booking</button>
+          <button class="btn btn-gold btn-sm" onclick="if(typeof openBookingModal==='function')openBookingModal()">+ Request Booking</button>
         </div>
-        <div class="card">
+        <div id="clientApptsList" class="card">
           <div style="padding:28px;text-align:center;color:var(--mid)">
             <div style="font-size:2rem;margin-bottom:10px">📅</div>
-            <div style="font-weight:600;margin-bottom:6px">No appointments yet</div>
-            <div style="font-size:0.84rem">Book a meet & greet to get started with Rachel!</div>
+            <div style="font-weight:600;margin-bottom:6px">Loading appointments...</div>
           </div>
         </div>
       </div>
@@ -2384,6 +2383,10 @@ function sTab(portal, panelId) {
   if (panelId === 'c-bill' && typeof loadSavedCard === 'function') loadSavedCard();
   if (panelId === 'c-pets' && typeof loadMyPets === 'function') loadMyPets();
   if (panelId === 'o-clients' && typeof loadOwnerClients === 'function') loadOwnerClients();
+  if ((panelId === 'c-cal' || panelId === 's-cal' || panelId === 'o-cal') && typeof loadCalendarBookings === 'function') {
+    var now = new Date(); loadCalendarBookings(now.getFullYear(), now.getMonth());
+  }
+  if (panelId === 'c-appts' && typeof loadClientAppts === 'function') loadClientAppts('all');
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -2773,18 +2776,122 @@ function scrollReviews(dir) {
 function toggleAvail(el) { el.classList.toggle('on'); el.classList.toggle('off'); }
 
 // ---- CALENDAR ----
-const calEvents = {
-  '2025-12-10': { label: '', type:'event' },
-  '2025-12-12': { label: '', type:'event' },
-  '2025-12-14': { label: '🚌 Group Outing', type:'event' },
-  '2025-12-17': { label: '☀️ Day Care — Max', type:'event' },
-  '2025-12-20': { label: '🦮 Walk + 🐱 Visit', type:'event' },
-  '2025-12-24': { label: '🎄 Closed', type:'off' },
-  '2025-12-25': { label: '🎄 Christmas', type:'off' },
-  '2025-12-26': { label: '🎄 Closed', type:'off' },
-  '2025-12-31': { label: '🎆 New Year\'s Eve', type:'event' },
-  '2026-01-01': { label: '🎆 Closed', type:'off' },
-};
+const calEvents = {};
+
+// ── Load bookings from Supabase into calendar events ──
+async function loadCalendarBookings(year, month) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  var user = window.HHP_Auth.currentUser;
+  var role = window.HHP_Auth.currentRole;
+  if (!user) return;
+
+  var firstDay = year + '-' + String(month + 1).padStart(2, '0') + '-01';
+  var lastDay = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(new Date(year, month + 1, 0).getDate()).padStart(2, '0');
+
+  try {
+    // Build query based on role
+    var query = sb.from('booking_requests').select('*');
+
+    if (role === 'client') {
+      // Client sees only their bookings
+      query = query.eq('client_id', user.id);
+    }
+    // Owner and staff see all bookings
+
+    // Get bookings that overlap this month (by preferred_date or scheduled_date)
+    query = query.or('status.eq.accepted,status.eq.pending,status.eq.completed');
+
+    var { data: bookings, error } = await query;
+    if (error || !bookings) return;
+
+    // Also load payments to determine paid/unpaid
+    var { data: payments } = await sb.from('payments').select('stripe_session_id,client_email,service,amount,notes,paid_at');
+
+    // Build a set of "paid" booking IDs or email+service combos
+    var paidSet = new Set();
+    if (payments) {
+      payments.forEach(function(p) {
+        // Check if notes contain a booking request ID
+        var idMatch = (p.notes || '').match(/Request #([a-f0-9]+)/i);
+        if (idMatch) paidSet.add(idMatch[1]);
+        // Also mark by email+amount for invoice-based payments
+        paidSet.add((p.client_email || '').toLowerCase() + '|' + p.amount);
+      });
+    }
+
+    // Clear existing dynamic events for this month
+    Object.keys(calEvents).forEach(function(k) {
+      if (k >= firstDay && k <= lastDay && calEvents[k]._dynamic) delete calEvents[k];
+    });
+
+    // Map bookings to calendar events
+    bookings.forEach(function(b) {
+      var dates = [];
+      var useDate = b.scheduled_date || b.preferred_date;
+      if (useDate && useDate >= firstDay && useDate <= lastDay) dates.push(useDate);
+
+      // Handle multi-date bookings
+      if (b.booking_dates && Array.isArray(b.booking_dates)) {
+        b.booking_dates.forEach(function(d) {
+          if (d >= firstDay && d <= lastDay && dates.indexOf(d) === -1) dates.push(d);
+        });
+      }
+
+      // Handle house sitting date ranges
+      if (b.preferred_end_date && useDate) {
+        var cur = new Date(useDate);
+        var end = new Date(b.preferred_end_date);
+        while (cur <= end) {
+          var dk = cur.toISOString().split('T')[0];
+          if (dk >= firstDay && dk <= lastDay && dates.indexOf(dk) === -1) dates.push(dk);
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+
+      // Determine paid status
+      var isPaid = false;
+      var shortId = b.id ? b.id.slice(0, 8) : '';
+      if (paidSet.has(shortId)) isPaid = true;
+      if (paidSet.has((b.contact_email || '').toLowerCase() + '|' + b.estimated_total)) isPaid = true;
+
+      // Service icon
+      var svc = (b.service || '').toLowerCase();
+      var icon = '📅';
+      if (svc.indexOf('walk') !== -1) icon = '🦮';
+      else if (svc.indexOf('drop') !== -1) icon = '🐾';
+      else if (svc.indexOf('cat') !== -1) icon = '🐱';
+      else if (svc.indexOf('house') !== -1) icon = '🏡';
+      else if (svc.indexOf('meet') !== -1) icon = '🤝';
+
+      var statusTag = b.status === 'pending' ? ' ⏳' : '';
+      var paidTag = isPaid ? ' ✅' : (b.estimated_total > 0 ? ' 💰' : '');
+      var petName = b.pet_names ? ' · ' + b.pet_names.split(',')[0].trim() : '';
+
+      dates.forEach(function(dateKey) {
+        if (!calEvents[dateKey]) {
+          calEvents[dateKey] = { label: icon + petName + statusTag + paidTag, type: 'event', bookings: [], _dynamic: true };
+        } else if (calEvents[dateKey]._dynamic) {
+          calEvents[dateKey].label += ' + ' + icon;
+        }
+        if (calEvents[dateKey].bookings) calEvents[dateKey].bookings.push(b);
+        calEvents[dateKey]._paid = calEvents[dateKey]._paid || isPaid;
+      });
+    });
+
+    // Rebuild calendars for this month
+    if (role === 'client') {
+      buildCalendar('cCalWrap', year, month);
+    } else if (role === 'staff') {
+      buildCalendar('sCalWrap', year, month);
+    } else if (role === 'owner') {
+      buildCalendar('oCalWrap', year, month);
+    }
+  } catch (err) {
+    console.warn('Calendar booking load failed:', err);
+  }
+}
 
 function buildCalendar(containerId, year, month) {
   const container = document.getElementById(containerId);
@@ -2811,7 +2918,7 @@ function buildCalendar(containerId, year, month) {
     html += '</div>';
   }
   html += '</div>';
-  html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div></div>`;
+  html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
   html += `<div class="cal-detail" id="${containerId}-detail"></div>`;
   container.innerHTML = html;
 }
@@ -2820,6 +2927,8 @@ function changeMonth(containerId, year, month, dir) {
   let m = month + dir, y = year;
   if(m>11){m=0;y++}if(m<0){m=11;y--}
   buildCalendar(containerId, y, m);
+  // Reload bookings for the new month
+  if (typeof loadCalendarBookings === 'function') loadCalendarBookings(y, m);
 }
 
 function showCalDetail(key, label, el) {
@@ -2831,10 +2940,49 @@ function showCalDetail(key, label, el) {
   const [y,m,d] = key.split('-');
   const dateStr = new Date(parseInt(y),parseInt(m)-1,parseInt(d)).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   const ev = calEvents[key];
-  let html = '<div style="font-weight:700;margin-bottom:6px">'+dateStr+'</div>';
+  let html = '<div style="font-weight:700;margin-bottom:8px">'+dateStr+'</div>';
   if(ev) {
-    html += '<div style="font-size:0.9rem;color:var(--brown)">'+ev.label+'</div>';
-    html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">'+(ev.type==='off'?'Rachel has marked this as a day off.':'Appointment confirmed.')+'</div>';
+    if(ev.type==='off') {
+      html += '<div style="font-size:0.9rem;color:var(--brown)">'+ev.label+'</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Rachel has marked this as a day off.</div>';
+    } else if(ev.bookings && ev.bookings.length > 0) {
+      ev.bookings.forEach(function(b) {
+        var svc = b.service || 'Pet Care';
+        var icon = '📅';
+        var s = svc.toLowerCase();
+        if (s.indexOf('walk') !== -1) icon = '🦮';
+        else if (s.indexOf('drop') !== -1) icon = '🐾';
+        else if (s.indexOf('cat') !== -1) icon = '🐱';
+        else if (s.indexOf('house') !== -1) icon = '🏡';
+        else if (s.indexOf('meet') !== -1) icon = '🤝';
+
+        var statusBadge = b.status === 'pending' ? '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Pending</span>' :
+                         b.status === 'accepted' ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Confirmed</span>' :
+                         '<span style="background:#e2e3e5;color:#383d41;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + b.status + '</span>';
+
+        var paidBadge = '';
+        if (b.estimated_total > 0) {
+          // Check if paid (simplified — look in calEvents._paid)
+          var isPaid = ev._paid;
+          paidBadge = isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">✅ Paid</span>' :
+                               '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">💰 Unpaid</span>';
+        }
+
+        html += '<div style="background:var(--warm);border-radius:8px;padding:10px 12px;margin-bottom:6px">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">';
+        html += '<div style="font-weight:600;font-size:0.88rem">' + icon + ' ' + svc + '</div>';
+        html += '<div>' + statusBadge + paidBadge + '</div>';
+        html += '</div>';
+        if (b.pet_names) html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:3px">Pets: ' + b.pet_names + '</div>';
+        if (b.contact_name) html += '<div style="font-size:0.8rem;color:var(--mid)">Client: ' + b.contact_name + '</div>';
+        if (b.preferred_time) html += '<div style="font-size:0.8rem;color:var(--mid)">Time: ' + b.preferred_time + '</div>';
+        if (b.estimated_total > 0) html += '<div style="font-size:0.8rem;color:var(--mid)">Amount: $' + Number(b.estimated_total).toFixed(2) + '</div>';
+        html += '</div>';
+      });
+    } else {
+      html += '<div style="font-size:0.9rem;color:var(--brown)">'+ev.label+'</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Appointment confirmed.</div>';
+    }
   } else {
     html += '<div style="font-size:0.88rem;color:var(--mid)">No events scheduled. Available for booking!</div>';
   }
@@ -2848,6 +2996,90 @@ buildCalendar('pubCalWrap', now.getFullYear(), now.getMonth());
 buildCalendar('cCalWrap', now.getFullYear(), now.getMonth());
 buildCalendar('sCalWrap', now.getFullYear(), now.getMonth());
 buildCalendar('oCalWrap', now.getFullYear(), now.getMonth());
+
+// ── Client Appointments List ──
+async function loadClientAppts(filter, tabBtn) {
+  // Update active tab
+  if (tabBtn) {
+    tabBtn.closest('.tabs').querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    tabBtn.classList.add('active');
+  }
+
+  var listEl = document.getElementById('clientApptsList');
+  if (!listEl) return;
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) {
+    listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📅</div><div style="font-weight:600;margin-bottom:6px">Sign in to see your appointments</div></div>';
+    return;
+  }
+
+  try {
+    var query = sb.from('booking_requests').select('*').eq('client_id', user.id).order('preferred_date', { ascending: false });
+    var today = new Date().toISOString().split('T')[0];
+    if (filter === 'upcoming') query = query.gte('preferred_date', today).order('preferred_date', { ascending: true });
+    else if (filter === 'past') query = query.lt('preferred_date', today);
+
+    var { data: appts, error } = await query;
+    if (error) throw error;
+
+    // Load payments for this user
+    var { data: payments } = await sb.from('payments').select('*').eq('client_email', user.email);
+    var paidSet = new Set();
+    if (payments) {
+      payments.forEach(function(p) {
+        var idMatch = (p.notes || '').match(/Request #([a-f0-9]+)/i);
+        if (idMatch) paidSet.add(idMatch[1]);
+        paidSet.add((p.client_email || '').toLowerCase() + '|' + p.amount);
+      });
+    }
+
+    if (!appts || appts.length === 0) {
+      listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📅</div><div style="font-weight:600;margin-bottom:6px">No appointments ' + (filter === 'upcoming' ? 'coming up' : filter === 'past' ? 'in the past' : 'yet') + '</div><div style="font-size:0.84rem">Book a service to get started!</div></div>';
+      return;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">';
+    appts.forEach(function(b) {
+      var svc = (b.service || '').toLowerCase();
+      var icon = '📅';
+      if (svc.indexOf('walk') !== -1) icon = '🦮';
+      else if (svc.indexOf('drop') !== -1) icon = '🐾';
+      else if (svc.indexOf('cat') !== -1) icon = '🐱';
+      else if (svc.indexOf('house') !== -1) icon = '🏡';
+      else if (svc.indexOf('meet') !== -1) icon = '🤝';
+
+      var shortId = b.id ? b.id.slice(0, 8) : '';
+      var isPaid = paidSet.has(shortId) || paidSet.has(user.email.toLowerCase() + '|' + b.estimated_total);
+
+      var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : '#e2e3e5';
+      var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
+      var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">✅ Paid</span>' : '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">💰 Unpaid</span>') : '';
+
+      var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
+      var timeDisplay = b.preferred_time || '';
+
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : 'var(--mid)') + '">';
+      html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
+      html += '<div style="flex:1;min-width:0">';
+      html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + '</div>';
+      html += '<div style="font-size:0.8rem;color:var(--mid)">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div>';
+      if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid)">Pets: ' + b.pet_names + '</div>';
+      html += '</div>';
+      html += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
+      html += '<span style="background:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + statusText + '</span>';
+      html += paidBadge;
+      if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+  } catch (err) {
+    console.error('Load client appts error:', err);
+    listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
+  }
+}
 
 // ---- NOTIFICATION FIRE ----
 function fireNotif(msg) {
