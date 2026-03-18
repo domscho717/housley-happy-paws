@@ -800,9 +800,17 @@ try {
         <label class="form-lbl">Email</label>
         <input class="form-in" id="authEmail" type="email" placeholder="you@email.com" autocomplete="email" required>
       </div>
+      <div id="authConfirmEmailGroup" style="display:none">
+        <label class="form-lbl">Confirm Email</label>
+        <input class="form-in" id="authConfirmEmail" type="email" placeholder="Re-type your email" autocomplete="off">
+      </div>
       <div id="authPasswordGroup">
         <label class="form-lbl">Password</label>
         <input class="form-in" id="authPassword" type="password" placeholder="Your password" autocomplete="current-password">
+      </div>
+      <div id="authConfirmPasswordGroup" style="display:none">
+        <label class="form-lbl">Confirm Password</label>
+        <input class="form-in" id="authConfirmPassword" type="password" placeholder="Re-type your password" autocomplete="new-password">
       </div>
       <div style="text-align:right;margin-top:-6px">
         <a href="#" onclick="handleForgotPassword();return false;" style="font-size:0.76rem;color:var(--gold);text-decoration:none">Forgot password?</a>
@@ -2161,8 +2169,8 @@ try {
     <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll receive an instant confirmation and Rachel will personally follow up within a few hours with available times.</div></div>
     <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">First Name</label><input class="form-in" placeholder="Sarah"></div><div><label class="form-lbl">Last Name</label><input class="form-in" placeholder="Davis"></div></div>
     <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Phone / Text</label><input class="form-in" type="tel" placeholder="(717) 000-0000"></div><div><label class="form-lbl">Email</label><input class="form-in" type="email" placeholder="sarah@email.com"></div></div>
-    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Pet's Name</label><input class="form-in" id="mg-petname" placeholder="e.g. Max"></div><div><label class="form-lbl">Breed</label><input class="form-in" id="mg-breed" placeholder="e.g. Golden Retriever"></div></div>
-    <div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Pet's Birthday / Date of Birth</label><input class="form-in" id="mg-petbday" type="date"></div>
+    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Pet(s) Name</label><input class="form-in" id="mg-petname" placeholder="e.g. Max"></div><div><label class="form-lbl">Breed</label><input class="form-in" id="mg-breed" placeholder="e.g. Golden Retriever"></div></div>
+    <div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Pet(s) Birthday / Date of Birth</label><input class="form-in" id="mg-petbday" type="date"></div>
     <div id="mg-age-display" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:14px 16px;margin-bottom:14px;text-align:center">
       <div style="display:flex;justify-content:center;gap:24px;align-items:center;flex-wrap:wrap">
         <div><div style="font-size:0.72rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Human Age</div><div id="mg-petage" style="font-weight:700;font-size:1.1rem;color:var(--ink)"></div></div>

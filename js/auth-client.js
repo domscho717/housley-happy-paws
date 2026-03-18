@@ -322,18 +322,28 @@ async function handleLogin(e) {
 async function handleSignup(e) {
     if (e) e.preventDefault();
 
-    const name     = document.getElementById('authName')?.value;
-    const email    = document.getElementById('authEmail')?.value;
-    const password = document.getElementById('authPassword')?.value;
-    const errEl    = document.getElementById('authError');
-    const btn      = document.getElementById('authSubmitBtn');
+    const name            = document.getElementById('authName')?.value;
+    const email           = document.getElementById('authEmail')?.value;
+    const confirmEmail    = document.getElementById('authConfirmEmail')?.value;
+    const password        = document.getElementById('authPassword')?.value;
+    const confirmPassword = document.getElementById('authConfirmPassword')?.value;
+    const errEl           = document.getElementById('authError');
+    const btn             = document.getElementById('authSubmitBtn');
 
     if (!email || !password) {
-        if (errEl) errEl.textContent = 'Email and password required.';
+        if (errEl) { errEl.style.color = 'var(--rose)'; errEl.textContent = 'Email and password required.'; }
+        return;
+    }
+    if (email.trim().toLowerCase() !== (confirmEmail || '').trim().toLowerCase()) {
+        if (errEl) { errEl.style.color = 'var(--rose)'; errEl.textContent = 'Emails do not match. Please re-type your email.'; }
+        return;
+    }
+    if (password !== confirmPassword) {
+        if (errEl) { errEl.style.color = 'var(--rose)'; errEl.textContent = 'Passwords do not match. Please re-type your password.'; }
         return;
     }
     if (password.length < 6) {
-        if (errEl) errEl.textContent = 'Password must be at least 6 characters.';
+        if (errEl) { errEl.style.color = 'var(--rose)'; errEl.textContent = 'Password must be at least 6 characters.'; }
         return;
     }
 
@@ -402,23 +412,34 @@ async function handleForgotPassword() {
 }
 
 function toggleAuthMode(mode) {
-    const nameField = document.getElementById('authNameGroup');
-    const btn       = document.getElementById('authSubmitBtn');
-    const toggle    = document.getElementById('authToggle');
-    const passGroup = document.getElementById('authPasswordGroup');
+    const nameField        = document.getElementById('authNameGroup');
+    const btn              = document.getElementById('authSubmitBtn');
+    const toggle           = document.getElementById('authToggle');
+    const passGroup        = document.getElementById('authPasswordGroup');
+    const confirmEmailGrp  = document.getElementById('authConfirmEmailGroup');
+    const confirmPassGrp   = document.getElementById('authConfirmPasswordGroup');
 
     if (mode === 'signup') {
         if (nameField) nameField.style.display = 'block';
+        if (confirmEmailGrp) confirmEmailGrp.style.display = 'block';
+        if (confirmPassGrp) confirmPassGrp.style.display = 'block';
         if (btn) { btn.textContent = 'Create Account'; btn.onclick = handleSignup; }
         if (toggle)  toggle.innerHTML = 'Already have an account? <a href="#" onclick="toggleAuthMode(\'login\');return false;" style="color:var(--gold)">Sign in</a>';
     } else if (mode === 'magic') {
         if (nameField) nameField.style.display = 'none';
         if (passGroup) passGroup.style.display = 'none';
+        if (confirmEmailGrp) confirmEmailGrp.style.display = 'none';
+        if (confirmPassGrp) confirmPassGrp.style.display = 'none';
         if (btn) { btn.textContent = 'Send Magic Link'; btn.onclick = handleLogin; }
         if (toggle)  toggle.innerHTML = 'Prefer password? <a href="#" onclick="toggleAuthMode(\'login\');return false;" style="color:var(--gold)">Sign in with password</a>';
     } else {
         if (nameField) nameField.style.display = 'none';
         if (passGroup) passGroup.style.display = 'block';
+        if (confirmEmailGrp) confirmEmailGrp.style.display = 'none';
+        if (confirmPassGrp) confirmPassGrp.style.display = 'none';
+        // Clear confirm fields when switching back to login
+        var ce = document.getElementById('authConfirmEmail'); if (ce) ce.value = '';
+        var cp = document.getElementById('authConfirmPassword'); if (cp) cp.value = '';
         if (btn) { btn.textContent = 'Sign In'; btn.onclick = handleLogin; }
         if (toggle)  toggle.innerHTML = 'New client? <a href="#" onclick="toggleAuthMode(\'signup\');return false;" style="color:var(--gold)">Create account</a> · <a href="#" onclick="toggleAuthMode(\'magic\');return false;" style="color:var(--gold)">Email me a link</a>';
     }
