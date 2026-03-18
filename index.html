@@ -633,6 +633,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 @keyframes pinAnim{0%,100%{transform:rotate(-45deg) scale(1)}50%{transform:rotate(-45deg) scale(1.12)}}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.3)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes fabMenuIn{from{opacity:0;transform:translateY(10px) scale(0.95)}to{opacity:1;transform:none}}
 .fadeup{opacity:0;transform:translateY(22px);transition:all 0.65s ease}
 .fadeup.vis{opacity:1;transform:none}
 
@@ -2392,6 +2393,55 @@ function switchView(view) {
   } else if (floatingPortalBtn) {
     floatingPortalBtn.style.display = 'none';
   }
+
+  // For logged-in clients: show a floating "Book Now" FAB with quick-pick menu when inside the portal
+  var floatingBookBtn = document.getElementById('floatingBookBtn');
+  var floatingBookMenu = document.getElementById('floatingBookMenu');
+  if (isClient && view === 'client') {
+    if (!floatingBookBtn) {
+      // Quick-pick menu (hidden by default)
+      floatingBookMenu = document.createElement('div');
+      floatingBookMenu.id = 'floatingBookMenu';
+      floatingBookMenu.style.cssText = 'position:fixed;bottom:80px;right:24px;z-index:1000;background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:8px 0;display:none;min-width:210px;font-family:inherit;animation:fabMenuIn 0.2s ease';
+      floatingBookMenu.innerHTML = [
+        '<div style="padding:8px 16px 6px;font-size:0.72rem;font-weight:700;color:var(--mid,#8c6b4a);text-transform:uppercase;letter-spacing:0.5px">Quick Book</div>',
+        '<button class="fab-svc-btn" onclick="floatingBookPick(\'Dog Walking\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🐕 Dog Walking</button>',
+        '<button class="fab-svc-btn" onclick="floatingBookPick(\'Drop-In Visit\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🏠 Drop-In Visit</button>',
+        '<button class="fab-svc-btn" onclick="floatingBookPick(\'Cat Care Visit\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🐱 Cat Care</button>',
+        '<button class="fab-svc-btn" onclick="floatingBookPick(\'House Sitting\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🏡 House Sitting</button>',
+        '<div style="border-top:1px solid #eee;margin:4px 0"></div>',
+        '<button class="fab-svc-btn" onclick="floatingBookPick()" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--forest,#3a6b4c);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">📋 All Services</button>',
+      ].join('');
+      document.body.appendChild(floatingBookMenu);
+
+      // FAB button
+      floatingBookBtn = document.createElement('button');
+      floatingBookBtn.id = 'floatingBookBtn';
+      floatingBookBtn.innerHTML = '📅 Book Now';
+      floatingBookBtn.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:1000;background:linear-gradient(135deg,#3a6b4c,#2d5540);color:white;border:none;padding:14px 24px;border-radius:50px;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(58,107,76,0.4);transition:transform 0.2s,box-shadow 0.2s;font-family:inherit';
+      floatingBookBtn.onmouseenter = function() { this.style.transform = 'scale(1.05)'; this.style.boxShadow = '0 6px 28px rgba(58,107,76,0.5)'; };
+      floatingBookBtn.onmouseleave = function() { this.style.transform = ''; this.style.boxShadow = '0 4px 20px rgba(58,107,76,0.4)'; };
+      floatingBookBtn.onclick = function(e) {
+        e.stopPropagation();
+        var menu = document.getElementById('floatingBookMenu');
+        if (menu) menu.style.display = menu.style.display === 'none' ? '' : 'none';
+      };
+      document.body.appendChild(floatingBookBtn);
+
+      // Close menu on outside click
+      document.addEventListener('click', function(e) {
+        var menu = document.getElementById('floatingBookMenu');
+        var btn = document.getElementById('floatingBookBtn');
+        if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && e.target !== btn) {
+          menu.style.display = 'none';
+        }
+      });
+    }
+    floatingBookBtn.style.display = '';
+  } else {
+    if (floatingBookBtn) floatingBookBtn.style.display = 'none';
+    if (floatingBookMenu) floatingBookMenu.style.display = 'none';
+  }
   // Remove early-hide style and loading-auth — auth has settled, safe to show content
   var earlyHide = document.getElementById('early-hide');
   if (earlyHide) earlyHide.remove();
@@ -3368,6 +3418,13 @@ async function removeAssignment(assignmentId) {
   if (error) { toast('Failed to remove: ' + error.message); return; }
   toast('Assignment removed.');
   loadAssignments();
+}
+
+// ---- FLOATING BOOK QUICK-PICK ----
+function floatingBookPick(service) {
+  var menu = document.getElementById('floatingBookMenu');
+  if (menu) menu.style.display = 'none';
+  if (typeof openBookingModal === 'function') openBookingModal(service || undefined);
 }
 
 // ---- NOTIFICATION FIRE ----
