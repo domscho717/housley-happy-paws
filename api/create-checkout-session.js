@@ -10,10 +10,17 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(500).json({ error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY.' });
+  }
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
   try {
-    const { service, price, clientName, clientEmail, petNames, notes } = req.body;
+    const { service, price, clientName, clientEmail, petNames, notes } = req.body || {};
+
+    if (!service || !price) {
+      return res.status(400).json({ error: 'Missing required fields: service, price' });
+    }
 
     // Create a Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({

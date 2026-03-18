@@ -14,7 +14,11 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { service, date, time, name, email, phone, pets, address, notes } = req.body;
+  const { service, date, time, name, email, phone, pets, address, notes } = req.body || {};
+
+  if (!service || !name || !email) {
+    return res.status(400).json({ error: 'Missing required fields: service, name, email' });
+  }
 
   // Rachel's notification email
   const RACHEL_EMAIL = 'housleyhappypaws@gmail.com';

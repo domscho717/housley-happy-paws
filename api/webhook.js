@@ -1,4 +1,5 @@
 const Stripe = require('stripe');
+const { createClient } = require('@supabase/supabase-js');
 
 // Vercel doesn't parse the body for webhooks — we need the raw body
 module.exports.config = {
@@ -30,12 +31,11 @@ module.exports = async function handler(req, res) {
     const rawBody = await getRawBody(req);
     const sig = req.headers['stripe-signature'];
 
-    if (webhookSecret) {
-      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-    } else {
-      // For development without webhook signing
-      event = JSON.parse(rawBody.toString());
+    if (!webhookSecret) {
+      console.error('STRIPE_WEBHOOK_SECRET is not configured');
+      return res.status(500).json({ error: 'Webhook secret not configured' });
     }
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
@@ -52,17 +52,22 @@ module.exports = async function handler(req, res) {
         metadata: session.metadata,
       });
 
-      // TODO: When Supabase is connected, save payment record:
-      // await supabase.from('payments').insert({
-      //   stripe_session_id: session.id,
-      //   client_email: session.customer_email,
-      //   amount: session.amount_total / 100,
-      //   service: session.metadata.service,
-      //   client_name: session.metadata.clientName,
-      //   pet_names: session.metadata.petNames,
-      //   status: 'paid',
-      //   paid_at: new Date().toISOString(),
-      // });
+      // Save payment record to Supabase
+      try {
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+        await supabase.from('payments').insert({
+          stripe_session_id: session.id,
+          client_email: session.customer_email || '',
+          amount: session.amount_total / 100,
+          service: session.metadata?.service || '',
+          client_name: session.metadata?.clientName || '',
+          pet_names: session.metadata?.petNames || '',
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+        });
+      } catch (dbErr) {
+        console.error('Failed to save payment to Supabase:', dbErr.message);
+      }
 
       break;
     }

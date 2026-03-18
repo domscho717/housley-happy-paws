@@ -9,10 +9,13 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(500).json({ error: 'Stripe is not configured. Please set STRIPE_SECRET_KEY.' });
+  }
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
   try {
-    const { clientName, clientEmail, service, amount, petNames, dueDate, notes } = req.body;
+    const { clientName, clientEmail, service, amount, petNames, dueDate, notes } = req.body || {};
 
     if (!clientEmail || !amount || !service) {
       return res.status(400).json({ error: 'Missing required fields: clientEmail, amount, service' });

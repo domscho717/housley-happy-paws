@@ -1091,7 +1091,7 @@ try {
           <div class="fc-tag">Coming Soon</div>
           <div class="fc-name">Happy Paws Pet Shop</div>
           <div class="fc-desc">A curated online shop with Rachel-approved toys, treats, accessories, and gear for dogs and cats. Personalized recommendations based on your pet's breed and personality.</div>
-          <button class="btn btn-outline btn-sm" onclick="toast('📧 Added to notify list!')">Notify Me</button>
+          <button class="btn btn-outline btn-sm" onclick="openModal('contactModal')">Notify Me</button>
         </div>
       </div>
     </div>
@@ -1108,11 +1108,11 @@ try {
           <div style="background:var(--gold);color:white;padding:8px 18px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="window.open('https://www.facebook.com/share/1ANwxfH7Tk/?mibextid=wwXIfr','_blank')">📘 Facebook</div>
         </div>
       </div>
-      <div><div class="footer-col-head">Services</div><ul class="footer-links"><li><a href="#">Dog Walking</a></li><li><a href="#">Drop-In Visits</a></li><li><a href="#">Cat Care</a></li><li><a href="#">House Sitting</a></li><li><a href="#">Dog Boarding <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#">Day Care <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#">Paw Bus <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li></ul></div>
+      <div><div class="footer-col-head">Services</div><ul class="footer-links"><li><a href="#services" onclick="switchView('home')">Dog Walking</a></li><li><a href="#services" onclick="switchView('home')">Drop-In Visits</a></li><li><a href="#services" onclick="switchView('home')">Cat Care</a></li><li><a href="#services" onclick="switchView('home')">House Sitting</a></li><li><a href="#" onclick="openModal('boardingInterestModal')">Dog Boarding <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('daycareModal')">Day Care <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('pawbusModal')">Paw Bus <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li></ul></div>
       <div><div class="footer-col-head">Clients</div><ul class="footer-links"><li><a href="#" onclick="switchView('client')">Client Portal</a></li><li><a href="#" onclick="openModal('mgModal')">Book Meet & Greet</a></li><li><a href="#" onclick="openModal('contactModal')">Ask a Question</a></li><li><a href="#calendar-pub">View Calendar</a></li><li><a href="#reviews">Reviews</a></li></ul></div>
-      <div><div class="footer-col-head">Lancaster, PA</div><ul class="footer-links"><li><a href="#">📍 Lancaster City Area</a></li><li><a href="tel:7177157595">📞 717-715-7595</a></li><li><a href="/cdn-cgi/l/email-protection#196b787a717c755971766c6a757c60717869696069786e6a377a7674" style="color:rgba(253,250,245,0.55)">📧 <span class="__cf_email__" data-cfemail="493b282a212c250921263c3a252c30212839393039283e3a672a2624">[email&#160;protected]</span></a></li></ul></div>
+      <div><div class="footer-col-head">Lancaster, PA</div><ul class="footer-links"><li><a href="https://maps.google.com/?q=Lancaster+PA" target="_blank">📍 Lancaster City Area</a></li><li><a href="tel:7177157595">📞 717-715-7595</a></li><li><a href="/cdn-cgi/l/email-protection#196b787a717c755971766c6a757c60717869696069786e6a377a7674" style="color:rgba(253,250,245,0.55)">📧 <span class="__cf_email__" data-cfemail="493b282a212c250921263c3a252c30212839393039283e3a672a2624">[email&#160;protected]</span></a></li></ul></div>
     </div>
-    <div class="footer-bottom"><div>© 2025 Housley Happy Paws · Rachel Housley · Lancaster, PA</div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
+    <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA</div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
   </footer>
 </div>
 
@@ -1255,7 +1255,7 @@ try {
               <button id="addCardBtn" class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="addPaymentMethod()">💳 Add Payment Method</button>
             </div>
             <div style="font-size:0.75rem;color:var(--mid);margin-top:10px;text-align:center">Your card is saved securely through Stripe. When Rachel accepts your booking, payment is processed automatically.</div>
-            <div class="form-group" style="margin-top:14px"><label class="form-lbl">Discount Code</label><div style="display:flex;gap:8px"><input class="form-in" style="flex:1" placeholder="Enter code"><button class="btn btn-gold btn-sm" onclick="toast('✅ Discount applied!')">Apply</button></div></div>
+            <div style="font-size:0.75rem;color:var(--mid);margin-top:14px;text-align:center">Have a promo code? Mention it in your booking notes and Rachel will apply it.</div>
           </div>
           <div class="card"><div class="card-title">Payment History</div>
             <div id="clientPaymentHistory" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No payment history yet.</div>
@@ -1441,7 +1441,7 @@ try {
             </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-outline btn-sm" onclick="sTab('o','o-sched')">Full Schedule</button>
-              <button class="btn btn-gold btn-sm" onclick="toast('📢 All clients notified of today\'s schedule!')">Notify All</button>
+              <button class="btn btn-gold btn-sm" onclick="toast('📢 Notification feature coming soon — clients currently receive auto-notifications for bookings.')">Notify All</button>
             </div>
           </div>
           <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">
@@ -1542,7 +1542,7 @@ try {
             <div style="font-weight:600;margin-bottom:6px">No messages yet</div>
             <div style="font-size:0.84rem">Client conversations will appear here once you're booked.</div>
           </div>
-          <button class="btn btn-ink btn-sm" onclick="toast('📢 Broadcast sent to all clients!')" style="width:100%;justify-content:center;margin-top:12px">📢 Send Broadcast to All Clients</button>
+          <button class="btn btn-ink btn-sm" onclick="toast('📢 Messaging feature coming soon — use text or email for now.')" style="width:100%;justify-content:center;margin-top:12px">📢 Send Broadcast to All Clients</button>
         </div>
       </div>
 
@@ -1554,15 +1554,15 @@ try {
       <div class="p-panel" id="o-avail">
         <div class="p-header"><h2>Availability & Holidays 🗓️</h2></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-          <div class="card"><div class="card-title" style="margin-bottom:14px">Weekly Availability</div><div class="avail-grid" id="availGrid"><div class="avail-day on" onclick="toggleAvail(this)">Mon</div><div class="avail-day on" onclick="toggleAvail(this)">Tue</div><div class="avail-day on" onclick="toggleAvail(this)">Wed</div><div class="avail-day on" onclick="toggleAvail(this)">Thu</div><div class="avail-day on" onclick="toggleAvail(this)">Fri</div><div class="avail-day on" onclick="toggleAvail(this)">Sat</div><div class="avail-day on" onclick="toggleAvail(this)">Sun</div></div><div style="height:14px"></div><div style="font-size:0.85rem;color:var(--mid);padding:4px 0;margin-bottom:8px">Currently: Available any time on active days.</div><div class="form-row"><div><label class="form-lbl">Earliest Time (optional)</label><input class="form-in" type="time" id="avail-start" placeholder="Open"></div><div><label class="form-lbl">Latest Time (optional)</label><input class="form-in" type="time" id="avail-end" placeholder="Open"></div></div><div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Leave blank for anytime availability.</div><button class="btn btn-forest btn-sm" onclick="toast('✅ Schedule saved!')" style="margin-top:8px">Save Availability</button></div>
-          <div class="card"><div class="card-title" style="margin-bottom:14px">Post Holiday / Day Off</div><div class="form-group"><label class="form-lbl">Announcement</label><textarea class="form-ta" style="min-height:100px" placeholder="e.g. 🎄 I'm closed Dec 24–26 & Jan 1st. Please book early!"></textarea></div><div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">From</label><input class="form-in" type="date"></div><div><label class="form-lbl">To</label><input class="form-in" type="date"></div></div><button class="btn btn-gold btn-sm" onclick="toast('📢 Holiday notice sent to all clients!')" style="width:100%;justify-content:center">📢 Send to All Clients</button></div>
+          <div class="card"><div class="card-title" style="margin-bottom:14px">Weekly Availability</div><div class="avail-grid" id="availGrid"><div class="avail-day on" onclick="toggleAvail(this)">Mon</div><div class="avail-day on" onclick="toggleAvail(this)">Tue</div><div class="avail-day on" onclick="toggleAvail(this)">Wed</div><div class="avail-day on" onclick="toggleAvail(this)">Thu</div><div class="avail-day on" onclick="toggleAvail(this)">Fri</div><div class="avail-day on" onclick="toggleAvail(this)">Sat</div><div class="avail-day on" onclick="toggleAvail(this)">Sun</div></div><div style="height:14px"></div><div style="font-size:0.85rem;color:var(--mid);padding:4px 0;margin-bottom:8px">Currently: Available any time on active days.</div><div class="form-row"><div><label class="form-lbl">Earliest Time (optional)</label><input class="form-in" type="time" id="avail-start" placeholder="Open"></div><div><label class="form-lbl">Latest Time (optional)</label><input class="form-in" type="time" id="avail-end" placeholder="Open"></div></div><div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Leave blank for anytime availability.</div><button class="btn btn-forest btn-sm" onclick="saveAvailability()" style="margin-top:8px">Save Availability</button></div>
+          <div class="card"><div class="card-title" style="margin-bottom:14px">Post Holiday / Day Off</div><div class="form-group"><label class="form-lbl">Announcement</label><textarea class="form-ta" id="holiday-msg" style="min-height:100px" placeholder="e.g. 🎄 I'm closed Dec 24–26 & Jan 1st. Please book early!"></textarea></div><div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">From</label><input class="form-in" type="date" id="holiday-from"></div><div><label class="form-lbl">To</label><input class="form-in" type="date" id="holiday-to"></div></div><button class="btn btn-gold btn-sm" onclick="saveHolidayNotice()" style="width:100%;justify-content:center">📢 Save & Post Holiday Notice</button></div>
         </div>
       </div>
 
       <div class="p-panel" id="o-auto">
         <div class="p-header"><h2>Auto-Reply Setup 🤖</h2><p>Set what new clients and inquiries hear from you instantly.</p></div>
-        <div class="card" style="margin-bottom:16px"><div class="card-title" style="margin-bottom:6px">Meet & Greet Auto-Reply</div><p style="font-size:0.83rem;color:var(--mid);margin-bottom:16px">Sent instantly when someone requests a meet & greet.</p><div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" style="min-height:110px">Hi [Name]! 🐾 I'm so excited to meet [Pet Name]! I'm available any day — just let me know what works best for you and we'll make it happen! Feel free to text me anytime. I can't wait to meet your fur baby! — Rachel 🐶🐱</textarea></div><div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Send After</label><select class="form-sel"><option>Instantly</option><option>5 minutes</option><option>1 hour</option></select></div><div><label class="form-lbl">Active Hours</label><select class="form-sel"><option>Always on</option></select></div></div><button class="btn btn-gold btn-sm" onclick="toast('✅ Auto-reply activated!')" style="width:100%;justify-content:center">✅ Activate Auto-Reply</button></div>
-        <div class="card"><div class="card-title" style="margin-bottom:6px">General Inquiry Auto-Reply</div><p style="font-size:0.83rem;color:var(--mid);margin-bottom:16px">Sent when someone submits the contact form.</p><div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta">Thanks for reaching out to Housley Happy Paws! 🐾 I'll personally reply within 24 hours. If it's urgent, feel free to text or call me directly. Talk soon! — Rachel</textarea></div><button class="btn btn-ink btn-sm" onclick="toast('✅ Auto-reply saved!')" style="width:100%;justify-content:center">Save</button></div>
+        <div class="card" style="margin-bottom:16px"><div class="card-title" style="margin-bottom:6px">Meet & Greet Auto-Reply</div><p style="font-size:0.83rem;color:var(--mid);margin-bottom:16px">Sent instantly when someone requests a meet & greet.</p><div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="ar-meetgreet" style="min-height:110px">Hi [Name]! 🐾 I'm so excited to meet [Pet Name]! I'm available any day — just let me know what works best for you and we'll make it happen! Feel free to text me anytime. I can't wait to meet your fur baby! — Rachel 🐶🐱</textarea></div><div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Send After</label><select class="form-sel"><option>Instantly</option><option>5 minutes</option><option>1 hour</option></select></div><div><label class="form-lbl">Active Hours</label><select class="form-sel"><option>Always on</option></select></div></div><button class="btn btn-gold btn-sm" onclick="saveAutoReply('meetgreet')" style="width:100%;justify-content:center">✅ Save Auto-Reply</button></div>
+        <div class="card"><div class="card-title" style="margin-bottom:6px">General Inquiry Auto-Reply</div><p style="font-size:0.83rem;color:var(--mid);margin-bottom:16px">Sent when someone submits the contact form.</p><div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="ar-general">Thanks for reaching out to Housley Happy Paws! 🐾 I'll personally reply within 24 hours. If it's urgent, feel free to text or call me directly. Talk soon! — Rachel</textarea></div><button class="btn btn-ink btn-sm" onclick="saveAutoReply('general')" style="width:100%;justify-content:center">Save</button></div>
       </div>
 
       <!-- ========== AI OWNER STUDIO ========== -->
@@ -1856,29 +1856,29 @@ try {
               <div style="background:var(--warm);border-radius:8px;padding:14px;border:1px solid var(--border)">
                 <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">💙 PayPal / Venmo</div>
                 <div style="font-size:0.78rem;color:var(--mid);margin-bottom:8px">Paste your PayPal.me or Venmo link</div>
-                <input class="form-in" placeholder="paypal.me/rachelhousleypaws" style="font-size:0.84rem;padding:8px 12px">
+                <input class="form-in" id="pay-paypal" placeholder="paypal.me/rachelhousleypaws" style="font-size:0.84rem;padding:8px 12px">
               </div>
               <div style="background:var(--warm);border-radius:8px;padding:14px;border:1px solid var(--border)">
                 <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">🟩 Square</div>
                 <div style="font-size:0.78rem;color:var(--mid);margin-bottom:8px">Great for in-person payments too</div>
-                <input class="form-in" placeholder="squareup.com/pay/..." style="font-size:0.84rem;padding:8px 12px">
+                <input class="form-in" id="pay-square" placeholder="squareup.com/pay/..." style="font-size:0.84rem;padding:8px 12px">
               </div>
               <div style="background:var(--warm);border-radius:8px;padding:14px;border:1px solid var(--border)">
                 <div style="font-weight:700;font-size:0.88rem;margin-bottom:4px">💚 Cash App</div>
                 <div style="font-size:0.78rem;color:var(--mid);margin-bottom:8px">Your Cash App $cashtag</div>
-                <input class="form-in" placeholder="$RachelHousleyPaws" style="font-size:0.84rem;padding:8px 12px">
+                <input class="form-in" id="pay-cashapp" placeholder="$RachelHousleyPaws" style="font-size:0.84rem;padding:8px 12px">
               </div>
-              <button class="submit-btn" onclick="toast('✅ Payment links saved!')">Save Payment Links</button>
+              <button class="submit-btn" onclick="savePaymentLinks()">Save Payment Links</button>
             </div>
           </div>
 
           <!-- Deposit & pricing settings -->
           <div class="card">
             <div class="card-title" style="margin-bottom:14px">⚙️ Payment Settings</div>
-            <div class="form-group"><label class="form-lbl">Require Deposit to Book?</label><select class="form-sel"><option>No deposit required</option><option>25% deposit on booking</option><option>50% deposit on booking</option><option>Full payment upfront</option></select></div>
-            <div class="form-group"><label class="form-lbl">Cancellation Policy</label><select class="form-sel"><option>Free cancellation 24hrs before</option><option>Free cancellation 48hrs before</option><option>No refunds after booking</option><option>Custom (see notes)</option></select></div>
-            <div class="form-group"><label class="form-lbl">Invoice Notes (shown on receipts)</label><textarea class="form-ta" style="min-height:70px" placeholder="e.g. Thank you so much! 🐾 Questions? Text Rachel at (717)..."></textarea></div>
-            <button class="submit-btn gold" onclick="toast('✅ Payment settings saved!')">Save Settings</button>
+            <div class="form-group"><label class="form-lbl">Require Deposit to Book?</label><select class="form-sel" id="pay-deposit"><option>No deposit required</option><option>25% deposit on booking</option><option>50% deposit on booking</option><option>Full payment upfront</option></select></div>
+            <div class="form-group"><label class="form-lbl">Cancellation Policy</label><select class="form-sel" id="pay-cancel"><option>Free cancellation 24hrs before</option><option>Free cancellation 48hrs before</option><option>No refunds after booking</option><option>Custom (see notes)</option></select></div>
+            <div class="form-group"><label class="form-lbl">Invoice Notes (shown on receipts)</label><textarea class="form-ta" id="pay-notes" style="min-height:70px" placeholder="e.g. Thank you so much! 🐾 Questions? Text Rachel at (717)..."></textarea></div>
+            <button class="submit-btn gold" onclick="savePaymentSettings()">Save Settings</button>
           </div>
         </div>
 
@@ -1932,7 +1932,7 @@ try {
           <p style="font-size:0.82rem;color:var(--mid);margin-bottom:12px">Jot down promo ideas before you're ready to launch them.</p>
           <textarea class="form-ta" id="dealIdeas" style="min-height:120px">💝 Valentine's Day — $5 off drop-ins for cat owners
 ☀️ Summer Bundle — Buy 5 walks get 1 free</textarea>
-          <button class="btn btn-outline btn-sm" onclick="toast('💡 Ideas saved!')" style="margin-top:10px">Save Ideas</button>
+          <button class="btn btn-outline btn-sm" onclick="saveIdeas()" style="margin-top:10px">Save Ideas</button>
         </div>
       </div>
 
@@ -1976,7 +1976,7 @@ try {
           </div>
           <div style="display:flex;gap:10px">
             <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="sendInvoice()">📤 Send Invoice</button>
-            <button class="btn btn-outline" onclick="toast('👁 Invoice preview ready!')">👁 Preview</button>
+            <button class="btn btn-outline" onclick="previewInvoice()">👁 Preview</button>
           </div>
         </div>
       </div>
@@ -2135,7 +2135,7 @@ try {
         <div class="rphoto" style="background:linear-gradient(135deg,#e0f2fe,#bae6fd)">🐕‍🦺</div>
       </div>
       <div class="note-area"><div class="note-lbl">📝 Rachel's Personal Note</div><div class="note-text">Your personal visit note will appear here after each service.</div></div>
-      <div style="display:flex;gap:10px"><button class="btn btn-gold btn-sm" onclick="closeModal('reportModal');toast('📄 Report downloaded!')">Download PDF</button><button class="btn btn-outline btn-sm" onclick="toast('⭐ Thanks for rating!')">Leave a Rating</button></div>
+      <div style="display:flex;gap:10px"><button class="btn btn-gold btn-sm" onclick="window.print();closeModal('reportModal')">🖨️ Print / Save PDF</button><button class="btn btn-outline btn-sm" onclick="closeModal('reportModal');toast('⭐ Rating feature coming soon!')">Leave a Rating</button></div>
     </div>
   </div>
 </div>
@@ -2156,11 +2156,11 @@ try {
 <div class="overlay" id="pawbusModal">
   <div class="modal"><div class="modal-head"><div><div class="modal-title">Paw Bus Interest 🚌</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — but let Rachel know you're interested!</p></div><button class="modal-close" onclick="closeModal('pawbusModal')">✕</button></div>
   <div style="background:var(--gold-pale);border-radius:8px;padding:14px 16px;margin-bottom:20px;border:1px solid rgba(200,150,62,0.2);font-size:0.85rem;color:var(--brown)">🚌 The Paw Bus is a group pick-up adventure where Rachel drives a small crew of friendly, temperament-matched dogs to a park for a real outing. We're building the interest list now — be one of the first to know when it launches!</div>
-  <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" placeholder="Your name"></div>
-  <div class="form-group"><label class="form-lbl">Phone / Email</label><input class="form-in" placeholder="Best way to reach you"></div>
-  <div class="form-group"><label class="form-lbl">Pet's Name, Breed & Age</label><input class="form-in" placeholder="e.g. Max — Golden Retriever, 3 years old"></div>
-  <div class="form-group"><label class="form-lbl">Any Questions for Rachel?</label><textarea class="form-ta" placeholder="Anything you'd like to know..."></textarea></div>
-  <button class="submit-btn gold" onclick="closeModal('pawbusModal');toast('🚌 Added to Paw Bus interest list! Rachel will reach out soon.')">Join the Interest List</button></div>
+  <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" id="pb-name" placeholder="Your name"></div>
+  <div class="form-group"><label class="form-lbl">Phone / Email</label><input class="form-in" id="pb-contact" placeholder="Best way to reach you"></div>
+  <div class="form-group"><label class="form-lbl">Pet's Name, Breed & Age</label><input class="form-in" id="pb-pet" placeholder="e.g. Max — Golden Retriever, 3 years old"></div>
+  <div class="form-group"><label class="form-lbl">Any Questions for Rachel?</label><textarea class="form-ta" id="pb-notes" placeholder="Anything you'd like to know..."></textarea></div>
+  <button class="submit-btn gold" onclick="submitInterest('pawbus')">Join the Interest List</button></div>
 </div>
 
 <!-- Announce Modal (Owner) -->
@@ -2175,12 +2175,12 @@ try {
 <div class="overlay" id="daycareModal">
   <div class="modal"><div class="modal-head"><div><div class="modal-title">Doggy Day Care Interest ☀️</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — join the list and be first to know!</p></div><button class="modal-close" onclick="closeModal('daycareModal')">✕</button></div>
   <div style="background:var(--gold-pale);border-radius:8px;padding:14px 16px;margin-bottom:20px;border:1px solid rgba(200,150,62,0.2);font-size:0.85rem;color:var(--brown)">☀️ Doggy Day Care is coming to Housley Happy Paws — a full-day enrichment experience with walks, play, and socialization. We're taking interest now so we can plan the right space for your pup!</div>
-  <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" placeholder="Your name"></div>
-  <div class="form-group"><label class="form-lbl">Phone / Email</label><input class="form-in" placeholder="Best way to reach you"></div>
-  <div class="form-group"><label class="form-lbl">Dog's Name & Breed</label><input class="form-in" placeholder="e.g. Max — 3-year-old Labrador"></div>
-  <div class="form-group"><label class="form-lbl">How many days per week are you thinking?</label><select class="form-sel"><option>1–2 days/week</option><option>3–4 days/week</option><option>Every day (Mon–Fri)</option><option>Just occasionally</option></select></div>
-  <div class="form-group"><label class="form-lbl">Any questions for Rachel?</label><textarea class="form-ta" placeholder="Anything you'd like to know about day care..."></textarea></div>
-  <button class="submit-btn gold" onclick="closeModal('daycareModal');toast('☀️ Added to Day Care interest list! Rachel will reach out when it launches.')">Join the Interest List</button></div>
+  <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" id="dc-name" placeholder="Your name"></div>
+  <div class="form-group"><label class="form-lbl">Phone / Email</label><input class="form-in" id="dc-contact" placeholder="Best way to reach you"></div>
+  <div class="form-group"><label class="form-lbl">Dog's Name & Breed</label><input class="form-in" id="dc-pet" placeholder="e.g. Max — 3-year-old Labrador"></div>
+  <div class="form-group"><label class="form-lbl">How many days per week are you thinking?</label><select class="form-sel" id="dc-freq"><option>1–2 days/week</option><option>3–4 days/week</option><option>Every day (Mon–Fri)</option><option>Just occasionally</option></select></div>
+  <div class="form-group"><label class="form-lbl">Any questions for Rachel?</label><textarea class="form-ta" id="dc-notes" placeholder="Anything you'd like to know about day care..."></textarea></div>
+  <button class="submit-btn gold" onclick="submitInterest('daycare')">Join the Interest List</button></div>
 </div>
 
 
@@ -3196,6 +3196,165 @@ function filterOwnerClients() {
   renderOwnerClients(filtered);
 }
 
+// ── Owner Settings Save Functions (persist to site_content via Supabase) ──
+async function _saveSiteContent(key, data) {
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  if (!sb) { toast('Database not available. Please try again.'); return false; }
+  var { error } = await sb.from('site_content').upsert({ section_key: key, content: data, updated_at: new Date().toISOString() }, { onConflict: 'section_key' });
+  if (error) { console.error('Save error:', error); toast('Could not save. Please try again.'); return false; }
+  return true;
+}
+
+async function _loadSiteContent(key) {
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  if (!sb) return null;
+  var { data, error } = await sb.from('site_content').select('content').eq('section_key', key).single();
+  if (error || !data) return null;
+  return data.content;
+}
+
+async function saveAvailability() {
+  var days = [];
+  document.querySelectorAll('#availGrid .avail-day').forEach(function(d) {
+    days.push({ day: d.textContent.trim(), active: d.classList.contains('on') });
+  });
+  var start = document.getElementById('avail-start')?.value || '';
+  var end = document.getElementById('avail-end')?.value || '';
+  var ok = await _saveSiteContent('owner_availability', { days: days, start_time: start, end_time: end });
+  if (ok) toast('✅ Availability saved!');
+}
+
+async function saveHolidayNotice() {
+  var msg = document.getElementById('holiday-msg')?.value || '';
+  var from = document.getElementById('holiday-from')?.value || '';
+  var to = document.getElementById('holiday-to')?.value || '';
+  if (!msg.trim()) { toast('Please enter an announcement message.'); return; }
+  var ok = await _saveSiteContent('holiday_notice', { message: msg, from_date: from, to_date: to, posted_at: new Date().toISOString() });
+  if (ok) toast('✅ Holiday notice saved & posted!');
+}
+
+async function saveAutoReply(type) {
+  var el = document.getElementById('ar-' + type);
+  if (!el) return;
+  var ok = await _saveSiteContent('autoreply_' + type, { message: el.value, updated_at: new Date().toISOString() });
+  if (ok) toast('✅ Auto-reply saved!');
+}
+
+async function savePaymentLinks() {
+  var paypal = document.getElementById('pay-paypal')?.value || '';
+  var square = document.getElementById('pay-square')?.value || '';
+  var cashapp = document.getElementById('pay-cashapp')?.value || '';
+  var ok = await _saveSiteContent('payment_links', { paypal: paypal, square: square, cashapp: cashapp });
+  if (ok) toast('✅ Payment links saved!');
+}
+
+async function savePaymentSettings() {
+  var deposit = document.getElementById('pay-deposit')?.value || '';
+  var cancel = document.getElementById('pay-cancel')?.value || '';
+  var notes = document.getElementById('pay-notes')?.value || '';
+  var ok = await _saveSiteContent('payment_settings', { deposit_policy: deposit, cancellation_policy: cancel, invoice_notes: notes });
+  if (ok) toast('✅ Payment settings saved!');
+}
+
+async function saveIdeas() {
+  var ideas = document.getElementById('dealIdeas')?.value || '';
+  var ok = await _saveSiteContent('deal_ideas', { text: ideas });
+  if (ok) toast('✅ Ideas saved!');
+}
+
+function previewInvoice() {
+  var client = document.getElementById('inv-client')?.value || 'Client';
+  var service = document.getElementById('inv-service')?.value || 'Service';
+  var amount = document.getElementById('inv-amount')?.value || '0';
+  var note = document.getElementById('inv-note')?.value || '';
+  var msg = '📄 Invoice Preview:\\n\\nTo: ' + client + '\\nService: ' + service + '\\nAmount: $' + amount + (note ? '\\nNote: ' + note : '') + '\\n\\nUse "Send Invoice" to create and send via Stripe.';
+  alert(msg);
+}
+
+// ── Interest Form Submissions (save to site_content) ──
+async function submitBoardingInterest() {
+  var name = document.getElementById('bi-name')?.value || '';
+  var contact = document.getElementById('bi-contact')?.value || '';
+  var pet = document.getElementById('bi-pet')?.value || '';
+  var type = document.getElementById('bi-type')?.value || '';
+  var notes = document.getElementById('bi-notes')?.value || '';
+  if (!name.trim() || !contact.trim()) { toast('Please fill in your name and contact info.'); return; }
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  if (sb) {
+    var existing = await _loadSiteContent('interest_boarding') || { entries: [] };
+    existing.entries.push({ name: name, contact: contact, pet: pet, type: type, notes: notes, date: new Date().toISOString() });
+    await _saveSiteContent('interest_boarding', existing);
+  }
+  closeModal('boardingInterestModal');
+  toast('🎉 Thank you! Rachel will reach out soon about boarding & day care.');
+}
+
+async function submitInterest(service) {
+  var prefix = service === 'pawbus' ? 'pb' : 'dc';
+  var modalId = service === 'pawbus' ? 'pawbusModal' : 'daycareModal';
+  var name = document.getElementById(prefix + '-name')?.value || '';
+  var contact = document.getElementById(prefix + '-contact')?.value || '';
+  var pet = document.getElementById(prefix + '-pet')?.value || '';
+  var notes = document.getElementById(prefix + '-notes')?.value || '';
+  var freq = document.getElementById(prefix + '-freq')?.value || '';
+  if (!name.trim() || !contact.trim()) { toast('Please fill in your name and contact info.'); return; }
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  if (sb) {
+    var existing = await _loadSiteContent('interest_' + service) || { entries: [] };
+    existing.entries.push({ name: name, contact: contact, pet: pet, frequency: freq, notes: notes, date: new Date().toISOString() });
+    await _saveSiteContent('interest_' + service, existing);
+  }
+  closeModal(modalId);
+  var emoji = service === 'pawbus' ? '🚌' : '☀️';
+  toast(emoji + ' Added to interest list! Rachel will reach out soon.');
+}
+
+// Auto-load saved settings when owner opens panels
+async function loadOwnerSettings() {
+  // Load availability
+  var avail = await _loadSiteContent('owner_availability');
+  if (avail && avail.days) {
+    var dayEls = document.querySelectorAll('#availGrid .avail-day');
+    avail.days.forEach(function(d, i) {
+      if (dayEls[i]) { dayEls[i].classList.toggle('on', d.active); dayEls[i].classList.toggle('off', !d.active); }
+    });
+    if (avail.start_time) document.getElementById('avail-start').value = avail.start_time;
+    if (avail.end_time) document.getElementById('avail-end').value = avail.end_time;
+  }
+  // Load auto-replies
+  var mg = await _loadSiteContent('autoreply_meetgreet');
+  if (mg && mg.message) { var el = document.getElementById('ar-meetgreet'); if (el) el.value = mg.message; }
+  var gen = await _loadSiteContent('autoreply_general');
+  if (gen && gen.message) { var el2 = document.getElementById('ar-general'); if (el2) el2.value = gen.message; }
+  // Load payment links
+  var pl = await _loadSiteContent('payment_links');
+  if (pl) {
+    if (pl.paypal) document.getElementById('pay-paypal').value = pl.paypal;
+    if (pl.square) document.getElementById('pay-square').value = pl.square;
+    if (pl.cashapp) document.getElementById('pay-cashapp').value = pl.cashapp;
+  }
+  // Load payment settings
+  var ps = await _loadSiteContent('payment_settings');
+  if (ps) {
+    if (ps.deposit_policy) document.getElementById('pay-deposit').value = ps.deposit_policy;
+    if (ps.cancellation_policy) document.getElementById('pay-cancel').value = ps.cancellation_policy;
+    if (ps.invoice_notes) document.getElementById('pay-notes').value = ps.invoice_notes;
+  }
+  // Load ideas
+  var ideas = await _loadSiteContent('deal_ideas');
+  if (ideas && ideas.text) { var el3 = document.getElementById('dealIdeas'); if (el3) el3.value = ideas.text; }
+}
+
+// Load owner settings when switching to owner portal
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    if (window.HHP_Auth && window.HHP_Auth.currentUser) {
+      var p = window.HHP_Auth.currentUser.profile;
+      if (p && p.role === 'owner') loadOwnerSettings();
+    }
+  }, 1500);
+});
+
 // ── Load Client Payment History (real Stripe) ──
 async function loadClientPayments() {
   if (typeof HHP_Stripe === 'undefined') {
@@ -3727,7 +3886,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <label class="form-lbl">Anything else? (schedule, special needs, how often…)</label>
       <textarea class="form-ta" id="bi-notes" placeholder="Let us know anything helpful!"></textarea>
     </div>
-    <button class="submit-btn gold" onclick="toast('🎉 Thank you! Rachel will reach out soon about boarding & day care.'); closeModal('boardingInterestModal');">Submit Interest</button>
+    <button class="submit-btn gold" onclick="submitBoardingInterest()">Submit Interest</button>
   </div>
 </div>
 

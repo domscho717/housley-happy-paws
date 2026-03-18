@@ -7,7 +7,11 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes, paymentLink, estimatedTotal, priceBreakdown } = req.body;
+  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes, paymentLink, estimatedTotal, priceBreakdown } = req.body || {};
+
+  if (!email || !name || !service || !status) {
+    return res.status(400).json({ error: 'Missing required fields: email, name, service, status' });
+  }
 
   let subject, body;
 
