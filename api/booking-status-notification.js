@@ -7,7 +7,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes, paymentLink, estimatedTotal, priceBreakdown } = req.body || {};
+  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes, paymentLink, estimatedTotal, priceBreakdown, autoCharged, recurrencePattern, dateDetails } = req.body || {};
 
   if (!email || !name || !service || !status) {
     return res.status(400).json({ error: 'Missing required fields: email, name, service, status' });
@@ -33,16 +33,55 @@ module.exports = async function handler(req, res) {
       ].join('\n');
     }
 
-    const paymentLine = paymentLink
-      ? `\nTo complete your booking, please submit payment here:\n${paymentLink}`
-      : `\nPayment will be handled at the time of service.`;
+    // Build recurring schedule section
+    let recurringSection = '';
+    if (recurrencePattern) {
+      const rp = typeof recurrencePattern === 'string' ? JSON.parse(recurrencePattern) : recurrencePattern;
+      if (rp.type === 'per_card' && rp.schedules) {
+        const lines = rp.schedules.map(s => {
+          const freqLabel = s.frequency === 'weekly' ? 'Every week' : 'Every other week';
+          const startFmt = new Date(s.start_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+          const endPart = s.ongoing ? 'until stopped' : (s.end_date ? `until ${new Date(s.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : '');
+          const timePart = s.time ? ` at ${s.time}` : '';
+          return `  • ${freqLabel} starting ${startFmt}${timePart} — ${endPart}`;
+        });
+        recurringSection = [
+          `\n📅 Recurring Schedule:`,
+          ...lines,
+          `\n💳 Billing: You will be automatically charged the day before each appointment.`,
+          `   Cancel anytime by contacting Rachel.`,
+        ].join('\n');
+      }
+    }
+
+    // Build multi-date section
+    let dateDetailsSection = '';
+    if (dateDetails && Array.isArray(dateDetails) && dateDetails.length > 1) {
+      const dateLines = dateDetails.map(dd => {
+        const dateFmt = new Date(dd.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const petNames = dd.pets && dd.pets.length > 0 ? dd.pets.map(p => p.name).join(', ') : '';
+        return `  • ${dateFmt}${dd.time ? ' at ' + dd.time : ''}${petNames ? ' — ' + petNames : ''}`;
+      });
+      dateDetailsSection = `\n📋 Your Appointments:\n${dateLines.join('\n')}`;
+    }
+
+    const paymentLine = autoCharged
+      ? `\n✅ Your card on file has been charged $${Number(estimatedTotal).toFixed(2)}.`
+      : paymentLink
+        ? `\nTo complete your booking, please submit payment here:\n${paymentLink}`
+        : recurringSection
+          ? '' // Recurring billing explained in recurringSection
+          : `\nPayment will be handled at the time of service.`;
+
     body = [
       `Hi ${name}!\n`,
       `Great news! Rachel has confirmed your booking request.\n`,
       `Service: ${service}`,
       `Date: ${scheduledDate}`,
-      `Time: ${scheduledTime}`,
+      scheduledTime ? `Time: ${scheduledTime}` : '',
       adminNotes ? `\nNote from Rachel: ${adminNotes}` : '',
+      dateDetailsSection,
+      recurringSection,
       invoiceSection,
       paymentLine,
       `\nThank you for choosing Housley Happy Paws!`,

@@ -2412,6 +2412,8 @@
                 estimatedTotal: req.estimated_total || null,
                 priceBreakdown: req.price_breakdown || '',
                 autoCharged: autoCharged,
+                recurrencePattern: req.recurrence_pattern || null,
+                dateDetails: req.date_details || null,
               }),
             });
           } catch (e) { console.warn('Status notification failed:', e); }
