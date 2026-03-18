@@ -541,10 +541,14 @@
       '      </div>',
       '    </div>',
       '',
-      '    <!-- Multi-date: add more dates -->',
-      '    <div id="brm-multidate-section" style="margin:6px 0 10px">',
-      '      <div id="brm-extra-dates"></div>',
-      '      <button type="button" id="brm-add-date-btn" onclick="window._brmAddDate()" style="background:none;border:1px dashed var(--gold,#C8963E);color:var(--gold,#C8963E);border-radius:8px;padding:7px 14px;font-size:0.82rem;cursor:pointer;font-family:inherit;margin-top:4px">+ Add Another Date</button>',
+      '    <!-- Multi-date: select all your dates in one area -->',
+      '    <div id="brm-multidate-section" style="margin:6px 0 14px">',
+      '      <label class="brm-label" style="font-size:0.82rem;color:#6b5c4d;margin-bottom:6px">Need more dates? Add them here — pick a time &amp; pet(s) for each</label>',
+      '      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">',
+      '        <input type="date" id="brm-add-date-input" class="brm-input" style="flex:1" min="' + new Date().toISOString().split('T')[0] + '">',
+      '        <button type="button" id="brm-add-date-btn" onclick="window._brmAddDateCard()" style="background:var(--gold,#C8963E);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:0.84rem;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap">+ Add Date</button>',
+      '      </div>',
+      '      <div id="brm-dates-list" style="display:flex;flex-direction:column;gap:8px"></div>',
       '    </div>',
       '',
       '    <!-- Recurring schedule toggle -->',
@@ -568,8 +572,7 @@
       '            <label class="brm-label">Frequency</label>',
       '            <select id="brm-recur-freq" class="brm-input">',
       '              <option value="weekly">Every week</option>',
-      '              <option value="biweekly">Every 2 weeks</option>',
-      '              <option value="monthly">Every 4 weeks</option>',
+      '              <option value="biweekly">Every other week</option>',
       '            </select>',
       '          </div>',
       '          <div class="brm-col">',
@@ -964,37 +967,129 @@
       }
     }, 100);
 
-    // ── Multi-date add/remove ──
-    window._brmExtraDates = [];
+    // ── Multi-date: unified date cards with time + pet per date ──
+    window._brmDateCards = []; // { date, time, pets[] }
+    var _brmDateCardIdx = 0;
 
-    window._brmAddDate = function() {
-      var container = document.getElementById('brm-extra-dates');
-      if (!container) return;
-      var idx = window._brmExtraDates.length;
-      var id = 'brm-extra-date-' + idx;
-      window._brmExtraDates.push('');
+    // Generate time options HTML (same as main time picker)
+    function _brmTimeOptionsHTML() {
+      var opts = '<option value="">Time...</option>';
+      for (var h = 5; h <= 22; h++) {
+        for (var m = 0; m < 60; m += 30) {
+          var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+          var ampm = h >= 12 ? 'PM' : 'AM';
+          var mm = m === 0 ? '00' : '30';
+          var label = hr12 + ':' + mm + ' ' + ampm;
+          var val24 = (h < 10 ? '0' : '') + h + ':' + mm;
+          opts += '<option value="' + val24 + '">' + label + '</option>';
+        }
+      }
+      return opts;
+    }
 
-      // Create a row with date input
-      var row = document.createElement('div');
-      row.id = 'brm-extra-date-row-' + idx;
-      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
-      row.innerHTML = '<input type="date" class="brm-input brm-extra-date-input" id="' + id + '" style="flex:1" min="' + (new Date().toISOString().split('T')[0]) + '"> <button type="button" onclick="window._brmRemoveDate(' + idx + ')" style="background:none;border:none;color:#c4756a;cursor:pointer;font-size:18px;padding:4px">&times;</button>';
-      container.appendChild(row);
-
-      // Listen for changes
-      var inp = document.getElementById(id);
-      if (inp) inp.addEventListener('change', function() {
-        window._brmExtraDates[idx] = inp.value;
-        updatePriceEstimate();
+    // Generate compact pet checkboxes for a date card
+    function _brmPetChipsHTML(cardIdx) {
+      var pets = window._bookingPetsData || [];
+      if (pets.length === 0) return '';
+      var html = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">';
+      pets.forEach(function(pet) {
+        var icon = pet.species === 'cat' ? '🐱' : '🐶';
+        html += '<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;' +
+          'background:#fff;border:1.5px solid #e0d5c5;border-radius:8px;cursor:pointer;' +
+          'font-size:0.8rem;font-weight:600;transition:all 0.15s" class="brm-dc-pet-label">' +
+          '<input type="checkbox" class="brm-dc-pet" data-card="' + cardIdx + '" ' +
+          'value="' + pet.id + '" data-name="' + (pet.name || '').replace(/"/g, '&quot;') + '" ' +
+          'data-species="' + (pet.species || 'dog') + '" ' +
+          'onchange="this.closest(\'label\').style.borderColor=this.checked?\'#c8963e\':\'#e0d5c5\';' +
+          'this.closest(\'label\').style.background=this.checked?\'#fff8ec\':\'#fff\'" ' +
+          'style="width:14px;height:14px;accent-color:#c8963e">' +
+          icon + ' ' + (pet.name || 'Pet') + '</label>';
       });
-    };
+      html += '</div>';
+      return html;
+    }
 
-    window._brmRemoveDate = function(idx) {
-      var row = document.getElementById('brm-extra-date-row-' + idx);
-      if (row) row.remove();
-      window._brmExtraDates[idx] = null; // mark removed (keep indices stable)
+    window._brmAddDateCard = function() {
+      var dateInput = document.getElementById('brm-add-date-input');
+      if (!dateInput || !dateInput.value) {
+        dateInput && dateInput.focus();
+        return;
+      }
+      var dateVal = dateInput.value;
+
+      // Check for duplicate
+      var isDupe = window._brmDateCards.some(function(c) { return c && c.date === dateVal; });
+      if (isDupe) {
+        if (typeof toast === 'function') toast('That date is already added.');
+        return;
+      }
+
+      var idx = _brmDateCardIdx++;
+      window._brmDateCards.push({ idx: idx, date: dateVal });
+
+      var container = document.getElementById('brm-dates-list');
+      if (!container) return;
+
+      // Format the date for display
+      var d = new Date(dateVal + 'T12:00:00');
+      var dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+      var monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      var card = document.createElement('div');
+      card.id = 'brm-dc-' + idx;
+      card.setAttribute('data-date', dateVal);
+      card.style.cssText = 'background:#f9f6f0;border:1px solid #e0d5c5;border-radius:10px;padding:12px 14px;position:relative';
+      card.innerHTML =
+        '<button type="button" onclick="window._brmRemoveDateCard(' + idx + ')" style="position:absolute;top:8px;right:10px;background:none;border:none;color:#c4756a;cursor:pointer;font-size:18px;line-height:1">&times;</button>' +
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+          '<div style="font-weight:700;font-size:0.92rem;color:#1e1409;min-width:110px">' +
+            '<span style="color:#c8963e">' + dayName + '</span> ' + monthDay +
+          '</div>' +
+          '<select id="brm-dc-time-' + idx + '" class="brm-input" style="flex:1;min-width:120px;max-width:180px;margin:0;padding:6px 8px;font-size:0.82rem">' +
+            _brmTimeOptionsHTML() +
+          '</select>' +
+        '</div>' +
+        _brmPetChipsHTML(idx);
+      container.appendChild(card);
+
+      // Clear the date input for next selection
+      dateInput.value = '';
       updatePriceEstimate();
     };
+
+    window._brmRemoveDateCard = function(idx) {
+      var card = document.getElementById('brm-dc-' + idx);
+      if (card) card.remove();
+      window._brmDateCards = window._brmDateCards.filter(function(c) { return c && c.idx !== idx; });
+      updatePriceEstimate();
+    };
+
+    // Get all selected date cards data (used by submission)
+    window._brmGetDateCardsData = function() {
+      var results = [];
+      var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
+      cards.forEach(function(card) {
+        var dateVal = card.getAttribute('data-date');
+        var idx = card.id.replace('brm-dc-', '');
+        var timeEl = document.getElementById('brm-dc-time-' + idx);
+        var time = timeEl ? timeEl.value : '';
+        var pets = [];
+        card.querySelectorAll('.brm-dc-pet:checked').forEach(function(cb) {
+          pets.push({ id: cb.value, name: cb.getAttribute('data-name'), species: cb.getAttribute('data-species') });
+        });
+        results.push({ date: dateVal, time: time, pets: pets });
+      });
+      return results;
+    };
+
+    // Legacy _brmExtraDates getter for backward compatibility with price calc
+    Object.defineProperty(window, '_brmExtraDates', {
+      get: function() {
+        return (window._brmDateCards || []).map(function(c) { return c ? c.date : null; });
+      },
+      configurable: true,
+      enumerable: true
+    });
 
     // ── Recurring preview generator ──
     function getRecurDates() {
@@ -1011,7 +1106,7 @@
       if (!endStr || !startStr) return [];
 
       var dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
-      var intervalDays = freq === 'weekly' ? 7 : freq === 'biweekly' ? 14 : 28;
+      var intervalDays = freq === 'biweekly' ? 14 : 7;
       var start = new Date(startStr + 'T12:00:00');
       var end = new Date(endStr + 'T12:00:00');
       var dates = [];
@@ -1300,9 +1395,11 @@
       }
 
       // Reset multi-date state on open
-      window._brmExtraDates = [];
-      var extraContainer = document.getElementById('brm-extra-dates');
-      if (extraContainer) extraContainer.innerHTML = '';
+      window._brmDateCards = [];
+      var datesListEl = document.getElementById('brm-dates-list');
+      if (datesListEl) datesListEl.innerHTML = '';
+      var addDateInput = document.getElementById('brm-add-date-input');
+      if (addDateInput) addDateInput.value = '';
       var recurToggle = document.getElementById('brm-recur-toggle');
       if (recurToggle) { recurToggle.checked = false; }
       var recurOpts = document.getElementById('brm-recur-options');
@@ -1564,13 +1661,15 @@
     // Collect multi-date and recurrence data
     var isRecurring = document.getElementById('brm-recur-toggle') && document.getElementById('brm-recur-toggle').checked;
     var allBookingDates = [date]; // always include the primary date
+    var dateCardDetails = []; // per-date time + pet data from date cards
 
     if (isRecurring && window._brmGetRecurDates) {
       var recurDates = window._brmGetRecurDates();
       if (recurDates.length > 0) allBookingDates = recurDates;
-    } else if (window._brmExtraDates) {
-      // Add any manually-added extra dates
-      window._brmExtraDates.forEach(function(d) { if (d) allBookingDates.push(d); });
+    } else if (window._brmGetDateCardsData) {
+      // Add dates from the new date card system (each with their own time + pet selection)
+      dateCardDetails = window._brmGetDateCardsData();
+      dateCardDetails.forEach(function(dc) { if (dc.date) allBookingDates.push(dc.date); });
     }
     // Deduplicate and sort
     allBookingDates = allBookingDates.filter(function(v, i, a) { return v && a.indexOf(v) === i; }).sort();
@@ -1675,6 +1774,7 @@
           status: 'pending',
           booking_dates: totalDates > 1 ? allBookingDates : null,
           recurrence_pattern: recurrencePattern,
+          date_details: dateCardDetails.length > 0 ? dateCardDetails : null,
           selected_pet_ids: selectedPetIds ? selectedPetIds.split(',') : null,
         })
         .select();
@@ -1685,7 +1785,18 @@
       try {
         var dateDisplay = isHouseSitting ? date + ' to ' + endDate : date;
         if (totalDates > 1 && !isHouseSitting) {
-          dateDisplay = allBookingDates.join(', ') + ' (' + totalDates + ' dates)';
+          // Include per-date times if available from date cards
+          if (dateCardDetails.length > 0) {
+            var dateParts = [];
+            // Primary date
+            dateParts.push(date + ' @ ' + time);
+            dateCardDetails.forEach(function(dc) {
+              dateParts.push(dc.date + (dc.time ? ' @ ' + dc.time : ''));
+            });
+            dateDisplay = dateParts.join(', ') + ' (' + totalDates + ' dates)';
+          } else {
+            dateDisplay = allBookingDates.join(', ') + ' (' + totalDates + ' dates)';
+          }
         }
         if (isRecurring && recurrencePattern) {
           dateDisplay += ' [Recurring: ' + recurrencePattern.days.join(', ') + ' ' + recurrencePattern.frequency + ' until ' + recurrencePattern.end_date + ']';
@@ -1715,10 +1826,12 @@
       setTimeout(function() {
         var form = document.getElementById('bookingRequestForm');
         if (form) form.reset();
-        // Clear extra dates
-        window._brmExtraDates = [];
-        var extraContainer = document.getElementById('brm-extra-dates');
-        if (extraContainer) extraContainer.innerHTML = '';
+        // Clear date cards
+        window._brmDateCards = [];
+        var datesListEl = document.getElementById('brm-dates-list');
+        if (datesListEl) datesListEl.innerHTML = '';
+        var addDateInput = document.getElementById('brm-add-date-input');
+        if (addDateInput) addDateInput.value = '';
         // Hide recurring options
         var recurOpts = document.getElementById('brm-recur-options');
         if (recurOpts) recurOpts.style.display = 'none';
@@ -1912,7 +2025,19 @@
         }
         // Multi-date / recurring display
         var multiDateHTML = '';
-        if (r.booking_dates && Array.isArray(r.booking_dates) && r.booking_dates.length > 1) {
+        if (r.date_details && Array.isArray(r.date_details) && r.date_details.length > 0) {
+          // New format: date cards with per-date time + pets
+          var cardEntries = r.date_details.map(function(dc) {
+            var dStr = new Date(dc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var tStr = dc.time ? ' @ ' + fmt12(dc.time) : '';
+            var pStr = (dc.pets && dc.pets.length > 0) ? ' — ' + dc.pets.map(function(p) { return p.name; }).join(', ') : '';
+            return '<div style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:8px;padding:6px 10px;font-size:0.82rem">' +
+              '<strong>' + dStr + '</strong>' + tStr + pStr + '</div>';
+          });
+          multiDateHTML = '<div class="arc-detail"><strong>' + (r.date_details.length + 1) + ' Appointments:</strong>' +
+            '<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">' + cardEntries.join('') + '</div></div>';
+        } else if (r.booking_dates && Array.isArray(r.booking_dates) && r.booking_dates.length > 1) {
+          // Legacy format: just date strings
           var formattedDates = r.booking_dates.map(function(d) {
             return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
           });
@@ -1923,7 +2048,7 @@
         if (r.recurrence_pattern) {
           var rp = typeof r.recurrence_pattern === 'string' ? JSON.parse(r.recurrence_pattern) : r.recurrence_pattern;
           var dayNames = (rp.days || []).map(function(d) { return d.charAt(0).toUpperCase() + d.slice(1); });
-          var freqLabel = rp.frequency === 'weekly' ? 'Every week' : rp.frequency === 'biweekly' ? 'Every 2 weeks' : 'Every 4 weeks';
+          var freqLabel = rp.frequency === 'weekly' ? 'Every week' : 'Every other week';
           recurHTML = '<div class="arc-detail" style="background:#eef6ff;border:1px solid #b8d4f0;border-radius:6px;padding:8px 10px;margin:4px 0"><strong>🔄 Recurring:</strong> ' + dayNames.join(', ') + ' · ' + freqLabel + (rp.end_date ? ' · Until ' + new Date(rp.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '') + '</div>';
         }
 
