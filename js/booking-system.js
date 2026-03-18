@@ -1449,6 +1449,13 @@
 
   // Open / Close booking modal
   window.openBookingModal = function(preselectedService) {
+    // Require account — no guest bookings
+    if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
+      if (typeof toast === 'function') toast('Please create an account or sign in to book a service.');
+      var authOverlay = document.getElementById('authOverlay');
+      if (authOverlay) { authOverlay.classList.add('open'); if (typeof toggleAuthMode === 'function') toggleAuthMode('signup'); }
+      return;
+    }
     createBookingModal();
     var modal = document.getElementById('bookingRequestModal');
     if (modal) {
@@ -1543,11 +1550,11 @@
           }
         }
       } else {
-        // Guest: show text input fallback
-        var cbArea = document.getElementById('brm-pet-checkboxes');
-        if (cbArea) cbArea.style.display = 'none';
-        var guestArea = document.getElementById('brm-pets-guest');
-        if (guestArea) guestArea.style.display = '';
+        // Guest fallback removed — account required
+        // Users must be logged in to reach this point
+        // No guest fallback needed
+        //
+        //
       }
     }
   };
@@ -1582,12 +1589,11 @@
           '     Add your first pet →</a>',
           '</div>',
         ].join('\n');
-        // Also show guest fallback so they can still type pet info
-        if (guestArea) guestArea.style.display = '';
+        // Account required — no guest fallback needed
         return;
       }
 
-      // Hide guest fallback for logged-in users with pets
+      // Hide guest area (no longer used)
       if (guestArea) guestArea.style.display = 'none';
 
       // Store pets data for later use
@@ -1640,9 +1646,8 @@
 
     } catch (err) {
       console.error('Failed to load pets for booking:', err);
-      // Show guest fallback on error
-      container.innerHTML = '<div style="color:#a66;font-size:0.82rem">Could not load pet profiles.</div>';
-      if (guestArea) guestArea.style.display = '';
+      // Show error message (account required, no guest fallback)
+      container.innerHTML = '<div style="color:#a66;font-size:0.82rem">Could not load pet profiles. Please try again.</div>';
     }
   };
 
