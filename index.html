@@ -1121,12 +1121,13 @@ try {
   <div class="portal-wrap">
     <div class="sidebar">
       <div class="sidebar-user"><div class="sb-ava">🐾</div><div><div class="sb-name">Welcome!</div><div class="sb-role">Client Portal</div></div></div>
+      <button class="sb-item" onclick="sTab('c','c-pets')" style="background:linear-gradient(135deg,rgba(200,150,62,0.2),rgba(61,90,71,0.15));border:1px solid rgba(200,150,62,0.25);color:var(--gold-light);margin-bottom:8px"><span class="sb-item-icon">🐾</span>My Pets</button>
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Overview <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:200px">
         <button class="sb-item active" onclick="sTab('c','c-dash')"><span class="sb-item-icon">🏠</span>Dashboard</button>
         <button class="sb-item" onclick="sTab('c','c-appts')"><span class="sb-item-icon">📅</span>Appointments</button>
       </div>
-      <button class="sb-section-toggle" onclick="toggleSbGroup(this)">My Pets <span class="sb-arrow">▼</span></button>
+      <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Pet Services <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:200px">
         <button class="sb-item" onclick="sTab('c','c-track')"><span class="sb-item-icon">🗺️</span>Live Tracking</button>
         <button class="sb-item" onclick="sTab('c','c-photos')"><span class="sb-item-icon">📸</span>Photo Gallery</button>
@@ -1159,6 +1160,93 @@ try {
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span class="card-title">Recent Notifications</span></div>
             <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No notifications yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MY PETS -->
+      <div class="p-panel" id="c-pets">
+        <div class="p-header"><h2>My Pets 🐾</h2><p>Manage your pet profiles — this info helps Rachel provide the best care.</p></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <span class="card-title" id="cp-count">0 Pets</span>
+          <button class="btn btn-gold btn-sm" onclick="openPetForm()">+ Add New Pet</button>
+        </div>
+        <div id="cp-list" style="display:flex;flex-direction:column;gap:14px">
+          <div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">Loading pets...</div>
+        </div>
+
+        <!-- Add/Edit Pet Form (hidden by default) -->
+        <div id="petFormWrap" style="display:none;margin-top:20px">
+          <div class="card" style="border:2px solid var(--gold);max-width:680px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+              <div class="card-title" id="petFormTitle">Add New Pet</div>
+              <button class="btn btn-outline btn-sm" onclick="closePetForm()">Cancel</button>
+            </div>
+            <input type="hidden" id="pet-edit-id">
+
+            <!-- Section 1: Pet Details -->
+            <div style="margin-bottom:20px">
+              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Pet Details</div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-lbl">Pet Name *</label><input class="form-in" id="pet-name" placeholder="e.g. Moose" required></div>
+                <div class="form-group"><label class="form-lbl">Species *</label><select class="form-sel" id="pet-species"><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-lbl">Breed</label><input class="form-in" id="pet-breed" placeholder="e.g. Golden Retriever"></div>
+                <div class="form-group"><label class="form-lbl">Sex</label><select class="form-sel" id="pet-sex"><option value="">Select...</option><option value="male">Male</option><option value="female">Female</option></select></div>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-lbl">Birthday / Age</label><input class="form-in" type="date" id="pet-birthday"></div>
+                <div class="form-group"><label class="form-lbl">Weight (lbs)</label><input class="form-in" type="number" id="pet-weight" placeholder="e.g. 65"></div>
+              </div>
+              <div class="form-group"><label class="form-lbl">Size</label><select class="form-sel" id="pet-size"><option value="">Select...</option><option value="small">Small (under 25 lbs)</option><option value="medium">Medium (25–50 lbs)</option><option value="large">Large (50–100 lbs)</option><option value="giant">Giant (100+ lbs)</option></select></div>
+              <div class="form-group"><label class="form-lbl">Pet Photo</label>
+                <div id="pet-photo-preview" style="width:80px;height:80px;border-radius:12px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.5rem;background:var(--warm);margin-bottom:8px" onclick="document.getElementById('pet-photo-input').click()">📷</div>
+                <input type="file" id="pet-photo-input" accept="image/*" style="display:none" onchange="previewPetPhoto(this)">
+              </div>
+            </div>
+
+            <!-- Section 2: Health & Safety -->
+            <div style="margin-bottom:20px">
+              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Health & Safety</div>
+              <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-spayed"> Spayed / Neutered</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-microchipped"> Microchipped</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-housetrained"> House Trained</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-vaccinated"> Vaccinations Current</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-fleaprev"> Flea/Tick Prevention</label>
+              </div>
+            </div>
+
+            <!-- Section 3: Temperament -->
+            <div style="margin-bottom:20px">
+              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Temperament</div>
+              <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-fdogs" checked> Friendly with Dogs</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-fcats" checked> Friendly with Cats</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-fkids" checked> Friendly with Children</label>
+              </div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-lbl">Energy Level</label><select class="form-sel" id="pet-energy"><option value="low">Low — Couch potato</option><option value="medium" selected>Medium — Balanced</option><option value="high">High — Always on the go</option></select></div>
+              </div>
+              <div class="form-group"><label class="form-lbl">Behavioral Notes</label><textarea class="form-ta" id="pet-behavior" style="min-height:60px" placeholder="e.g. Gets anxious during thunderstorms, pulls on leash sometimes..."></textarea></div>
+            </div>
+
+            <!-- Section 4: Care & Vet Info -->
+            <div style="margin-bottom:20px">
+              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Care & Vet Info</div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-lbl">Vet Name</label><input class="form-in" id="pet-vet" placeholder="e.g. Lancaster Animal Hospital"></div>
+                <div class="form-group"><label class="form-lbl">Vet Phone</label><input class="form-in" id="pet-vetphone" placeholder="(717) 555-0123"></div>
+              </div>
+              <div class="form-group"><label class="form-lbl">Medications</label><input class="form-in" id="pet-meds" placeholder="e.g. Apoquel 16mg daily, Heartgard monthly"></div>
+              <div class="form-group"><label class="form-lbl">Allergies</label><input class="form-in" id="pet-allergies" placeholder="e.g. Chicken, certain grasses"></div>
+              <div class="form-group"><label class="form-lbl">Special Needs</label><input class="form-in" id="pet-special" placeholder="e.g. Needs help with stairs, deaf in one ear"></div>
+              <div class="form-group"><label class="form-lbl">Feeding Instructions</label><textarea class="form-ta" id="pet-feeding" style="min-height:60px" placeholder="e.g. 1 cup kibble morning & evening, wet food topper at dinner..."></textarea></div>
+              <div class="form-group"><label class="form-lbl">Additional Notes</label><textarea class="form-ta" id="pet-notes" style="min-height:60px" placeholder="Anything else Rachel should know..."></textarea></div>
+            </div>
+
+            <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="savePet()">Save Pet Profile</button>
           </div>
         </div>
       </div>
@@ -2253,6 +2341,7 @@ function sTab(portal, panelId) {
   if(el) el.classList.add('active');
   // Auto-load data when switching to specific panels
   if (panelId === 'c-bill' && typeof loadSavedCard === 'function') loadSavedCard();
+  if (panelId === 'c-pets' && typeof loadMyPets === 'function') loadMyPets();
   if (panelId === 'o-clients' && typeof loadOwnerClients === 'function') loadOwnerClients();
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
@@ -2266,7 +2355,7 @@ function sTab(portal, panelId) {
   }
 }
 function getIcon(id) {
-  const map = {'c-dash':'🏠','c-appts':'📅','c-track':'🗺️','c-photos':'📸','c-reports':'📋','c-msgs':'💬','c-notifs':'🔔','c-cal':'📆','c-bill':'💳','s-sched':'📅','s-jobs':'🦮','s-reports':'📋','s-msgs':'💬','s-earn':'💰','s-cal':'📆','o-overview':'📊','o-clients':'👥','o-sched':'📅','o-reports':'📋','o-staff':'🧑‍🤝‍🧑','o-msgs':'💬','o-cal':'📆','o-avail':'🗓️','o-auto':'🤖','o-studio':'✨','o-content':'✏️','o-photos':'🖼️','o-payments':'💳','o-deals':'🏷️','o-sendInvoice':'🧾','o-linkpage':'🔗'};
+  const map = {'c-pets':'🐾','c-dash':'🏠','c-appts':'📅','c-track':'🗺️','c-photos':'📸','c-reports':'📋','c-msgs':'💬','c-notifs':'🔔','c-cal':'📆','c-bill':'💳','s-sched':'📅','s-jobs':'🦮','s-reports':'📋','s-msgs':'💬','s-earn':'💰','s-cal':'📆','o-overview':'📊','o-clients':'👥','o-sched':'📅','o-reports':'📋','o-staff':'🧑‍🤝‍🧑','o-msgs':'💬','o-cal':'📆','o-avail':'🗓️','o-auto':'🤖','o-studio':'✨','o-content':'✏️','o-photos':'🖼️','o-payments':'💳','o-deals':'🏷️','o-sendInvoice':'🧾','o-linkpage':'🔗'};
   return map[id]||'';
 }
 
@@ -3094,6 +3183,280 @@ async function addPaymentMethod() {
     window.history.replaceState({}, '', window.location.pathname);
   }
 })();
+
+// ── Pet Profiles System ──
+var _myPets = [];
+
+async function loadMyPets() {
+  var listEl = document.getElementById('cp-list');
+  var countEl = document.getElementById('cp-count');
+  if (!listEl) return;
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Sign in to manage your pets.</div>'; return; }
+
+  try {
+    var { data, error } = await sb.from('pets').select('*').eq('owner_id', user.id).order('created_at', { ascending: true });
+    if (error) throw error;
+    _myPets = data || [];
+    if (countEl) countEl.textContent = _myPets.length + ' Pet' + (_myPets.length !== 1 ? 's' : '');
+    renderMyPets(_myPets);
+  } catch (err) {
+    console.error('Load pets error:', err);
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Could not load pets.</div>';
+  }
+}
+
+function renderMyPets(pets) {
+  var listEl = document.getElementById('cp-list');
+  if (!listEl) return;
+  if (!pets || pets.length === 0) {
+    listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">No pet profiles yet. Click "+ Add New Pet" to create one!</div>';
+    return;
+  }
+  listEl.innerHTML = pets.map(function(p) {
+    var icon = p.species === 'cat' ? '🐱' : '🐕';
+    var age = '';
+    if (p.birthday) {
+      var bd = new Date(p.birthday);
+      var diff = Date.now() - bd.getTime();
+      var years = Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
+      age = years > 0 ? years + ' yr' + (years !== 1 ? 's' : '') : 'Under 1 yr';
+    } else if (p.age) { age = p.age + ' yr' + (p.age !== 1 ? 's' : ''); }
+
+    var badges = [];
+    if (p.spayed_neutered) badges.push('Fixed');
+    if (p.microchipped) badges.push('Chipped');
+    if (p.vaccinations_current) badges.push('Vaxxed');
+
+    var photoStyle = p.photo_url
+      ? 'background-image:url(' + p.photo_url + ');background-size:cover;background-position:center;font-size:0'
+      : 'font-size:1.5rem';
+
+    return '<div class="card" style="padding:14px">' +
+      '<div style="display:flex;gap:14px;align-items:flex-start">' +
+        '<div style="width:60px;height:60px;border-radius:12px;background:var(--warm);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;' + photoStyle + '">' + icon + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">' +
+            '<div>' +
+              '<div style="font-weight:700;font-size:1rem">' + (p.name || 'Unnamed') + '</div>' +
+              '<div style="font-size:0.82rem;color:var(--mid)">' + (p.breed || p.species || '') + (p.sex ? ' · ' + p.sex.charAt(0).toUpperCase() + p.sex.slice(1) : '') + (age ? ' · ' + age : '') + (p.weight ? ' · ' + p.weight + ' lbs' : '') + '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:6px;flex-shrink:0">' +
+              '<button class="btn btn-outline btn-sm" onclick="editPet(\'' + p.id + '\')" style="font-size:0.72rem;padding:4px 10px">Edit</button>' +
+              '<button class="btn btn-outline btn-sm" onclick="deletePet(\'' + p.id + '\',\'' + (p.name || '').replace(/'/g, "\\'") + '\')" style="font-size:0.72rem;padding:4px 10px;color:#c4756a;border-color:#c4756a">Remove</button>' +
+            '</div>' +
+          '</div>' +
+          (badges.length > 0 ? '<div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">' + badges.map(function(b) { return '<span style="font-size:0.68rem;background:#dcfce7;color:#166534;padding:1px 6px;border-radius:4px">' + b + '</span>'; }).join('') + '</div>' : '') +
+          (p.friendly_dogs === false || p.friendly_cats === false || p.friendly_children === false ? '<div style="font-size:0.75rem;color:#c4756a;margin-top:4px">' + (p.friendly_dogs === false ? '⚠️ Not dog-friendly ' : '') + (p.friendly_cats === false ? '⚠️ Not cat-friendly ' : '') + (p.friendly_children === false ? '⚠️ Not child-friendly' : '') + '</div>' : '') +
+          (p.medications ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:4px">💊 ' + p.medications + '</div>' : '') +
+          (p.special_needs ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px">⚠️ ' + p.special_needs + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openPetForm(petData) {
+  document.getElementById('petFormWrap').style.display = 'block';
+  document.getElementById('petFormTitle').textContent = petData ? 'Edit Pet Profile' : 'Add New Pet';
+  document.getElementById('pet-edit-id').value = petData ? petData.id : '';
+  // Fill form
+  document.getElementById('pet-name').value = petData?.name || '';
+  document.getElementById('pet-species').value = petData?.species || 'dog';
+  document.getElementById('pet-breed').value = petData?.breed || '';
+  document.getElementById('pet-sex').value = petData?.sex || '';
+  document.getElementById('pet-birthday').value = petData?.birthday || '';
+  document.getElementById('pet-weight').value = petData?.weight || '';
+  document.getElementById('pet-size').value = petData?.size || '';
+  document.getElementById('pet-spayed').checked = !!petData?.spayed_neutered;
+  document.getElementById('pet-microchipped').checked = !!petData?.microchipped;
+  document.getElementById('pet-housetrained').checked = !!petData?.house_trained;
+  document.getElementById('pet-vaccinated').checked = !!petData?.vaccinations_current;
+  document.getElementById('pet-fleaprev').checked = !!petData?.flea_tick_prevention;
+  document.getElementById('pet-fdogs').checked = petData?.friendly_dogs !== false;
+  document.getElementById('pet-fcats').checked = petData?.friendly_cats !== false;
+  document.getElementById('pet-fkids').checked = petData?.friendly_children !== false;
+  document.getElementById('pet-energy').value = petData?.energy_level || 'medium';
+  document.getElementById('pet-behavior').value = petData?.behavioral_notes || '';
+  document.getElementById('pet-vet').value = petData?.vet_name || '';
+  document.getElementById('pet-vetphone').value = petData?.vet_phone || '';
+  document.getElementById('pet-meds').value = petData?.medications || '';
+  document.getElementById('pet-allergies').value = petData?.allergies || '';
+  document.getElementById('pet-special').value = petData?.special_needs || '';
+  document.getElementById('pet-feeding').value = petData?.feeding_instructions || '';
+  document.getElementById('pet-notes').value = petData?.notes || '';
+  // Photo preview
+  var preview = document.getElementById('pet-photo-preview');
+  if (petData?.photo_url) {
+    preview.style.backgroundImage = 'url(' + petData.photo_url + ')';
+    preview.style.backgroundSize = 'cover';
+    preview.style.backgroundPosition = 'center';
+    preview.textContent = '';
+  } else {
+    preview.style.backgroundImage = '';
+    preview.innerHTML = '📷';
+  }
+  // Scroll to form
+  document.getElementById('petFormWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function closePetForm() {
+  document.getElementById('petFormWrap').style.display = 'none';
+}
+
+function previewPetPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var preview = document.getElementById('pet-photo-preview');
+    preview.style.backgroundImage = 'url(' + e.target.result + ')';
+    preview.style.backgroundSize = 'cover';
+    preview.style.backgroundPosition = 'center';
+    preview.textContent = '';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+async function uploadPetPhoto() {
+  var input = document.getElementById('pet-photo-input');
+  if (!input.files || !input.files[0]) return null;
+  // Use Cloudinary widget if available, otherwise upload via fetch
+  if (typeof HHP_Photos !== 'undefined' && HHP_Photos.CLOUD_NAME) {
+    var formData = new FormData();
+    formData.append('file', input.files[0]);
+    formData.append('upload_preset', HHP_Photos.UPLOAD_PRESET);
+    formData.append('folder', 'housley-happy-paws/pets');
+    try {
+      var resp = await fetch('https://api.cloudinary.com/v1_1/' + HHP_Photos.CLOUD_NAME + '/image/upload', { method: 'POST', body: formData });
+      var data = await resp.json();
+      if (data.secure_url) return data.secure_url;
+    } catch (err) { console.error('Photo upload error:', err); }
+  }
+  return null;
+}
+
+async function savePet() {
+  var name = document.getElementById('pet-name').value.trim();
+  if (!name) { toast('Please enter your pet\'s name.'); return; }
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { toast('Please sign in first.'); return; }
+
+  toast('Saving pet profile...');
+
+  // Upload photo if new one selected
+  var photoUrl = null;
+  var input = document.getElementById('pet-photo-input');
+  if (input.files && input.files[0]) {
+    photoUrl = await uploadPetPhoto();
+  }
+
+  var petData = {
+    owner_id: user.id,
+    name: name,
+    species: document.getElementById('pet-species').value,
+    breed: document.getElementById('pet-breed').value.trim() || null,
+    sex: document.getElementById('pet-sex').value || null,
+    birthday: document.getElementById('pet-birthday').value || null,
+    weight: document.getElementById('pet-weight').value ? parseFloat(document.getElementById('pet-weight').value) : null,
+    size: document.getElementById('pet-size').value || null,
+    spayed_neutered: document.getElementById('pet-spayed').checked,
+    microchipped: document.getElementById('pet-microchipped').checked,
+    house_trained: document.getElementById('pet-housetrained').checked,
+    vaccinations_current: document.getElementById('pet-vaccinated').checked,
+    flea_tick_prevention: document.getElementById('pet-fleaprev').checked,
+    friendly_dogs: document.getElementById('pet-fdogs').checked,
+    friendly_cats: document.getElementById('pet-fcats').checked,
+    friendly_children: document.getElementById('pet-fkids').checked,
+    energy_level: document.getElementById('pet-energy').value,
+    behavioral_notes: document.getElementById('pet-behavior').value.trim() || null,
+    vet_name: document.getElementById('pet-vet').value.trim() || null,
+    vet_phone: document.getElementById('pet-vetphone').value.trim() || null,
+    medications: document.getElementById('pet-meds').value.trim() || null,
+    allergies: document.getElementById('pet-allergies').value.trim() || null,
+    special_needs: document.getElementById('pet-special').value.trim() || null,
+    feeding_instructions: document.getElementById('pet-feeding').value.trim() || null,
+    notes: document.getElementById('pet-notes').value.trim() || null,
+    updated_at: new Date().toISOString()
+  };
+  if (photoUrl) petData.photo_url = photoUrl;
+
+  var editId = document.getElementById('pet-edit-id').value;
+  try {
+    if (editId) {
+      var { error } = await sb.from('pets').update(petData).eq('id', editId);
+      if (error) throw error;
+      toast('✅ ' + name + '\'s profile updated!');
+    } else {
+      var { error } = await sb.from('pets').insert(petData);
+      if (error) throw error;
+      toast('✅ ' + name + ' added to your pets!');
+    }
+    closePetForm();
+    document.getElementById('pet-photo-input').value = '';
+    loadMyPets();
+  } catch (err) {
+    console.error('Save pet error:', err);
+    toast('Could not save pet. Please try again.');
+  }
+}
+
+function editPet(petId) {
+  var pet = _myPets.find(function(p) { return p.id === petId; });
+  if (pet) openPetForm(pet);
+}
+
+async function deletePet(petId, petName) {
+  if (!confirm('Remove ' + petName + ' from your pets? This cannot be undone.')) return;
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  try {
+    var { error } = await sb.from('pets').delete().eq('id', petId);
+    if (error) throw error;
+    toast('🗑️ ' + petName + ' removed.');
+    loadMyPets();
+  } catch (err) {
+    console.error('Delete pet error:', err);
+    toast('Could not remove pet.');
+  }
+}
+
+// ── Mandatory Pet Profile After Signup ──
+function checkNeedsPetSetup() {
+  if (!window.HHP_Auth || !window.HHP_Auth.currentUser) return;
+  var user = window.HHP_Auth.currentUser;
+  var profile = user.profile;
+  if (!profile || profile.role !== 'client') return;
+  var sb = window.HHP_Auth.supabase;
+  if (!sb) return;
+  sb.from('pets').select('id').eq('owner_id', user.id).limit(1).then(function(result) {
+    if (!result.data || result.data.length === 0) {
+      // No pets — show mandatory setup
+      showPetSetupPrompt();
+    }
+  });
+}
+
+function showPetSetupPrompt() {
+  // Create overlay
+  var overlay = document.createElement('div');
+  overlay.id = 'petSetupOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(30,20,9,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML =
+    '<div style="background:white;border-radius:16px;padding:32px;max-width:480px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3)">' +
+      '<div style="font-size:3rem;margin-bottom:12px">🐾</div>' +
+      '<h2 style="margin-bottom:8px;color:var(--brown)">Welcome to Housley Happy Paws!</h2>' +
+      '<p style="color:var(--mid);margin-bottom:20px;font-size:0.9rem">Before we get started, let\'s set up a profile for your pet. This helps Rachel provide the best possible care!</p>' +
+      '<button class="btn btn-gold" style="width:100%;justify-content:center;font-size:1rem;padding:12px" onclick="document.getElementById(\'petSetupOverlay\').remove();sTab(\'c\',\'c-pets\');setTimeout(function(){openPetForm()},300)">+ Add My First Pet</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+}
+
+// Check after auth loads
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() { checkNeedsPetSetup(); }, 2500);
+});
 
 // ── Owner: All Clients Panel ──
 var _ownerClientsData = [];

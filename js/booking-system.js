@@ -597,21 +597,28 @@
       '      </div>',
       '    </div>',
       '',
-      '    <label class="brm-label">Name(s) *</label>',
-      '    <input type="text" id="brm-pets" class="brm-input" placeholder="e.g., Moose, Cookie" required>',
-      '',
-      '    <label class="brm-label">Pet(s) *</label>',
-      '    <select id="brm-petcombo" class="brm-input" required>',
-      '      <option value="">Choose...</option>',
-      '      <option value="1dog">1 Dog</option>',
-      '      <option value="1cat">1 Cat</option>',
-      '      <option value="2dogs">2 Dogs</option>',
-      '      <option value="2cats">2 Cats</option>',
-      '      <option value="1dog1cat">1 Dog &amp; 1 Cat</option>',
-      '      <option value="3plus">3 or More+</option>',
-      '    </select>',
+      '    <label class="brm-label">Select Your Pet(s) *</label>',
+      '    <div id="brm-pet-checkboxes" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">',
+      '      <div style="color:#8c6b4a;font-size:0.84rem">Loading your pets...</div>',
+      '    </div>',
+      '    <!-- Fallback for guests -->',
+      '    <div id="brm-pets-guest" style="display:none">',
+      '      <label class="brm-label">Pet Name(s) *</label>',
+      '      <input type="text" id="brm-pets" class="brm-input" placeholder="e.g., Moose, Cookie">',
+      '      <label class="brm-label">Pet(s) *</label>',
+      '      <select id="brm-petcombo" class="brm-input">',
+      '        <option value="">Choose...</option>',
+      '        <option value="1dog">1 Dog</option>',
+      '        <option value="1cat">1 Cat</option>',
+      '        <option value="2dogs">2 Dogs</option>',
+      '        <option value="2cats">2 Cats</option>',
+      '        <option value="1dog1cat">1 Dog &amp; 1 Cat</option>',
+      '        <option value="3plus">3 or More+</option>',
+      '      </select>',
+      '    </div>',
       '    <input type="hidden" id="brm-pettype" value="dog">',
       '    <input type="hidden" id="brm-numpets" value="1">',
+      '    <input type="hidden" id="brm-pets-selected-ids" value="">',
       '',
       '    <div style="display:flex;align-items:center;gap:10px;margin:8px 0 12px">',
       '      <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="brm-puppy"> Puppy (under 1 year)</label>',
@@ -688,6 +695,7 @@
     }
 
     // Live price estimator
+    window._brmUpdatePrice = updatePriceEstimate;
     function updatePriceEstimate() {
       var svcName = resolveServiceName();
       var numPets = parseInt(document.getElementById('brm-numpets').value) || 1;
@@ -1306,14 +1314,15 @@
         var p = u.profile || {};
         var nameEl = document.getElementById('brm-name');
         var emailEl = document.getElementById('brm-email');
-        var petsEl = document.getElementById('brm-pets');
         var phoneEl = document.getElementById('brm-phone');
         var addrEl = document.getElementById('brm-address');
         if (nameEl && !nameEl.value && p.full_name) nameEl.value = p.full_name;
         if (emailEl && !emailEl.value && u.email) emailEl.value = u.email;
-        if (petsEl && !petsEl.value && p.pet_names) petsEl.value = p.pet_names;
         if (phoneEl && !phoneEl.value && p.phone) phoneEl.value = p.phone;
         if (addrEl && !addrEl.value && p.address) addrEl.value = p.address;
+
+        // Load pet checkboxes from saved pets
+        window._loadBookingPets(u.id);
 
         // Show greeting
         var greetingEl = document.getElementById('brm-greeting');
@@ -1325,7 +1334,177 @@
             greetingEl.style.display = '';
           }
         }
+      } else {
+        // Guest: show text input fallback
+        var cbArea = document.getElementById('brm-pet-checkboxes');
+        if (cbArea) cbArea.style.display = 'none';
+        var guestArea = document.getElementById('brm-pets-guest');
+        if (guestArea) guestArea.style.display = '';
       }
+    }
+  };
+
+  // ── LOAD PET CHECKBOXES INTO BOOKING MODAL ──
+  window._loadBookingPets = async function(userId) {
+    var container = document.getElementById('brm-pet-checkboxes');
+    var guestArea = document.getElementById('brm-pets-guest');
+    if (!container) return;
+
+    container.innerHTML = '<div style="color:#8c6b4a;font-size:0.84rem">Loading your pets...</div>';
+
+    try {
+      var sb = getSB();
+      if (!sb) throw new Error('No connection');
+
+      var { data: pets, error } = await sb
+        .from('pets')
+        .select('id, name, species, breed, photo_url, weight')
+        .eq('owner_id', userId)
+        .order('name');
+
+      if (error) throw error;
+
+      if (!pets || pets.length === 0) {
+        container.innerHTML = [
+          '<div style="background:#fff8ec;border:1px solid #e0d5c5;border-radius:10px;padding:14px;text-align:center">',
+          '  <div style="font-size:1.3rem;margin-bottom:6px">🐾</div>',
+          '  <div style="font-size:0.88rem;color:#6b5c4d;margin-bottom:8px">No pet profiles yet</div>',
+          '  <a href="#" onclick="event.preventDefault();closeBookingModal();if(typeof switchView===\'function\')switchView(\'client\');sTab(\'c\',\'c-pets\')" ',
+          '     style="color:#c8963e;font-weight:600;font-size:0.85rem;text-decoration:underline">',
+          '     Add your first pet →</a>',
+          '</div>',
+        ].join('\n');
+        // Also show guest fallback so they can still type pet info
+        if (guestArea) guestArea.style.display = '';
+        return;
+      }
+
+      // Hide guest fallback for logged-in users with pets
+      if (guestArea) guestArea.style.display = 'none';
+
+      // Store pets data for later use
+      window._bookingPetsData = pets;
+
+      // Render checkboxes
+      var html = '';
+      pets.forEach(function(pet) {
+        var icon = pet.species === 'cat' ? '🐱' : '🐶';
+        var breedText = pet.breed ? ' · ' + pet.breed : '';
+        var weightText = pet.weight ? ' · ' + pet.weight + ' lbs' : '';
+        var photoStyle = pet.photo_url
+          ? 'background-image:url(' + pet.photo_url + ');background-size:cover;background-position:center;'
+          : 'display:flex;align-items:center;justify-content:center;font-size:1.2rem;background:#f5f0e8;';
+
+        html += [
+          '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;',
+          'background:#fff;border:2px solid #e0d5c5;border-radius:10px;cursor:pointer;',
+          'transition:all 0.2s" class="brm-pet-checkbox-label"',
+          ' onmouseenter="this.style.borderColor=\'#c8963e\'"',
+          ' onmouseleave="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#e0d5c5\'"',
+          '>',
+          '  <input type="checkbox" class="brm-pet-cb" value="' + pet.id + '"',
+          '    data-name="' + (pet.name || '').replace(/"/g, '&quot;') + '"',
+          '    data-species="' + (pet.species || 'dog') + '"',
+          '    onchange="window._brmUpdatePetSelection()"',
+          '    style="width:18px;height:18px;accent-color:#c8963e;flex-shrink:0">',
+          '  <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;' + photoStyle + '">',
+          pet.photo_url ? '' : icon,
+          '  </div>',
+          '  <div style="flex:1;min-width:0">',
+          '    <div style="font-weight:600;font-size:0.88rem;color:#1e1409">' + (pet.name || 'Unnamed') + '</div>',
+          '    <div style="font-size:0.78rem;color:#8c6b4a">' + icon + breedText + weightText + '</div>',
+          '  </div>',
+          '</label>',
+        ].join('');
+      });
+
+      // Add "Add another pet" link
+      html += [
+        '<a href="#" onclick="event.preventDefault();closeBookingModal();if(typeof switchView===\'function\')switchView(\'client\');sTab(\'c\',\'c-pets\')"',
+        '   style="display:inline-flex;align-items:center;gap:4px;color:#c8963e;font-size:0.82rem;',
+        '   font-weight:600;text-decoration:none;margin-top:2px;padding-left:4px">',
+        '  + Add another pet',
+        '</a>',
+      ].join('');
+
+      container.innerHTML = html;
+
+    } catch (err) {
+      console.error('Failed to load pets for booking:', err);
+      // Show guest fallback on error
+      container.innerHTML = '<div style="color:#a66;font-size:0.82rem">Could not load pet profiles.</div>';
+      if (guestArea) guestArea.style.display = '';
+    }
+  };
+
+  // ── UPDATE HIDDEN FIELDS WHEN PET CHECKBOXES CHANGE ──
+  window._brmUpdatePetSelection = function() {
+    var checkboxes = document.querySelectorAll('.brm-pet-cb:checked');
+    var petTypeEl = document.getElementById('brm-pettype');
+    var numPetsEl = document.getElementById('brm-numpets');
+    var idsEl = document.getElementById('brm-pets-selected-ids');
+
+    var selectedIds = [];
+    var selectedNames = [];
+    var dogCount = 0;
+    var catCount = 0;
+
+    checkboxes.forEach(function(cb) {
+      selectedIds.push(cb.value);
+      selectedNames.push(cb.getAttribute('data-name'));
+      if (cb.getAttribute('data-species') === 'cat') {
+        catCount++;
+      } else {
+        dogCount++;
+      }
+    });
+
+    // Update hidden fields
+    if (idsEl) idsEl.value = selectedIds.join(',');
+    if (numPetsEl) numPetsEl.value = dogCount + catCount;
+
+    // Determine pet type for pricing
+    if (petTypeEl) {
+      if (dogCount > 0 && catCount > 0) {
+        petTypeEl.value = 'both';
+      } else if (catCount > 0) {
+        petTypeEl.value = 'cat';
+      } else {
+        petTypeEl.value = 'dog';
+      }
+    }
+
+    // Also populate the hidden brm-pets text field for backward compat
+    var petsTextEl = document.getElementById('brm-pets');
+    if (petsTextEl) petsTextEl.value = selectedNames.join(', ');
+
+    // Sync the petcombo hidden value for validation bypass
+    var comboEl = document.getElementById('brm-petcombo');
+    if (comboEl && selectedIds.length > 0) {
+      // Set a synthetic value so validation doesn't fail
+      if (dogCount === 1 && catCount === 0) comboEl.value = '1dog';
+      else if (dogCount === 0 && catCount === 1) comboEl.value = '1cat';
+      else if (dogCount === 2 && catCount === 0) comboEl.value = '2dogs';
+      else if (dogCount === 0 && catCount === 2) comboEl.value = '2cats';
+      else if (dogCount === 1 && catCount === 1) comboEl.value = '1dog1cat';
+      else comboEl.value = '3plus';
+    }
+
+    // Highlight selected labels
+    document.querySelectorAll('.brm-pet-checkbox-label').forEach(function(label) {
+      var cb = label.querySelector('.brm-pet-cb');
+      if (cb && cb.checked) {
+        label.style.borderColor = '#c8963e';
+        label.style.background = '#fffbf4';
+      } else {
+        label.style.borderColor = '#e0d5c5';
+        label.style.background = '#fff';
+      }
+    });
+
+    // Trigger price recalculation
+    if (window._brmUpdatePrice) {
+      window._brmUpdatePrice();
     }
   };
 
@@ -1409,8 +1588,20 @@
       multiDateBreakdown += ' | x' + totalDates + ' appointments = $' + multiDateTotal.toFixed(2);
     }
 
-    if (!service || !date || !time || !name || !email || !pets || !address || !petCombo) {
+    // Check if using pet checkboxes (logged-in) or guest text input
+    var selectedPetIds = (document.getElementById('brm-pets-selected-ids') || {}).value || '';
+    var isLoggedInWithPets = selectedPetIds.length > 0;
+
+    // For logged-in users: require at least one pet checkbox selected
+    // For guests: require pets text + petCombo dropdown
+    if (!service || !date || !time || !name || !email || !address) {
       if (errEl) errEl.textContent = 'Please fill in all required fields.';
+      return;
+    }
+    if (isLoggedInWithPets) {
+      // pets text was auto-filled by _brmUpdatePetSelection, good to go
+    } else if (!pets || !petCombo) {
+      if (errEl) errEl.textContent = 'Please select your pet(s) or fill in pet details.';
       return;
     }
     // House Sitting requires end date
@@ -1466,6 +1657,7 @@
           status: 'pending',
           booking_dates: totalDates > 1 ? allBookingDates : null,
           recurrence_pattern: recurrencePattern,
+          selected_pet_ids: selectedPetIds ? selectedPetIds.split(',') : null,
         })
         .select();
 
