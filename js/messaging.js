@@ -162,22 +162,6 @@
     return data || [];
   }
 
-  // Load conversation between two OTHER users (for owner/staff viewing)
-  async function loadConversationBetween(userA, userB, limit) {
-    var sb = getSB();
-    if (!sb) return [];
-    limit = limit || 50;
-
-    var { data, error } = await sb.from('messages')
-      .select('*')
-      .or('and(sender_id.eq.'+userA+',recipient_id.eq.'+userB+'),and(sender_id.eq.'+userB+',recipient_id.eq.'+userA+')')
-      .order('created_at', { ascending: true })
-      .limit(limit);
-
-    if (error) { console.error('Load conversation error:', error); return []; }
-    return data || [];
-  }
-
   // ============================================================
   //  CORE: Mark messages as read
   // ============================================================
@@ -192,6 +176,12 @@
       .eq('sender_id', senderUserId)
       .eq('recipient_id', user.id)
       .is('read_at', null);
+
+    // Refresh alerts card and badges so read messages disappear
+    if (document.getElementById('hhpAlertsCard')) {
+      loadAlertMessages();
+    }
+    updateUnreadBadges();
   }
 
   // ============================================================
@@ -237,36 +227,13 @@
         .limit(500);
       data = (res.data || []);
     } else if (profile.role === 'staff') {
-      // Staff: own messages + assigned clients' messages with owner
-      // First get own messages
+      // Staff: only their own thread with owner — NO access to client messages
       var own = await sb.from('messages')
         .select('*')
         .or('sender_id.eq.'+user.id+',recipient_id.eq.'+user.id)
         .order('created_at', { ascending: false })
         .limit(200);
       data = own.data || [];
-
-      // Then get assigned clients
-      var assignments = await sb.from('staff_assignments')
-        .select('client_id, profiles!staff_assignments_client_id_fkey(user_id)')
-        .eq('staff_id', profile.id);
-
-      if (assignments.data) {
-        for (var a = 0; a < assignments.data.length; a++) {
-          var clientUserId = assignments.data[a].profiles && assignments.data[a].profiles.user_id;
-          if (!clientUserId || clientUserId === user.id) continue;
-          // Get this client's messages with owner
-          var clientMsgs = await sb.from('messages')
-            .select('*')
-            .or(
-              'and(sender_id.eq.'+clientUserId+',recipient_id.eq.'+ownerUserId+'),' +
-              'and(sender_id.eq.'+ownerUserId+',recipient_id.eq.'+clientUserId+')'
-            )
-            .order('created_at', { ascending: false })
-            .limit(50);
-          if (clientMsgs.data) data = data.concat(clientMsgs.data);
-        }
-      }
     } else {
       // Client: only their thread with owner
       var res2 = await sb.from('messages')
@@ -364,113 +331,20 @@
   }
 
   // ============================================================
-  //  UI: Staff Messages (s-msgs) — shows their thread + assigned client threads
+  //  UI: Staff Messages (s-msgs) — private thread with owner only
   // ============================================================
   async function loadStaffMessages() {
     var sb = getSB(); if (!sb) return;
     var user = getCurrentUser(); if (!user) return;
-    var profile = await getMyProfile(); if (!profile) return;
-    var ownerUserId = await getOwnerUserId();
+    var ownerUserId = await getOwnerUserId(); if (!ownerUserId) return;
 
-    var panel = document.getElementById('s-msgs');
-    if (!panel) return;
+    var threadEl = document.getElementById('sMsgs');
+    if (!threadEl) return;
 
-    // Build tabbed interface: "My Messages" + each assigned client
-    var tabs = [{ label: 'My Messages', type: 'own', userId: ownerUserId }];
-
-    // Get assigned clients
-    var assignments = await sb.from('staff_assignments')
-      .select('client_id, profiles!staff_assignments_client_id_fkey(user_id, full_name)')
-      .eq('staff_id', profile.id);
-
-    if (assignments.data) {
-      for (var a = 0; a < assignments.data.length; a++) {
-        var asg = assignments.data[a];
-        var clientProfile = asg.profiles;
-        if (clientProfile && clientProfile.user_id) {
-          tabs.push({
-            label: clientProfile.full_name || 'Client',
-            type: 'client',
-            userId: clientProfile.user_id
-          });
-        }
-      }
-    }
-
-    // If no assigned clients, just show simple thread
-    if (tabs.length === 1) {
-      var threadEl = panel.querySelector('.msg-thread');
-      if (!threadEl) return;
-      if (!threadEl.id) threadEl.id = 'sMsgs';
-      var messages = await loadConversation(ownerUserId);
-      await renderThread(threadEl.id, messages, user.id);
-      await markAsRead(ownerUserId);
-      updateUnreadBadges();
-      return;
-    }
-
-    // Build tabbed UI
-    var html = '<div class="p-header"><h2>Messages 💬</h2><p>Your messages and assigned client conversations.</p></div>';
-    html += '<div class="card">';
-    html += '<div id="staffMsgTabs" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">';
-    for (var t = 0; t < tabs.length; t++) {
-      html += '<button class="admin-filter-btn' + (t === 0 ? ' active' : '') + '" onclick="HHP_Messaging.staffTab(' + t + ',this)" data-idx="' + t + '">' + escHTML(tabs[t].label) + '</button>';
-    }
-    html += '</div>';
-    html += '<div class="msg-thread" id="sMsgs" style="max-height:350px"></div>';
-    // Only show input for "My Messages" tab (staff can only send their own messages)
-    html += '<div class="msg-input-row" id="sMsgInputRow" style="margin-top:8px"><input class="msg-input" id="sMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')sendMsg(\'s\')"><button class="msg-send" onclick="sendMsg(\'s\')">➤</button></div>';
-    html += '</div>';
-
-    panel.innerHTML = html;
-
-    // Store tabs data for switching
-    window._staffMsgTabs = tabs;
-
-    // Load first tab
-    await loadStaffTab(0);
-  }
-
-  var _activeStaffTab = 0;
-
-  async function loadStaffTab(idx) {
-    _activeStaffTab = idx;
-    var tabs = window._staffMsgTabs;
-    if (!tabs || !tabs[idx]) return;
-
-    var user = getCurrentUser();
-    var tab = tabs[idx];
-    var ownerUserId = await getOwnerUserId();
-    var messages;
-
-    if (tab.type === 'own') {
-      // Staff's own thread with owner
-      messages = await loadConversation(ownerUserId);
-      await renderThread('sMsgs', messages, user.id);
-      await markAsRead(ownerUserId);
-      // Show input
-      var inputRow = document.getElementById('sMsgInputRow');
-      if (inputRow) inputRow.style.display = '';
-    } else {
-      // Assigned client's thread with owner (read-only for staff)
-      messages = await loadConversationBetween(tab.userId, ownerUserId);
-      await renderThread('sMsgs', messages, tab.userId); // Show from client's perspective
-      // Hide input — staff can't write in client's thread
-      var inputRow2 = document.getElementById('sMsgInputRow');
-      if (inputRow2) inputRow2.style.display = 'none';
-    }
-
-    // Update tab active states
-    var btns = document.querySelectorAll('#staffMsgTabs .admin-filter-btn');
-    for (var b = 0; b < btns.length; b++) {
-      btns[b].classList.toggle('active', b === idx);
-    }
-
+    var messages = await loadConversation(ownerUserId);
+    await renderThread('sMsgs', messages, user.id);
+    await markAsRead(ownerUserId);
     updateUnreadBadges();
-  }
-
-  function switchStaffTab(idx, btn) {
-    loadStaffTab(idx);
   }
 
   // ============================================================
@@ -814,7 +688,6 @@
     openConvo: openOwnerConvo,
     closeConvo: closeOwnerConvo,
     sendFromOwner: sendFromOwner,
-    staffTab: switchStaffTab,
     updateBadges: updateUnreadBadges,
     getUnreadCount: getUnreadCount
   };
