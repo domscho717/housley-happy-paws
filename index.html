@@ -1630,10 +1630,66 @@ try {
       </div>
 
       <div class="p-panel" id="o-staff">
-        <div class="p-header"><h2>Staff Management 🧑‍🤝‍🧑</h2></div>
-        <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><span class="card-title">Current Team</span><button class="btn btn-forest btn-sm" onclick="window.open('https://ads.google.com/aw/signup/aboutyourbusiness','_blank')">+ Hire a Walker</button></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            <div style="border-radius:10px;padding:20px;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px"><div style="font-size:2rem">➕</div><div style="font-weight:700;color:var(--mid);font-size:0.9rem">Hire Your First Walker</div><div style="font-size:0.78rem;color:var(--mid)">Post an opening when you're ready to grow!</div><button class="btn btn-outline btn-sm" onclick="window.open('https://ads.google.com/aw/signup/aboutyourbusiness','_blank')">Post Opening</button></div>
+        <div class="p-header"><h2>Staff Management 🧑‍🤝‍🧑</h2><p>Create staff accounts, manage team members, and assign clients.</p></div>
+
+        <!-- Add Staff Button -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div class="tabs" style="margin:0">
+            <button class="tab active" onclick="loadStaffPanel('team',this)">Team</button>
+            <button class="tab" onclick="loadStaffPanel('assign',this)">Client Assignments</button>
+          </div>
+          <button class="btn btn-forest btn-sm" onclick="openAddStaffForm()">+ Add Staff Member</button>
+        </div>
+
+        <!-- Team List -->
+        <div id="staffTeamView">
+          <div id="staffTeamList" class="card">
+            <div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">🧑‍🤝‍🧑</div><div style="font-weight:600">Loading team...</div></div>
+          </div>
+        </div>
+
+        <!-- Client Assignment View (hidden by default) -->
+        <div id="staffAssignView" style="display:none">
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title" style="margin-bottom:12px">Assign Clients to Staff</div>
+            <div class="form-row" style="margin-bottom:14px">
+              <div class="form-group">
+                <label class="form-lbl">Staff Member</label>
+                <select class="form-sel" id="assign-staff-select"><option value="">Select staff...</option></select>
+              </div>
+              <div class="form-group">
+                <label class="form-lbl">Client</label>
+                <select class="form-sel" id="assign-client-select"><option value="">Select client...</option></select>
+              </div>
+            </div>
+            <button class="btn btn-gold btn-sm" onclick="assignClientToStaff()" style="width:100%;justify-content:center">Assign Client</button>
+          </div>
+          <div id="staffAssignmentsList" class="card">
+            <div style="padding:28px;text-align:center;color:var(--mid)">Loading assignments...</div>
+          </div>
+        </div>
+
+        <!-- Add Staff Form (hidden by default) -->
+        <div id="addStaffFormWrap" style="display:none;margin-top:16px">
+          <div class="card" style="border:2px solid var(--forest)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div class="card-title">New Staff Account</div>
+              <button class="btn btn-outline btn-sm" onclick="document.getElementById('addStaffFormWrap').style.display='none'">Cancel</button>
+            </div>
+            <div class="form-row" style="margin-bottom:14px">
+              <div class="form-group"><label class="form-lbl">Full Name *</label><input class="form-in" id="ns-name" placeholder="Jane Smith"></div>
+              <div class="form-group"><label class="form-lbl">Email *</label><input class="form-in" id="ns-email" type="email" placeholder="jane@example.com"></div>
+            </div>
+            <div class="form-row" style="margin-bottom:14px">
+              <div class="form-group"><label class="form-lbl">Phone</label><input class="form-in" id="ns-phone" type="tel" placeholder="(717) 555-0123"></div>
+              <div class="form-group"><label class="form-lbl">Temporary Password *</label><input class="form-in" id="ns-pass" type="text" placeholder="TempPass123!"></div>
+            </div>
+            <div class="form-row" style="margin-bottom:14px">
+              <div class="form-group"><label class="form-lbl">Hourly Rate ($)</label><input class="form-in" id="ns-rate" type="number" step="0.01" placeholder="15.00"></div>
+              <div class="form-group"><label class="form-lbl">Role / Title</label><input class="form-in" id="ns-title" placeholder="e.g. Dog Walker"></div>
+            </div>
+            <div id="ns-error" style="display:none;color:#c44;font-size:0.82rem;margin-bottom:8px"></div>
+            <button class="btn btn-forest" style="width:100%;justify-content:center" onclick="createNewStaff()">Create Staff Account</button>
           </div>
         </div>
       </div>
@@ -2387,6 +2443,7 @@ function sTab(portal, panelId) {
     var now = new Date(); loadCalendarBookings(now.getFullYear(), now.getMonth());
   }
   if (panelId === 'c-appts' && typeof loadClientAppts === 'function') loadClientAppts('all');
+  if (panelId === 'o-staff' && typeof loadStaffTeam === 'function') loadStaffPanel('team');
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -3079,6 +3136,238 @@ async function loadClientAppts(filter, tabBtn) {
     console.error('Load client appts error:', err);
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
   }
+}
+
+// ── Staff Management (Owner Portal) ──
+function openAddStaffForm() {
+  document.getElementById('addStaffFormWrap').style.display = '';
+  document.getElementById('ns-name').value = '';
+  document.getElementById('ns-email').value = '';
+  document.getElementById('ns-phone').value = '';
+  document.getElementById('ns-pass').value = '';
+  document.getElementById('ns-rate').value = '';
+  document.getElementById('ns-title').value = '';
+  var errEl = document.getElementById('ns-error');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+}
+
+function loadStaffPanel(view, tabBtn) {
+  if (tabBtn) {
+    tabBtn.closest('.tabs').querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+    tabBtn.classList.add('active');
+  }
+  document.getElementById('staffTeamView').style.display = view === 'team' ? '' : 'none';
+  document.getElementById('staffAssignView').style.display = view === 'assign' ? '' : 'none';
+  if (view === 'team') loadStaffTeam();
+  if (view === 'assign') { loadAssignDropdowns(); loadAssignments(); }
+}
+
+async function loadStaffTeam() {
+  var listEl = document.getElementById('staffTeamList');
+  if (!listEl) return;
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  try {
+    var { data: staff, error } = await sb.from('profiles').select('*').eq('role', 'staff').order('full_name');
+    if (error) throw error;
+
+    if (!staff || staff.length === 0) {
+      listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">🧑‍🤝‍🧑</div><div style="font-weight:600;margin-bottom:6px">No staff members yet</div><div style="font-size:0.84rem">Click "+ Add Staff Member" to create the first account.</div></div>';
+      return;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:10px">';
+    staff.forEach(function(s) {
+      var initial = (s.full_name || '?')[0].toUpperCase();
+      var isActive = s.is_active !== false;
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:14px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (isActive ? 'var(--forest)' : 'var(--mid)') + '">';
+      html += '<div style="width:42px;height:42px;border-radius:50%;background:' + (isActive ? 'var(--forest)' : 'var(--mid)') + ';display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:1rem;flex-shrink:0">' + initial + '</div>';
+      html += '<div style="flex:1;min-width:0">';
+      html += '<div style="font-weight:600;font-size:0.9rem">' + (s.full_name || 'Unnamed') + '</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid)">' + (s.email || '') + (s.phone ? ' · ' + s.phone : '') + '</div>';
+      if (s.hourly_rate) html += '<div style="font-size:0.78rem;color:var(--mid)">Rate: $' + Number(s.hourly_rate).toFixed(2) + '/hr</div>';
+      html += '</div>';
+      html += '<div style="display:flex;gap:8px;align-items:center">';
+      html += '<span style="background:' + (isActive ? '#d4edda' : '#f8d7da') + ';color:' + (isActive ? '#155724' : '#721c24') + ';padding:3px 10px;border-radius:4px;font-size:0.72rem;font-weight:600">' + (isActive ? 'Active' : 'Inactive') + '</span>';
+      html += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 10px" onclick="toggleStaffStatus(\'' + s.id + '\',' + isActive + ')">' + (isActive ? 'Deactivate' : 'Activate') + '</button>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+  } catch (err) {
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#c44">Error loading staff: ' + err.message + '</div>';
+  }
+}
+
+async function createNewStaff() {
+  var errEl = document.getElementById('ns-error');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+  var name = document.getElementById('ns-name').value.trim();
+  var email = document.getElementById('ns-email').value.trim();
+  var phone = document.getElementById('ns-phone').value.trim();
+  var password = document.getElementById('ns-pass').value;
+  var rate = parseFloat(document.getElementById('ns-rate').value) || null;
+  var title = document.getElementById('ns-title').value.trim();
+
+  if (!name || !email || !password) {
+    if (errEl) { errEl.textContent = 'Please fill in name, email, and password.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (password.length < 6) {
+    if (errEl) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; }
+    return;
+  }
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { toast('Database not connected'); return; }
+
+  toast('Creating staff account...');
+
+  try {
+    // Sign up via Supabase Auth
+    var { data: signUpData, error: signUpError } = await sb.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { role: 'staff', full_name: name } }
+    });
+
+    if (signUpError) throw signUpError;
+
+    // Wait for profile trigger, then update with extra fields
+    if (signUpData.user) {
+      await new Promise(function(r) { setTimeout(r, 1500); });
+      await sb.from('profiles').update({
+        phone: phone || null,
+        hourly_rate: rate,
+        email: email,
+        full_name: name,
+        job_title: title || 'Staff',
+        hire_date: new Date().toISOString().split('T')[0]
+      }).eq('id', signUpData.user.id);
+    }
+
+    toast('Staff account created for ' + name + '!');
+    document.getElementById('addStaffFormWrap').style.display = 'none';
+    loadStaffTeam();
+  } catch (err) {
+    if (errEl) { errEl.textContent = 'Error: ' + err.message; errEl.style.display = 'block'; }
+  }
+}
+
+async function toggleStaffStatus(profileId, currentActive) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  var { error } = await sb.from('profiles').update({ is_active: !currentActive }).eq('id', profileId);
+  if (error) { toast('Failed to update status'); return; }
+  toast('Staff status updated!');
+  loadStaffTeam();
+}
+
+// ── Client-to-Staff Assignment ──
+async function loadAssignDropdowns() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  // Load staff
+  var staffSel = document.getElementById('assign-staff-select');
+  var clientSel = document.getElementById('assign-client-select');
+  if (!staffSel || !clientSel) return;
+
+  var { data: staff } = await sb.from('profiles').select('id, full_name').eq('role', 'staff').eq('is_active', true).order('full_name');
+  staffSel.innerHTML = '<option value="">Select staff...</option>';
+  if (staff) staff.forEach(function(s) {
+    staffSel.innerHTML += '<option value="' + s.id + '">' + (s.full_name || 'Unnamed') + '</option>';
+  });
+
+  // Load clients
+  var { data: clients } = await sb.from('profiles').select('id, full_name, email').eq('role', 'client').order('full_name');
+  clientSel.innerHTML = '<option value="">Select client...</option>';
+  if (clients) clients.forEach(function(c) {
+    clientSel.innerHTML += '<option value="' + c.id + '">' + (c.full_name || c.email || 'Unnamed') + '</option>';
+  });
+}
+
+async function assignClientToStaff() {
+  var staffId = document.getElementById('assign-staff-select').value;
+  var clientId = document.getElementById('assign-client-select').value;
+  if (!staffId || !clientId) { toast('Please select both a staff member and a client.'); return; }
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  try {
+    // Check if assignment already exists
+    var { data: existing } = await sb.from('staff_assignments').select('id').eq('staff_id', staffId).eq('client_id', clientId).limit(1);
+    if (existing && existing.length > 0) {
+      toast('This client is already assigned to that staff member.');
+      return;
+    }
+
+    var { error } = await sb.from('staff_assignments').insert({ staff_id: staffId, client_id: clientId });
+    if (error) throw error;
+
+    toast('Client assigned successfully!');
+    loadAssignments();
+  } catch (err) {
+    toast('Error: ' + err.message);
+  }
+}
+
+async function loadAssignments() {
+  var listEl = document.getElementById('staffAssignmentsList');
+  if (!listEl) return;
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  try {
+    // Get all staff with their assignments
+    var { data: staff } = await sb.from('profiles').select('id, full_name').eq('role', 'staff').order('full_name');
+    if (!staff || staff.length === 0) {
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">No staff members yet. Create a staff account first.</div>';
+      return;
+    }
+
+    var { data: assignments } = await sb.from('staff_assignments').select('id, staff_id, client_id');
+    var { data: clients } = await sb.from('profiles').select('id, full_name, email').eq('role', 'client');
+
+    var clientMap = {};
+    if (clients) clients.forEach(function(c) { clientMap[c.id] = c; });
+
+    var html = '<div style="display:flex;flex-direction:column;gap:14px">';
+    staff.forEach(function(s) {
+      var myAssignments = (assignments || []).filter(function(a) { return a.staff_id === s.id; });
+      html += '<div style="background:var(--warm);border-radius:10px;padding:14px">';
+      html += '<div style="font-weight:600;font-size:0.9rem;margin-bottom:8px;color:var(--forest)">🧑 ' + (s.full_name || 'Unnamed') + '</div>';
+      if (myAssignments.length === 0) {
+        html += '<div style="font-size:0.82rem;color:var(--mid);padding:4px 0">No clients assigned yet</div>';
+      } else {
+        myAssignments.forEach(function(a) {
+          var client = clientMap[a.client_id];
+          var cName = client ? (client.full_name || client.email || 'Unknown') : 'Unknown Client';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fff;border-radius:6px;margin-bottom:4px;font-size:0.84rem">';
+          html += '<span>🐾 ' + cName + '</span>';
+          html += '<button onclick="removeAssignment(\'' + a.id + '\')" style="background:none;border:none;color:#c44;cursor:pointer;font-size:0.78rem;font-weight:600">Remove</button>';
+          html += '</div>';
+        });
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+  } catch (err) {
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:#c44">Error: ' + err.message + '</div>';
+  }
+}
+
+async function removeAssignment(assignmentId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  var { error } = await sb.from('staff_assignments').delete().eq('id', assignmentId);
+  if (error) { toast('Failed to remove: ' + error.message); return; }
+  toast('Assignment removed.');
+  loadAssignments();
 }
 
 // ---- NOTIFICATION FIRE ----
