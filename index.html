@@ -1201,15 +1201,22 @@ try {
               <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Pet Details</div>
               <div class="form-row">
                 <div class="form-group"><label class="form-lbl">Pet Name *</label><input class="form-in" id="pet-name" placeholder="e.g. Moose" required></div>
-                <div class="form-group"><label class="form-lbl">Species *</label><select class="form-sel" id="pet-species"><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
+                <div class="form-group"><label class="form-lbl">Species *</label><select class="form-sel" id="pet-species" onchange="calcPetAge()"><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
               </div>
               <div class="form-row">
                 <div class="form-group"><label class="form-lbl">Breed</label><input class="form-in" id="pet-breed" placeholder="e.g. Golden Retriever"></div>
                 <div class="form-group"><label class="form-lbl">Sex</label><select class="form-sel" id="pet-sex"><option value="">Select...</option><option value="male">Male</option><option value="female">Female</option></select></div>
               </div>
               <div class="form-row">
-                <div class="form-group"><label class="form-lbl">Birthday / Age</label><input class="form-in" type="date" id="pet-birthday"></div>
+                <div class="form-group"><label class="form-lbl">Birthday / Age</label><input class="form-in" type="date" id="pet-birthday" onchange="calcPetAge()"></div>
                 <div class="form-group"><label class="form-lbl">Weight (lbs)</label><input class="form-in" type="number" id="pet-weight" placeholder="e.g. 65"></div>
+              </div>
+              <div id="pet-age-display" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:14px 16px;margin-bottom:14px;text-align:center">
+                <div style="display:flex;justify-content:center;gap:24px;align-items:center;flex-wrap:wrap">
+                  <div><div style="font-size:0.72rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Human Age</div><div id="pet-age-human" style="font-weight:700;font-size:1.1rem;color:var(--ink)"></div></div>
+                  <div style="width:1px;height:32px;background:#e0d5c5"></div>
+                  <div><div style="font-size:0.72rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px" id="pet-age-label">Dog Years</div><div id="pet-age-animal" style="font-weight:700;font-size:1.1rem;color:var(--gold-deep)">🐾</div></div>
+                </div>
               </div>
               <div class="form-group"><label class="form-lbl">Size</label><select class="form-sel" id="pet-size"><option value="">Select...</option><option value="small">Small (under 25 lbs)</option><option value="medium">Medium (25–50 lbs)</option><option value="large">Large (50–100 lbs)</option><option value="giant">Giant (100+ lbs)</option></select></div>
               <div class="form-group"><label class="form-lbl">Pet Photo</label>
@@ -2174,19 +2181,21 @@ try {
   <div class="modal" id="mgForm">
     <div class="modal-head"><div><div class="modal-title">Schedule a Meet & Greet 🐾</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Free, no obligation — let's get to know your pet first.</p></div><button class="modal-close" onclick="closeModal('mgModal')">✕</button></div>
     <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll receive an instant confirmation and Rachel will personally follow up within a few hours with available times.</div></div>
-    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">First Name</label><input class="form-in" placeholder="Sarah"></div><div><label class="form-lbl">Last Name</label><input class="form-in" placeholder="Davis"></div></div>
-    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Phone / Text</label><input class="form-in" type="tel" placeholder="(717) 000-0000"></div><div><label class="form-lbl">Email</label><input class="form-in" type="email" placeholder="sarah@email.com"></div></div>
-    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Pet(s) Name</label><input class="form-in" id="mg-petname" placeholder="e.g. Max"></div><div><label class="form-lbl">Breed</label><input class="form-in" id="mg-breed" placeholder="e.g. Golden Retriever"></div></div>
-    <div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Pet(s) Birthday / Date of Birth</label><input class="form-in" id="mg-petbday" type="date"></div>
-    <div id="mg-age-display" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:14px 16px;margin-bottom:14px;text-align:center">
-      <div style="display:flex;justify-content:center;gap:24px;align-items:center;flex-wrap:wrap">
-        <div><div style="font-size:0.72rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Human Age</div><div id="mg-petage" style="font-weight:700;font-size:1.1rem;color:var(--ink)"></div></div>
-        <div style="width:1px;height:32px;background:#e0d5c5"></div>
-        <div><div style="font-size:0.72rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">Dog Years</div><div id="mg-dogyears" style="font-weight:700;font-size:1.1rem;color:var(--gold-deep)">🐾</div></div>
+    <!-- Auto-filled from account -->
+    <div id="mg-user-info" style="background:var(--warm);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-deep));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.9rem" id="mg-user-avatar">?</div>
+      <div><div id="mg-user-name" style="font-weight:600;font-size:0.9rem;color:var(--ink)"></div><div id="mg-user-email" style="font-size:0.78rem;color:var(--mid)"></div></div>
+    </div>
+    <!-- Pet selection from profiles -->
+    <div style="margin-bottom:14px">
+      <label class="form-lbl" style="margin-bottom:8px;display:block">Which pet(s) is this meet & greet for? *</label>
+      <div id="mg-pets-list" style="display:flex;flex-direction:column;gap:8px">
+        <div style="text-align:center;color:var(--mid);font-size:0.85rem;padding:12px">Loading pets...</div>
       </div>
     </div>
-    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Preferred Date</label><input class="form-in" type="date"></div><div><label class="form-lbl">Preferred Time</label><select class="form-in"><option value="">Select time...</option><option value="05:00">5:00 AM</option><option value="05:30">5:30 AM</option><option value="06:00">6:00 AM</option><option value="06:30">6:30 AM</option><option value="07:00">7:00 AM</option><option value="07:30">7:30 AM</option><option value="08:00">8:00 AM</option><option value="08:30">8:30 AM</option><option value="09:00">9:00 AM</option><option value="09:30">9:30 AM</option><option value="10:00">10:00 AM</option><option value="10:30">10:30 AM</option><option value="11:00">11:00 AM</option><option value="11:30">11:30 AM</option><option value="12:00">12:00 PM</option><option value="12:30">12:30 PM</option><option value="13:00">1:00 PM</option><option value="13:30">1:30 PM</option><option value="14:00">2:00 PM</option><option value="14:30">2:30 PM</option><option value="15:00">3:00 PM</option><option value="15:30">3:30 PM</option><option value="16:00">4:00 PM</option><option value="16:30">4:30 PM</option><option value="17:00">5:00 PM</option><option value="17:30">5:30 PM</option><option value="18:00">6:00 PM</option><option value="18:30">6:30 PM</option><option value="19:00">7:00 PM</option><option value="19:30">7:30 PM</option><option value="20:00">8:00 PM</option><option value="20:30">8:30 PM</option><option value="21:00">9:00 PM</option><option value="21:30">9:30 PM</option><option value="22:00">10:00 PM</option><option value="22:30">10:30 PM</option></select></div></div>
-    <div class="form-group"><label class="form-lbl">Anything Rachel Should Know?</label><textarea class="form-ta" placeholder="e.g. Friendly but a little shy with new people at first..."></textarea></div>
+    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Preferred Date</label><input class="form-in" type="date" id="mg-date"></div><div><label class="form-lbl">Preferred Time</label><select class="form-in" id="mg-time"><option value="">Select time...</option><option value="09:00">9:00 AM</option><option value="09:30">9:30 AM</option><option value="10:00">10:00 AM</option><option value="10:30">10:30 AM</option><option value="11:00">11:00 AM</option><option value="11:30">11:30 AM</option><option value="12:00">12:00 PM</option><option value="12:30">12:30 PM</option><option value="13:00">1:00 PM</option><option value="13:30">1:30 PM</option><option value="14:00">2:00 PM</option><option value="14:30">2:30 PM</option><option value="15:00">3:00 PM</option><option value="15:30">3:30 PM</option><option value="16:00">4:00 PM</option><option value="16:30">4:30 PM</option><option value="17:00">5:00 PM</option><option value="17:30">5:30 PM</option><option value="18:00">6:00 PM</option></select></div></div>
+    <div class="form-group"><label class="form-lbl">Anything Rachel Should Know?</label><textarea class="form-ta" id="mg-notes" placeholder="e.g. Friendly but a little shy with new people at first..."></textarea></div>
+    <div id="mg-error" style="display:none;color:#c44;font-size:0.82rem;margin-bottom:8px"></div>
     <button class="submit-btn gold" onclick="submitMG()">📅 Request Meet & Greet</button>
   </div>
   <div class="modal" id="mgSuccess" style="display:none">
@@ -2405,7 +2414,10 @@ function openModal(id) {
     }
     return;
   }
-  const el=document.getElementById(id); if(!el) return; if(el.classList.contains('modal-overlay')){el.style.display='flex';}else{el.classList.add('open');} }
+  const el=document.getElementById(id); if(!el) return; if(el.classList.contains('modal-overlay')){el.style.display='flex';}else{el.classList.add('open');}
+  // Load M&G data when modal opens
+  if (id === 'mgModal' && typeof loadMGData === 'function') loadMGData();
+}
 function closeModal(id) {
   const el = document.getElementById(id);
   if(!el) return;
@@ -2415,41 +2427,203 @@ function closeModal(id) {
 }
 document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
 
-function submitMG() { document.getElementById('mgForm').style.display='none'; document.getElementById('mgSuccess').style.display='block'; }
-
-// Pet birthday → auto-calculate age + dog years
-(function() {
-  var bdayInput = document.getElementById('mg-petbday');
-  var ageEl = document.getElementById('mg-petage');
-  var dogYearsEl = document.getElementById('mg-dogyears');
-  var displayEl = document.getElementById('mg-age-display');
-  if (bdayInput && ageEl) {
-    bdayInput.addEventListener('change', function() {
-      var bday = new Date(this.value);
-      if (isNaN(bday.getTime())) { if (displayEl) displayEl.style.display = 'none'; return; }
-      var today = new Date();
-      var years = today.getFullYear() - bday.getFullYear();
-      var months = today.getMonth() - bday.getMonth();
-      if (months < 0 || (months === 0 && today.getDate() < bday.getDate())) { years--; months += 12; }
-      if (today.getDate() < bday.getDate()) months--;
-      if (months < 0) months = 0;
-      var ageText;
-      if (years < 1) {
-        ageText = months + (months === 1 ? ' month old' : ' months old');
-      } else if (months > 0) {
-        ageText = years + (years === 1 ? ' year' : ' years') + ', ' + months + (months === 1 ? ' month' : ' months');
-      } else {
-        ageText = years + (years === 1 ? ' year old' : ' years old');
-      }
-      ageEl.textContent = ageText;
-      // Dog years (multiply by 7)
-      var totalMonths = years * 12 + months;
-      var dogYrs = Math.round(totalMonths * 7 / 12);
-      if (dogYearsEl) dogYearsEl.textContent = dogYrs + (dogYrs === 1 ? ' year old 🐾' : ' years old 🐾');
-      if (displayEl) displayEl.style.display = 'block';
-    });
+// ── Meet & Greet: load user info + pet profiles when modal opens ──
+function loadMGData() {
+  // Fill user info
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (user) {
+    var profile = user.user_metadata || {};
+    var name = profile.full_name || profile.name || user.email.split('@')[0];
+    var avatar = document.getElementById('mg-user-avatar');
+    var nameEl = document.getElementById('mg-user-name');
+    var emailEl = document.getElementById('mg-user-email');
+    if (avatar) avatar.textContent = (name[0] || '?').toUpperCase();
+    if (nameEl) nameEl.textContent = name;
+    if (emailEl) emailEl.textContent = user.email;
   }
-})();
+
+  // Load pets from Supabase
+  var listEl = document.getElementById('mg-pets-list');
+  if (!listEl) return;
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !user) {
+    listEl.innerHTML = '<div style="text-align:center;color:var(--mid);font-size:0.85rem;padding:12px">Please sign in to see your pets.</div>';
+    return;
+  }
+
+  sb.from('pets').select('*').eq('owner_id', user.id).order('name').then(function(result) {
+    var pets = result.data;
+    var error = result.error;
+    if (error || !pets || pets.length === 0) {
+      listEl.innerHTML = [
+        '<div style="background:#fff8ec;border:1px solid #e0d5c5;border-radius:10px;padding:14px;text-align:center">',
+        '  <div style="font-size:1.3rem;margin-bottom:6px">🐾</div>',
+        '  <div style="font-size:0.88rem;color:#6b5c4d;margin-bottom:8px">No pet profiles yet</div>',
+        '  <a href="#" onclick="event.preventDefault();closeModal(\'mgModal\');if(typeof switchView===\'function\')switchView(\'client\');sTab(\'c\',\'c-pets\')" ',
+        '     style="color:#c8963e;font-weight:600;font-size:0.85rem;text-decoration:underline">',
+        '     Add your first pet →</a>',
+        '</div>'
+      ].join('\n');
+      return;
+    }
+
+    var html = '';
+    pets.forEach(function(pet) {
+      var icon = pet.species === 'cat' ? '🐱' : '🐶';
+      var breedText = pet.breed ? ' · ' + pet.breed : '';
+      var photoStyle = pet.photo_url
+        ? 'background-image:url(' + pet.photo_url + ');background-size:cover;background-position:center;'
+        : 'display:flex;align-items:center;justify-content:center;font-size:1.2rem;background:#f5f0e8;';
+      html += [
+        '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;',
+        'background:#fff;border:2px solid #e0d5c5;border-radius:10px;cursor:pointer;',
+        'transition:all 0.2s" class="mg-pet-label"',
+        ' onmouseenter="this.style.borderColor=\'#c8963e\'"',
+        ' onmouseleave="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#e0d5c5\'"',
+        '>',
+        '  <input type="checkbox" class="mg-pet-cb" value="' + pet.id + '"',
+        '    data-name="' + (pet.name || '').replace(/"/g, '&quot;') + '"',
+        '    style="width:18px;height:18px;accent-color:#c8963e;flex-shrink:0">',
+        '  <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;' + photoStyle + '">',
+        pet.photo_url ? '' : icon,
+        '  </div>',
+        '  <div style="flex:1;min-width:0">',
+        '    <div style="font-weight:600;font-size:0.88rem;color:#1e1409">' + (pet.name || 'Unnamed') + '</div>',
+        '    <div style="font-size:0.78rem;color:#8c6b4a">' + icon + breedText + '</div>',
+        '  </div>',
+        '</label>'
+      ].join('');
+    });
+    html += [
+      '<a href="#" onclick="event.preventDefault();closeModal(\'mgModal\');if(typeof switchView===\'function\')switchView(\'client\');sTab(\'c\',\'c-pets\')"',
+      '   style="display:inline-flex;align-items:center;gap:4px;color:#c8963e;font-size:0.82rem;',
+      '   font-weight:600;text-decoration:none;margin-top:2px;padding-left:4px">',
+      '  + Add another pet',
+      '</a>'
+    ].join('');
+    listEl.innerHTML = html;
+  });
+}
+
+async function submitMG() {
+  var errEl = document.getElementById('mg-error');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+  // Validate pet selection
+  var selectedPets = document.querySelectorAll('.mg-pet-cb:checked');
+  if (selectedPets.length === 0) {
+    if (errEl) { errEl.textContent = 'Please select at least one pet for the meet & greet.'; errEl.style.display = 'block'; }
+    return;
+  }
+
+  var petNames = Array.from(selectedPets).map(function(cb) { return cb.dataset.name; }).join(', ');
+  var petIds = Array.from(selectedPets).map(function(cb) { return cb.value; });
+  var date = document.getElementById('mg-date') ? document.getElementById('mg-date').value : '';
+  var time = document.getElementById('mg-time') ? document.getElementById('mg-time').value : '';
+  var notes = document.getElementById('mg-notes') ? document.getElementById('mg-notes').value.trim() : '';
+
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!user) return;
+  var profile = user.user_metadata || {};
+  var name = profile.full_name || profile.name || user.email.split('@')[0];
+
+  // Save to booking_requests as a Meet & Greet
+  try {
+    var sb = window.HHP_Auth.supabase;
+    var insertData = {
+      service: 'Meet & Greet',
+      preferred_date: date || null,
+      preferred_time: time || null,
+      contact_name: name,
+      contact_email: user.email,
+      contact_phone: profile.phone || null,
+      pet_names: petNames,
+      estimated_total: 0,
+      client_id: user.id,
+      status: 'pending',
+      special_notes: notes || null,
+      selected_pet_ids: petIds
+    };
+    var result = await sb.from('booking_requests').insert(insertData).select();
+    if (result.error) throw result.error;
+
+    // Send notification to Rachel
+    try {
+      await fetch('/api/booking-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ service: 'Meet & Greet', date: date || 'Flexible', time: time || 'Flexible', name: name, email: user.email, phone: profile.phone || '', pets: petNames, address: '', notes: notes })
+      });
+    } catch(e) { console.warn('MG notification failed:', e); }
+
+    document.getElementById('mgForm').style.display = 'none';
+    document.getElementById('mgSuccess').style.display = 'block';
+  } catch(err) {
+    console.error('MG submit error:', err);
+    if (errEl) { errEl.textContent = 'Error: ' + (err.message || 'Something went wrong.'); errEl.style.display = 'block'; }
+  }
+}
+
+// ── Pet Profile: age calculator (dog years + cat years) ──
+function calcPetAge() {
+  var bdayInput = document.getElementById('pet-birthday');
+  var speciesEl = document.getElementById('pet-species');
+  var humanEl = document.getElementById('pet-age-human');
+  var animalEl = document.getElementById('pet-age-animal');
+  var labelEl = document.getElementById('pet-age-label');
+  var displayEl = document.getElementById('pet-age-display');
+  if (!bdayInput || !bdayInput.value || !humanEl) return;
+
+  var bday = new Date(bdayInput.value);
+  if (isNaN(bday.getTime())) { if (displayEl) displayEl.style.display = 'none'; return; }
+
+  var today = new Date();
+  var years = today.getFullYear() - bday.getFullYear();
+  var months = today.getMonth() - bday.getMonth();
+  if (months < 0 || (months === 0 && today.getDate() < bday.getDate())) { years--; months += 12; }
+  if (today.getDate() < bday.getDate()) months--;
+  if (months < 0) months = 0;
+
+  var ageText;
+  if (years < 1) {
+    ageText = months + (months === 1 ? ' month old' : ' months old');
+  } else if (months > 0) {
+    ageText = years + (years === 1 ? ' year' : ' years') + ', ' + months + (months === 1 ? ' month' : ' months');
+  } else {
+    ageText = years + (years === 1 ? ' year old' : ' years old');
+  }
+  humanEl.textContent = ageText;
+
+  var species = speciesEl ? speciesEl.value : 'dog';
+  var totalMonths = years * 12 + months;
+  var animalYrs;
+
+  if (species === 'cat') {
+    // Cat years: first year = 15, second year = 9, each year after = 4
+    if (totalMonths <= 12) {
+      animalYrs = Math.round(totalMonths * 15 / 12);
+    } else if (totalMonths <= 24) {
+      animalYrs = 15 + Math.round((totalMonths - 12) * 9 / 12);
+    } else {
+      animalYrs = 24 + Math.round((totalMonths - 24) * 4 / 12);
+    }
+    if (labelEl) labelEl.textContent = 'Cat Years';
+    if (animalEl) animalEl.textContent = animalYrs + (animalYrs === 1 ? ' year old 🐱' : ' years old 🐱');
+  } else {
+    // Dog years: first year = 15, second year = 9, each year after = 5
+    if (totalMonths <= 12) {
+      animalYrs = Math.round(totalMonths * 15 / 12);
+    } else if (totalMonths <= 24) {
+      animalYrs = 15 + Math.round((totalMonths - 12) * 9 / 12);
+    } else {
+      animalYrs = 24 + Math.round((totalMonths - 24) * 5 / 12);
+    }
+    if (labelEl) labelEl.textContent = 'Dog Years';
+    if (animalEl) animalEl.textContent = animalYrs + (animalYrs === 1 ? ' year old 🐾' : ' years old 🐾');
+  }
+  if (displayEl) displayEl.style.display = 'block';
+}
 
 // ---- TOAST ----
 function toast(msg) {
