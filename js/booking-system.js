@@ -509,80 +509,38 @@
       '      </select>',
       '    </div>',
       '',
-      '    <div class="brm-row">',
-      '      <div class="brm-col">',
-      '        <label class="brm-label" id="brm-date-label">Preferred Date *</label>',
-      '        <input type="date" id="brm-date" class="brm-input" required>',
-      '      </div>',
-      '      <div class="brm-col" id="brm-enddate-col" style="display:none">',
-      '        <label class="brm-label">End Date *</label>',
-      '        <input type="date" id="brm-enddate" class="brm-input">',
-      '      </div>',
-      '      <div class="brm-col" id="brm-time-col">',
-      '        <label class="brm-label">Preferred Time *</label>',
-      '        <select id="brm-time" class="brm-input" required>',
-      '          <option value="">Select time...</option>',
-             (function() {
-               var opts = '';
-               for (var h = 5; h <= 22; h++) {
-                 for (var m = 0; m < 60; m += 30) {
-                   var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
-                   var ampm = h >= 12 ? 'PM' : 'AM';
-                   var mm = m === 0 ? '00' : '30';
-                   var label = hr12 + ':' + mm + ' ' + ampm;
-                   var val24 = (h < 10 ? '0' : '') + h + ':' + mm;
-                   opts += '<option value="' + val24 + '">' + label + '</option>';
-                 }
-               }
-               return opts;
-             })(),
-      '        </select>',
-      '        <div id="brm-endtime-display" style="display:none;font-size:0.82rem;color:var(--gold,#C8963E);margin-top:4px;font-weight:600"></div>',
+      '    <!-- Hidden fields: keep brm-date/brm-time for House Sitting & recurring compat -->',
+      '    <div id="brm-hs-date-row" style="display:none">',
+      '      <div class="brm-row">',
+      '        <div class="brm-col">',
+      '          <label class="brm-label" id="brm-date-label">Start Date *</label>',
+      '          <input type="date" id="brm-date" class="brm-input">',
+      '        </div>',
+      '        <div class="brm-col" id="brm-enddate-col">',
+      '          <label class="brm-label">End Date *</label>',
+      '          <input type="date" id="brm-enddate" class="brm-input">',
+      '        </div>',
       '      </div>',
       '    </div>',
+      '    <input type="hidden" id="brm-time" value="">',
+      '    <div id="brm-endtime-display" style="display:none"></div>',
       '',
-      '    <!-- Multi-date: select all your dates in one area -->',
+      '    <!-- Unified date picker: tap a date to add it -->',
       '    <div id="brm-multidate-section" style="margin:6px 0 14px">',
-      '      <label class="brm-label" style="font-size:0.82rem;color:#6b5c4d;margin-bottom:6px">Need more dates? Add them here — pick a time &amp; pet(s) for each</label>',
-      '      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">',
+      '      <label class="brm-label">Select Your Date(s) *</label>',
+      '      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">',
       '        <input type="date" id="brm-add-date-input" class="brm-input" style="flex:1" min="' + new Date().toISOString().split('T')[0] + '">',
-      '        <button type="button" id="brm-add-date-btn" onclick="window._brmAddDateCard()" style="background:var(--gold,#C8963E);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:0.84rem;cursor:pointer;font-family:inherit;font-weight:600;white-space:nowrap">+ Add Date</button>',
       '      </div>',
       '      <div id="brm-dates-list" style="display:flex;flex-direction:column;gap:8px"></div>',
+      '      <div id="brm-no-dates-msg" style="text-align:center;color:#a08a6e;font-size:0.82rem;padding:12px;background:#f9f6f0;border:1px dashed #e0d5c5;border-radius:8px">Tap a date above to add it to your booking</div>',
       '    </div>',
-      '',
-      '    <!-- Recurring schedule toggle -->',
-      '    <div id="brm-recur-section" style="margin:4px 0 12px">',
-      '      <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;cursor:pointer;font-weight:600;color:var(--ink,#2C2C2C)">',
-      '        <input type="checkbox" id="brm-recur-toggle"> Set up a recurring schedule',
-      '      </label>',
-      '      <div id="brm-recur-options" style="display:none;margin-top:10px;background:#f9f6f0;border:1px solid #e0d5c5;border-radius:10px;padding:14px">',
-      '        <label class="brm-label" style="margin-top:0">Repeat on</label>',
-      '        <div id="brm-recur-days" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">',
-      '          <label class="brm-day-chip"><input type="checkbox" value="mon" class="brm-recur-day"> Mon</label>',
-      '          <label class="brm-day-chip"><input type="checkbox" value="tue" class="brm-recur-day"> Tue</label>',
-      '          <label class="brm-day-chip"><input type="checkbox" value="wed" class="brm-recur-day"> Wed</label>',
-      '          <label class="brm-day-chip"><input type="checkbox" value="thu" class="brm-recur-day"> Thu</label>',
-      '          <label class="brm-day-chip"><input type="checkbox" value="fri" class="brm-recur-day"> Fri</label>',
-      '          <label class="brm-day-chip"><input type="checkbox" value="sat" class="brm-recur-day"> Sat</label>',
-      '          <label class="brm-day-chip"><input type="checkbox" value="sun" class="brm-recur-day"> Sun</label>',
-      '        </div>',
-      '        <div class="brm-row">',
-      '          <div class="brm-col">',
-      '            <label class="brm-label">Frequency</label>',
-      '            <select id="brm-recur-freq" class="brm-input">',
-      '              <option value="weekly">Every week</option>',
-      '              <option value="biweekly">Every other week</option>',
-      '            </select>',
-      '          </div>',
-      '          <div class="brm-col">',
-      '            <label class="brm-label">Until</label>',
-      '            <input type="date" id="brm-recur-end" class="brm-input">',
-      '          </div>',
-      '        </div>',
-      '        <div id="brm-recur-preview" style="margin-top:10px;font-size:0.8rem;color:#6b5c4d;max-height:120px;overflow-y:auto"></div>',
-      '      </div>',
-      '    </div>',
+      '    <!-- Hidden recurring fields for backward compat (populated from per-card recurring) -->',
+      '    <input type="hidden" id="brm-recur-toggle" value="">',
+      '    <div id="brm-recur-options" style="display:none"></div>',
+      '    <input type="hidden" id="brm-recur-start" value="">',
+      '    <input type="hidden" id="brm-recur-end" value="">',
+      '    <input type="hidden" id="brm-recur-freq" value="">',
+      '    <div id="brm-recur-preview" style="display:none"></div>',
       '',
       '    <label class="brm-label">Your Name *</label>',
       '    <input type="text" id="brm-name" class="brm-input" placeholder="Full name" required>',
@@ -728,21 +686,66 @@
       if (estimateEl) estimateEl.style.display = 'block';
       if (breakdownEl) breakdownEl.innerHTML = result.breakdown.split(' | ').join('<br>');
 
-      // Count total dates (multi-date or recurring)
+      // Count total dates (from date cards + any recurring expansions)
       var isHS = svcName.toLowerCase().indexOf('house sitting') !== -1;
       var totalDates = 1;
-      var isRecurring = document.getElementById('brm-recur-toggle') && document.getElementById('brm-recur-toggle').checked;
+      var hasAnyRecurring = window._brmAnyCardRecurring ? window._brmAnyCardRecurring() : false;
+      var hasOngoingRecur = false;
       if (!isHS) {
-        if (isRecurring && window._brmGetRecurDates) {
-          var rd = window._brmGetRecurDates();
-          if (rd.length > 0) totalDates = rd.length;
-        } else if (window._brmExtraDates) {
-          var extras = window._brmExtraDates.filter(function(d) { return !!d; });
-          totalDates = 1 + extras.length;
+        var cardCount = window._brmGetDateCardsData ? window._brmGetDateCardsData().length : 0;
+        if (cardCount > 0) totalDates = cardCount;
+        // Check for "until stopped" (ongoing) recurring cards
+        if (hasAnyRecurring) {
+          document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
+            var cIdx = card.id.replace('brm-dc-', '');
+            var onEl = document.getElementById('brm-dc-ongoing-' + cIdx);
+            if (onEl && onEl.checked) hasOngoingRecur = true;
+          });
+          // Add finite recurring dates
+          if (window._brmGetRecurDates) {
+            var allRecurDates = window._brmGetRecurDates();
+            var cardDates = [];
+            if (window._brmGetDateCardsData) {
+              window._brmGetDateCardsData().forEach(function(c) { cardDates.push(c.date); });
+            }
+            allRecurDates.forEach(function(rd) {
+              if (cardDates.indexOf(rd) === -1) cardDates.push(rd);
+            });
+            if (cardDates.length > 0) totalDates = cardDates.length;
+          }
         }
       }
 
-      if (totalDates > 1 && !isHS) {
+      // Recurring pricing: show per-week cost instead of full upfront total
+      if (hasAnyRecurring && !isHS) {
+        // Calculate per-week cost: how many sessions per week across all recurring cards
+        var sessionsPerWeek = 0;
+        document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
+          var cIdx = card.id.replace('brm-dc-', '');
+          var rCb = document.getElementById('brm-dc-recur-' + cIdx);
+          if (rCb && rCb.checked) {
+            var freq = (document.getElementById('brm-dc-freq-' + cIdx) || {}).value || 'weekly';
+            sessionsPerWeek += freq === 'biweekly' ? 0.5 : 1;
+          }
+        });
+        // Non-recurring cards are one-time (counted separately)
+        var oneTimeCards = 0;
+        document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
+          var cIdx = card.id.replace('brm-dc-', '');
+          var rCb = document.getElementById('brm-dc-recur-' + cIdx);
+          if (!rCb || !rCb.checked) oneTimeCards++;
+        });
+        var weeklyTotal = result.total * sessionsPerWeek;
+        var oneTimeTotal = result.total * oneTimeCards;
+        if (breakdownEl) {
+          breakdownEl.innerHTML += '<br><span style="font-weight:600;color:#c8963e">Recurring: $' + weeklyTotal.toFixed(2) + '/week</span>';
+          if (oneTimeCards > 0) {
+            breakdownEl.innerHTML += '<br><span style="font-size:0.82rem">+ $' + oneTimeTotal.toFixed(2) + ' one-time (' + oneTimeCards + ' session' + (oneTimeCards > 1 ? 's' : '') + ')</span>';
+          }
+          breakdownEl.innerHTML += '<br><span style="font-size:0.78rem;color:#8c6b4a">Billed weekly for recurring appointments</span>';
+        }
+        if (totalEl) totalEl.textContent = weeklyTotal.toFixed(2) + '/wk';
+      } else if (totalDates > 1 && !isHS) {
         var multiTotal = result.total * totalDates;
         if (breakdownEl) breakdownEl.innerHTML += '<br><span style="font-weight:600">' + totalDates + ' appointments x $' + result.total.toFixed(2) + '</span>';
         if (totalEl) totalEl.textContent = multiTotal.toFixed(2);
@@ -912,57 +915,24 @@
       var puppyEl = document.getElementById('brm-puppy');
       if (puppyEl) puppyEl.addEventListener('change', updatePriceEstimate);
 
-      // Recurring schedule toggle
-      var recurToggle = document.getElementById('brm-recur-toggle');
-      var recurOpts = document.getElementById('brm-recur-options');
-      if (recurToggle && recurOpts) {
-        recurToggle.addEventListener('change', function() {
-          recurOpts.style.display = recurToggle.checked ? '' : 'none';
-          // Hide multi-date section when recurring is on (they're mutually exclusive for simplicity)
-          var multiSec = document.getElementById('brm-multidate-section');
-          var addBtn = document.getElementById('brm-add-date-btn');
-          if (recurToggle.checked) {
-            if (multiSec) multiSec.style.display = 'none';
-            // Set default recurrence end to 4 weeks from today
-            var recurEnd = document.getElementById('brm-recur-end');
-            if (recurEnd && !recurEnd.value) {
-              var future = new Date();
-              future.setDate(future.getDate() + 28);
-              recurEnd.value = future.toISOString().split('T')[0];
-            }
-          } else {
-            if (multiSec) multiSec.style.display = '';
-          }
-          updateRecurPreview();
-          updatePriceEstimate();
+      // Auto-add date card when user picks a date from the calendar
+      var addDateInput = document.getElementById('brm-add-date-input');
+      if (addDateInput) {
+        addDateInput.addEventListener('change', function() {
+          if (addDateInput.value) window._brmAddDateCard();
         });
       }
 
-      // Recurrence day checkboxes + frequency + end date → preview
-      var recurDays = document.querySelectorAll('.brm-recur-day');
-      recurDays.forEach(function(cb) {
-        cb.addEventListener('change', function() {
-          // Toggle active class on chip label (fallback for :has() CSS)
-          var chip = cb.closest('.brm-day-chip');
-          if (chip) chip.classList.toggle('active', cb.checked);
-          updateRecurPreview();
-          updatePriceEstimate();
-        });
-      });
-      var recurFreq = document.getElementById('brm-recur-freq');
-      if (recurFreq) recurFreq.addEventListener('change', function() { updateRecurPreview(); updatePriceEstimate(); });
-      var recurEndEl = document.getElementById('brm-recur-end');
-      if (recurEndEl) recurEndEl.addEventListener('change', function() { updateRecurPreview(); updatePriceEstimate(); });
-
-      // Hide multi-date + recurring for House Sitting (already has date range)
+      // Toggle between House Sitting (date range) vs regular services (date cards)
       var svcEl = document.getElementById('brm-service');
       if (svcEl) {
         svcEl.addEventListener('change', function() {
           var isHS = (svcEl.value || '').toLowerCase().indexOf('house sitting') !== -1;
           var multiSec = document.getElementById('brm-multidate-section');
-          var recurSec = document.getElementById('brm-recur-section');
+          var hsRow = document.getElementById('brm-hs-date-row');
+          // House Sitting: show date range, hide cards
           if (multiSec) multiSec.style.display = isHS ? 'none' : '';
-          if (recurSec) recurSec.style.display = isHS ? 'none' : '';
+          if (hsRow) hsRow.style.display = isHS ? '' : 'none';
         });
       }
     }, 100);
@@ -1009,6 +979,23 @@
       return html;
     }
 
+    // Sync hidden brm-date and brm-time from the first date card (for backward compat)
+    function _syncPrimaryFromCards() {
+      var cards = window._brmGetDateCardsData();
+      var dateEl = document.getElementById('brm-date');
+      var timeEl = document.getElementById('brm-time');
+      if (cards.length > 0) {
+        if (dateEl) dateEl.value = cards[0].date;
+        if (timeEl) timeEl.value = cards[0].time || '';
+      } else {
+        if (dateEl) dateEl.value = '';
+        if (timeEl) timeEl.value = '';
+      }
+      // Toggle helper message
+      var msg = document.getElementById('brm-no-dates-msg');
+      if (msg) msg.style.display = cards.length > 0 ? 'none' : '';
+    }
+
     window._brmAddDateCard = function() {
       var dateInput = document.getElementById('brm-add-date-input');
       if (!dateInput || !dateInput.value) {
@@ -1021,6 +1008,7 @@
       var isDupe = window._brmDateCards.some(function(c) { return c && c.date === dateVal; });
       if (isDupe) {
         if (typeof toast === 'function') toast('That date is already added.');
+        dateInput.value = '';
         return;
       }
 
@@ -1033,7 +1021,13 @@
       // Format the date for display
       var d = new Date(dateVal + 'T12:00:00');
       var dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-      var monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      var monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      // Build the recurring options HTML for this card
+      var todayStr = new Date().toISOString().split('T')[0];
+      var fourWeeks = new Date();
+      fourWeeks.setDate(fourWeeks.getDate() + 28);
+      var fourWeeksStr = fourWeeks.toISOString().split('T')[0];
 
       var card = document.createElement('div');
       card.id = 'brm-dc-' + idx;
@@ -1042,18 +1036,44 @@
       card.innerHTML =
         '<button type="button" onclick="window._brmRemoveDateCard(' + idx + ')" style="position:absolute;top:8px;right:10px;background:none;border:none;color:#c4756a;cursor:pointer;font-size:18px;line-height:1">&times;</button>' +
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
-          '<div style="font-weight:700;font-size:0.92rem;color:#1e1409;min-width:110px">' +
+          '<div style="font-weight:700;font-size:0.92rem;color:#1e1409;min-width:130px">' +
             '<span style="color:#c8963e">' + dayName + '</span> ' + monthDay +
           '</div>' +
-          '<select id="brm-dc-time-' + idx + '" class="brm-input" style="flex:1;min-width:120px;max-width:180px;margin:0;padding:6px 8px;font-size:0.82rem">' +
+          '<select id="brm-dc-time-' + idx + '" class="brm-input" onchange="window._brmSyncPrimary()" style="flex:1;min-width:120px;max-width:180px;margin:0;padding:6px 8px;font-size:0.82rem">' +
             _brmTimeOptionsHTML() +
           '</select>' +
         '</div>' +
-        _brmPetChipsHTML(idx);
+        _brmPetChipsHTML(idx) +
+        '<div style="margin-top:8px;border-top:1px dashed #e0d5c5;padding-top:8px">' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer;color:#6b5c4d;font-weight:600">' +
+            '<input type="checkbox" id="brm-dc-recur-' + idx + '" onchange="window._brmToggleCardRecur(' + idx + ')" style="accent-color:#c8963e">' +
+            ' Make this recurring' +
+          '</label>' +
+          '<div id="brm-dc-recur-opts-' + idx + '" style="display:none;margin-top:8px;background:#fff;border:1px solid #e8dece;border-radius:8px;padding:10px">' +
+            '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end">' +
+              '<div style="flex:1;min-width:110px">' +
+                '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Frequency</label>' +
+                '<select id="brm-dc-freq-' + idx + '" class="brm-input" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:5px 8px;font-size:0.8rem">' +
+                  '<option value="weekly">Every week</option>' +
+                  '<option value="biweekly">Every other week</option>' +
+                '</select>' +
+              '</div>' +
+              '<div style="flex:1;min-width:110px" id="brm-dc-end-wrap-' + idx + '">' +
+                '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Until</label>' +
+                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="' + fourWeeksStr + '" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:5px 8px;font-size:0.8rem">' +
+              '</div>' +
+            '</div>' +
+            '<label style="display:flex;align-items:center;gap:5px;margin-top:6px;font-size:0.78rem;color:#6b5c4d;cursor:pointer">' +
+              '<input type="checkbox" id="brm-dc-ongoing-' + idx + '" onchange="window._brmToggleOngoing(' + idx + ')" style="accent-color:#c8963e"> Until stopped (no end date)' +
+            '</label>' +
+            '<div id="brm-dc-recur-preview-' + idx + '" style="margin-top:8px;font-size:0.78rem;color:#6b5c4d;max-height:80px;overflow-y:auto"></div>' +
+          '</div>' +
+        '</div>';
       container.appendChild(card);
 
       // Clear the date input for next selection
       dateInput.value = '';
+      _syncPrimaryFromCards();
       updatePriceEstimate();
     };
 
@@ -1061,8 +1081,12 @@
       var card = document.getElementById('brm-dc-' + idx);
       if (card) card.remove();
       window._brmDateCards = window._brmDateCards.filter(function(c) { return c && c.idx !== idx; });
+      _syncPrimaryFromCards();
       updatePriceEstimate();
     };
+
+    // Expose sync for time dropdown changes
+    window._brmSyncPrimary = _syncPrimaryFromCards;
 
     // Get all selected date cards data (used by submission)
     window._brmGetDateCardsData = function() {
@@ -1085,66 +1109,126 @@
     // Legacy _brmExtraDates getter for backward compatibility with price calc
     Object.defineProperty(window, '_brmExtraDates', {
       get: function() {
-        return (window._brmDateCards || []).map(function(c) { return c ? c.date : null; });
+        // Return all cards EXCEPT the first one (since first = primary date)
+        var cards = (window._brmDateCards || []);
+        return cards.slice(1).map(function(c) { return c ? c.date : null; });
       },
       configurable: true,
       enumerable: true
     });
 
-    // ── Recurring preview generator ──
-    function getRecurDates() {
-      var toggle = document.getElementById('brm-recur-toggle');
-      if (!toggle || !toggle.checked) return [];
+    // ── Per-card recurring: toggle, preview, and date generation ──
+    window._brmToggleCardRecur = function(idx) {
+      var cb = document.getElementById('brm-dc-recur-' + idx);
+      var opts = document.getElementById('brm-dc-recur-opts-' + idx);
+      if (!cb || !opts) return;
+      opts.style.display = cb.checked ? '' : 'none';
+      if (cb.checked) {
+        window._brmUpdateCardRecurPreview(idx);
+      }
+      updatePriceEstimate();
+    };
 
-      var selectedDays = [];
-      document.querySelectorAll('.brm-recur-day:checked').forEach(function(cb) { selectedDays.push(cb.value); });
-      if (selectedDays.length === 0) return [];
+    // Toggle "until stopped" checkbox — hides/shows the end date field
+    window._brmToggleOngoing = function(idx) {
+      var ongoing = document.getElementById('brm-dc-ongoing-' + idx);
+      var endWrap = document.getElementById('brm-dc-end-wrap-' + idx);
+      if (!ongoing) return;
+      if (endWrap) endWrap.style.display = ongoing.checked ? 'none' : '';
+      window._brmUpdateCardRecurPreview(idx);
+    };
 
-      var freq = (document.getElementById('brm-recur-freq') || {}).value || 'weekly';
-      var endStr = (document.getElementById('brm-recur-end') || {}).value;
-      var startStr = (document.getElementById('brm-date') || {}).value;
-      if (!endStr || !startStr) return [];
+    window._brmUpdateCardRecurPreview = function(idx) {
+      var preview = document.getElementById('brm-dc-recur-preview-' + idx);
+      if (!preview) return;
+      var ongoing = document.getElementById('brm-dc-ongoing-' + idx);
+      var isOngoing = ongoing && ongoing.checked;
+      var freq = (document.getElementById('brm-dc-freq-' + idx) || {}).value || 'weekly';
+      var freqLabel = freq === 'weekly' ? 'every week' : 'every other week';
+      var card = document.getElementById('brm-dc-' + idx);
+      var startDate = card ? card.getAttribute('data-date') : '';
 
-      var dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+      if (isOngoing) {
+        var startFmt = startDate ? new Date(startDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '';
+        preview.innerHTML = '<span style="color:#c8963e;font-weight:600">Repeats ' + freqLabel + '</span> starting ' + startFmt + '<br><em>Billed weekly · continues until you cancel</em>';
+      } else {
+        var dates = _getCardRecurDates(idx);
+        if (dates.length === 0) {
+          preview.innerHTML = '<em>Set an end date to see your recurring dates.</em>';
+        } else {
+          var formatted = dates.map(function(d) {
+            return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          });
+          preview.innerHTML = '<strong>' + dates.length + ' appointment' + (dates.length > 1 ? 's' : '') + ':</strong><br>' +
+            formatted.map(function(f) { return '<span class="brm-date-tag">' + f + '</span>'; }).join(' ');
+        }
+      }
+      updatePriceEstimate();
+    };
+
+    // Generate recurring dates for a specific card (only for cards with end dates)
+    function _getCardRecurDates(idx) {
+      var card = document.getElementById('brm-dc-' + idx);
+      if (!card) return [];
+      var startDate = card.getAttribute('data-date');
+      if (!startDate) return [];
+      var cb = document.getElementById('brm-dc-recur-' + idx);
+      if (!cb || !cb.checked) return [];
+      // If "until stopped", no finite date list
+      var ongoing = document.getElementById('brm-dc-ongoing-' + idx);
+      if (ongoing && ongoing.checked) return [];
+      var freq = (document.getElementById('brm-dc-freq-' + idx) || {}).value || 'weekly';
+      var endStr = (document.getElementById('brm-dc-recur-end-' + idx) || {}).value;
+      if (!endStr) return [];
+
       var intervalDays = freq === 'biweekly' ? 14 : 7;
-      var start = new Date(startStr + 'T12:00:00');
+      var start = new Date(startDate + 'T12:00:00');
       var end = new Date(endStr + 'T12:00:00');
       var dates = [];
 
-      // Find all matching days starting from the start date's week
-      var weekStart = new Date(start);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // go to Sunday of that week
-
-      for (var w = new Date(weekStart); w <= end; w.setDate(w.getDate() + intervalDays)) {
-        selectedDays.forEach(function(day) {
-          var d = new Date(w);
-          d.setDate(d.getDate() + dayMap[day]);
-          if (d >= start && d <= end) {
-            dates.push(d.toISOString().split('T')[0]);
-          }
-        });
+      // Start from the card's date, repeat at same day-of-week
+      for (var d = new Date(start); d <= end; d.setDate(d.getDate() + intervalDays)) {
+        dates.push(d.toISOString().split('T')[0]);
       }
-
-      // Deduplicate and sort
-      dates = dates.filter(function(v, i, a) { return a.indexOf(v) === i; }).sort();
       return dates;
+    }
+
+    // Check if a card is "ongoing" (until stopped)
+    function _isCardOngoing(idx) {
+      var ongoing = document.getElementById('brm-dc-ongoing-' + idx);
+      return ongoing && ongoing.checked;
+    }
+
+    // Get ALL recurring dates across ALL cards (for submission + price calc)
+    function getRecurDates() {
+      var allDates = [];
+      var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
+      cards.forEach(function(card) {
+        var idx = card.id.replace('brm-dc-', '');
+        var recurDates = _getCardRecurDates(parseInt(idx));
+        recurDates.forEach(function(d) {
+          if (allDates.indexOf(d) === -1) allDates.push(d);
+        });
+      });
+      return allDates.sort();
     }
     window._brmGetRecurDates = getRecurDates;
 
-    function updateRecurPreview() {
-      var preview = document.getElementById('brm-recur-preview');
-      if (!preview) return;
-      var dates = getRecurDates();
-      if (dates.length === 0) {
-        preview.innerHTML = '<em>Select days, a start date, and end date to preview.</em>';
-        return;
-      }
-      var formatted = dates.map(function(d) {
-        return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    // Check if any card has recurring enabled
+    function _anyCardIsRecurring() {
+      var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
+      var found = false;
+      cards.forEach(function(card) {
+        var idx = card.id.replace('brm-dc-', '');
+        var cb = document.getElementById('brm-dc-recur-' + idx);
+        if (cb && cb.checked) found = true;
       });
-      preview.innerHTML = '<strong>' + dates.length + ' appointment' + (dates.length > 1 ? 's' : '') + ':</strong><br>' +
-        formatted.map(function(f) { return '<span class="brm-date-tag">' + f + '</span>'; }).join(' ');
+      return found;
     }
+    window._brmAnyCardRecurring = _anyCardIsRecurring;
+
+    // Backward-compat: updateRecurPreview is a no-op now (per-card handles it)
+    function updateRecurPreview() { /* handled per-card */ }
 
     // ── Greeting for logged-in clients ──
     function showGreeting() {
@@ -1400,10 +1484,9 @@
       if (datesListEl) datesListEl.innerHTML = '';
       var addDateInput = document.getElementById('brm-add-date-input');
       if (addDateInput) addDateInput.value = '';
-      var recurToggle = document.getElementById('brm-recur-toggle');
-      if (recurToggle) { recurToggle.checked = false; }
-      var recurOpts = document.getElementById('brm-recur-options');
-      if (recurOpts) recurOpts.style.display = 'none';
+      // Show the helper message
+      var noMsg = document.getElementById('brm-no-dates-msg');
+      if (noMsg) noMsg.style.display = '';
 
       // Pre-fill and show greeting if logged in
       if (window.HHP_Auth && window.HHP_Auth.currentUser) {
@@ -1644,8 +1727,25 @@
 
     // Resolve full service name from group + duration dropdowns
     var service = window._resolveBookingServiceName ? window._resolveBookingServiceName() : document.getElementById('brm-service').value;
-    var date = document.getElementById('brm-date').value;
-    var time = document.getElementById('brm-time').value;
+    var isHouseSittingSvc = service.toLowerCase().indexOf('house sitting') !== -1;
+
+    // Get date/time from date cards (unified system) or House Sitting fields
+    var dateCardDetails = window._brmGetDateCardsData ? window._brmGetDateCardsData() : [];
+    var date, time;
+    if (isHouseSittingSvc) {
+      // House Sitting uses the traditional date range fields
+      date = document.getElementById('brm-date').value;
+      time = '';
+    } else if (dateCardDetails.length > 0) {
+      // Regular services: first card is the primary date/time
+      date = dateCardDetails[0].date;
+      time = dateCardDetails[0].time || '';
+    } else {
+      // Fallback to hidden fields (e.g. recurring)
+      date = document.getElementById('brm-date').value;
+      time = document.getElementById('brm-time').value;
+    }
+
     var name = document.getElementById('brm-name').value.trim();
     var email = document.getElementById('brm-email').value.trim();
     var phone = document.getElementById('brm-phone').value.trim();
@@ -1658,33 +1758,52 @@
     var endDateEl = document.getElementById('brm-enddate');
     var endDate = endDateEl ? endDateEl.value : '';
 
-    // Collect multi-date and recurrence data
-    var isRecurring = document.getElementById('brm-recur-toggle') && document.getElementById('brm-recur-toggle').checked;
-    var allBookingDates = [date]; // always include the primary date
-    var dateCardDetails = []; // per-date time + pet data from date cards
+    // Collect multi-date and recurrence data (per-card recurring)
+    var isRecurring = window._brmAnyCardRecurring ? window._brmAnyCardRecurring() : false;
+    var allBookingDates = [];
 
-    if (isRecurring && window._brmGetRecurDates) {
-      var recurDates = window._brmGetRecurDates();
-      if (recurDates.length > 0) allBookingDates = recurDates;
-    } else if (window._brmGetDateCardsData) {
-      // Add dates from the new date card system (each with their own time + pet selection)
-      dateCardDetails = window._brmGetDateCardsData();
+    // Collect dates from all cards, including recurring expansions
+    if (dateCardDetails.length > 0) {
       dateCardDetails.forEach(function(dc) { if (dc.date) allBookingDates.push(dc.date); });
     }
+    // Add recurring dates from cards that have recurring enabled
+    if (isRecurring && window._brmGetRecurDates) {
+      var recurDates = window._brmGetRecurDates();
+      recurDates.forEach(function(rd) {
+        if (allBookingDates.indexOf(rd) === -1) allBookingDates.push(rd);
+      });
+    }
+    if (allBookingDates.length === 0 && date) allBookingDates = [date];
     // Deduplicate and sort
     allBookingDates = allBookingDates.filter(function(v, i, a) { return v && a.indexOf(v) === i; }).sort();
 
-    // Build recurrence pattern if recurring
+    // Build recurrence pattern from per-card recurring data
     var recurrencePattern = null;
     if (isRecurring) {
-      var selectedDays = [];
-      document.querySelectorAll('.brm-recur-day:checked').forEach(function(cb) { selectedDays.push(cb.value); });
-      recurrencePattern = {
-        days: selectedDays,
-        frequency: (document.getElementById('brm-recur-freq') || {}).value || 'weekly',
-        end_date: (document.getElementById('brm-recur-end') || {}).value || '',
-        time: time
-      };
+      var recurringCards = [];
+      var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
+      cards.forEach(function(card) {
+        var cIdx = card.id.replace('brm-dc-', '');
+        var cb = document.getElementById('brm-dc-recur-' + cIdx);
+        if (cb && cb.checked) {
+          var ongoingEl = document.getElementById('brm-dc-ongoing-' + cIdx);
+          var isOngoing = ongoingEl && ongoingEl.checked;
+          recurringCards.push({
+            start_date: card.getAttribute('data-date'),
+            frequency: (document.getElementById('brm-dc-freq-' + cIdx) || {}).value || 'weekly',
+            end_date: isOngoing ? null : ((document.getElementById('brm-dc-recur-end-' + cIdx) || {}).value || ''),
+            ongoing: isOngoing,
+            time: (document.getElementById('brm-dc-time-' + cIdx) || {}).value || ''
+          });
+        }
+      });
+      if (recurringCards.length > 0) {
+        recurrencePattern = {
+          type: 'per_card',
+          schedules: recurringCards,
+          time: time
+        };
+      }
     }
 
     // Calculate price (with nights for House Sitting)
@@ -1697,12 +1816,19 @@
     }
     var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights);
 
-    // For multi-date, multiply the per-session price by number of dates
+    // For multi-date / recurring pricing
     var totalDates = allBookingDates.length;
-    var multiDateTotal = priceResult.total * totalDates;
-    var multiDateBreakdown = priceResult.breakdown;
-    if (totalDates > 1 && !isHouseSitting) {
-      multiDateBreakdown += ' | x' + totalDates + ' appointments = $' + multiDateTotal.toFixed(2);
+    var multiDateTotal, multiDateBreakdown;
+    if (isRecurring && !isHouseSitting) {
+      // Recurring: store per-session price, billed weekly
+      multiDateTotal = priceResult.total; // per session
+      multiDateBreakdown = priceResult.breakdown + ' | Recurring: billed $' + priceResult.total.toFixed(2) + '/session weekly';
+    } else {
+      multiDateTotal = priceResult.total * totalDates;
+      multiDateBreakdown = priceResult.breakdown;
+      if (totalDates > 1 && !isHouseSitting) {
+        multiDateBreakdown += ' | x' + totalDates + ' appointments = $' + multiDateTotal.toFixed(2);
+      }
     }
 
     // Check if using pet checkboxes (logged-in) or guest text input
@@ -1711,8 +1837,18 @@
 
     // For logged-in users: require at least one pet checkbox selected
     // For guests: require pets text + petCombo dropdown
-    if (!service || !date || !time || !name || !email || !address) {
+    if (!service || !name || !email || !address) {
       if (errEl) errEl.textContent = 'Please fill in all required fields.';
+      return;
+    }
+    // Date validation: need at least one date (from cards or HS fields)
+    if (!date && dateCardDetails.length === 0) {
+      if (errEl) errEl.textContent = 'Please add at least one date.';
+      return;
+    }
+    // Time validation for non-HS: check first card has a time
+    if (!isHouseSitting && dateCardDetails.length > 0 && !dateCardDetails[0].time) {
+      if (errEl) errEl.textContent = 'Please select a time for your first date.';
       return;
     }
     if (isLoggedInWithPets) {
@@ -1726,15 +1862,23 @@
       if (errEl) errEl.textContent = 'Please select an end date for House Sitting.';
       return;
     }
-    // Recurring requires at least one day selected
+    // Recurring cards need end dates unless set to "until stopped"
     if (isRecurring) {
-      var selDays = document.querySelectorAll('.brm-recur-day:checked');
-      if (selDays.length === 0) {
-        if (errEl) errEl.textContent = 'Please select at least one day for your recurring schedule.';
-        return;
-      }
-      if (!document.getElementById('brm-recur-end').value) {
-        if (errEl) errEl.textContent = 'Please select an end date for your recurring schedule.';
+      var missingEnd = false;
+      document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
+        var cIdx = card.id.replace('brm-dc-', '');
+        var cb = document.getElementById('brm-dc-recur-' + cIdx);
+        if (cb && cb.checked) {
+          var ongoingEl = document.getElementById('brm-dc-ongoing-' + cIdx);
+          var isOngoing = ongoingEl && ongoingEl.checked;
+          if (!isOngoing) {
+            var endEl = document.getElementById('brm-dc-recur-end-' + cIdx);
+            if (!endEl || !endEl.value) missingEnd = true;
+          }
+        }
+      });
+      if (missingEnd) {
+        if (errEl) errEl.textContent = 'Please set an end date for recurring dates (or choose "Until stopped").';
         return;
       }
     }
@@ -1798,8 +1942,11 @@
             dateDisplay = allBookingDates.join(', ') + ' (' + totalDates + ' dates)';
           }
         }
-        if (isRecurring && recurrencePattern) {
-          dateDisplay += ' [Recurring: ' + recurrencePattern.days.join(', ') + ' ' + recurrencePattern.frequency + ' until ' + recurrencePattern.end_date + ']';
+        if (isRecurring && recurrencePattern && recurrencePattern.schedules) {
+          var recurParts = recurrencePattern.schedules.map(function(s) {
+            return s.start_date + ' ' + s.frequency + ' until ' + s.end_date;
+          });
+          dateDisplay += ' [Recurring: ' + recurParts.join('; ') + ']';
         }
         await sendBookingNotification({
           service: service,
@@ -1832,11 +1979,8 @@
         if (datesListEl) datesListEl.innerHTML = '';
         var addDateInput = document.getElementById('brm-add-date-input');
         if (addDateInput) addDateInput.value = '';
-        // Hide recurring options
-        var recurOpts = document.getElementById('brm-recur-options');
-        if (recurOpts) recurOpts.style.display = 'none';
-        var recurPreview = document.getElementById('brm-recur-preview');
-        if (recurPreview) recurPreview.innerHTML = '';
+        var noMsg = document.getElementById('brm-no-dates-msg');
+        if (noMsg) noMsg.style.display = '';
         closeBookingModal();
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Request to Rachel'; }
         if (successEl) successEl.textContent = '';
@@ -2047,9 +2191,21 @@
         var recurHTML = '';
         if (r.recurrence_pattern) {
           var rp = typeof r.recurrence_pattern === 'string' ? JSON.parse(r.recurrence_pattern) : r.recurrence_pattern;
-          var dayNames = (rp.days || []).map(function(d) { return d.charAt(0).toUpperCase() + d.slice(1); });
-          var freqLabel = rp.frequency === 'weekly' ? 'Every week' : 'Every other week';
-          recurHTML = '<div class="arc-detail" style="background:#eef6ff;border:1px solid #b8d4f0;border-radius:6px;padding:8px 10px;margin:4px 0"><strong>🔄 Recurring:</strong> ' + dayNames.join(', ') + ' · ' + freqLabel + (rp.end_date ? ' · Until ' + new Date(rp.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '') + '</div>';
+          if (rp.type === 'per_card' && rp.schedules) {
+            // New per-card recurring format
+            var schedParts = rp.schedules.map(function(s) {
+              var freqLabel = s.frequency === 'weekly' ? 'Weekly' : 'Every other week';
+              var startFmt = new Date(s.start_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+              var endPart = s.ongoing ? ' · <em>Until stopped</em>' : (s.end_date ? ' until ' + new Date(s.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ' (ongoing)');
+              return startFmt + ' · ' + freqLabel + endPart + (s.time ? ' @ ' + s.time : '');
+            });
+            recurHTML = '<div class="arc-detail" style="background:#eef6ff;border:1px solid #b8d4f0;border-radius:6px;padding:8px 10px;margin:4px 0"><strong>🔄 Recurring:</strong><br>' + schedParts.join('<br>') + '</div>';
+          } else {
+            // Legacy format
+            var dayNames = (rp.days || []).map(function(d) { return d.charAt(0).toUpperCase() + d.slice(1); });
+            var freqLabel = rp.frequency === 'weekly' ? 'Every week' : 'Every other week';
+            recurHTML = '<div class="arc-detail" style="background:#eef6ff;border:1px solid #b8d4f0;border-radius:6px;padding:8px 10px;margin:4px 0"><strong>🔄 Recurring:</strong> ' + dayNames.join(', ') + ' · ' + freqLabel + (rp.end_date ? ' · Until ' + new Date(rp.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '') + '</div>';
+          }
         }
 
         var createdStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
