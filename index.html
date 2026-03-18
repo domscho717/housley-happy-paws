@@ -1521,10 +1521,10 @@ try {
           <div class="ob-stats"><div><div class="ob-sn">—</div><div class="ob-sl">Active Clients</div></div><div><div class="ob-sn">—</div><div class="ob-sl">This Month</div></div><div><div class="ob-sn">— ⭐</div><div class="ob-sl">Avg Rating</div></div><div><div class="ob-sn">—</div><div class="ob-sl">Today's Jobs</div></div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
-          <!-- ALERTS & BOOKING REQUESTS (populated by HHP_BookingAdmin) -->
-          <div class="card" id="hhpAdminDashboard">
-            <div class="card-title" style="margin-bottom:14px">🔔 Alerts & Booking Requests</div>
-            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading requests...</div>
+          <!-- ALERTS / NEW MESSAGES (populated by HHP_Messaging.loadAlertMessages) -->
+          <div class="card" id="hhpAlertsCard">
+            <div class="card-title" style="margin-bottom:14px">🔔 Alerts & Messages</div>
+            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
           </div>
           <!-- QUICK STATS -->
           <div class="card"><div class="card-title" style="margin-bottom:14px">📊 This Week at a Glance</div>
@@ -1536,6 +1536,12 @@ try {
             </div>
             <div style="background:var(--gold-pale);border-radius:8px;padding:12px 14px;font-size:0.83rem;font-weight:600;color:var(--gold-deep)">🔔 Auto-notifications active — clients get start & end alerts for every appointment.</div>
           </div>
+        </div>
+
+        <!-- BOOKING REQUESTS (populated by HHP_BookingAdmin) -->
+        <div class="card" id="hhpAdminDashboard" style="margin-bottom:18px">
+          <div class="card-title" style="margin-bottom:14px">📋 Booking Requests</div>
+          <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading requests...</div>
         </div>
 
         <!-- TODAY'S SCHEDULE -->

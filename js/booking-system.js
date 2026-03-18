@@ -2115,7 +2115,7 @@
       if (!dashboard) return;
 
       dashboard.innerHTML = [
-        '<div class="card-title" style="margin-bottom:14px">🔔 Alerts & Booking Requests</div>',
+        '<div class="card-title" style="margin-bottom:14px">📋 Booking Requests</div>',
         '<div class="admin-filter-bar" id="adminFilterBar" style="margin-bottom:12px">',
         '  <button class="admin-filter-btn active" data-filter="pending" onclick="HHP_BookingAdmin.filter(\'pending\',this)">Pending</button>',
         '  <button class="admin-filter-btn" data-filter="accepted" onclick="HHP_BookingAdmin.filter(\'accepted\',this)">Accepted</button>',
