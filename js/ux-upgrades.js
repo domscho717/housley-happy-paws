@@ -238,6 +238,8 @@
   // 3. TIME-BASED GREETINGS
   // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
   function initGreetings() {
+    // Defer to ux-patch.js fixGreetings() which handles birthdays
+    if (window._hhpGreetingHandled) return;
     var hour = new Date().getHours();
     var greeting;
     var emoji;

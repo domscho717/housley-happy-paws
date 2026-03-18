@@ -72,9 +72,60 @@
   }
 
   // ─────────────────────────────────────────────
-  // FIX GREETINGS — replace garbled emoji with proper icons
+  // FIX GREETINGS — replace with time-of-day OR pet birthday greeting
   // ─────────────────────────────────────────────
-  function fixGreetings() {
+  // Cache birthday pets so we don't re-query every 60 s
+  var _birthdayPetsCache = null;
+  var _birthdayCacheDate = null;
+
+  async function _checkBirthdayPets() {
+    var today = new Date();
+    var cacheKey = today.toISOString().split('T')[0];
+    if (_birthdayCacheDate === cacheKey && _birthdayPetsCache !== null) return _birthdayPetsCache;
+
+    var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+    if (!sb || !user) return [];
+
+    try {
+      var mm = String(today.getMonth() + 1).padStart(2, '0');
+      var dd = String(today.getDate()).padStart(2, '0');
+      var suffix = '-' + mm + '-' + dd;
+
+      // For clients: only their own pets. For owner/staff: all pets with birthdays today
+      var role = (window.HHP_Auth && window.HHP_Auth.currentRole) || 'client';
+      var query = sb.from('pets').select('name, species, owner_id').ilike('birthday', '%' + suffix);
+      if (role === 'client') query = query.eq('owner_id', user.id);
+
+      var { data: pets, error } = await query;
+      if (error || !pets) { _birthdayPetsCache = []; } else { _birthdayPetsCache = pets; }
+      _birthdayCacheDate = cacheKey;
+    } catch (e) {
+      _birthdayPetsCache = [];
+      _birthdayCacheDate = cacheKey;
+    }
+    return _birthdayPetsCache;
+  }
+
+  function _buildBirthdayGreeting(pets, personName) {
+    if (!pets || pets.length === 0) return null;
+    var names = pets.map(function(p) { return p.name || 'your pet'; });
+    var petList;
+    if (names.length === 1) {
+      petList = names[0];
+    } else if (names.length === 2) {
+      petList = names[0] + ' & ' + names[1];
+    } else {
+      petList = names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
+    }
+    var cakeIcon = '<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f382.png" alt="cake" style="width:32px;height:32px;vertical-align:middle;margin-left:8px;display:inline-block;">';
+    return { text: 'Happy Birthday, ' + petList + '!', icon: cakeIcon };
+  }
+
+  async function fixGreetings() {
+    // Set a flag so ux-upgrades.js initGreetings() defers to us
+    window._hhpGreetingHandled = true;
+
     var hour = new Date().getHours();
     var greeting, iconHTML;
 
@@ -89,14 +140,23 @@
       iconHTML = '<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f319.png" alt="moon" style="width:32px;height:32px;vertical-align:middle;margin-left:8px;display:inline-block;">';
     }
 
+    // Check for pet birthdays today
+    var bdayPets = await _checkBirthdayPets();
+
     // Fix owner portal greeting
     var ownerGreet = document.querySelector('#o-overview .ob-h');
     if (ownerGreet) {
       var text = ownerGreet.textContent;
-      if (text.includes('Good morning') || text.includes('Good afternoon') || text.includes('Good evening')) {
-        var nameMatch = text.match(/,\s*([A-Za-z]+)/);
+      if (text.includes('Good morning') || text.includes('Good afternoon') || text.includes('Good evening') || text.includes('Happy Birthday')) {
+        var nameMatch = text.match(/,\s*([A-Za-z]+)(?:\s|!|$)/);
         var name = nameMatch ? nameMatch[1] : 'Rachel';
-        ownerGreet.innerHTML = greeting + ', ' + name + ' ' + iconHTML;
+        // Owner sees birthday pets across all clients
+        var ownerBday = _buildBirthdayGreeting(bdayPets, name);
+        if (ownerBday) {
+          ownerGreet.innerHTML = ownerBday.text + ' ' + ownerBday.icon;
+        } else {
+          ownerGreet.innerHTML = greeting + ', ' + name + ' ' + iconHTML;
+        }
       }
     }
 
@@ -105,10 +165,16 @@
     if (clientPortal) {
       clientPortal.querySelectorAll('h1, h2, .p-title').forEach(function(el) {
         var t = el.textContent;
-        if (t.includes('Good morning') || t.includes('Good afternoon') || t.includes('Good evening')) {
+        if (t.includes('Good morning') || t.includes('Good afternoon') || t.includes('Good evening') || t.includes('Happy Birthday') || t.includes('Welcome to your Client Portal')) {
           var nm = t.match(/,\s*([A-Za-z]+)/);
           var n = nm ? nm[1] : 'there';
-          el.innerHTML = greeting + ', ' + n + '! ' + iconHTML;
+          // Client sees only their own pets' birthdays
+          var clientBday = _buildBirthdayGreeting(bdayPets, n);
+          if (clientBday) {
+            el.innerHTML = clientBday.text + ' ' + clientBday.icon;
+          } else {
+            el.innerHTML = greeting + ', ' + n + '! ' + iconHTML;
+          }
         }
       });
     }
@@ -118,10 +184,15 @@
     if (staffPortal) {
       staffPortal.querySelectorAll('h1, h2, .p-title, .ob-h, .hhp-staff-greet div').forEach(function(el) {
         var t = el.textContent;
-        if (t.includes('Good morning') || t.includes('Good afternoon') || t.includes('Good evening')) {
+        if (t.includes('Good morning') || t.includes('Good afternoon') || t.includes('Good evening') || t.includes('Happy Birthday')) {
           var nm = t.match(/,\s*([A-Za-z]+)/);
           var n = nm ? nm[1] : 'there';
-          el.innerHTML = greeting + ', ' + n + '! ' + iconHTML;
+          var staffBday = _buildBirthdayGreeting(bdayPets, n);
+          if (staffBday) {
+            el.innerHTML = staffBday.text + ' ' + staffBday.icon;
+          } else {
+            el.innerHTML = greeting + ', ' + n + '! ' + iconHTML;
+          }
         }
       });
     }
