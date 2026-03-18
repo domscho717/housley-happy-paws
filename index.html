@@ -2296,6 +2296,25 @@ function switchView(view) {
   });
   var targetPage = document.getElementById('pg-'+view);
   targetPage.classList.add('active');
+
+  // For logged-in clients: show a floating "My Portal" button when viewing public/home
+  var isClient = typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated() && HHP_Auth.currentRole === 'client';
+  var floatingPortalBtn = document.getElementById('floatingPortalBtn');
+  if (isClient && view === 'public') {
+    if (!floatingPortalBtn) {
+      floatingPortalBtn = document.createElement('button');
+      floatingPortalBtn.id = 'floatingPortalBtn';
+      floatingPortalBtn.innerHTML = '🐾 My Portal';
+      floatingPortalBtn.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:999;background:linear-gradient(135deg,#c8963e,#a67c2e);color:white;border:none;padding:14px 24px;border-radius:50px;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(200,150,62,0.4);transition:transform 0.2s,box-shadow 0.2s';
+      floatingPortalBtn.onmouseenter = function() { this.style.transform = 'scale(1.05)'; this.style.boxShadow = '0 6px 28px rgba(200,150,62,0.5)'; };
+      floatingPortalBtn.onmouseleave = function() { this.style.transform = ''; this.style.boxShadow = '0 4px 20px rgba(200,150,62,0.4)'; };
+      floatingPortalBtn.onclick = function() { switchView('client'); };
+      document.body.appendChild(floatingPortalBtn);
+    }
+    floatingPortalBtn.style.display = '';
+  } else if (floatingPortalBtn) {
+    floatingPortalBtn.style.display = 'none';
+  }
   // Remove early-hide style and loading-auth — auth has settled, safe to show content
   var earlyHide = document.getElementById('early-hide');
   if (earlyHide) earlyHide.remove();
