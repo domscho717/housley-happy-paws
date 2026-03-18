@@ -1327,18 +1327,18 @@ try {
       <div class="p-panel" id="c-msgs">
         <div class="p-header"><h2>Messages 💬</h2><p>Your direct line to Rachel.</p></div>
         <div class="card"><div class="msg-thread" id="cMsgs">
-          <div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">No messages yet — say hello!</div>
+          <div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading messages...</div>
         </div><div class="msg-input-row"><input class="msg-input" id="cMsgIn" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMsg('c')"><button class="msg-send" onclick="sendMsg('c')">➤</button></div></div>
       </div>
 
       <!-- NOTIFICATIONS -->
       <div class="p-panel" id="c-notifs">
         <div class="p-header"><h2>Notifications 🔔</h2></div>
-        <div class="card">
+        <div class="card" id="cNotifsCard">
           <div style="padding:28px;text-align:center;color:var(--mid)">
             <div style="font-size:2rem;margin-bottom:10px">🔔</div>
             <div style="font-weight:600;margin-bottom:6px">No notifications yet</div>
-            <div style="font-size:0.84rem">Updates about your appointments and visits will appear here.</div>
+            <div style="font-size:0.84rem">Updates about your appointments and messages will appear here.</div>
           </div>
         </div>
       </div>
@@ -1474,8 +1474,8 @@ try {
       </div>
 
       <div class="p-panel" id="s-msgs">
-        <div class="p-header"><h2>Messages 💬</h2></div>
-        <div class="card"><div class="msg-thread"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">No messages yet.</div></div><div class="msg-input-row"><input class="msg-input" id="sMsgIn" placeholder="Reply to Rachel..." onkeydown="if(event.key==='Enter')sendMsg('s')"><button class="msg-send" onclick="sendMsg('s')">➤</button></div></div>
+        <div class="p-header"><h2>Messages 💬</h2><p>Your direct line to Rachel.</p></div>
+        <div class="card"><div class="msg-thread" id="sMsgs"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading messages...</div></div><div class="msg-input-row"><input class="msg-input" id="sMsgIn" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMsg('s')"><button class="msg-send" onclick="sendMsg('s')">➤</button></div></div>
       </div>
 
       <div class="p-panel" id="s-earn">
@@ -1697,14 +1697,12 @@ try {
       </div>
 
       <div class="p-panel" id="o-msgs">
-        <div class="p-header"><h2>All Messages 💬</h2><p>Every client conversation in one inbox.</p></div>
+        <div class="p-header"><h2>All Messages 💬</h2><p>Every client & staff conversation in one inbox.</p></div>
         <div class="card">
           <div style="padding:28px;text-align:center;color:var(--mid)">
             <div style="font-size:2rem;margin-bottom:10px">💬</div>
-            <div style="font-weight:600;margin-bottom:6px">No messages yet</div>
-            <div style="font-size:0.84rem">Client conversations will appear here once you're booked.</div>
+            <div style="font-weight:600;margin-bottom:6px">Loading messages...</div>
           </div>
-          <button class="btn btn-ink btn-sm" onclick="toast('📢 Messaging feature coming soon — use text or email for now.')" style="width:100%;justify-content:center;margin-top:12px">📢 Send Broadcast to All Clients</button>
         </div>
       </div>
 
@@ -2516,6 +2514,9 @@ function sTab(portal, panelId) {
   if (panelId === 'c-appts' && typeof loadClientAppts === 'function') loadClientAppts('all');
   if (panelId === 'o-staff' && typeof loadStaffTeam === 'function') loadStaffPanel('team');
   if (panelId === 'o-linkpage') { if (typeof loadLandingPageEditor === 'function') loadLandingPageEditor(); if (typeof loadQRScanStats === 'function') loadQRScanStats(); }
+  if (panelId === 'c-msgs' && window.HHP_Messaging) HHP_Messaging.loadClientMessages();
+  if (panelId === 's-msgs' && window.HHP_Messaging) HHP_Messaging.loadStaffMessages();
+  if (panelId === 'o-msgs' && window.HHP_Messaging) HHP_Messaging.loadOwnerInbox();
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -2845,32 +2846,8 @@ function sendInviteEmail() {
 }
 
 // ---- MESSAGES ----
-function sendMsg(p) {
-  const inp = document.getElementById(p+'MsgIn');
-  const list = document.getElementById(p+'Msgs');
-  if(!inp?.value.trim()) return;
-
-  // Get current user's avatar
-  const myAva = (typeof HHP_Avatar !== 'undefined') ? HHP_Avatar.getCurrentAvatarUrl() : '';
-  const myAvaHTML = myAva
-    ? '<img src="'+myAva+'" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid var(--gold-light)">'
-    : '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">🐾</div>';
-
-  // Rachel's avatar (owner) — could be loaded from her profile
-  const rachelAva = '<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-deep));display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0;color:white;font-weight:700">R</div>';
-
-  const d = document.createElement('div');
-  d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
-  d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">'+inp.value+'</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + myAvaHTML;
-  list.appendChild(d); inp.value=''; list.scrollTop=list.scrollHeight;
-
-  setTimeout(()=>{
-    const r = document.createElement('div');
-    r.style.cssText = 'display:flex;gap:8px;align-items:flex-end';
-    r.innerHTML = rachelAva + '<div><div class="msg-in">Got it! I\'ll get back to you soon 🐾</div><div class="msg-meta">Rachel · Just now</div></div>';
-    list.appendChild(r); list.scrollTop=list.scrollHeight;
-  },1500);
-}
+// Real messaging handled by /js/messaging.js (HHP_Messaging)
+// sendMsg() is overridden at runtime by HHP_Messaging.init()
 
 // ---- AI NOTE GENERATOR ----
 function generateNote() { buildNote('aiQ1','aiQ2','aiQ3','reportNote'); }
@@ -5370,5 +5347,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js" defer></script>
 
   <script src="/js/booking-system.js" defer></script>
+  <script src="/js/messaging.js" defer></script>
   <script src="/js/avatar-system.js" defer></script></body>
 </html>
