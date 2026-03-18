@@ -4,7 +4,7 @@
  *  or from the data attribute on the script tag.
  */
 
-const HHP_Stripe = {
+const HHP_Stripe = window.HHP_Stripe = {
   // Service pricing map (cents avoided — we send dollars to the API)
   pricing: {
     'House Sitting': 125,
