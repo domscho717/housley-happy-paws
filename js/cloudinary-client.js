@@ -145,6 +145,8 @@ const HHP_Photos = {
       'svc-boarding': null,
       'svc-cat-care': null,
       'svc-paw-bus': null,
+      'svc-house-sitting': null,
+      'svc-doggy-daycare': null,
       'svc-extra': null,
       'logo': null
     };
@@ -178,7 +180,9 @@ const HHP_Photos = {
     this.wireSlot('svcPhoto3', 'svc-boarding');
     this.wireSlot('svcPhoto4', 'svc-cat-care');
     this.wireSlot('svcPhoto5', 'svc-paw-bus');
-    this.wireSlot('svcPhoto6', 'svc-extra');
+    this.wireSlot('svcPhoto6', 'svc-house-sitting');
+    this.wireSlot('svcPhoto7', 'svc-doggy-daycare');
+    this.wireSlot('svcPhoto8', 'svc-extra');
 
     // Override logo slot
     this.wireSlot('logoUpload', 'logo');
@@ -254,27 +258,43 @@ const HHP_Photos = {
       this.updatePublicHero(this.photos.hero);
     }
 
+    // Update about section photo with first available about photo
+    const aboutPhoto = this.photos.about1 || this.photos.about2 || this.photos.about3;
+    if (aboutPhoto) {
+      const aboutContainer = document.querySelector('.about-photo-single');
+      if (aboutContainer) {
+        aboutContainer.style.backgroundImage = `url(${this.getOptimized(aboutPhoto.publicId, 800)})`;
+        aboutContainer.style.backgroundSize = 'cover';
+        aboutContainer.style.backgroundPosition = 'center';
+        aboutContainer.innerHTML = '';
+      }
+    }
+
     // Update service cards with real photos
     const serviceMapping = {
       'svc-dog-walk': 'Dog Walking',
-      'svc-drop-in': 'Drop-In Visits',
-      'svc-boarding': 'Overnight Boarding',
+      'svc-drop-in': 'Drop-In',
+      'svc-boarding': 'Boarding',
       'svc-cat-care': 'Cat Care',
-      'svc-paw-bus': 'Paw Bus'
+      'svc-paw-bus': 'Paw Bus',
+      'svc-house-sitting': 'House Sitting',
+      'svc-doggy-daycare': 'Day Care'
     };
 
     Object.entries(serviceMapping).forEach(([slotId, serviceName]) => {
       if (this.photos[slotId]) {
         const photo = this.photos[slotId];
-        // Find service card by title text and update its image
-        const cards = document.querySelectorAll('.svc-card, .service-card');
+        // Find service card by matching the sc-name text
+        const cards = document.querySelectorAll('.service-card');
         cards.forEach(card => {
-          if (card.textContent.includes(serviceName)) {
-            const imgArea = card.querySelector('.svc-img, .service-img, [style*="gradient"]');
-            if (imgArea) {
-              imgArea.style.backgroundImage = `url(${this.getOptimized(photo.publicId, 600)})`;
-              imgArea.style.backgroundSize = 'cover';
-              imgArea.style.backgroundPosition = 'center';
+          const nameEl = card.querySelector('.sc-name');
+          if (nameEl && nameEl.textContent.includes(serviceName)) {
+            // Replace the emoji icon with the uploaded photo
+            const iconEl = card.querySelector('.sc-icon');
+            if (iconEl) {
+              iconEl.style.cssText = 'width:100%;height:140px;border-radius:10px;background-size:cover;background-position:center;margin-bottom:10px;font-size:0';
+              iconEl.style.backgroundImage = `url(${this.getOptimized(photo.publicId, 600)})`;
+              iconEl.textContent = '';
             }
           }
         });
@@ -328,12 +348,28 @@ const HHP_Photos = {
     }
   },
 
+  // ── Get a Supabase client (works even without auth) ──────────
+  _getSupabase() {
+    if (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) return HHP_Auth.supabase;
+    // Create a read-only anon client for public photo loading
+    if (this._anonClient) return this._anonClient;
+    if (typeof window.supabase !== 'undefined') {
+      this._anonClient = window.supabase.createClient(
+        'https://niysrippazlkpvdkzepp.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5peXNyaXBwYXpsa3B2ZGt6ZXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0OTcxNDYsImV4cCI6MjA3OTA3MzE0Nn0.miAoNZQtOTTbnruWcj1WVn8ZGYtQZB5rh8FbBAS7VZU'
+      );
+      return this._anonClient;
+    }
+    return null;
+  },
+
   // ── Load photos from Supabase ───────────────────────────────────
   async loadPhotos() {
-    // Try Supabase first
-    if (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) {
+    // Try Supabase — works for all visitors via anon key + public RLS
+    const sb = this._getSupabase();
+    if (sb) {
       try {
-        const { data, error } = await HHP_Auth.supabase
+        const { data, error } = await sb
           .from('site_photos')
           .select('*');
 
@@ -419,8 +455,8 @@ const HHP_Photos = {
 
 // ── Auto-initialize when DOM is ready ─────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Small delay to let other scripts initialize first
+  // Delay to let Supabase JS library and auth initialize first
   setTimeout(() => {
     HHP_Photos.init();
-  }, 500);
+  }, 1200);
 });
