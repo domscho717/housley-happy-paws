@@ -44,6 +44,6 @@ module.exports = async (req, res) => {
     });
   } catch (err) {
     console.error('Cloudinary sign error:', err);
-    res.status(500).json({ error: 'Failed to generate signature' });
+    return res.status(500).json({ error: 'Failed to generate signature' });
   }
 };

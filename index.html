@@ -1149,7 +1149,6 @@ try {
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Account <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:300px">
         <button class="sb-item" onclick="sTab('c','c-msgs')"><span class="sb-item-icon">💬</span>Messages</button>
-      <button class="sb-item" onclick="sTab('c','c-notifs')"><span class="sb-item-icon">🔔</span>Notifications</button>
       <button class="sb-item" onclick="sTab('c','c-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
         <button class="sb-item" onclick="sTab('c','c-bill')"><span class="sb-item-icon">💳</span>Billing</button>
       </div>
@@ -1160,10 +1159,10 @@ try {
       <div class="p-panel active" id="c-dash">
         <div class="p-header"><h2>Welcome to your Client Portal 🐾</h2><p>Your appointments, photos, and walk reports will appear here once you're booked.</p></div>
         <div class="stats-row">
-          <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num">—</div><div class="stat-lbl">Total Visits</div></div>
-          <div class="stat-box"><div class="stat-icon">🦮</div><div class="stat-num">—</div><div class="stat-lbl">Walks Done</div></div>
-          <div class="stat-box"><div class="stat-icon">⭐</div><div class="stat-num">—</div><div class="stat-lbl">Avg Rating Given</div></div>
-          <div class="stat-box"><div class="stat-icon">🐾</div><div class="stat-num">—</div><div class="stat-lbl">Pets in Care</div></div>
+          <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num" id="stat-totalVisits">—</div><div class="stat-lbl">Total Visits</div></div>
+          <div class="stat-box"><div class="stat-icon">🦮</div><div class="stat-num" id="stat-walksDone">—</div><div class="stat-lbl">Walks Done</div></div>
+          <div class="stat-box"><div class="stat-icon">⭐</div><div class="stat-num" id="stat-avgRatingGiven">—</div><div class="stat-lbl">Avg Rating Given</div></div>
+          <div class="stat-box"><div class="stat-icon">🐾</div><div class="stat-num" id="stat-petsInCare">—</div><div class="stat-lbl">Pets in Care</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
           <div class="card">
@@ -1332,17 +1331,6 @@ try {
       </div>
 
       <!-- NOTIFICATIONS -->
-      <div class="p-panel" id="c-notifs">
-        <div class="p-header"><h2>Notifications 🔔</h2></div>
-        <div class="card" id="cNotifsCard">
-          <div style="padding:28px;text-align:center;color:var(--mid)">
-            <div style="font-size:2rem;margin-bottom:10px">🔔</div>
-            <div style="font-weight:600;margin-bottom:6px">No notifications yet</div>
-            <div style="font-size:0.84rem">Updates about your appointments and messages will appear here.</div>
-          </div>
-        </div>
-      </div>
-
       <!-- CLIENT CALENDAR -->
       <div class="p-panel" id="c-cal">
         <div class="p-header"><h2>Calendar 📆</h2><p>Your upcoming appointments and Rachel's availability.</p></div>
@@ -1396,10 +1384,10 @@ try {
       <div class="p-panel active" id="s-sched">
         <div class="p-header"><h2>My Schedule 📅</h2><p>Your upcoming walks and visits will appear here.</p></div>
         <div class="stats-row">
-          <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num">—</div><div class="stat-lbl">This Week</div></div>
-          <div class="stat-box"><div class="stat-icon">✅</div><div class="stat-num">—</div><div class="stat-lbl">All Time</div></div>
-          <div class="stat-box"><div class="stat-icon">⭐</div><div class="stat-num">—</div><div class="stat-lbl">Your Rating</div></div>
-          <div class="stat-box"><div class="stat-icon">💰</div><div class="stat-num">—</div><div class="stat-lbl">This Month</div></div>
+          <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num" id="stat-staffThisWeek">—</div><div class="stat-lbl">This Week</div></div>
+          <div class="stat-box"><div class="stat-icon">✅</div><div class="stat-num" id="stat-staffAllTime">—</div><div class="stat-lbl">All Time</div></div>
+          <div class="stat-box"><div class="stat-icon">⭐</div><div class="stat-num" id="stat-staffYourRating">—</div><div class="stat-lbl">Your Rating</div></div>
+          <div class="stat-box"><div class="stat-icon">💰</div><div class="stat-num" id="stat-staffThisMonth">—</div><div class="stat-lbl">This Month</div></div>
         </div>
         <div class="card">
           <div class="card-title" style="margin-bottom:16px">This Week's Jobs</div>
@@ -1518,7 +1506,7 @@ try {
       <div class="p-panel active" id="o-overview">
         <div class="owner-banner">
           <div class="ob-top"><div><div class="ob-h">Good morning, Rachel 🐾</div><div class="ob-p">Your business is growing beautifully. Here's today at a glance.</div></div><button class="btn btn-gold btn-sm" onclick="openModal('announceModal')">📢 Post Announcement</button></div>
-          <div class="ob-stats"><div><div class="ob-sn">—</div><div class="ob-sl">Active Clients</div></div><div><div class="ob-sn">—</div><div class="ob-sl">This Month</div></div><div><div class="ob-sn">— ⭐</div><div class="ob-sl">Avg Rating</div></div><div><div class="ob-sn">—</div><div class="ob-sl">Today's Jobs</div></div></div>
+          <div class="ob-stats"><div><div class="ob-sn" id="stat-activeClients">—</div><div class="ob-sl">Active Clients</div></div><div><div class="ob-sn" id="stat-bookingsThisMonth">—</div><div class="ob-sl">This Month</div></div><div><div class="ob-sn" id="stat-avgRating">— ⭐</div><div class="ob-sl">Avg Rating</div></div><div><div class="ob-sn" id="stat-todayJobs">—</div><div class="ob-sl">Today's Jobs</div></div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
           <!-- ALERTS / NEW MESSAGES (populated by HHP_Messaging.loadAlertMessages) -->
@@ -1529,10 +1517,10 @@ try {
           <!-- QUICK STATS -->
           <div class="card"><div class="card-title" style="margin-bottom:14px">📊 This Week at a Glance</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-              <div style="background:var(--gold-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Jobs This Week</div></div>
-              <div style="background:var(--forest-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Revenue</div></div>
-              <div style="background:var(--rose-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">New Inquiries</div></div>
-              <div style="background:#e0f2fe;border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Rating</div></div>
+              <div style="background:var(--gold-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-jobsThisWeek">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Jobs This Week</div></div>
+              <div style="background:var(--forest-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-weekRevenue">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Revenue</div></div>
+              <div style="background:var(--rose-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-newInquiries">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">New Inquiries</div></div>
+              <div style="background:#e0f2fe;border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-weekRating">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Rating</div></div>
             </div>
             <div style="background:var(--gold-pale);border-radius:8px;padding:12px 14px;font-size:0.83rem;font-weight:600;color:var(--gold-deep)">🔔 Auto-notifications active — clients get start & end alerts for every appointment.</div>
           </div>
@@ -2336,11 +2324,11 @@ try {
 <div class="overlay" id="boardingModal">
   <div class="modal"><div class="modal-head"><div><div class="modal-title">Dog Boarding Interest 🌙</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — join the waitlist and be first to know!</p></div><button class="modal-close" onclick="closeModal('boardingModal')">✕</button></div>
   <div style="background:var(--gold-pale);border-radius:8px;padding:14px 16px;margin-bottom:20px;border:1px solid rgba(200,150,62,0.2);font-size:0.85rem;color:var(--brown)">🌙 Dog Boarding at Housley Happy Paws — your dog stays in Rachel's warm home, not a kennel. Building the interest list now so we can plan around the right pups!</div>
-  <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" placeholder="Your name"></div>
-  <div class="form-group"><label class="form-lbl">Email</label><input class="form-in" type="email" placeholder="your@email.com"></div>
-  <div class="form-group"><label class="form-lbl">Dog's Name & Breed</label><input class="form-in" placeholder="e.g. Max — Golden Retriever"></div>
-  <div class="form-group"><label class="form-lbl">Any questions for Rachel?</label><textarea class="form-ta" placeholder="Anything you'd like to know about boarding..."></textarea></div>
-  <button class="submit-btn gold" onclick="closeModal('boardingModal');toast('🌙 Added to Boarding interest list! Rachel will reach out soon.')">Join the Interest List</button></div>
+  <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" id="b-name" placeholder="Your name"></div>
+  <div class="form-group"><label class="form-lbl">Email</label><input class="form-in" id="b-contact" type="email" placeholder="your@email.com"></div>
+  <div class="form-group"><label class="form-lbl">Dog's Name & Breed</label><input class="form-in" id="b-pet" placeholder="e.g. Max — Golden Retriever"></div>
+  <div class="form-group"><label class="form-lbl">Any questions for Rachel?</label><textarea class="form-ta" id="b-notes" placeholder="Anything you'd like to know about boarding..."></textarea></div>
+  <button class="submit-btn gold" onclick="submitInterest('boarding')">Join the Interest List</button></div>
 </div>
 
 <!-- Paw Bus Interest -->
@@ -2357,9 +2345,9 @@ try {
 <!-- Announce Modal (Owner) -->
 <div class="overlay" id="announceModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">Post Announcement 📢</div><button class="modal-close" onclick="closeModal('announceModal')">✕</button></div>
-  <div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" style="min-height:120px" placeholder="e.g. I'll be closed Dec 24–26..."></textarea></div>
-  <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Send To</label><select class="form-sel"><option>All Clients</option><option>Active Clients Only</option><option>Staff Only</option><option>Everyone</option></select></div><div><label class="form-lbl">Via</label><select class="form-sel"><option>In-App + Email</option><option>In-App Only</option><option>Text Only</option></select></div></div>
-  <button class="submit-btn" onclick="closeModal('announceModal');toast('📢 Announcement sent!')">Send Announcement</button></div>
+  <div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="announce-text" style="min-height:120px" placeholder="e.g. I'll be closed Dec 24–26..."></textarea></div>
+  <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Send To</label><select class="form-sel" id="announce-sendto"><option>All Clients</option><option>Active Clients Only</option><option>Staff Only</option><option>Everyone</option></select></div><div><label class="form-lbl">Via</label><select class="form-sel" id="announce-via"><option>In-App + Email</option><option>In-App Only</option><option>Text Only</option></select></div></div>
+  <button class="submit-btn" onclick="submitAnnouncement()">Send Announcement</button></div>
 </div>
 
 <!-- Doggy Day Care Interest -->
@@ -2523,6 +2511,8 @@ function sTab(portal, panelId) {
   if (panelId === 'c-msgs' && window.HHP_Messaging) HHP_Messaging.loadClientMessages();
   if (panelId === 's-msgs' && window.HHP_Messaging) HHP_Messaging.loadStaffMessages();
   if (panelId === 'o-msgs' && window.HHP_Messaging) HHP_Messaging.loadOwnerInbox();
+  // Load dashboard stats when switching to dashboard/overview panels
+  if ((panelId === 'c-dash' || panelId === 's-sched' || panelId === 'o-overview') && typeof loadDashboardStats === 'function') loadDashboardStats();
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -4715,8 +4705,8 @@ async function submitBoardingInterest() {
 }
 
 async function submitInterest(service) {
-  var prefix = service === 'pawbus' ? 'pb' : 'dc';
-  var modalId = service === 'pawbus' ? 'pawbusModal' : 'daycareModal';
+  var prefix = service === 'pawbus' ? 'pb' : (service === 'boarding' ? 'b' : 'dc');
+  var modalId = service === 'pawbus' ? 'pawbusModal' : (service === 'boarding' ? 'boardingModal' : 'daycareModal');
   var name = document.getElementById(prefix + '-name')?.value || '';
   var contact = document.getElementById(prefix + '-contact')?.value || '';
   var pet = document.getElementById(prefix + '-pet')?.value || '';
@@ -4730,8 +4720,65 @@ async function submitInterest(service) {
     await _saveSiteContent('interest_' + service, existing);
   }
   closeModal(modalId);
-  var emoji = service === 'pawbus' ? '🚌' : '☀️';
+  var emoji = service === 'pawbus' ? '🚌' : (service === 'boarding' ? '🌙' : '☀️');
   toast(emoji + ' Added to interest list! Rachel will reach out soon.');
+}
+
+// Send announcement to all clients via messages table
+async function submitAnnouncement() {
+  var messageText = document.getElementById('announce-text')?.value || '';
+  if (!messageText.trim()) { toast('Please enter an announcement message.'); return; }
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { toast('Not connected to database. Please refresh the page.'); return; }
+
+  // Show loading state
+  var btn = event.target;
+  var originalText = btn.textContent;
+  btn.textContent = '⏳ Sending...';
+  btn.disabled = true;
+
+  try {
+    // Get owner's user ID
+    var ownerProfile = await sb.from('profiles').select('user_id').eq('role', 'owner').single();
+    if (!ownerProfile.data) { toast('Could not find owner profile.'); return; }
+    var ownerId = ownerProfile.data.user_id;
+
+    // Get all client user IDs
+    var clientsResult = await sb.from('profiles').select('user_id').eq('role', 'client');
+    if (!clientsResult.data || clientsResult.data.length === 0) {
+      toast('No clients found to send announcement to.');
+      btn.textContent = originalText;
+      btn.disabled = false;
+      return;
+    }
+
+    // Send message to each client
+    var clientUserIds = clientsResult.data.map(function(c) { return c.user_id; });
+    var messagesToInsert = clientUserIds.map(function(clientId) {
+      return {
+        sender_id: ownerId,
+        recipient_id: clientId,
+        body: '📢 ' + messageText.trim()
+      };
+    });
+
+    var insertResult = await sb.from('messages').insert(messagesToInsert);
+    if (insertResult.error) {
+      console.error('Error sending announcement:', insertResult.error);
+      toast('Failed to send announcement. Please try again.');
+    } else {
+      toast('📢 Announcement sent to ' + clientUserIds.length + ' client(s)!');
+      closeModal('announceModal');
+      document.getElementById('announce-text').value = '';
+    }
+  } catch (err) {
+    console.error('Announcement error:', err);
+    toast('Error sending announcement: ' + (err.message || 'Unknown error'));
+  }
+
+  btn.textContent = originalText;
+  btn.disabled = false;
 }
 
 // Auto-load saved settings when owner opens panels
@@ -5339,15 +5386,168 @@ document.addEventListener('DOMContentLoaded', function() {
       } else if (ok && HHP_Auth.isAuthenticated()) {
         document.getElementById('navLoginBtn').style.display = 'none';
         document.getElementById('navLogoutBtn').style.display = 'inline-flex';
+        // Load dashboard stats on initial page load
+        if (typeof loadDashboardStats === 'function') loadDashboardStats();
       }
     } else {
       // Supabase not configured — keep portals open for development
       console.log('Supabase auth not configured. Portals are ungated (dev mode).');
     }
   });
+
+  // ---- DASHBOARD STATS LOADER ----
+  async function loadDashboardStats() {
+    try {
+      var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+      if (!sb) return;
+
+      // Get current user from localStorage (Supabase session)
+      const userStr = localStorage.getItem('sb-hjfjkdhfjk-auth-token') || localStorage.getItem('supabase.auth.token');
+      const user = userStr ? (() => { try { const parsed = JSON.parse(userStr); return parsed.user || { id: parsed.userId }; } catch(e) { return null; } })() : null;
+      if (!user || !user.id) return;
+
+      const userId = user.id;
+
+      // Determine user role from profiles table
+      const { data: profile } = await sb.from('profiles').select('role').eq('user_id', userId).single();
+      const role = profile ? profile.role : null;
+
+      if (role === 'client') {
+        // CLIENT DASHBOARD STATS
+        // Total Visits — count all bookings for this client
+        const { count: totalVisits } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('client_id', userId);
+        const el = document.getElementById('stat-totalVisits');
+        if (el) el.textContent = totalVisits || '0';
+
+        // Walks Done — count bookings where service='Dog Walking' (or similar)
+        const { count: walksDone } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('client_id', userId).in('service', ['Dog Walking', 'Dog Walk']);
+        const el2 = document.getElementById('stat-walksDone');
+        if (el2) el2.textContent = walksDone || '0';
+
+        // Avg Rating Given — average rating from service_reports for this client
+        const { data: ratings } = await sb.from('service_reports').select('rating').eq('client_id', userId).not('rating', 'is', null);
+        let avgRating = '—';
+        if (ratings && ratings.length > 0) {
+          const sum = ratings.reduce((acc, r) => acc + (r.rating || 0), 0);
+          avgRating = (sum / ratings.length).toFixed(1);
+        }
+        const el3 = document.getElementById('stat-avgRatingGiven');
+        if (el3) el3.textContent = avgRating;
+
+        // Pets in Care — count pets owned by this client
+        const { count: petsCount } = await sb.from('pets').select('*', { count: 'exact', head: true }).eq('client_id', userId);
+        const el4 = document.getElementById('stat-petsInCare');
+        if (el4) el4.textContent = petsCount || '0';
+
+      } else if (role === 'staff') {
+        // STAFF DASHBOARD STATS
+        // This Week — count bookings for this staff member this week
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        startOfWeek.setHours(0, 0, 0, 0);
+        const { count: thisWeek } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId).gte('date', startOfWeek.toISOString());
+        const el1 = document.getElementById('stat-staffThisWeek');
+        if (el1) el1.textContent = thisWeek || '0';
+
+        // All Time — count all bookings for this staff member
+        const { count: allTime } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId);
+        const el2 = document.getElementById('stat-staffAllTime');
+        if (el2) el2.textContent = allTime || '0';
+
+        // Your Rating — avg_rating from profiles for this staff member
+        const { data: staffProfile } = await sb.from('profiles').select('avg_rating').eq('user_id', userId).single();
+        let yourRating = '—';
+        if (staffProfile && staffProfile.avg_rating) {
+          yourRating = staffProfile.avg_rating.toFixed(1);
+        }
+        const el3 = document.getElementById('stat-staffYourRating');
+        if (el3) el3.textContent = yourRating;
+
+        // This Month — sum earnings from profiles.total_earnings for this month
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const { data: earnings } = await sb.from('profiles').select('total_earnings').eq('user_id', userId).single();
+        let monthEarnings = '—';
+        if (earnings && earnings.total_earnings) {
+          monthEarnings = '$' + earnings.total_earnings.toFixed(2);
+        }
+        const el4 = document.getElementById('stat-staffThisMonth');
+        if (el4) el4.textContent = monthEarnings;
+
+      } else if (role === 'owner') {
+        // OWNER DASHBOARD STATS
+        // Active Clients — count profiles where role='client'
+        const { count: activeClients } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client');
+        const el1 = document.getElementById('stat-activeClients');
+        if (el1) el1.textContent = activeClients || '0';
+
+        // This Month — count bookings this month
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const { count: bookingsMonth } = await sb.from('bookings').select('*', { count: 'exact', head: true }).gte('date', startOfMonth.toISOString()).lte('date', endOfMonth.toISOString());
+        const el2 = document.getElementById('stat-bookingsThisMonth');
+        if (el2) el2.textContent = bookingsMonth || '0';
+
+        // Avg Rating — average rating from service_reports
+        const { data: allRatings } = await sb.from('service_reports').select('rating').not('rating', 'is', null);
+        let avgRating = '—';
+        if (allRatings && allRatings.length > 0) {
+          const sum = allRatings.reduce((acc, r) => acc + (r.rating || 0), 0);
+          avgRating = (sum / allRatings.length).toFixed(1);
+        }
+        const el3 = document.getElementById('stat-avgRating');
+        if (el3) el3.textContent = avgRating + ' ⭐';
+
+        // Today's Jobs — count bookings for today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const { count: todayJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).gte('date', today.toISOString()).lt('date', tomorrow.toISOString());
+        const el4 = document.getElementById('stat-todayJobs');
+        if (el4) el4.textContent = todayJobs || '0';
+
+        // Jobs This Week
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(endOfWeek.getDate() + 7);
+        const { count: jobsWeek } = await sb.from('bookings').select('*', { count: 'exact', head: true }).gte('date', startOfWeek.toISOString()).lt('date', endOfWeek.toISOString());
+        const el5 = document.getElementById('stat-jobsThisWeek');
+        if (el5) el5.textContent = jobsWeek || '0';
+
+        // Week Revenue — sum payments this week
+        const { data: paymentsWeek } = await sb.from('payments').select('amount').gte('created_at', startOfWeek.toISOString()).lt('created_at', endOfWeek.toISOString());
+        let weekRevenue = '—';
+        if (paymentsWeek && paymentsWeek.length > 0) {
+          const total = paymentsWeek.reduce((acc, p) => acc + (p.amount || 0), 0);
+          weekRevenue = '$' + total.toFixed(2);
+        }
+        const el6 = document.getElementById('stat-weekRevenue');
+        if (el6) el6.textContent = weekRevenue;
+
+        // New Inquiries — count booking_requests this week
+        const { count: newInquiries } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).gte('created_at', startOfWeek.toISOString()).lt('created_at', endOfWeek.toISOString());
+        const el7 = document.getElementById('stat-newInquiries');
+        if (el7) el7.textContent = newInquiries || '0';
+
+        // Week Rating — average rating this week
+        const { data: weekRatings } = await sb.from('service_reports').select('rating').gte('created_at', startOfWeek.toISOString()).lt('created_at', endOfWeek.toISOString()).not('rating', 'is', null);
+        let weekRating = '—';
+        if (weekRatings && weekRatings.length > 0) {
+          const sum = weekRatings.reduce((acc, r) => acc + (r.rating || 0), 0);
+          weekRating = (sum / weekRatings.length).toFixed(1);
+        }
+        const el8 = document.getElementById('stat-weekRating');
+        if (el8) el8.textContent = weekRating;
+      }
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+    }
+  }
 </script>
 
-  <!-- fixes.js REMOVED — was causing nav conflicts. All fixes handled by ux-patch.js -->
   <script src="/js/site-content-client.js" defer></script>
   <script src="/js/profiles.js" defer></script>
   <script src="/js/employee-mgmt.js" defer></script>

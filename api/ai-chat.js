@@ -44,6 +44,6 @@ module.exports = async (req, res) => {
     res.status(200).json(data);
   } catch (err) {
     console.error("AI chat error:", err);
-    res.status(500).json({ error: "Failed to connect to AI service" });
+    return res.status(500).json({ error: "Failed to connect to AI service" });
   }
 };

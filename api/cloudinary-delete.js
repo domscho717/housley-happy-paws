@@ -51,12 +51,12 @@ module.exports = async (req, res) => {
     const result = await response.json();
 
     if (result.result === 'ok') {
-      res.status(200).json({ success: true, result: 'deleted' });
+      return res.status(200).json({ success: true, result: 'deleted' });
     } else {
-      res.status(400).json({ success: false, result: result.result });
+      return res.status(400).json({ success: false, result: result.result });
     }
   } catch (err) {
     console.error('Cloudinary delete error:', err);
-    res.status(500).json({ error: 'Failed to delete photo' });
+    return res.status(500).json({ error: 'Failed to delete photo' });
   }
 };
