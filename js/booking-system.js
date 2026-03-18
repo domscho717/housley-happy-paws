@@ -19,12 +19,10 @@
   var sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5peXNyaXBwYXpsa3B2ZGt6ZXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0OTcxNDYsImV4cCI6MjA3OTA3MzE0Nn0.miAoNZQtOTTbnruWcj1WVn8ZGYtQZB5rh8FbBAS7VZU';
 
   function getSB() {
+    // Always prefer the auth client to avoid creating duplicate GoTrueClient instances
     if (window.HHP_Auth && window.HHP_Auth.supabase) return window.HHP_Auth.supabase;
+    // Fallback: reuse existing singleton if auth not ready yet
     if (window._hhpSB) return window._hhpSB;
-    if (window.supabase && window.supabase.createClient) {
-      window._hhpSB = window.supabase.createClient(sbUrl, sbKey);
-      return window._hhpSB;
-    }
     return null;
   }
 

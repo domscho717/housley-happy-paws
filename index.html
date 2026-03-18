@@ -3490,8 +3490,20 @@ async function loadOwnerClients() {
   listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading clients...</div>';
 
   try {
-    var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+    var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;
     if (!sb) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Database not available.</div>'; return; }
+
+    // Ensure we have a fresh auth session before querying (fixes RLS returning empty)
+    var sessionCheck = await sb.auth.getSession();
+    if (!sessionCheck.data.session) {
+      // Try to refresh the session
+      var refreshResult = await sb.auth.refreshSession();
+      if (!refreshResult.data.session) {
+        console.warn('[All Clients] No active auth session — RLS will block query.');
+        listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Please sign out and sign back in to view clients.</div>';
+        return;
+      }
+    }
 
     // Fetch clients and their booking history in parallel
     var clientsPromise = sb
@@ -3511,6 +3523,7 @@ async function loadOwnerClients() {
 
     var clients = clientsResult.data || [];
     var bookings = bookingsResult.data || [];
+    console.log('[All Clients] Loaded ' + clients.length + ' client(s), ' + bookings.length + ' booking(s)');
 
     // Build set of client IDs who have confirmed bookings
     var activeClientIds = {};
@@ -3542,8 +3555,8 @@ async function loadOwnerClients() {
     if (countEl) countEl.textContent = clients.length + ' Total · ' + activeClients.length + ' Active · ' + newSignups.length + ' New';
     renderOwnerClientsSplit(activeClients, newSignups);
   } catch (err) {
-    console.error('Load owner clients error:', err);
-    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Could not load clients.</div>';
+    console.error('[All Clients] Load error:', err);
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Could not load clients. Check console for details.</div>';
   }
 }
 
@@ -4363,6 +4376,8 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('DOMContentLoaded', async () => {
     if (typeof HHP_Auth !== 'undefined' && HHP_Auth.SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
       const ok = await HHP_Auth.init();
+      // Set global alias so all functions can access the same Supabase client
+      if (ok && HHP_Auth.supabase) window.HHP_supabase = HHP_Auth.supabase;
       if (ok && !HHP_Auth.isAuthenticated()) {
         // Not logged in — show public site, hide login overlay for now
         // Login overlay shows when they try to access a portal

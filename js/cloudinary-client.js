@@ -350,16 +350,10 @@ const HHP_Photos = {
 
   // ── Get a Supabase client (works even without auth) ──────────
   _getSupabase() {
+    // Always prefer the auth client to avoid duplicate GoTrueClient instances
     if (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) return HHP_Auth.supabase;
-    // Create a read-only anon client for public photo loading
+    // Reuse existing singleton if available
     if (this._anonClient) return this._anonClient;
-    if (typeof window.supabase !== 'undefined') {
-      this._anonClient = window.supabase.createClient(
-        'https://niysrippazlkpvdkzepp.supabase.co',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5peXNyaXBwYXpsa3B2ZGt6ZXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0OTcxNDYsImV4cCI6MjA3OTA3MzE0Nn0.miAoNZQtOTTbnruWcj1WVn8ZGYtQZB5rh8FbBAS7VZU'
-      );
-      return this._anonClient;
-    }
     return null;
   },
 
