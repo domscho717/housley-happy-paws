@@ -3417,7 +3417,7 @@ async function savePet() {
     loadMyPets();
   } catch (err) {
     console.error('Save pet error:', err);
-    toast('Could not save pet. Please try again.');
+    toast('Could not save pet: ' + (err.message || err.details || 'Please try again.'));
   }
 }
 
