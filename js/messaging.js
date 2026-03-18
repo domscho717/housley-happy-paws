@@ -330,44 +330,111 @@
 
   // ============================================================
   //  UI: Client Messages (c-msgs)
-  //  Client has ONE thread — with owner, or with assigned staff
-  //  if Rachel assigned them to a staff member
+  //  Client always has Rachel (owner). If assigned a staff member,
+  //  they get tabs: staff name + "Rachel (Owner)"
   // ============================================================
-  var _clientContactUserId = null;
+  var _clientMsgContacts = [];
+  var _activeClientTab = 0;
 
   async function loadClientMessages() {
     var sb = getSB(); if (!sb) return;
     var user = getCurrentUser(); if (!user) return;
+    var ownerUserId = await getOwnerUserId(); if (!ownerUserId) return;
 
-    // Determine who the client talks to: assigned staff, or owner
-    var assignedStaff = await getClientAssignedStaff();
-    var contactUserId;
-    var contactName;
-
-    if (assignedStaff.length > 0) {
-      // Client talks to their assigned staff member
-      contactUserId = assignedStaff[0].userId;
-      contactName = assignedStaff[0].name;
-    } else {
-      // No staff assigned — client talks directly to owner
-      contactUserId = await getOwnerUserId();
-      contactName = 'Rachel';
-    }
-
-    if (!contactUserId) return;
-    _clientContactUserId = contactUserId;
-
-    // Update the panel header to show who they're chatting with
     var panel = document.getElementById('c-msgs');
-    if (panel) {
-      var header = panel.querySelector('.p-header p');
-      if (header) header.textContent = 'Your direct line to ' + contactName + '.';
+    if (!panel) return;
+
+    // Build contact list: always include owner, plus any assigned staff
+    var contacts = [{ userId: ownerUserId, name: 'Rachel (Owner)', type: 'owner' }];
+    var assignedStaff = await getClientAssignedStaff();
+    for (var i = 0; i < assignedStaff.length; i++) {
+      // Put staff first since they're the primary contact
+      contacts.unshift({ userId: assignedStaff[i].userId, name: assignedStaff[i].name, type: 'staff' });
     }
 
-    var messages = await loadConversation(contactUserId);
+    _clientMsgContacts = contacts;
+
+    if (contacts.length === 1) {
+      // Only owner — simple thread, no tabs needed
+      var messages = await loadConversation(ownerUserId);
+      await renderThread('cMsgs', messages, user.id);
+      await markAsRead(ownerUserId);
+      updateUnreadBadges();
+      return;
+    }
+
+    // Multiple contacts — build tabbed UI
+    var html = '<div class="p-header"><h2>Messages 💬</h2><p>Your private conversations.</p></div>';
+    html += '<div class="card">';
+    html += '<div id="clientMsgTabs" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">';
+    for (var t = 0; t < contacts.length; t++) {
+      html += '<button class="admin-filter-btn' + (t === 0 ? ' active' : '') +
+        '" onclick="HHP_Messaging.clientTab('+t+')" data-idx="'+t+'">' +
+        escHTML(contacts[t].name) + '</button>';
+    }
+    html += '</div>';
+    html += '<div class="msg-thread" id="cMsgs" style="max-height:350px"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading...</div></div>';
+    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="cMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.clientSend()"><button class="msg-send" onclick="HHP_Messaging.clientSend()">➤</button></div>';
+    html += '</div>';
+
+    panel.innerHTML = html;
+    _activeClientTab = 0;
+    await loadClientTabConvo(0);
+  }
+
+  async function loadClientTabConvo(idx) {
+    _activeClientTab = idx;
+    var contact = _clientMsgContacts[idx];
+    if (!contact) return;
+
+    var user = getCurrentUser();
+    var messages = await loadConversation(contact.userId);
     await renderThread('cMsgs', messages, user.id);
-    await markAsRead(contactUserId);
+    await markAsRead(contact.userId);
+
+    var btns = document.querySelectorAll('#clientMsgTabs .admin-filter-btn');
+    for (var b = 0; b < btns.length; b++) {
+      btns[b].classList.toggle('active', b === idx);
+    }
     updateUnreadBadges();
+  }
+
+  function switchClientTab(idx) {
+    loadClientTabConvo(idx);
+  }
+
+  async function clientSend() {
+    var contact = _clientMsgContacts[_activeClientTab];
+    if (!contact) return;
+    var inp = document.getElementById('cMsgIn');
+    if (!inp || !inp.value.trim()) return;
+
+    var body = inp.value.trim();
+    inp.value = '';
+
+    var user = getCurrentUser();
+    if (!user) { if (typeof toast === 'function') toast('Please sign in to send messages.'); return; }
+
+    // Optimistically show
+    var threadEl = document.getElementById('cMsgs');
+    if (threadEl) {
+      var myProfile = await getMyProfile();
+      var ava = avatarHTML((myProfile && myProfile.full_name) || 'C', 32);
+      var d = document.createElement('div');
+      d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
+      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + ava;
+      threadEl.appendChild(d);
+      threadEl.scrollTop = threadEl.scrollHeight;
+    }
+
+    var result = await sendMessage(contact.userId, body);
+    if (!result && threadEl) {
+      var last = threadEl.lastElementChild;
+      if (last) {
+        var meta = last.querySelector('.msg-meta');
+        if (meta) meta.innerHTML = 'You · <span style="color:var(--rose)">Failed to send</span>';
+      }
+    }
   }
 
   // ============================================================
@@ -752,52 +819,9 @@
   //  Drop-in replacement for old sendMsg() — used by client input
   // ============================================================
   async function sendMsgReal(prefix) {
-    if (prefix === 's') {
-      // Staff uses its own send function with tabs
-      staffSend();
-      return;
-    }
-
-    var inp = document.getElementById(prefix + 'MsgIn');
-    if (!inp || !inp.value.trim()) return;
-
-    var body = inp.value.trim();
-    inp.value = '';
-
-    var user = getCurrentUser();
-    if (!user) { if (typeof toast === 'function') toast('Please sign in to send messages.'); return; }
-
-    // Client messages their assigned contact (staff or owner)
-    var recipientId = _clientContactUserId;
-    if (!recipientId) {
-      recipientId = await getOwnerUserId();
-    }
-    if (!recipientId) {
-      if (typeof toast === 'function') toast('Could not find recipient.');
-      return;
-    }
-
-    // Optimistically show message
-    var threadEl = document.getElementById(prefix + 'Msgs');
-    if (threadEl) {
-      var myProfile = await getMyProfile();
-      var myName = (myProfile && myProfile.full_name) || 'You';
-      var ava = avatarHTML(myName, 32);
-      var d = document.createElement('div');
-      d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
-      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + ava;
-      threadEl.appendChild(d);
-      threadEl.scrollTop = threadEl.scrollHeight;
-    }
-
-    var result = await sendMessage(recipientId, body);
-    if (!result && threadEl) {
-      var last = threadEl.lastElementChild;
-      if (last) {
-        var meta = last.querySelector('.msg-meta');
-        if (meta) meta.innerHTML = 'You · <span style="color:var(--rose)">Failed to send</span>';
-      }
-    }
+    // Both client and staff use their own tabbed send functions
+    if (prefix === 's') { staffSend(); return; }
+    if (prefix === 'c') { clientSend(); return; }
   }
 
   // ============================================================
@@ -828,6 +852,8 @@
     openConvo: openOwnerConvo,
     closeConvo: closeOwnerConvo,
     sendFromOwner: sendFromOwner,
+    clientTab: switchClientTab,
+    clientSend: clientSend,
     staffTab: switchStaffTab,
     staffSend: staffSend,
     updateBadges: updateUnreadBadges,
