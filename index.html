@@ -2344,10 +2344,21 @@ try {
 
 <!-- Announce Modal (Owner) -->
 <div class="overlay" id="announceModal">
-  <div class="modal"><div class="modal-head"><div class="modal-title">Post Announcement 📢</div><button class="modal-close" onclick="closeModal('announceModal')">✕</button></div>
-  <div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="announce-text" style="min-height:120px" placeholder="e.g. I'll be closed Dec 24–26..."></textarea></div>
-  <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Send To</label><select class="form-sel" id="announce-sendto"><option>All Clients</option><option>Active Clients Only</option><option>Staff Only</option><option>Everyone</option></select></div><div><label class="form-lbl">Via</label><select class="form-sel" id="announce-via"><option>In-App + Email</option><option>In-App Only</option><option>Text Only</option></select></div></div>
-  <button class="submit-btn" onclick="submitAnnouncement()">Send Announcement</button></div>
+  <div class="modal" style="max-width:520px"><div class="modal-head"><div class="modal-title">Post Announcement 📢</div><button class="modal-close" onclick="closeModal('announceModal')">✕</button></div>
+  <div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="announce-text" style="min-height:100px" placeholder="e.g. I'll be closed Dec 24–26..."></textarea></div>
+  <div class="form-row" style="margin-bottom:10px"><div><label class="form-lbl">Send To</label><select class="form-sel" id="announce-sendto"><option value="everyone">Everyone</option><option value="all_clients">All Clients</option><option value="active_clients">Active Clients Only</option><option value="staff">Staff Only</option></select></div><div><label class="form-lbl">Via</label><select class="form-sel" id="announce-via"><option value="in_app_email">In-App + Email</option><option value="in_app">In-App Only</option></select></div></div>
+  <div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Attach a Deal? (optional)</label>
+    <div class="form-row"><input class="form-in" id="announce-deal-name" placeholder="Deal name, e.g. Holiday Rate" style="flex:1"><input class="form-in" id="announce-deal-details" placeholder="Details, e.g. 15% off walks" style="flex:1"></div>
+  </div>
+  <button class="submit-btn" onclick="submitAnnouncement()">Send Announcement</button>
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border,#e0d5c5)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:pointer" onclick="var el=document.getElementById('announceHistory');el.style.display=el.style.display==='none'?'block':'none';this.querySelector('.chevron').textContent=el.style.display==='none'?'▸':'▾';if(el.style.display!=='none'&&window.HHP_Notif)HHP_Notif.loadHistory(el)">
+      <div style="font-weight:700;font-size:0.88rem;color:var(--dark,#1e1409)">📋 Past Announcements <span class="chevron" style="font-size:0.7rem">▸</span></div>
+      <div style="font-size:0.72rem;color:var(--mid,#8c6b4a)">Click to re-send</div>
+    </div>
+    <div id="announceHistory" style="display:none;max-height:250px;overflow-y:auto"></div>
+  </div>
+  </div>
 </div>
 
 <!-- Doggy Day Care Interest -->
@@ -2511,6 +2522,17 @@ function sTab(portal, panelId) {
   if (panelId === 'c-msgs' && window.HHP_Messaging) HHP_Messaging.loadClientMessages();
   if (panelId === 's-msgs' && window.HHP_Messaging) HHP_Messaging.loadStaffMessages();
   if (panelId === 'o-msgs' && window.HHP_Messaging) HHP_Messaging.loadOwnerInbox();
+  // Deals panel — load from Supabase
+  if (panelId === 'o-deals' && typeof loadDealsPanel === 'function') loadDealsPanel();
+  // Staff panels — load real data
+  if (panelId === 's-sched' && typeof loadStaffSchedule === 'function') loadStaffSchedule();
+  if (panelId === 's-jobs' && typeof loadStaffJobs === 'function') loadStaffJobs();
+  if (panelId === 's-earn' && typeof loadStaffEarnings === 'function') loadStaffEarnings();
+  // Client panels
+  if (panelId === 'c-track' && typeof loadLiveTracking === 'function') loadLiveTracking();
+  // Gallery re-render when switching to photo panels
+  if (panelId === 'c-photos' && window.HHP_Gallery) HHP_Gallery.render('client');
+  if (panelId === 'o-photos' && window.HHP_Gallery) HHP_Gallery.render('owner');
   // Load dashboard stats when switching to dashboard/overview panels
   if ((panelId === 'c-dash' || panelId === 's-sched' || panelId === 'o-overview') && typeof loadDashboardStats === 'function') loadDashboardStats();
   // update sidebar active state by matching onclick attribute
@@ -3802,19 +3824,72 @@ document.querySelectorAll('.fadeup').forEach(el => obs.observe(el));
 
 
 // ── Specials & Deals ──
-function addDeal() {
-  const name = document.getElementById('dealName')?.value?.trim();
-  const details = document.getElementById('dealDetails')?.value?.trim();
+async function addDeal() {
+  var name = document.getElementById('dealName')?.value?.trim();
+  var details = document.getElementById('dealDetails')?.value?.trim();
   if (!name) { toast('Please enter a deal name'); return; }
-  const container = document.getElementById('activeDeals');
-  if (container) {
-    const div = document.createElement('div');
-    div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:linear-gradient(135deg,var(--gold-pale),#fff);border-radius:10px;margin-bottom:8px;border:1px solid rgba(200,150,62,0.25)';
-    div.innerHTML = '<div><div style="font-weight:700;font-size:0.9rem">' + name + '</div><div style="font-size:0.78rem;color:var(--mid)">' + (details || '') + '</div></div><span style="background:var(--gold);color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px">ACTIVE</span>';
-    container.appendChild(div);
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (sb) {
+    var res = await sb.from('deals').insert([{
+      name: name,
+      details: details || '',
+      deal_type: 'active',
+      is_active: true,
+      created_by: window.HHP_Auth.currentUser?.id || null
+    }]);
+    if (res.error) { console.error('Add deal error:', res.error); toast('Failed to save deal.'); return; }
   }
+
   document.getElementById('addDealForm').style.display = 'none';
+  document.getElementById('dealName').value = '';
+  document.getElementById('dealDetails').value = '';
   toast('🏷️ Deal added!');
+  loadDealsPanel();
+  if (window.HHP_Notif) HHP_Notif.refresh();
+}
+
+async function loadDealsPanel() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  var container = document.getElementById('activeDeals');
+  if (!container) return;
+
+  try {
+    var res = await sb.from('deals').select('*').eq('is_active', true).order('created_at', { ascending: false });
+    if (!res.data || res.data.length === 0) {
+      container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--mid);font-size:0.85rem">No active deals. Click "+ Add New" to create one.</div>';
+      return;
+    }
+    container.innerHTML = '';
+    res.data.forEach(function(deal) {
+      var colors = ['gold-pale', 'forest-pale'];
+      var borderColors = ['rgba(200,150,62,0.25)', 'rgba(61,90,71,0.2)'];
+      var badgeBgs = ['var(--gold)', 'var(--forest)'];
+      var idx = res.data.indexOf(deal) % 2;
+      var div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:linear-gradient(135deg,var(--' + colors[idx] + '),#fff);border-radius:10px;margin-bottom:8px;border:1px solid ' + borderColors[idx];
+      div.innerHTML = '<div><div style="font-weight:700;font-size:0.9rem">' + (deal.name || 'Untitled') + '</div>' +
+        (deal.details ? '<div style="font-size:0.78rem;color:var(--mid)">' + deal.details + '</div>' : '') +
+        (deal.promo_code ? '<div style="font-size:0.7rem;color:var(--gold);font-weight:600;margin-top:2px">Code: ' + deal.promo_code + '</div>' : '') +
+        '</div><div style="display:flex;align-items:center;gap:8px">' +
+        '<span style="background:' + badgeBgs[idx] + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px">ACTIVE</span>' +
+        '<button onclick="deactivateDeal(\'' + deal.id + '\')" style="background:none;border:none;color:var(--mid);cursor:pointer;font-size:0.8rem;padding:4px" title="Deactivate">✕</button></div>';
+      container.appendChild(div);
+    });
+  } catch (e) {
+    console.warn('Load deals error:', e);
+  }
+}
+
+async function deactivateDeal(dealId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  await sb.from('deals').update({ is_active: false, deal_type: 'past' }).eq('id', dealId);
+  toast('Deal deactivated.');
+  loadDealsPanel();
+  if (window.HHP_Notif) HHP_Notif.refresh();
 }
 
 // ── Invoice: House Sitting date range toggle ──
@@ -4724,13 +4799,346 @@ async function submitInterest(service) {
   toast(emoji + ' Added to interest list! Rachel will reach out soon.');
 }
 
-// Send announcement to all clients via messages table
+// ── Staff Schedule Panel (s-sched) — load bookings assigned to staff ──
+async function loadStaffSchedule() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !window.HHP_Auth.currentUser) return;
+
+  var panel = document.getElementById('s-sched');
+  if (!panel) return;
+
+  // Find the card that shows "This Week's Jobs"
+  var card = panel.querySelector('.card');
+  if (!card) return;
+
+  try {
+    // Get staff's profile to find assigned clients
+    var profileRes = await sb.from('profiles').select('id').eq('user_id', window.HHP_Auth.currentUser.id).single();
+    if (!profileRes.data) return;
+    var staffProfileId = profileRes.data.id;
+
+    // Get assigned client IDs
+    var assignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
+    var assignedClientIds = (assignRes.data || []).map(function(a) { return a.client_id; });
+
+    // Get assigned clients' user_ids from profiles
+    var clientUserIds = [];
+    if (assignedClientIds.length > 0) {
+      var clientProfiles = await sb.from('profiles').select('user_id').in('id', assignedClientIds);
+      clientUserIds = (clientProfiles.data || []).map(function(p) { return p.user_id; });
+    }
+
+    // Get bookings for those clients (this week and upcoming)
+    var today = new Date();
+    var startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    var endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+    var bookingsQuery = sb.from('bookings').select('*').in('status', ['confirmed', 'pending']);
+    if (clientUserIds.length > 0) {
+      bookingsQuery = bookingsQuery.in('client_id', clientUserIds);
+    }
+    bookingsQuery = bookingsQuery.gte('date', startOfWeek.toISOString().split('T')[0])
+      .order('date', { ascending: true }).limit(20);
+
+    var bookingsRes = await bookingsQuery;
+    var bookings = bookingsRes.data || [];
+
+    card.innerHTML = '<div class="card-title" style="margin-bottom:16px">This Week\'s Jobs</div>';
+
+    if (bookings.length === 0) {
+      card.innerHTML += '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:8px">📅</div>No jobs scheduled this week.</div>';
+      return;
+    }
+
+    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+    bookings.forEach(function(b) {
+      var icon = svcIcons[b.service] || '🐾';
+      var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      var statusColor = b.status === 'confirmed' ? 'var(--forest,#3d5a47)' : 'var(--gold,#c8963e)';
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px;margin-bottom:8px;';
+      row.innerHTML = '<div style="display:flex;align-items:center;gap:10px">' +
+        '<div style="font-size:1.3rem">' + icon + '</div>' +
+        '<div><div style="font-weight:600;font-size:0.88rem">' + (b.service || 'Service') + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div>' +
+        (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>' : '') +
+        '</div></div>' +
+        '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>';
+      card.appendChild(row);
+    });
+  } catch (e) {
+    console.warn('Load staff schedule error:', e);
+  }
+}
+
+// ── Staff Job Queue (s-jobs) — show pending booking requests ──
+async function loadStaffJobs() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !window.HHP_Auth.currentUser) return;
+
+  var panel = document.getElementById('s-jobs');
+  if (!panel) return;
+  var card = panel.querySelector('.card');
+  if (!card) return;
+
+  try {
+    var profileRes = await sb.from('profiles').select('id').eq('user_id', window.HHP_Auth.currentUser.id).single();
+    if (!profileRes.data) return;
+    var staffProfileId = profileRes.data.id;
+
+    var assignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
+    var assignedClientIds = (assignRes.data || []).map(function(a) { return a.client_id; });
+
+    var clientUserIds = [];
+    if (assignedClientIds.length > 0) {
+      var clientProfiles = await sb.from('profiles').select('user_id').in('id', assignedClientIds);
+      clientUserIds = (clientProfiles.data || []).map(function(p) { return p.user_id; });
+    }
+
+    // Get pending booking requests for assigned clients
+    var query = sb.from('booking_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(15);
+    if (clientUserIds.length > 0) {
+      query = query.in('client_id', clientUserIds);
+    }
+
+    var res = await query;
+    var requests = res.data || [];
+
+    card.innerHTML = '';
+    if (requests.length === 0) {
+      card.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">🦮</div><div style="font-weight:600;margin-bottom:6px">No new jobs right now</div><div style="font-size:0.84rem">New requests from Rachel will appear here.</div></div>';
+      return;
+    }
+
+    card.innerHTML = '<div class="card-title" style="margin-bottom:14px">' + requests.length + ' Pending Request' + (requests.length !== 1 ? 's' : '') + '</div>';
+
+    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+    requests.forEach(function(r) {
+      var icon = svcIcons[r.service] || '🐾';
+      var dateStr = r.preferred_date ? new Date(r.preferred_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
+      var row = document.createElement('div');
+      row.style.cssText = 'padding:14px;background:linear-gradient(135deg,rgba(200,150,62,0.06),transparent);border-radius:10px;margin-bottom:8px;border:1px solid rgba(200,150,62,0.15)';
+      row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
+        '<div><div style="font-weight:700;font-size:0.9rem">' + icon + ' ' + (r.service || 'Service') + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_name || 'Client') + ' · ' + dateStr + (r.preferred_time ? ' · ' + r.preferred_time : '') + '</div>' +
+        (r.pet_names ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px">Pets: ' + r.pet_names + '</div>' : '') +
+        (r.special_notes ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px;font-style:italic">"' + r.special_notes.substring(0, 80) + '"</div>' : '') +
+        '</div></div>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+        '<button onclick="acceptJob(\'' + r.id + '\')" style="background:var(--forest,#3d5a47);color:white;border:none;padding:7px 16px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">Accept</button>' +
+        '</div>';
+      card.appendChild(row);
+    });
+  } catch (e) {
+    console.warn('Load staff jobs error:', e);
+  }
+}
+
+async function acceptJob(requestId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  var res = await sb.from('booking_requests').update({ status: 'confirmed' }).eq('id', requestId);
+  if (res.error) { toast('Failed to accept job.'); return; }
+  toast('✅ Job accepted!');
+  loadStaffJobs();
+  loadStaffSchedule();
+}
+
+// ── Staff Earnings (s-earn) — pull from payments/bookings ──
+async function loadStaffEarnings() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !window.HHP_Auth.currentUser) return;
+
+  var panel = document.getElementById('s-earn');
+  if (!panel) return;
+
+  try {
+    var profileRes = await sb.from('profiles').select('id').eq('user_id', window.HHP_Auth.currentUser.id).single();
+    if (!profileRes.data) return;
+    var staffProfileId = profileRes.data.id;
+
+    // Get assigned clients
+    var assignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
+    var assignedClientIds = (assignRes.data || []).map(function(a) { return a.client_id; });
+
+    var clientUserIds = [];
+    if (assignedClientIds.length > 0) {
+      var clientProfiles = await sb.from('profiles').select('user_id, full_name').in('id', assignedClientIds);
+      clientUserIds = (clientProfiles.data || []).map(function(p) { return p.user_id; });
+    }
+
+    // Get completed bookings for earnings calc
+    var now = new Date();
+    var startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    var startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1).toISOString().split('T')[0];
+
+    var allBookings = [];
+    if (clientUserIds.length > 0) {
+      var bRes = await sb.from('bookings').select('*').in('client_id', clientUserIds).eq('status', 'confirmed');
+      allBookings = bRes.data || [];
+    }
+
+    var monthBookings = allBookings.filter(function(b) { return b.date >= startOfMonth; });
+    var quarterBookings = allBookings.filter(function(b) { return b.date >= startOfQuarter; });
+
+    // Simple earnings estimate based on service type
+    var svcRates = {'Dog Walking': 30, 'Drop-In Visit': 25, 'Cat Care Visit': 25, 'House Sitting': 75, 'Dog Boarding': 55, 'Doggy Day Care': 45};
+    function calcEarnings(bookingList) {
+      return bookingList.reduce(function(sum, b) { return sum + (svcRates[b.service] || 30); }, 0);
+    }
+
+    var monthEarnings = calcEarnings(monthBookings);
+    var quarterEarnings = calcEarnings(quarterBookings);
+    var totalWalks = allBookings.length;
+    var monthHours = monthBookings.length * 0.75; // estimate 45min avg per job
+
+    // Update stats
+    var statsRow = panel.querySelector('.stats-row');
+    if (statsRow) {
+      var statNums = statsRow.querySelectorAll('.stat-num');
+      if (statNums[0]) statNums[0].textContent = '$' + monthEarnings.toLocaleString();
+      if (statNums[1]) statNums[1].textContent = '$' + quarterEarnings.toLocaleString();
+      if (statNums[2]) statNums[2].textContent = totalWalks;
+      if (statNums[3]) statNums[3].textContent = Math.round(monthHours) + ' hrs';
+    }
+
+    // Recent payouts card
+    var card = panel.querySelector('.card');
+    if (!card) return;
+
+    card.innerHTML = '<div class="card-title" style="margin-bottom:14px">Recent Activity</div>';
+
+    if (allBookings.length === 0) {
+      card.innerHTML += '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.85rem">No earnings data yet. Completed jobs will appear here.</div>';
+      return;
+    }
+
+    // Group by week
+    var weeks = {};
+    allBookings.sort(function(a, b) { return b.date.localeCompare(a.date); }).slice(0, 20).forEach(function(b) {
+      var d = new Date(b.date + 'T00:00:00');
+      var weekStart = new Date(d);
+      weekStart.setDate(d.getDate() - d.getDay());
+      var weekKey = weekStart.toISOString().split('T')[0];
+      if (!weeks[weekKey]) weeks[weekKey] = [];
+      weeks[weekKey].push(b);
+    });
+
+    Object.keys(weeks).sort().reverse().slice(0, 4).forEach(function(weekKey) {
+      var wBookings = weeks[weekKey];
+      var wEnd = new Date(weekKey + 'T00:00:00');
+      wEnd.setDate(wEnd.getDate() + 6);
+      var label = 'Week of ' + new Date(weekKey + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '–' + wEnd.getDate();
+      var count = wBookings.length;
+      var earning = calcEarnings(wBookings);
+      var svcList = wBookings.map(function(b) { return b.service; }).filter(function(v, i, a) { return a.indexOf(v) === i; }).join(', ');
+
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;padding:12px;background:var(--warm,#faf6ee);border-radius:8px;font-size:0.86rem;margin-bottom:8px';
+      row.innerHTML = '<div><div style="font-weight:600">' + label + '</div><div style="font-size:0.74rem;color:var(--mid)">' + count + ' job' + (count !== 1 ? 's' : '') + ' · ' + svcList + '</div></div>' +
+        '<div style="font-weight:700;color:var(--forest,#3d5a47)">+$' + earning.toFixed(2) + '</div>';
+      card.appendChild(row);
+    });
+  } catch (e) {
+    console.warn('Load staff earnings error:', e);
+  }
+}
+
+// ── Client Live Tracking (c-track) — show active walks ──
+async function loadLiveTracking() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !window.HHP_Auth.currentUser) return;
+
+  var panel = document.getElementById('c-track');
+  if (!panel) return;
+  var card = panel.querySelector('.card');
+  if (!card) return;
+
+  try {
+    // Check for active walks for this client's pets
+    var activeWalks = await sb.from('walks')
+      .select('*, pets(name, species)')
+      .eq('status', 'in_progress')
+      .order('start_time', { ascending: false });
+
+    // Also check bookings happening today with confirmed status
+    var today = new Date().toISOString().split('T')[0];
+    var todayBookings = await sb.from('bookings')
+      .select('*')
+      .eq('client_id', window.HHP_Auth.currentUser.id)
+      .eq('date', today)
+      .eq('status', 'confirmed');
+
+    var walks = (activeWalks.data || []).filter(function(w) { return w.pets; });
+    var todayJobs = todayBookings.data || [];
+
+    if (walks.length === 0 && todayJobs.length === 0) {
+      card.innerHTML = '<div style="padding:40px;text-align:center;color:var(--mid)">' +
+        '<div style="font-size:2.5rem;margin-bottom:12px">🗺️</div>' +
+        '<div style="font-weight:600;margin-bottom:6px">No active walk right now</div>' +
+        '<div style="font-size:0.84rem">Live GPS tracking will appear here during your pet\'s walk.</div></div>';
+      return;
+    }
+
+    card.innerHTML = '';
+
+    // Show active walks with live indicator
+    if (walks.length > 0) {
+      walks.forEach(function(w) {
+        var petName = w.pets ? w.pets.name : 'Your pet';
+        var startTime = new Date(w.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        var elapsed = Math.floor((Date.now() - new Date(w.start_time).getTime()) / 60000);
+
+        var div = document.createElement('div');
+        div.style.cssText = 'padding:20px;background:linear-gradient(135deg,rgba(61,90,71,0.06),transparent);border-radius:12px;margin-bottom:12px;border:1px solid rgba(61,90,71,0.15)';
+        div.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
+          '<div style="width:12px;height:12px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></div>' +
+          '<div style="font-weight:700;font-size:1rem;color:var(--forest,#3d5a47)">Walk in Progress!</div></div>' +
+          '<div style="font-size:0.9rem;margin-bottom:6px"><strong>' + petName + '</strong> is out on a walk</div>' +
+          '<div style="font-size:0.82rem;color:var(--mid)">Started at ' + startTime + ' · ' + elapsed + ' min elapsed</div>' +
+          '<div style="margin-top:16px;height:200px;border-radius:10px;background:linear-gradient(135deg,var(--forest-pale),var(--gold-pale));display:flex;align-items:center;justify-content:center;border:1px solid var(--border)">' +
+          '<div style="text-align:center;color:var(--mid)"><div style="font-size:2rem">📍</div><div style="font-size:0.8rem;margin-top:6px">GPS map coming soon</div></div></div>';
+        card.appendChild(div);
+      });
+    }
+
+    // Show today's scheduled jobs
+    if (todayJobs.length > 0) {
+      var header = document.createElement('div');
+      header.style.cssText = 'font-weight:700;font-size:0.9rem;color:var(--dark);margin:12px 0 8px;padding:0 4px';
+      header.textContent = "📅 Today's Scheduled Visits";
+      card.appendChild(header);
+
+      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
+      todayJobs.forEach(function(b) {
+        var icon = svcIcons[b.service] || '🐾';
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px;background:var(--warm,#faf6ee);border-radius:8px;margin-bottom:6px';
+        row.innerHTML = '<div style="font-size:1.2rem">' + icon + '</div>' +
+          '<div><div style="font-weight:600;font-size:0.85rem">' + (b.service || 'Service') + '</div>' +
+          '<div style="font-size:0.78rem;color:var(--mid)">' + (b.time_slot || 'Time TBD') + (b.pet_names ? ' · ' + b.pet_names : '') + '</div></div>';
+        card.appendChild(row);
+      });
+    }
+  } catch (e) {
+    console.warn('Load live tracking error:', e);
+  }
+}
+
+// Send announcement to all clients via messages table + announcements table
 async function submitAnnouncement() {
   var messageText = document.getElementById('announce-text')?.value || '';
   if (!messageText.trim()) { toast('Please enter an announcement message.'); return; }
 
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   if (!sb) { toast('Not connected to database. Please refresh the page.'); return; }
+
+  var sendTo = document.getElementById('announce-sendto')?.value || 'everyone';
+  var via = document.getElementById('announce-via')?.value || 'in_app_email';
+  var dealName = document.getElementById('announce-deal-name')?.value || '';
+  var dealDetails = document.getElementById('announce-deal-details')?.value || '';
 
   // Show loading state
   var btn = event.target;
@@ -4741,36 +5149,56 @@ async function submitAnnouncement() {
   try {
     // Get owner's user ID
     var ownerProfile = await sb.from('profiles').select('user_id').eq('role', 'owner').single();
-    if (!ownerProfile.data) { toast('Could not find owner profile.'); return; }
+    if (!ownerProfile.data) { toast('Could not find owner profile.'); btn.textContent = originalText; btn.disabled = false; return; }
     var ownerId = ownerProfile.data.user_id;
 
-    // Get all client user IDs
-    var clientsResult = await sb.from('profiles').select('user_id').eq('role', 'client');
-    if (!clientsResult.data || clientsResult.data.length === 0) {
-      toast('No clients found to send announcement to.');
+    // Determine recipients based on sendTo
+    var recipientQuery = sb.from('profiles').select('user_id');
+    if (sendTo === 'all_clients' || sendTo === 'active_clients') {
+      recipientQuery = recipientQuery.eq('role', 'client');
+    } else if (sendTo === 'staff') {
+      recipientQuery = recipientQuery.eq('role', 'staff');
+    } else {
+      // everyone = clients + staff
+      recipientQuery = recipientQuery.in('role', ['client', 'staff']);
+    }
+
+    var recipientsResult = await recipientQuery;
+    if (!recipientsResult.data || recipientsResult.data.length === 0) {
+      toast('No recipients found.');
       btn.textContent = originalText;
       btn.disabled = false;
       return;
     }
 
-    // Send message to each client
-    var clientUserIds = clientsResult.data.map(function(c) { return c.user_id; });
-    var messagesToInsert = clientUserIds.map(function(clientId) {
-      return {
-        sender_id: ownerId,
-        recipient_id: clientId,
-        body: '📢 ' + messageText.trim()
-      };
+    // Build announcement body
+    var body = '📢 ' + messageText.trim();
+    if (dealName) body += '\n🏷️ ' + dealName + (dealDetails ? ' — ' + dealDetails : '');
+
+    // Send message to each recipient
+    var recipientIds = recipientsResult.data.map(function(r) { return r.user_id; });
+    var messagesToInsert = recipientIds.map(function(uid) {
+      return { sender_id: ownerId, recipient_id: uid, body: body };
     });
 
     var insertResult = await sb.from('messages').insert(messagesToInsert);
+
+    // Also save to announcements table for history + notification bell
+    if (window.HHP_Notif) {
+      await HHP_Notif.saveAnnouncement(messageText.trim(), sendTo, via, dealName || null, dealDetails || null);
+    }
+
     if (insertResult.error) {
       console.error('Error sending announcement:', insertResult.error);
       toast('Failed to send announcement. Please try again.');
     } else {
-      toast('📢 Announcement sent to ' + clientUserIds.length + ' client(s)!');
+      toast('📢 Announcement sent to ' + recipientIds.length + ' recipient(s)!');
       closeModal('announceModal');
       document.getElementById('announce-text').value = '';
+      if (document.getElementById('announce-deal-name')) document.getElementById('announce-deal-name').value = '';
+      if (document.getElementById('announce-deal-details')) document.getElementById('announce-deal-details').value = '';
+      // Refresh notification bell
+      if (window.HHP_Notif) HHP_Notif.refresh();
     }
   } catch (err) {
     console.error('Announcement error:', err);
@@ -5554,5 +5982,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <script src="/js/booking-system.js" defer></script>
   <script src="/js/messaging.js" defer></script>
+  <script src="/js/gallery.js" defer></script>
+  <script src="/js/notifications.js" defer></script>
   <script src="/js/avatar-system.js" defer></script></body>
 </html>

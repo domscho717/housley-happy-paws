@@ -660,4 +660,7 @@
     console.log('ð¼ï¸ HHP Gallery & Slideshows initialized');
   });
 
+  // Public API
+  window.HHP_Gallery = { render: renderGallery, upload: openGalleryUpload };
+
 })();
