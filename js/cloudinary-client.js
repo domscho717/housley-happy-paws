@@ -381,6 +381,8 @@ const HHP_Photos = {
           // Update all previews and public site
           this.restoreAllPreviews();
           this.updatePublicSite();
+          // Rebuild gallery slideshows now that real photos are available
+          if (window.HHP_Gallery && HHP_Gallery.rebuildSlideshows) HHP_Gallery.rebuildSlideshows();
           console.log(`📸 Loaded ${data.length} photos from database`);
           return;
         }
@@ -396,6 +398,7 @@ const HHP_Photos = {
         this.photos = JSON.parse(saved);
         this.restoreAllPreviews();
         this.updatePublicSite();
+        if (window.HHP_Gallery && HHP_Gallery.rebuildSlideshows) HHP_Gallery.rebuildSlideshows();
         console.log('📸 Loaded photos from localStorage');
       }
     } catch (e) {}
