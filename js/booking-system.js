@@ -716,35 +716,27 @@
         }
       }
 
-      // Recurring pricing: show per-week cost instead of full upfront total
+      // Recurring pricing: show per-appointment cost, billed the day before each visit
       if (hasAnyRecurring && !isHS) {
-        // Calculate per-week cost: how many sessions per week across all recurring cards
-        var sessionsPerWeek = 0;
-        document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
-          var cIdx = card.id.replace('brm-dc-', '');
-          var rCb = document.getElementById('brm-dc-recur-' + cIdx);
-          if (rCb && rCb.checked) {
-            var freq = (document.getElementById('brm-dc-freq-' + cIdx) || {}).value || 'weekly';
-            sessionsPerWeek += freq === 'biweekly' ? 0.5 : 1;
-          }
-        });
-        // Non-recurring cards are one-time (counted separately)
+        var recurringCount = 0;
         var oneTimeCards = 0;
         document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
           var cIdx = card.id.replace('brm-dc-', '');
           var rCb = document.getElementById('brm-dc-recur-' + cIdx);
-          if (!rCb || !rCb.checked) oneTimeCards++;
+          if (rCb && rCb.checked) { recurringCount++; } else { oneTimeCards++; }
         });
-        var weeklyTotal = result.total * sessionsPerWeek;
         var oneTimeTotal = result.total * oneTimeCards;
         if (breakdownEl) {
-          breakdownEl.innerHTML += '<br><span style="font-weight:600;color:#c8963e">Recurring: $' + weeklyTotal.toFixed(2) + '/week</span>';
+          breakdownEl.innerHTML += '<br><span style="font-weight:600;color:#c8963e">Recurring: $' + result.total.toFixed(2) + '/appointment</span>';
+          if (recurringCount > 1) {
+            breakdownEl.innerHTML += '<br><span style="font-size:0.82rem">' + recurringCount + ' recurring schedules</span>';
+          }
           if (oneTimeCards > 0) {
             breakdownEl.innerHTML += '<br><span style="font-size:0.82rem">+ $' + oneTimeTotal.toFixed(2) + ' one-time (' + oneTimeCards + ' session' + (oneTimeCards > 1 ? 's' : '') + ')</span>';
           }
-          breakdownEl.innerHTML += '<br><span style="font-size:0.78rem;color:#8c6b4a">Billed weekly for recurring appointments</span>';
+          breakdownEl.innerHTML += '<br><span style="font-size:0.78rem;color:#8c6b4a">Charged the day before each appointment</span>';
         }
-        if (totalEl) totalEl.textContent = weeklyTotal.toFixed(2) + '/wk';
+        if (totalEl) totalEl.textContent = result.total.toFixed(2) + '/appt';
       } else if (totalDates > 1 && !isHS) {
         var multiTotal = result.total * totalDates;
         if (breakdownEl) breakdownEl.innerHTML += '<br><span style="font-weight:600">' + totalDates + ' appointments x $' + result.total.toFixed(2) + '</span>';
@@ -1150,7 +1142,7 @@
 
       if (isOngoing) {
         var startFmt = startDate ? new Date(startDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '';
-        preview.innerHTML = '<span style="color:#c8963e;font-weight:600">Repeats ' + freqLabel + '</span> starting ' + startFmt + '<br><em>Billed weekly · continues until you cancel</em>';
+        preview.innerHTML = '<span style="color:#c8963e;font-weight:600">Repeats ' + freqLabel + '</span> starting ' + startFmt + '<br><em>Charged the day before each visit · continues until you cancel</em>';
       } else {
         var dates = _getCardRecurDates(idx);
         if (dates.length === 0) {
@@ -1822,7 +1814,7 @@
     if (isRecurring && !isHouseSitting) {
       // Recurring: store per-session price, billed weekly
       multiDateTotal = priceResult.total; // per session
-      multiDateBreakdown = priceResult.breakdown + ' | Recurring: billed $' + priceResult.total.toFixed(2) + '/session weekly';
+      multiDateBreakdown = priceResult.breakdown + ' | Recurring: $' + priceResult.total.toFixed(2) + '/appointment, charged the day before each visit';
     } else {
       multiDateTotal = priceResult.total * totalDates;
       multiDateBreakdown = priceResult.breakdown;
