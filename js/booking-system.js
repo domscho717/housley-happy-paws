@@ -1358,7 +1358,7 @@
 
       var { data: pets, error } = await sb
         .from('pets')
-        .select('id, name, species, breed, photo_url, weight')
+        .select('id, name, species, breed, photo_url, weight, birthday')
         .eq('owner_id', userId)
         .order('name');
 
@@ -1405,6 +1405,7 @@
           '  <input type="checkbox" class="brm-pet-cb" value="' + pet.id + '"',
           '    data-name="' + (pet.name || '').replace(/"/g, '&quot;') + '"',
           '    data-species="' + (pet.species || 'dog') + '"',
+          '    data-birthday="' + (pet.birthday || '') + '"',
           '    onchange="window._brmUpdatePetSelection()"',
           '    style="width:18px;height:18px;accent-color:#c8963e;flex-shrink:0">',
           '  <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;' + photoStyle + '">',
@@ -1488,6 +1489,23 @@
       else if (dogCount === 0 && catCount === 2) comboEl.value = '2cats';
       else if (dogCount === 1 && catCount === 1) comboEl.value = '1dog1cat';
       else comboEl.value = '3plus';
+    }
+
+    // Auto-set puppy checkbox if any selected dog is under 1 year old
+    var puppyEl = document.getElementById('brm-puppy');
+    if (puppyEl) {
+      var hasPuppy = false;
+      checkboxes.forEach(function(cb) {
+        if (cb.getAttribute('data-species') !== 'cat') {
+          var bday = cb.getAttribute('data-birthday');
+          if (bday) {
+            var ageMs = Date.now() - new Date(bday + 'T00:00:00').getTime();
+            var ageYears = ageMs / (365.25 * 24 * 60 * 60 * 1000);
+            if (ageYears < 1) hasPuppy = true;
+          }
+        }
+      });
+      puppyEl.checked = hasPuppy;
     }
 
     // Highlight selected labels
