@@ -62,11 +62,11 @@
     var css = document.createElement('style');
     css.id = 'hhp-scroll-fix';
     css.textContent = [
-      'html, body { overscroll-behavior: none !important; scroll-behavior: auto !important; }',
+      'html, body { overscroll-behavior: none !important; scroll-behavior: auto !important; -webkit-overflow-scrolling: auto !important; }',
       'html { overflow-y: scroll !important; overflow-x: hidden !important; }',
       'body { overflow-y: auto !important; overflow-x: hidden !important; }',
-      '#pg-public, #pg-client, #pg-staff, #pg-owner { overflow: visible !important; }',
-      '* { scroll-snap-type: none !important; scroll-snap-align: unset !important; }',
+      '#pg-public, #pg-client, #pg-staff, #pg-owner { overflow: visible !important; -webkit-overflow-scrolling: auto !important; }',
+      '* { scroll-snap-type: none !important; scroll-snap-align: unset !important; -webkit-overflow-scrolling: auto !important; }',
       '.reviews-track { scroll-snap-type: x mandatory !important; scroll-behavior: smooth !important; }',
     ].join('\n');
     document.head.appendChild(css);
@@ -83,13 +83,16 @@
       // Instead, just ensure scroll works by removing any blocking styles
       document.documentElement.style.overscrollBehavior = 'none';
       document.documentElement.style.scrollBehavior = 'auto';
+      document.documentElement.style.webkitOverflowScrolling = 'auto';
       document.body.style.overscrollBehavior = 'none';
+      document.body.style.webkitOverflowScrolling = 'auto';
 
       // Remove any inline overflow styles that block scrolling
       var pgPublic = document.getElementById('pg-public');
       if (pgPublic) {
         pgPublic.style.overflow = 'visible';
         pgPublic.style.overflowY = 'visible';
+        pgPublic.style.webkitOverflowScrolling = 'auto';
       }
     }
 
@@ -528,6 +531,7 @@
       '    <!-- Unified date picker: tap a date to add it -->',
       '    <div id="brm-multidate-section" style="margin:6px 0 14px">',
       '      <label class="brm-label">Select Your Date(s) *</label>',
+      '      <div id="brm-selected-chips" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>',
       '      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">',
       '        <input type="date" id="brm-add-date-input" class="brm-input" style="flex:1" min="' + new Date().toISOString().split('T')[0] + '">',
       '      </div>',
@@ -986,6 +990,34 @@
       // Toggle helper message
       var msg = document.getElementById('brm-no-dates-msg');
       if (msg) msg.style.display = cards.length > 0 ? 'none' : '';
+      // Update selected-dates chip strip
+      _updateSelectedChips();
+    }
+
+    // Render a row of small date chips above the calendar showing selected dates
+    function _updateSelectedChips() {
+      var container = document.getElementById('brm-selected-chips');
+      if (!container) return;
+      var cardData = window._brmDateCards || [];
+      if (cardData.length === 0) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+      }
+      container.style.display = 'flex';
+      var html = '';
+      cardData.forEach(function(c) {
+        if (!c) return;
+        var d = new Date(c.date + 'T12:00:00');
+        var label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        html += '<span style="display:inline-flex;align-items:center;gap:4px;background:#c8963e;color:#fff;' +
+          'border-radius:20px;padding:4px 10px;font-size:0.78rem;font-weight:600;white-space:nowrap">' +
+          label +
+          '<button type="button" onclick="window._brmRemoveDateCard(' + c.idx + ')" ' +
+          'style="background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;font-weight:700">&times;</button>' +
+          '</span>';
+      });
+      container.innerHTML = html;
     }
 
     window._brmAddDateCard = function() {
@@ -1268,6 +1300,8 @@
       '  width: 90%;',
       '  max-height: 85vh;',
       '  overflow-y: auto;',
+      '  -webkit-overflow-scrolling: auto;',
+      '  overscroll-behavior: contain;',
       '  box-shadow: 0 20px 60px rgba(0,0,0,0.2);',
       '}',
       '.brm-close {',
@@ -1476,9 +1510,11 @@
       if (datesListEl) datesListEl.innerHTML = '';
       var addDateInput = document.getElementById('brm-add-date-input');
       if (addDateInput) addDateInput.value = '';
-      // Show the helper message
+      // Show the helper message and clear chips
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = '';
+      var chipsEl = document.getElementById('brm-selected-chips');
+      if (chipsEl) { chipsEl.innerHTML = ''; chipsEl.style.display = 'none'; }
 
       // Pre-fill and show greeting if logged in
       if (window.HHP_Auth && window.HHP_Auth.currentUser) {
