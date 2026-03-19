@@ -746,6 +746,38 @@
   }
 
   // ============================================================
+  //  Realtime: append a single incoming bubble to the thread
+  // ============================================================
+  function appendIncomingBubble(threadId, msg, senderName) {
+    var threadEl = document.getElementById(threadId);
+    if (!threadEl) return false;
+    // Don't append if the thread is empty placeholder
+    if (threadEl.children.length === 1 && threadEl.querySelector('[style*="align-self:center"]')) {
+      threadEl.innerHTML = '';
+    }
+    var ava = avatarHTML(senderName, 32);
+    var d = document.createElement('div');
+    d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;opacity:0;transition:opacity 0.3s';
+    d.innerHTML = ava + '<div><div class="msg-in">' + escHTML(msg.body) + '</div>' +
+      '<div class="msg-meta">' + escHTML(senderName) + ' · Just now</div></div>';
+    threadEl.appendChild(d);
+    // Animate in
+    requestAnimationFrame(function() { d.style.opacity = '1'; });
+    threadEl.scrollTop = threadEl.scrollHeight;
+    // Play a subtle sound effect via audio context if available
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880; osc.type = 'sine';
+      gain.gain.value = 0.08;
+      osc.start(); osc.stop(ctx.currentTime + 0.08);
+    } catch(e) {}
+    return true;
+  }
+
+  // ============================================================
   //  Realtime subscription
   // ============================================================
   var _realtimeChannel = null;
@@ -766,8 +798,8 @@
           var profile = await getProfileByUserId(msg.sender_id);
           var name = profile.full_name || 'Someone';
 
-          // Toast notification
-          if (typeof toast === 'function') toast('💬 New message from ' + name);
+          // Toast notification (only if NOT already viewing this conversation)
+          var toasted = false;
 
           // Update badges
           updateUnreadBadges();
@@ -776,21 +808,50 @@
 
           if (portal === 'owner') {
             if (_currentConvoPartnerId === msg.sender_id) {
-              var messages = await loadConversation(msg.sender_id);
-              await renderThread('ownerMsgs', messages, user.id);
+              // Owner has this convo open — append directly
+              appendIncomingBubble('ownerMsgs', msg, name);
               await markAsRead(msg.sender_id);
               updateUnreadBadges();
+            } else {
+              if (typeof toast === 'function') toast('💬 New message from ' + name);
+              toasted = true;
             }
             loadAlertMessages();
           } else if (portal === 'client') {
             var cPanel = document.getElementById('c-msgs');
             if (cPanel && cPanel.classList.contains('active')) {
-              loadClientMessages();
+              // Client is viewing Messages — find which contact matches and append
+              var contact = _clientMsgContacts[_activeClientTab];
+              if (contact && contact.userId === msg.sender_id) {
+                appendIncomingBubble('cMsgs', msg, name);
+                await markAsRead(msg.sender_id);
+                updateUnreadBadges();
+              } else {
+                // Different contact sent the message — reload to update tabs
+                loadClientMessages();
+                if (typeof toast === 'function') toast('💬 New message from ' + name);
+                toasted = true;
+              }
+            } else {
+              if (typeof toast === 'function') toast('💬 New message from ' + name);
+              toasted = true;
             }
           } else if (portal === 'staff') {
             var sPanel = document.getElementById('s-msgs');
             if (sPanel && sPanel.classList.contains('active')) {
-              loadStaffMessages();
+              var sContact = _staffMsgContacts[_activeStaffTab];
+              if (sContact && sContact.userId === msg.sender_id) {
+                appendIncomingBubble('sMsgs', msg, name);
+                await markAsRead(msg.sender_id);
+                updateUnreadBadges();
+              } else {
+                loadStaffMessages();
+                if (typeof toast === 'function') toast('💬 New message from ' + name);
+                toasted = true;
+              }
+            } else {
+              if (typeof toast === 'function') toast('💬 New message from ' + name);
+              toasted = true;
             }
           }
 
