@@ -292,10 +292,23 @@ const HHP_Photos = {
 
   // ── Update public-facing site with Cloudinary images ──────────
   updatePublicHero(photoData) {
+    // Update hero-photo-inner if it exists
     const heroInner = document.querySelector('.hero-photo-inner');
     if (heroInner) {
-      heroInner.style.cssText = `width:100%;height:100%;background-size:cover;background-position:center;border-radius:8px;background-image:url(${this.getOptimized(photoData.publicId, 800)})`;
-      heroInner.textContent = '';
+      const imgUrl = this._previewUrl(photoData, 800);
+      heroInner.style.cssText = 'width:100%;height:100%;border-radius:8px;overflow:hidden';
+      heroInner.innerHTML = `<img src="${imgUrl}" alt="Housley Happy Paws" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
+    }
+    // Also update any hero carousel slides that gallery.js built
+    const heroTrack = document.querySelector('.hhp-hero-track');
+    if (heroTrack && photoData.publicId) {
+      const imgUrl = this._previewUrl(photoData, 800);
+      heroTrack.querySelectorAll('div').forEach(slide => {
+        slide.style.backgroundImage = `url(${imgUrl})`;
+        slide.style.backgroundSize = 'cover';
+        slide.style.backgroundPosition = 'center';
+        slide.innerHTML = '';
+      });
     }
   },
 
@@ -305,15 +318,32 @@ const HHP_Photos = {
       this.updatePublicHero(this.photos.hero);
     }
 
-    // Update about section photo with first available about photo
+    // Update about section slideshow with real photos
+    const aboutSlides = document.querySelectorAll('.hhp-about-slide');
+    if (aboutSlides.length > 0) {
+      const aboutPhotos = ['about1','about2','about3'].filter(k => this.photos[k]).map(k => this.photos[k]);
+      aboutSlides.forEach((slide, i) => {
+        const photo = aboutPhotos[i % aboutPhotos.length];
+        if (photo) {
+          const imgUrl = this._previewUrl(photo, 800);
+          slide.style.backgroundImage = `url(${imgUrl})`;
+          slide.style.backgroundSize = 'cover';
+          slide.style.backgroundPosition = 'center';
+          slide.style.background = '';
+          slide.style.backgroundImage = `url(${imgUrl})`;
+          slide.style.backgroundSize = 'cover';
+          slide.style.backgroundPosition = 'center';
+          slide.innerHTML = '';
+        }
+      });
+    }
+    // Also try .about-photo-single as fallback
     const aboutPhoto = this.photos.about1 || this.photos.about2 || this.photos.about3;
     if (aboutPhoto) {
       const aboutContainer = document.querySelector('.about-photo-single');
       if (aboutContainer) {
-        aboutContainer.style.backgroundImage = `url(${this.getOptimized(aboutPhoto.publicId, 800)})`;
-        aboutContainer.style.backgroundSize = 'cover';
-        aboutContainer.style.backgroundPosition = 'center';
-        aboutContainer.innerHTML = '';
+        const imgUrl = this._previewUrl(aboutPhoto, 800);
+        aboutContainer.innerHTML = `<img src="${imgUrl}" alt="About us" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
       }
     }
 
@@ -339,9 +369,9 @@ const HHP_Photos = {
             // Replace the emoji icon with the uploaded photo
             const iconEl = card.querySelector('.sc-icon');
             if (iconEl) {
-              iconEl.style.cssText = 'width:100%;height:140px;border-radius:10px;background-size:cover;background-position:center;margin-bottom:10px;font-size:0';
-              iconEl.style.backgroundImage = `url(${this.getOptimized(photo.publicId, 600)})`;
-              iconEl.textContent = '';
+              const imgUrl = this._previewUrl(photo, 600);
+              iconEl.style.cssText = 'width:100%;height:140px;border-radius:10px;overflow:hidden;margin-bottom:10px;font-size:0';
+              iconEl.innerHTML = `<img src="${imgUrl}" alt="${serviceName}" style="width:100%;height:100%;object-fit:cover;border-radius:10px">`;
             }
           }
         });
@@ -395,25 +425,43 @@ const HHP_Photos = {
     }
   },
 
-  // ── Get a Supabase client (works even without auth) ──────────
+  // ── Get or create a Supabase client ──────────────────────────
   _getSupabase() {
-    // Always prefer the auth client to avoid duplicate GoTrueClient instances
+    // 1. Prefer the auth client
     if (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) return HHP_Auth.supabase;
-    // Reuse existing singleton if available
+    // 2. Reuse our own anon client if already created
     if (this._anonClient) return this._anonClient;
+    // 3. Create our own anon client — doesn't need auth, just reads public data
+    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+      const SB_URL = 'https://niysrippazlkpvdkzepp.supabase.co';
+      const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5peXNyaXBwYXpsa3B2ZGt6ZXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0OTcxNDYsImV4cCI6MjA3OTA3MzE0Nn0.miAoNZQtOTTbnruWcj1WVn8ZGYtQZB5rh8FbBAS7VZU';
+      try {
+        this._anonClient = window.supabase.createClient(SB_URL, SB_KEY, {
+          auth: { persistSession: false, autoRefreshToken: false }
+        });
+        console.log('📸 Created standalone Supabase anon client for photos');
+        return this._anonClient;
+      } catch (e) {
+        console.error('📸 Failed to create anon client:', e);
+      }
+    }
     return null;
   },
 
-  // ── Load photos from Supabase (with retry if auth not ready) ──
+  // ── Load photos from Supabase ─────────────────────────────────
   _loadRetries: 0,
   async loadPhotos() {
-    // Try Supabase — works for all visitors via anon key + public RLS
     const sb = this._getSupabase();
     if (sb) {
       try {
+        console.log('📸 Querying site_photos from Supabase...');
         const { data, error } = await sb
           .from('site_photos')
           .select('*');
+
+        if (error) {
+          console.error('📸 Supabase query error:', error.message);
+        }
 
         if (!error && data && data.length > 0) {
           data.forEach(row => {
@@ -426,27 +474,29 @@ const HHP_Photos = {
               format: row.format
             };
           });
+          console.log(`📸 Loaded ${data.length} photos:`, Object.keys(this.photos));
           // Update all previews and public site
           this.restoreAllPreviews();
           this.updatePublicSite();
           // Rebuild gallery slideshows now that real photos are available
           if (window.HHP_Gallery && HHP_Gallery.rebuildSlideshows) HHP_Gallery.rebuildSlideshows();
-          console.log(`📸 Loaded ${data.length} photos from database`);
           return;
+        } else {
+          console.log('📸 No photos found in database (data:', data, ')');
         }
       } catch (err) {
-        console.error('Error loading photos from Supabase:', err);
+        console.error('📸 Error loading photos:', err);
       }
     } else {
-      // Supabase client not ready — retry up to 5 times with increasing delay
+      // Supabase JS library not loaded yet — retry
       if (this._loadRetries < 5) {
         this._loadRetries++;
         const delay = 800 * this._loadRetries;
-        console.log(`📸 Supabase not ready, retrying in ${delay}ms (attempt ${this._loadRetries}/5)...`);
+        console.log(`📸 Supabase library not ready, retrying in ${delay}ms (attempt ${this._loadRetries}/5)...`);
         setTimeout(() => this.loadPhotos(), delay);
         return;
       } else {
-        console.warn('📸 Supabase client never became available after 5 retries');
+        console.warn('📸 Supabase library never became available after 5 retries');
       }
     }
 
@@ -458,7 +508,7 @@ const HHP_Photos = {
         this.restoreAllPreviews();
         this.updatePublicSite();
         if (window.HHP_Gallery && HHP_Gallery.rebuildSlideshows) HHP_Gallery.rebuildSlideshows();
-        console.log('📸 Loaded photos from localStorage');
+        console.log('📸 Loaded photos from localStorage fallback');
       }
     } catch (e) {}
   },
