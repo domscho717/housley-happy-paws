@@ -128,39 +128,47 @@
 
     var slides = PLACEHOLDER_HERO;
 
-    // Save badges before replacing
-    var badges = heroCol.querySelectorAll('.fbadge');
-    var savedBadges = [];
-    badges.forEach(function(b) { savedBadges.push(b.cloneNode(true)); });
-
     // Save the CTA small card
     var ctaCard = heroCol.querySelector('.hero-photo-sm-cta');
     var savedCta = ctaCard ? ctaCard.cloneNode(true) : null;
 
-    // Build carousel
+    // If we have a real hero photo, just show a single image (no carousel needed)
+    if (realHero && realHero.publicId) {
+      heroCol.innerHTML = '';
+      var imgUrl = window.HHP_Photos.getOptimized(realHero.publicId, 800);
+      var photoDiv = document.createElement('div');
+      photoDiv.className = 'hhp-hero-carousel';
+      photoDiv.style.cssText = 'width:100%;height:380px;border-radius:18px;overflow:hidden;';
+      photoDiv.innerHTML = '<img src="' + imgUrl + '" alt="Housley Happy Paws" style="width:100%;height:100%;object-fit:cover;border-radius:18px;">';
+      heroCol.appendChild(photoDiv);
+      if (savedCta) {
+        var ctaRow = document.createElement('div');
+        ctaRow.className = 'hero-photo-row';
+        ctaRow.style.cssText = 'display:flex;gap:12px;margin-top:12px;justify-content:center;';
+        savedCta.style.cssText += ';flex:0 0 auto;';
+        ctaRow.appendChild(savedCta);
+        heroCol.appendChild(ctaRow);
+      }
+      return;
+    }
+
+    // No real photo — build placeholder carousel
     heroCol.innerHTML = '';
 
     var container = document.createElement('div');
     container.className = 'hhp-hero-carousel';
-    container.style.cssText = 'position:relative;width:100%;height:100%;min-height:380px;border-radius:18px;overflow:hidden;';
+    container.style.cssText = 'position:relative;width:100%;height:380px;min-height:380px;border-radius:18px;overflow:hidden;';
 
     // Slide track
     var track = document.createElement('div');
     track.className = 'hhp-hero-track';
-    track.style.cssText = 'display:flex;width:' + (slides.length * 100) + '%;height:100%;transition:transform 0.8s cubic-bezier(0.25,0.1,0.25,1);';
+    track.style.cssText = 'display:flex;width:' + (slides.length * 100) + '%;height:380px;transition:transform 0.8s cubic-bezier(0.25,0.1,0.25,1);';
 
     slides.forEach(function(slide) {
       var div = document.createElement('div');
       div.style.cssText = 'flex:0 0 ' + (100 / slides.length) + '%;height:100%;display:flex;align-items:center;justify-content:center;border-radius:18px;';
-
-      if (realHero && realHero.url) {
-        div.style.backgroundImage = 'url(' + window.HHP_Photos.getOptimized(realHero.publicId, 800) + ')';
-        div.style.backgroundSize = 'cover';
-        div.style.backgroundPosition = 'center';
-      } else {
-        div.style.background = slide.bg;
-        div.innerHTML = '<span style="font-size:5rem;filter:drop-shadow(0 2px 10px rgba(0,0,0,0.08))">' + slide.emoji + '</span>';
-      }
+      div.style.background = slide.bg;
+      div.innerHTML = '<span style="font-size:5rem;filter:drop-shadow(0 2px 10px rgba(0,0,0,0.08))">' + slide.emoji + '</span>';
       track.appendChild(div);
     });
     container.appendChild(track);

@@ -247,17 +247,12 @@ const HHP_Photos = window.HHP_Photos = {
     const slotEl = document.querySelector(`[data-photo-slot="${slotId}"]`);
     if (slotEl) {
       const imgUrl = this._previewUrl(photoData, 300, 300);
-      console.log(`📸 updateSlotPreview "${slotId}" → ${imgUrl}`);
-      // Remove the class so its background doesn't fight, set everything inline
-      slotEl.className = '';
-      slotEl.style.cssText = 'aspect-ratio:1;border-radius:8px;cursor:pointer;position:relative;border:2px solid var(--gold);overflow:hidden';
-      slotEl.style.backgroundImage = `url(${imgUrl})`;
-      slotEl.style.backgroundSize = 'cover';
-      slotEl.style.backgroundPosition = 'center';
-      slotEl.style.backgroundRepeat = 'no-repeat';
+      // Keep the class for consistent sizing, use img tag for reliable display
+      slotEl.style.cssText = 'aspect-ratio:1;border-radius:8px;cursor:pointer;position:relative;border:2px solid var(--gold);overflow:hidden;padding:0;display:block';
       slotEl.innerHTML = `
-        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.15);border-radius:inherit;display:flex;align-items:flex-end;justify-content:center;padding:6px">
-          <div style="background:rgba(30,20,9,0.75);color:white;padding:2px 8px;border-radius:4px;font-size:0.6rem;font-weight:600">✅ Uploaded</div>
+        <img src="${imgUrl}" alt="${slotId}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:6px">
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.12);border-radius:inherit;display:flex;align-items:flex-end;justify-content:center;padding:6px">
+          <div style="background:rgba(30,20,9,0.7);color:white;padding:2px 8px;border-radius:4px;font-size:0.6rem;font-weight:600">✅ Uploaded</div>
         </div>
       `;
       slotEl.title = 'Click to replace photo';
@@ -270,19 +265,14 @@ const HHP_Photos = window.HHP_Photos = {
     const preview = document.getElementById('heroPhotoPreview');
     if (preview) {
       const imgUrl = this._previewUrl(photoData, 600, 450);
-      console.log(`📸 updateHeroPreview → ${imgUrl}`);
-      // Set everything inline with individual properties to avoid shorthand issues
-      preview.style.cssText = 'width:100%;aspect-ratio:4/3;border-radius:10px;cursor:pointer;transition:all 0.2s;margin-bottom:12px;position:relative;border:2px solid var(--gold);overflow:hidden';
-      preview.style.backgroundImage = `url(${imgUrl})`;
-      preview.style.backgroundSize = 'cover';
-      preview.style.backgroundPosition = 'center';
-      preview.style.backgroundRepeat = 'no-repeat';
-      // Remove hover handlers that reset the background
+      // Use img tag for reliable display
+      preview.style.cssText = 'width:100%;aspect-ratio:4/3;border-radius:10px;cursor:pointer;margin-bottom:12px;position:relative;border:2px solid var(--gold);overflow:hidden;padding:0';
       preview.onmouseover = null;
       preview.onmouseout = null;
       preview.removeAttribute('onmouseover');
       preview.removeAttribute('onmouseout');
       preview.innerHTML = `
+        <img src="${imgUrl}" alt="Hero photo" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px">
         <div style="position:absolute;bottom:8px;right:8px;background:rgba(30,20,9,0.7);color:white;padding:3px 10px;border-radius:4px;font-size:0.7rem;font-weight:600">✅ Uploaded</div>
       `;
     }
