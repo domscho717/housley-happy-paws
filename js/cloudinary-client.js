@@ -247,13 +247,15 @@ const HHP_Photos = window.HHP_Photos = {
     const slotEl = document.querySelector(`[data-photo-slot="${slotId}"]`);
     if (slotEl) {
       const imgUrl = this._previewUrl(photoData, 300, 300);
-      // Keep the class for consistent sizing, use img tag for reliable display
-      slotEl.style.cssText = 'aspect-ratio:1;border-radius:8px;cursor:pointer;position:relative;border:2px solid var(--gold);overflow:hidden;padding:0;display:block';
+      // Keep the photo-upload-slot class but override key styles for uploaded state
+      slotEl.style.border = '2px solid var(--gold)';
+      slotEl.style.overflow = 'hidden';
+      slotEl.style.padding = '0';
+      slotEl.style.position = 'relative';
+      slotEl.style.background = 'none';
       slotEl.innerHTML = `
-        <img src="${imgUrl}" alt="${slotId}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:6px">
-        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.12);border-radius:inherit;display:flex;align-items:flex-end;justify-content:center;padding:6px">
-          <div style="background:rgba(30,20,9,0.7);color:white;padding:2px 8px;border-radius:4px;font-size:0.6rem;font-weight:600">✅ Uploaded</div>
-        </div>
+        <img src="${imgUrl}" alt="${slotId}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;border-radius:6px">
+        <div style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);background:rgba(30,20,9,0.72);color:white;padding:2px 8px;border-radius:4px;font-size:0.58rem;font-weight:600;white-space:nowrap">✅ Uploaded</div>
       `;
       slotEl.title = 'Click to replace photo';
     } else {
@@ -265,15 +267,19 @@ const HHP_Photos = window.HHP_Photos = {
     const preview = document.getElementById('heroPhotoPreview');
     if (preview) {
       const imgUrl = this._previewUrl(photoData, 600, 450);
-      // Use img tag for reliable display
-      preview.style.cssText = 'width:100%;aspect-ratio:4/3;border-radius:10px;cursor:pointer;margin-bottom:12px;position:relative;border:2px solid var(--gold);overflow:hidden;padding:0';
+      // Keep the existing layout but show the uploaded photo
+      preview.style.border = '2px solid var(--gold)';
+      preview.style.overflow = 'hidden';
+      preview.style.padding = '0';
+      preview.style.position = 'relative';
+      preview.style.background = 'none';
       preview.onmouseover = null;
       preview.onmouseout = null;
       preview.removeAttribute('onmouseover');
       preview.removeAttribute('onmouseout');
       preview.innerHTML = `
         <img src="${imgUrl}" alt="Hero photo" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px">
-        <div style="position:absolute;bottom:8px;right:8px;background:rgba(30,20,9,0.7);color:white;padding:3px 10px;border-radius:4px;font-size:0.7rem;font-weight:600">✅ Uploaded</div>
+        <div style="position:absolute;bottom:8px;right:8px;background:rgba(30,20,9,0.72);color:white;padding:3px 10px;border-radius:4px;font-size:0.7rem;font-weight:600">✅ Uploaded</div>
       `;
     }
     // Also update the public site hero if visible
@@ -285,14 +291,14 @@ const HHP_Photos = window.HHP_Photos = {
     // Update hero-photo-inner if it exists
     const heroInner = document.querySelector('.hero-photo-inner');
     if (heroInner) {
-      const imgUrl = this._previewUrl(photoData, 800);
-      heroInner.style.cssText = 'width:100%;height:100%;border-radius:8px;overflow:hidden';
+      const imgUrl = this._previewUrl(photoData, 1200);
+      heroInner.style.cssText = 'width:100%;height:100%;border-radius:8px;overflow:hidden;font-size:0';
       heroInner.innerHTML = `<img src="${imgUrl}" alt="Housley Happy Paws" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
     }
     // Also update any hero carousel slides that gallery.js built
     const heroTrack = document.querySelector('.hhp-hero-track');
     if (heroTrack && photoData.publicId) {
-      const imgUrl = this._previewUrl(photoData, 800);
+      const imgUrl = this._previewUrl(photoData, 1200);
       heroTrack.querySelectorAll('div').forEach(slide => {
         slide.style.backgroundImage = `url(${imgUrl})`;
         slide.style.backgroundSize = 'cover';
