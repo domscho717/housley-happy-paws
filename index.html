@@ -2791,6 +2791,11 @@ function sTab(portal, panelId) {
   }
   // Load dashboard stats when switching to dashboard/overview panels
   if ((panelId === 'c-dash' || panelId === 's-sched' || panelId === 'o-overview') && typeof loadDashboardStats === 'function') loadDashboardStats();
+  // Reload alerts & booking requests when returning to overview
+  if (panelId === 'o-overview') {
+    if (window.HHP_Messaging && typeof window.HHP_Messaging.loadAlertMessages === 'function') window.HHP_Messaging.loadAlertMessages();
+    if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
+  }
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -6417,7 +6422,20 @@ document.addEventListener('DOMContentLoaded', function() {
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
     <script src="/ux-patch.js" defer></script>
 <script>
-  // Initialize auth when page loads
+  // Auth-ready callback system — modules register here, fire instantly once auth is done
+  window._hhpAuthCallbacks = [];
+  window._hhpAuthReady = false;
+  window.onHHPAuthReady = function(fn) {
+    if (window._hhpAuthReady) { fn(); } else { window._hhpAuthCallbacks.push(fn); }
+  };
+  function _fireAuthReady() {
+    window._hhpAuthReady = true;
+    var cbs = window._hhpAuthCallbacks || [];
+    window._hhpAuthCallbacks = [];
+    for (var i = 0; i < cbs.length; i++) { try { cbs[i](); } catch(e) { console.error('Auth callback error:', e); } }
+  }
+
+    // Initialize auth when page loads
   document.addEventListener('DOMContentLoaded', async () => {
     if (typeof HHP_Auth !== 'undefined' && HHP_Auth.SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
       const ok = await HHP_Auth.init();
@@ -6433,9 +6451,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Load dashboard stats on initial page load
         if (typeof loadDashboardStats === 'function') loadDashboardStats();
       }
+      // Signal auth is ready — all waiting modules fire immediately
+      _fireAuthReady();
     } else {
-      // Supabase not configured — keep portals open for development
       console.log('Supabase auth not configured. Portals are ungated (dev mode).');
+      _fireAuthReady();
     }
   });
 
@@ -6445,16 +6465,27 @@ document.addEventListener('DOMContentLoaded', function() {
       var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
       if (!sb) return;
 
-      // Get current user from localStorage (Supabase session)
-      const userStr = localStorage.getItem('sb-hjfjkdhfjk-auth-token') || localStorage.getItem('supabase.auth.token');
-      const user = userStr ? (() => { try { const parsed = JSON.parse(userStr); return parsed.user || { id: parsed.userId }; } catch(e) { return null; } })() : null;
+      // Get current user from auth module (reliable, no hardcoded keys)
+      var user = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser : null;
+      // Fallback: scan localStorage for any Supabase session token
+      if (!user) {
+        var keys = Object.keys(localStorage);
+        for (var k = 0; k < keys.length; k++) {
+          if (keys[k].indexOf('sb-') > -1 && keys[k].indexOf('-auth-token') > -1) {
+            try { var d = JSON.parse(localStorage.getItem(keys[k])); if (d && d.user) { user = d.user; break; } } catch(e) {}
+          }
+        }
+      }
       if (!user || !user.id) return;
 
       const userId = user.id;
 
-      // Determine user role from profiles table
-      const { data: profile } = await sb.from('profiles').select('role').eq('user_id', userId).single();
-      const role = profile ? profile.role : null;
+      // Use cached role if available, otherwise fetch
+      var role = (window.HHP_Auth && window.HHP_Auth.currentRole) ? window.HHP_Auth.currentRole : null;
+      if (!role) {
+        var { data: profile } = await sb.from('profiles').select('role').eq('user_id', userId).single();
+        role = profile ? profile.role : null;
+      }
 
       if (role === 'client') {
         // CLIENT DASHBOARD STATS
