@@ -135,11 +135,11 @@
     // If we have a real hero photo, just show a single image (no carousel needed)
     if (realHero && realHero.publicId) {
       heroCol.innerHTML = '';
-      var imgUrl = window.HHP_Photos.getOptimized(realHero.publicId, 800);
+      var imgUrl = window.HHP_Photos.getOptimized(realHero.publicId, 1200);
       var photoDiv = document.createElement('div');
       photoDiv.className = 'hhp-hero-carousel';
-      photoDiv.style.cssText = 'width:100%;height:380px;border-radius:18px;overflow:hidden;';
-      photoDiv.innerHTML = '<img src="' + imgUrl + '" alt="Housley Happy Paws" style="width:100%;height:100%;object-fit:cover;border-radius:18px;">';
+      photoDiv.style.cssText = 'width:100%;aspect-ratio:4/3.2;border-radius:20px;overflow:hidden;box-shadow:0 8px 32px rgba(30,20,9,0.18);border:1px solid var(--border,#e0d5c5);';
+      photoDiv.innerHTML = '<img src="' + imgUrl + '" alt="Housley Happy Paws" style="width:100%;height:100%;object-fit:cover;border-radius:20px;">';
       heroCol.appendChild(photoDiv);
       if (savedCta) {
         var ctaRow = document.createElement('div');
