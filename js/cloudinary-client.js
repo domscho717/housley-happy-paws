@@ -224,6 +224,18 @@ const HHP_Photos = {
     });
   },
 
+  // ── Generate a good preview URL (stored thumbnails are only 90x60) ──
+  _previewUrl(photoData, w, h) {
+    // Always generate a fresh URL from publicId at the right size
+    if (photoData.publicId) {
+      return h
+        ? this.getThumbnail(photoData.publicId, w, h)
+        : this.getOptimized(photoData.publicId, w);
+    }
+    // Fallback to stored url (full size) if no publicId
+    return photoData.url || photoData.thumbnail || '';
+  },
+
   // ── Update slot UI with uploaded photo ────────────────────────────
   updateSlotPreview(slotId, photoData) {
     if (slotId === 'hero') {
@@ -234,13 +246,14 @@ const HHP_Photos = {
     // Find the slot element by data attribute
     const slotEl = document.querySelector(`[data-photo-slot="${slotId}"]`);
     if (slotEl) {
-      slotEl.style.cssText += `;background-image:url(${photoData.thumbnail});background-size:cover;background-position:center;position:relative`;
+      const imgUrl = this._previewUrl(photoData, 300, 300);
+      // Use background shorthand to fully override the .photo-upload-slot class background
+      slotEl.style.cssText = `aspect-ratio:1;border-radius:8px;cursor:pointer;position:relative;background:url(${imgUrl}) center/cover no-repeat;border:2px solid var(--gold)`;
       slotEl.innerHTML = `
         <div style="position:absolute;inset:0;background:rgba(0,0,0,0.15);border-radius:inherit;display:flex;align-items:flex-end;justify-content:center;padding:6px">
           <div style="background:rgba(30,20,9,0.75);color:white;padding:2px 8px;border-radius:4px;font-size:0.6rem;font-weight:600">✅ Uploaded</div>
         </div>
       `;
-      // Add delete button on hover
       slotEl.title = 'Click to replace photo';
     }
   },
@@ -248,10 +261,9 @@ const HHP_Photos = {
   updateHeroPreview(photoData) {
     const preview = document.getElementById('heroPhotoPreview');
     if (preview) {
-      preview.style.backgroundImage = `url(${photoData.thumbnail})`;
-      preview.style.backgroundSize = 'cover';
-      preview.style.backgroundPosition = 'center';
-      preview.style.border = 'none';
+      const imgUrl = this._previewUrl(photoData, 600, 450);
+      // Use background shorthand to fully override any class/inline styles
+      preview.style.cssText = `width:100%;aspect-ratio:4/3;border-radius:10px;cursor:pointer;transition:all 0.2s;margin-bottom:12px;position:relative;background:url(${imgUrl}) center/cover no-repeat;border:2px solid var(--gold)`;
       // Remove hover handlers that reset the background
       preview.onmouseover = null;
       preview.onmouseout = null;
