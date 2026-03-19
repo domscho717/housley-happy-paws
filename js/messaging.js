@@ -332,13 +332,8 @@
 
   // ============================================================
   //  UI: Render a message thread
-<<<<<<< Updated upstream
   //  opts.otherUserId â for "view older" button
   //  opts.prepend â if true, prepend older messages instead of replacing
-=======
-  //  opts.otherUserId — for "view older" button
-  //  opts.prepend — if true, prepend older messages instead of replacing
->>>>>>> Stashed changes
   // ============================================================
   async function renderThread(containerId, messages, viewerUserId, opts) {
     var container = document.getElementById(containerId);
@@ -347,11 +342,7 @@
 
     if (!messages || messages.length === 0) {
       if (!opts.prepend) {
-<<<<<<< Updated upstream
         container.innerHTML = '<div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">No messages yet â say hello!</div>';
-=======
-        container.innerHTML = '<div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">No messages yet — say hello!</div>';
->>>>>>> Stashed changes
       }
       return;
     }
@@ -384,11 +375,7 @@
     }
 
     if (opts.prepend) {
-<<<<<<< Updated upstream
       // Prepending older messages â insert before existing content
-=======
-      // Prepending older messages — insert before existing content
->>>>>>> Stashed changes
       var oldScroll = container.scrollHeight;
       var olderDiv = container.querySelector('.msg-older-loaded');
       if (olderDiv) {
@@ -424,11 +411,7 @@
         var btn = document.createElement('button');
         btn.className = 'msg-older-btn';
         btn.style.cssText = 'display:block;width:100%;text-align:center;padding:8px;font-size:0.76rem;color:var(--gold-deep);background:var(--warm);border:1px dashed var(--border);border-radius:8px;cursor:pointer;font-weight:600;margin-bottom:10px;transition:background 0.15s';
-<<<<<<< Updated upstream
         btn.textContent = 'ð View older messages';
-=======
-        btn.textContent = '📜 View older messages';
->>>>>>> Stashed changes
         btn.setAttribute('data-partner', opts.otherUserId);
         btn.setAttribute('data-container', containerId);
         btn.setAttribute('data-page', '1');
@@ -478,19 +461,11 @@
       .lt('created_at', sinceDate.toISOString());
 
     if (count && count > 0) {
-<<<<<<< Updated upstream
       btnEl.textContent = 'ð View even older messages';
       btnEl.disabled = false;
       btnEl.setAttribute('data-page', String(page + 1));
     } else {
       btnEl.textContent = 'ð All messages loaded';
-=======
-      btnEl.textContent = '📜 View even older messages';
-      btnEl.disabled = false;
-      btnEl.setAttribute('data-page', String(page + 1));
-    } else {
-      btnEl.textContent = '📜 All messages loaded';
->>>>>>> Stashed changes
       btnEl.style.opacity = '0.5';
       btnEl.style.cursor = 'default';
       btnEl.onclick = null;
@@ -524,11 +499,7 @@
     _clientMsgContacts = contacts;
 
     if (contacts.length === 1) {
-<<<<<<< Updated upstream
       // Only owner â simple thread, no tabs needed
-=======
-      // Only owner — simple thread, no tabs needed
->>>>>>> Stashed changes
       var messages = await loadConversation(ownerUserId, {});
       await renderThread('cMsgs', messages, user.id, { otherUserId: ownerUserId });
       await markAsRead(ownerUserId);
@@ -845,198 +816,160 @@
 
   // ============================================================
   //  UI: Alerts card in owner overview (hhpAlertsCard)
-  //  Shows: unread messages, pending bookings, new signups, cancellations
   // ============================================================
-  async function loadAlertMessages() {
-    var sb = getSB(); if (!sb) return;
-    var user = getCurrentUser(); if (!user) return;
+  function _timeAgo(dateStr) {
+    if (!dateStr) return '';
+    var now = new Date();
+    var then = new Date(dateStr);
+    var diff = Math.floor((now - then) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+    return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
 
+  async function loadAlertMessages() {
     var card = document.getElementById('hhpAlertsCard');
     if (!card) return;
-
-<<<<<<< Updated upstream
-    // Get unread messages for owner
-    var { data: unreadMsgs, error } = await sb.from('messages')
-      .select('*')
-      .eq('recipient_id', user.id)
-      .is('read_at', null)
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    if (error || !unreadMsgs) unreadMsgs = [];
-
-    var html = '<div class="card-title" style="margin-bottom:14px">ð Alerts & Messages</div>';
-=======
-    var html = '<div class="card-title" style="margin-bottom:14px">🔔 Alerts & Messages</div>';
-    var alertItems = [];
->>>>>>> Stashed changes
-
-    // 1. Unread messages
+    if (!supabase || !currentUserId) {
+      card.innerHTML = '<div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Sign in to see alerts</div>';
+      return;
+    }
     try {
-      var { data: unreadMsgs } = await sb.from('messages')
-        .select('*')
-        .eq('recipient_id', user.id)
-        .is('read_at', null)
+      // ── 1. Unread Messages (up to 5) ──
+      var { data: unread } = await supabase
+        .from('messages')
+        .select('id, sender_id, content, created_at, conversation_id, sender_name')
+        .eq('receiver_id', currentUserId)
+        .eq('read', false)
         .order('created_at', { ascending: false })
         .limit(5);
-      if (unreadMsgs && unreadMsgs.length > 0) {
-        for (var i = 0; i < unreadMsgs.length; i++) {
-          var msg = unreadMsgs[i];
-          var profile = await getProfileByUserId(msg.sender_id);
-          var name = profile.full_name || 'Unknown';
-          var preview = msg.body.length > 55 ? msg.body.substring(0, 55) + '...' : msg.body;
-          alertItems.push({
-            type: 'message',
-            date: msg.created_at,
-            html: '<div onclick="HHP_Messaging.openConvo(\'' + msg.sender_id + '\',\'' + escHTML(name).replace(/'/g,'\\\'') + '\')" ' +
-              'style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(200,150,62,0.08);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:background 0.15s" ' +
-              'onmouseover="this.style.background=\'rgba(200,150,62,0.15)\'" onmouseout="this.style.background=\'rgba(200,150,62,0.08)\'">' +
-              '<div style="width:28px;height:28px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">💬</div>' +
-              '<div style="flex:1;min-width:0">' +
-              '<div style="font-weight:600;font-size:0.82rem">' + escHTML(name) + '</div>' +
-              '<div style="font-size:0.76rem;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(preview) + '</div>' +
-              '</div>' +
-              '<div style="font-size:0.68rem;color:var(--mid);flex-shrink:0">' + timeAgo(msg.created_at) + '</div>' +
-              '</div>'
-          });
-        }
-      }
-    } catch(e) { console.warn('Alerts: messages error', e); }
 
-    // 2. Pending booking requests
-    try {
-      var { data: pendingBookings } = await sb.from('booking_requests')
-        .select('id, service_type, preferred_date, client_name, created_at')
+      // ── 2. Pending Booking Requests (up to 5) ──
+      var { data: pendingBookings } = await supabase
+        .from('booking_requests')
+        .select('id, service, preferred_date, status, client_id, created_at')
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(5);
-      if (pendingBookings && pendingBookings.length > 0) {
-        for (var b = 0; b < pendingBookings.length; b++) {
-          var bk = pendingBookings[b];
-          var bkDate = bk.preferred_date ? new Date(bk.preferred_date).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
-          alertItems.push({
-            type: 'booking',
-            date: bk.created_at,
-            html: '<div onclick="sTab(\'o\',\'o-overview\')" ' +
-              'style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(61,90,71,0.08);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:background 0.15s" ' +
-              'onmouseover="this.style.background=\'rgba(61,90,71,0.15)\'" onmouseout="this.style.background=\'rgba(61,90,71,0.08)\'">' +
-              '<div style="width:28px;height:28px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">📅</div>' +
-              '<div style="flex:1;min-width:0">' +
-              '<div style="font-weight:600;font-size:0.82rem">New Booking Request</div>' +
-              '<div style="font-size:0.76rem;color:var(--mid)">' + escHTML(bk.client_name || 'Client') + ' — ' + escHTML(bk.service_type || 'Service') + (bkDate ? ' · ' + bkDate : '') + '</div>' +
-              '</div>' +
-              '<div style="font-size:0.68rem;color:var(--mid);flex-shrink:0">' + timeAgo(bk.created_at) + '</div>' +
-              '</div>'
-          });
-        }
-      }
-    } catch(e) { console.warn('Alerts: bookings error', e); }
 
-    // 3. New client signups (last 7 days)
-    try {
-      var weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      var { data: newClients } = await sb.from('profiles')
-        .select('id, full_name, email, created_at')
+      // ── 3. New Client Sign-ups (last 7 days, up to 3) ──
+      var sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      var { data: newClients } = await supabase
+        .from('profiles')
+        .select('id, full_name, created_at')
         .eq('role', 'client')
-        .gte('created_at', weekAgo.toISOString())
+        .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: false })
         .limit(3);
-      if (newClients && newClients.length > 0) {
-        for (var s = 0; s < newClients.length; s++) {
-          var cl = newClients[s];
-          alertItems.push({
-            type: 'signup',
-            date: cl.created_at,
-            html: '<div onclick="sTab(\'o\',\'o-clients\')" ' +
-              'style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(41,128,185,0.08);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:background 0.15s" ' +
-              'onmouseover="this.style.background=\'rgba(41,128,185,0.15)\'" onmouseout="this.style.background=\'rgba(41,128,185,0.08)\'">' +
-              '<div style="width:28px;height:28px;border-radius:50%;background:#e3f2fd;display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">🎉</div>' +
-              '<div style="flex:1;min-width:0">' +
-              '<div style="font-weight:600;font-size:0.82rem">New Sign-up</div>' +
-              '<div style="font-size:0.76rem;color:var(--mid)">' + escHTML(cl.full_name || cl.email || 'New Client') + '</div>' +
-              '</div>' +
-              '<div style="font-size:0.68rem;color:var(--mid);flex-shrink:0">' + timeAgo(cl.created_at) + '</div>' +
-              '</div>'
-          });
-        }
-      }
-    } catch(e) { console.warn('Alerts: signups error', e); }
 
-    // 4. Recent cancellations (last 7 days)
-    try {
-      var weekAgo2 = new Date();
-      weekAgo2.setDate(weekAgo2.getDate() - 7);
-      var { data: cancels } = await sb.from('bookings')
-        .select('id, service_type, service, client_name, cancelled_at, updated_at, cancellation_reason, cancel_reason')
+      // ── 4. Recent Cancellations (last 7 days, up to 3) ──
+      var { data: cancellations } = await supabase
+        .from('booking_requests')
+        .select('id, service, preferred_date, status, client_id, cancelled_at, created_at')
         .eq('status', 'cancelled')
-        .gte('updated_at', weekAgo2.toISOString())
-        .order('updated_at', { ascending: false })
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false })
         .limit(3);
-      if (cancels && cancels.length > 0) {
-        for (var c = 0; c < cancels.length; c++) {
-          var cn = cancels[c];
-          var reason = cn.cancellation_reason || cn.cancel_reason || '';
-          alertItems.push({
-            type: 'cancel',
-            date: cn.cancelled_at || cn.updated_at,
-            html: '<div onclick="sTab(\'o\',\'o-activity\')" ' +
-              'style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(196,117,106,0.08);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:background 0.15s" ' +
-              'onmouseover="this.style.background=\'rgba(196,117,106,0.15)\'" onmouseout="this.style.background=\'rgba(196,117,106,0.08)\'">' +
-              '<div style="width:28px;height:28px;border-radius:50%;background:var(--rose-pale);display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">❌</div>' +
-              '<div style="flex:1;min-width:0">' +
-              '<div style="font-weight:600;font-size:0.82rem">Cancellation</div>' +
-              '<div style="font-size:0.76rem;color:var(--mid)">' + escHTML(cn.client_name || 'Client') + ' — ' + escHTML(cn.service_type || cn.service || 'Service') + (reason ? ' · "' + escHTML(reason) + '"' : '') + '</div>' +
-              '</div>' +
-              '<div style="font-size:0.68rem;color:var(--mid);flex-shrink:0">' + timeAgo(cn.cancelled_at || cn.updated_at) + '</div>' +
-              '</div>'
-          });
-        }
+
+      // ── Build combined alerts list ──
+      var alerts = [];
+      if (unread) unread.forEach(function(m) {
+        alerts.push({ type: 'message', date: m.created_at, data: m });
+      });
+      if (pendingBookings) pendingBookings.forEach(function(b) {
+        alerts.push({ type: 'booking', date: b.created_at, data: b });
+      });
+      if (newClients) newClients.forEach(function(c) {
+        alerts.push({ type: 'signup', date: c.created_at, data: c });
+      });
+      if (cancellations) cancellations.forEach(function(c) {
+        alerts.push({ type: 'cancellation', date: c.created_at || c.cancelled_at, data: c });
+      });
+
+      // Sort by date descending
+      alerts.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+
+      // ── Render ──
+      var msgCount = (unread || []).length;
+      var bookingCount = (pendingBookings || []).length;
+      var signupCount = (newClients || []).length;
+      var cancelCount = (cancellations || []).length;
+      var totalAlerts = msgCount + bookingCount + signupCount + cancelCount;
+
+      var html = '<div style="padding:16px 18px 10px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+      html += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.25rem;font-weight:700;color:var(--ink)">🔔 Alerts & Messages</div>';
+      if (totalAlerts > 0) {
+        html += '<div style="background:var(--rose);color:white;padding:2px 10px;border-radius:12px;font-size:0.75rem;font-weight:700">' + totalAlerts + ' new</div>';
       }
-    } catch(e) { console.warn('Alerts: cancellations error', e); }
-
-    // Sort all alerts by date (newest first)
-    alertItems.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
-
-    if (alertItems.length > 0) {
-      // Summary badges
-      var msgCount = alertItems.filter(function(a) { return a.type === 'message'; }).length;
-      var bkCount = alertItems.filter(function(a) { return a.type === 'booking'; }).length;
-      var signupCount = alertItems.filter(function(a) { return a.type === 'signup'; }).length;
-      var cancelCount = alertItems.filter(function(a) { return a.type === 'cancel'; }).length;
-
-      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
-      if (msgCount > 0) html += '<span style="background:var(--gold-pale);color:var(--gold-deep);padding:3px 10px;border-radius:50px;font-size:0.72rem;font-weight:700">💬 ' + msgCount + ' message' + (msgCount > 1 ? 's' : '') + '</span>';
-      if (bkCount > 0) html += '<span style="background:#e8f5e9;color:#15803d;padding:3px 10px;border-radius:50px;font-size:0.72rem;font-weight:700">📅 ' + bkCount + ' pending</span>';
-      if (signupCount > 0) html += '<span style="background:#e3f2fd;color:#0369a1;padding:3px 10px;border-radius:50px;font-size:0.72rem;font-weight:700">🎉 ' + signupCount + ' new</span>';
-      if (cancelCount > 0) html += '<span style="background:var(--rose-pale);color:var(--rose);padding:3px 10px;border-radius:50px;font-size:0.72rem;font-weight:700">❌ ' + cancelCount + ' cancel' + (cancelCount > 1 ? 's' : '') + '</span>';
       html += '</div>';
 
-      // Show up to 8 alert items
-      var shown = Math.min(alertItems.length, 8);
-      for (var a = 0; a < shown; a++) {
-        html += alertItems[a].html;
+      // Summary badges
+      if (totalAlerts > 0) {
+        html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+        if (msgCount > 0) html += '<div style="background:var(--gold-pale);color:var(--gold-deep);padding:3px 10px;border-radius:8px;font-size:0.72rem;font-weight:600">💬 ' + msgCount + ' message' + (msgCount > 1 ? 's' : '') + '</div>';
+        if (bookingCount > 0) html += '<div style="background:var(--forest-pale);color:var(--forest);padding:3px 10px;border-radius:8px;font-size:0.72rem;font-weight:600">📅 ' + bookingCount + ' pending</div>';
+        if (signupCount > 0) html += '<div style="background:#e8f5e9;color:#2e7d32;padding:3px 10px;border-radius:8px;font-size:0.72rem;font-weight:600">👋 ' + signupCount + ' new client' + (signupCount > 1 ? 's' : '') + '</div>';
+        if (cancelCount > 0) html += '<div style="background:var(--rose-pale);color:var(--rose);padding:3px 10px;border-radius:8px;font-size:0.72rem;font-weight:600">❌ ' + cancelCount + ' cancel' + (cancelCount > 1 ? 's' : '') + '</div>';
+        html += '</div>';
       }
-      if (alertItems.length > 8) {
-        html += '<div style="text-align:center;font-size:0.76rem;color:var(--mid);padding:6px">+ ' + (alertItems.length - 8) + ' more alerts</div>';
+      html += '</div>';
+
+      // Alert items (show up to 8)
+      var shown = alerts.slice(0, 8);
+      if (shown.length === 0) {
+        html += '<div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">✨ All clear — no new alerts!</div>';
+      } else {
+        shown.forEach(function(alert) {
+          var d = alert.data;
+          var timeAgo = _timeAgo(alert.date);
+          if (alert.type === 'message') {
+            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--gold-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof HHP_Messaging!==\'undefined\')HHP_Messaging.openConversation(\'' + d.conversation_id + '\')">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+            html += '<div><div style="font-weight:600;font-size:0.84rem;color:var(--ink)">💬 ' + (d.sender_name || 'Someone') + '</div>';
+            html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (d.content || '').substring(0, 80) + '</div></div>';
+            html += '<div style="font-size:0.68rem;color:var(--mid);white-space:nowrap;margin-left:8px">' + timeAgo + '</div>';
+            html += '</div></div>';
+          } else if (alert.type === 'booking') {
+            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--forest-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof sTab===\'function\')sTab(\'owner\',\'o-overview\')">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+            html += '<div><div style="font-weight:600;font-size:0.84rem;color:var(--forest)">📅 New Booking Request</div>';
+            html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px">' + (d.service || 'Service') + ' — ' + (d.preferred_date || '') + '</div></div>';
+            html += '<div style="font-size:0.68rem;color:var(--mid);white-space:nowrap;margin-left:8px">' + timeAgo + '</div>';
+            html += '</div></div>';
+          } else if (alert.type === 'signup') {
+            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'#e8f5e9\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof sTab===\'function\')sTab(\'owner\',\'o-clients\')">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+            html += '<div><div style="font-weight:600;font-size:0.84rem;color:#2e7d32">👋 New Client Sign-up</div>';
+            html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px">' + (d.full_name || 'New client') + ' joined</div></div>';
+            html += '<div style="font-size:0.68rem;color:var(--mid);white-space:nowrap;margin-left:8px">' + timeAgo + '</div>';
+            html += '</div></div>';
+          } else if (alert.type === 'cancellation') {
+            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--rose-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof sTab===\'function\')sTab(\'owner\',\'o-activity\')">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+            html += '<div><div style="font-weight:600;font-size:0.84rem;color:var(--rose)">❌ Booking Cancelled</div>';
+            html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px">' + (d.service || 'Service') + ' — ' + (d.preferred_date || '') + '</div></div>';
+            html += '<div style="font-size:0.68rem;color:var(--mid);white-space:nowrap;margin-left:8px">' + timeAgo + '</div>';
+            html += '</div></div>';
+          }
+        });
       }
 
-      html += '<button class="btn btn-outline btn-sm" onclick="sTab(\'o\',\'o-activity\')" style="width:100%;justify-content:center;margin-top:8px;font-size:0.78rem">View Full Activity Log</button>';
-    } else {
-      html += '<div style="padding:14px;text-align:center;color:var(--mid);font-size:0.85rem">' +
-<<<<<<< Updated upstream
-        '<div style="font-size:1.4rem;margin-bottom:6px">â</div>' +
-        'No new messages or alerts</div>';
-=======
-        '<div style="font-size:1.4rem;margin-bottom:6px">✓</div>' +
-        'All clear — no new alerts</div>';
->>>>>>> Stashed changes
+      // Footer link
+      html += '<div style="padding:12px 18px;border-top:1px solid var(--border);text-align:center">';
+      html += '<button onclick="if(typeof sTab===\'function\')sTab(\'owner\',\'o-activity\')" style="background:none;border:none;color:var(--gold-deep);font-weight:600;font-size:0.82rem;cursor:pointer;padding:4px 12px">View Full Activity Log →</button>';
+      html += '</div>';
+
+      card.innerHTML = html;
+    } catch (err) {
+      console.error('loadAlertMessages error:', err);
+      card.innerHTML = '<div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Could not load alerts</div>';
     }
-
-    card.innerHTML = html;
   }
 
-  // ============================================================
   //  UI: Unread badges on sidebar
   // ============================================================
   async function updateUnreadBadges() {
@@ -1238,10 +1171,7 @@
     if (window.onHHPAuthReady) {
       window.onHHPAuthReady(init);
     } else {
-<<<<<<< Updated upstream
-=======
       // Fallback if auth callback system isn't loaded yet
->>>>>>> Stashed changes
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 300); });
       } else {
