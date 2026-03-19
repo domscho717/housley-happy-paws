@@ -169,10 +169,12 @@ const HHP_Photos = window.HHP_Photos = {
       };
     }
 
-    // Override about photo slots
-    this.wireSlot('aboutPhoto1', 'about1');
-    this.wireSlot('aboutPhoto2', 'about2');
-    this.wireSlot('aboutPhoto3', 'about3');
+    // Override about photo slots (dynamic — supports unlimited)
+    const aboutKeys = Object.keys(this.photos).filter(k => k.startsWith('about')).sort();
+    const maxAbout = Math.max(aboutKeys.length, 20);
+    for (let i = 1; i <= maxAbout; i++) {
+      this.wireSlot('aboutPhoto' + i, 'about' + i);
+    }
 
     // Override service photo slots
     this.wireSlot('svcPhoto1', 'svc-dog-walk');
@@ -190,7 +192,6 @@ const HHP_Photos = window.HHP_Photos = {
 
   // Direct mapping of slotId → the onclick selector used to find the element
   SLOT_INPUT_MAP: {
-    'about1': 'aboutPhoto1', 'about2': 'aboutPhoto2', 'about3': 'aboutPhoto3',
     'svc-dog-walk': 'svcPhoto1', 'svc-drop-in': 'svcPhoto2', 'svc-boarding': 'svcPhoto3',
     'svc-cat-care': 'svcPhoto4', 'svc-paw-bus': 'svcPhoto5', 'svc-house-sitting': 'svcPhoto6',
     'svc-doggy-daycare': 'svcPhoto7', 'svc-extra': 'svcPhoto8', 'logo': 'logoUpload'
@@ -314,33 +315,14 @@ const HHP_Photos = window.HHP_Photos = {
       this.updatePublicHero(this.photos.hero);
     }
 
-    // Update about section slideshow with real photos
-    const aboutSlides = document.querySelectorAll('.hhp-about-slide');
-    if (aboutSlides.length > 0) {
-      const aboutPhotos = ['about1','about2','about3'].filter(k => this.photos[k]).map(k => this.photos[k]);
-      aboutSlides.forEach((slide, i) => {
-        const photo = aboutPhotos[i % aboutPhotos.length];
-        if (photo) {
-          const imgUrl = this._previewUrl(photo, 800);
-          slide.style.backgroundImage = `url(${imgUrl})`;
-          slide.style.backgroundSize = 'cover';
-          slide.style.backgroundPosition = 'center';
-          slide.style.background = '';
-          slide.style.backgroundImage = `url(${imgUrl})`;
-          slide.style.backgroundSize = 'cover';
-          slide.style.backgroundPosition = 'center';
-          slide.innerHTML = '';
-        }
-      });
-    }
-    // Also try .about-photo-single as fallback
-    const aboutPhoto = this.photos.about1 || this.photos.about2 || this.photos.about3;
-    if (aboutPhoto) {
-      const aboutContainer = document.querySelector('.about-photo-single');
-      if (aboutContainer) {
-        const imgUrl = this._previewUrl(aboutPhoto, 800);
-        aboutContainer.innerHTML = `<img src="${imgUrl}" alt="About us" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
-      }
+    // Update about section slideshow with all about photos (dynamic)
+    const aboutPhotoUrls = Object.keys(this.photos)
+      .filter(k => k.startsWith('about'))
+      .sort((a, b) => parseInt(a.replace('about','')) - parseInt(b.replace('about','')))
+      .map(k => this._previewUrl(this.photos[k], 800))
+      .filter(Boolean);
+    if (aboutPhotoUrls.length > 0 && typeof aboutSS !== 'undefined') {
+      aboutSS.init(aboutPhotoUrls);
     }
 
     // Update service cards with real photos
@@ -527,7 +509,9 @@ const HHP_Photos = window.HHP_Photos = {
         if (slotId !== 'hero') {
           const existing = document.querySelector(`[data-photo-slot="${slotId}"]`);
           if (!existing) {
-            const inputId = this.SLOT_INPUT_MAP[slotId];
+            // Dynamic about slot resolution
+            let inputId = this.SLOT_INPUT_MAP[slotId];
+            if (!inputId && slotId.startsWith('about')) inputId = 'aboutPhoto' + slotId.replace('about','');
             if (inputId) {
               const fallbackEl = document.querySelector(`[onclick*="triggerUpload('${inputId}')"]`);
               if (fallbackEl) {
