@@ -595,10 +595,32 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .submit-btn.gold:hover{background:var(--gold-deep)}
 
 /* Cancel Booking Styles */
+<<<<<<< Updated upstream
 .cancel-btn{padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:600;border:1.5px solid var(--rose);background:transparent;color:var(--rose);cursor:pointer;transition:all 0.2s;letter-spacing:0.04em}
 .cancel-btn:hover{background:var(--rose-pale);border-color:var(--rose-light)}
 .cancel-badge{display:inline-block;background:var(--rose);color:white;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
 .cal-canceled{text-decoration:line-through;opacity:0.6;color:var(--mid);background:rgba(196,117,106,0.08);border-color:var(--rose-light) !important}
+=======
+.cancel-btn{
+  padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:600;
+  border:1.5px solid var(--rose);background:transparent;color:var(--rose);
+  cursor:pointer;transition:all 0.2s;letter-spacing:0.04em;
+}
+.cancel-btn:hover{background:var(--rose-pale);border-color:var(--rose-light)}
+.cancel-badge{
+  display:inline-block;background:var(--rose);color:white;
+  padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;
+  text-transform:uppercase;letter-spacing:0.04em;
+}
+.late-cancel-warning{
+  background:#fff3cd;border:1px solid #ffc107;border-radius:8px;
+  padding:12px 14px;border-left:4px solid #ffc107;margin-bottom:16px;
+}
+.cal-canceled{
+  text-decoration:line-through;opacity:0.6;color:var(--mid);
+  background:rgba(196,117,106,0.08);border-color:var(--rose-light) !important;
+}
+>>>>>>> Stashed changes
 
 .success-box{text-align:center;padding:16px 0}
 .success-box .icon{font-size:3.5rem;margin-bottom:14px}
@@ -819,7 +841,11 @@ try {
       </div>
       <div id="authPasswordGroup">
         <label class="form-lbl">Password</label>
+<<<<<<< Updated upstream
         <input class="form-in" id="authPassword" type="password" placeholder="Your password" name="password" autocomplete="current-password">
+=======
+        <input class="form-in" id="authPassword" type="password" placeholder="Your password" autocomplete="current-password" name="password">
+>>>>>>> Stashed changes
       </div>
       <div id="authConfirmPasswordGroup" style="display:none">
         <label class="form-lbl">Confirm Password</label>
@@ -1556,7 +1582,11 @@ try {
       <div class="p-panel active" id="o-overview">
         <div class="owner-banner">
           <div class="ob-top"><div><div class="ob-h">Good morning, Rachel 🐾</div><div class="ob-p">Your business is growing beautifully. Here's today at a glance.</div></div><button class="btn btn-gold btn-sm" onclick="openModal('announceModal')">📢 Post Announcement</button></div>
+<<<<<<< Updated upstream
           <div class="ob-stats"><div><div class="ob-sn" id="stat-activeClients">—</div><div class="ob-sl">Active Clients</div></div><div><div class="ob-sn" id="stat-newSignups">—</div><div class="ob-sl">New Sign‑ups</div></div><div><div class="ob-sn" id="stat-bookingsThisMonth">—</div><div class="ob-sl">This Month</div></div><div><div class="ob-sn" id="stat-avgRating">— ⭐</div><div class="ob-sl">Avg Rating</div></div><div><div class="ob-sn" id="stat-todayJobs">—</div><div class="ob-sl">Today's Jobs</div></div></div>
+=======
+          <div class="ob-stats"><div><div class="ob-sn" id="stat-activeClients">—</div><div class="ob-sl">Active Clients</div></div><div><div class="ob-sn" id="stat-newSignups">—</div><div class="ob-sl">New Sign‑ups</div></div><div><div class="ob-sn" id="stat-bookingsThisMonth">—</div><div class="ob-sl">This Month</div></div><div><div class="ob-sn" id="stat-avgRating">— 📋</div><div class="ob-sl">Reports Sent</div></div><div><div class="ob-sn" id="stat-todayJobs">—</div><div class="ob-sl">Today's Jobs</div></div></div>
+>>>>>>> Stashed changes
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
           <!-- ALERTS / NEW MESSAGES (populated by HHP_Messaging.loadAlertMessages) -->
@@ -1570,7 +1600,7 @@ try {
               <div style="background:var(--gold-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-jobsThisWeek">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Jobs This Week</div></div>
               <div style="background:var(--forest-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-weekRevenue">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Revenue</div></div>
               <div style="background:var(--rose-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-newInquiries">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">New Inquiries</div></div>
-              <div style="background:#e0f2fe;border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-weekRating">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Rating</div></div>
+              <div style="background:#e0f2fe;border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-weekRating">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Reports</div></div>
             </div>
             <div style="background:var(--gold-pale);border-radius:8px;padding:12px 14px;font-size:0.83rem;font-weight:600;color:var(--gold-deep)">🔔 Auto-notifications active — clients get start & end alerts for every appointment.</div>
           </div>
@@ -2293,8 +2323,13 @@ try {
       <!-- ═══════════════ ACTIVITY LOG ═══════════════ -->
       <div class="p-panel" id="o-activity">
         <div class="p-header">
+<<<<<<< Updated upstream
           <h2>📜 Activity Log</h2>
           <p>Complete record of messages, bookings, sign‑ups, cancellations, and key events.</p>
+=======
+          <h2>📜 Business Activity Summary</h2>
+          <p>Complete business overview — revenue, bookings, clients, reports, messages, and all key events in one place.</p>
+>>>>>>> Stashed changes
         </div>
         <!-- Filters -->
         <div class="card" style="margin-bottom:14px">
@@ -2321,12 +2356,24 @@ try {
                 <option value="bookings">Bookings</option>
                 <option value="signups">New Sign‑ups</option>
                 <option value="cancellations">Cancellations</option>
+<<<<<<< Updated upstream
+=======
+                <option value="payments">Payments</option>
+                <option value="reports">Service Reports</option>
+>>>>>>> Stashed changes
               </select>
             </div>
           </div>
         </div>
+<<<<<<< Updated upstream
         <!-- Stats Summary -->
         <div id="actLogStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
+=======
+        <!-- Business Summary Card -->
+        <div id="actLogSummary" style="margin-bottom:14px"></div>
+        <!-- Stats Summary -->
+        <div id="actLogStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px"></div>
+>>>>>>> Stashed changes
         <!-- Log Entries -->
         <div class="card" style="padding:0;overflow:hidden">
           <div id="actLogEntries" style="max-height:600px;overflow-y:auto">
@@ -2482,8 +2529,23 @@ try {
   <button class="submit-btn gold" onclick="submitInterest('wedding')">Join the Interest List</button></div>
 </div>
 
+<!-- CANCEL BOOKING MODAL -->
+<div class="overlay" id="cancelBookingModal" style="display:none" onclick="if(event.target===this)closeModal('cancelBookingModal')">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <div class="modal-title">Cancel Booking 🔴</div>
+      <button class="modal-close" onclick="closeModal('cancelBookingModal')">✕</button>
+    </div>
 
+    <!-- Booking Details -->
+    <div style="background:var(--warm);border-radius:10px;padding:14px 16px;margin-bottom:16px;border-left:4px solid var(--mid)">
+      <div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Booking Details</div>
+      <div style="font-weight:600;color:var(--ink)" id="cancelModal_service">Dog Walk</div>
+      <div style="font-size:0.85rem;color:var(--mid)" id="cancelModal_date">Date · Time</div>
+      <div style="font-size:0.85rem;color:var(--mid)" id="cancelModal_client">Client Name</div>
+    </div>
 
+<<<<<<< Updated upstream
 
 <!-- CANCEL BOOKING MODAL -->
 <div class="overlay" id="cancelBookingModal" style="display:none" onclick="if(event.target===this)closeModal('cancelBookingModal')">
@@ -2504,6 +2566,11 @@ try {
     <!-- Cancel Type Warning -->
     <div id="cancelModal_warning" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:16px;border-left:4px solid #ffc107">
       <div style="font-size:0.72rem;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">â ï¸ Late Cancellation Fee</div>
+=======
+    <!-- Cancel Type Warning -->
+    <div id="cancelModal_warning" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:16px;border-left:4px solid #ffc107">
+      <div style="font-size:0.72rem;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">⚠️ Late Cancellation Fee</div>
+>>>>>>> Stashed changes
       <div style="font-size:0.84rem;color:#856404;line-height:1.4">You're canceling within 2 days of the booking. Payment will still be processed according to the cancellation policy.</div>
     </div>
 
@@ -2531,6 +2598,7 @@ try {
 </div>
 
 <script>
+<<<<<<< Updated upstream
 // ---- ABOUT SLIDESHOW ----
 const aboutSS = {
   current: 0, timer: null, slides: [],
@@ -2619,6 +2687,8 @@ function addAboutPhotoSlot() {
   toast('\uD83D\uDCF7 Slot ' + _aboutSlotCount + ' added — click to upload!');
 }
 
+=======
+>>>>>>> Stashed changes
 // ---- NAVIGATION ----
 // Track whether user explicitly chose to go home (prevents auth re-routing)
 let _userChosePublic = false;
@@ -2718,6 +2788,8 @@ function switchView(view) {
   document.body.classList.remove('loading-auth');
   const dd = document.getElementById('viewDropdown');
   if(dd) dd.value = view;
+  // Sync mobile drawer with current view
+  if (typeof updateDrawerContent === 'function') setTimeout(updateDrawerContent, 200);
   window.scrollTo(0,0);
   const nc = document.querySelector('.nav-center');
   if(nc) {
@@ -2849,11 +2921,18 @@ function initActivityLog() {
     // Set to current month/year
     monthSel.value = new Date().getMonth();
     yearSel.value = curYear;
+<<<<<<< Updated upstream
+=======
+    _populateWeeks();
+>>>>>>> Stashed changes
     _actLogInited = true;
   }
   loadActivityLog();
 }
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 function _populateWeeks() {
   var weekSel = document.getElementById('actLogWeek');
   var monthSel = document.getElementById('actLogMonth');
@@ -2888,6 +2967,10 @@ async function loadActivityLog() {
   var weekSel = document.getElementById('actLogWeek');
   var typeSel = document.getElementById('actLogType');
   var statsEl = document.getElementById('actLogStats');
+<<<<<<< Updated upstream
+=======
+  var summaryEl = document.getElementById('actLogSummary');
+>>>>>>> Stashed changes
   var entriesEl = document.getElementById('actLogEntries');
   if (!monthSel || !yearSel || !entriesEl) return;
 
@@ -2896,9 +2979,17 @@ async function loadActivityLog() {
   var type = typeSel ? typeSel.value : 'all';
   var weekVal = weekSel ? weekSel.value : 'all';
 
+<<<<<<< Updated upstream
   var startDate = new Date(year, month, 1);
   var endDate = new Date(year, month + 1, 1);
 
+=======
+  // Date range for selected month
+  var startDate = new Date(year, month, 1);
+  var endDate = new Date(year, month + 1, 1);
+
+  // Narrow to week if selected
+>>>>>>> Stashed changes
   if (weekVal !== 'all') {
     var parts = weekVal.split('-');
     startDate = new Date(year, month, parseInt(parts[0]));
@@ -2912,7 +3003,12 @@ async function loadActivityLog() {
   entriesEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem">Loading activity...</div>';
 
   var allEntries = [];
+<<<<<<< Updated upstream
   var msgCount = 0, cancelCount = 0, bookingCount = 0, signupCount = 0;
+=======
+  var msgCount = 0, cancelCount = 0, bookingCount = 0, signupCount = 0, paymentCount = 0, reportCount = 0;
+  var totalRevenue = 0;
+>>>>>>> Stashed changes
 
   // Load messages
   if (type === 'all' || type === 'messages') {
@@ -3006,20 +3102,109 @@ async function loadActivityLog() {
     }
   }
 
+<<<<<<< Updated upstream
   // Sort by date descending
   allEntries.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
 
   // Render stats
   var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+=======
+  // Load payments
+  if (type === 'all' || type === 'payments') {
+    var { data: payments } = await sb.from('payments')
+      .select('*')
+      .gte('created_at', startISO)
+      .lt('created_at', endISO)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (payments) {
+      paymentCount = payments.length;
+      for (var py = 0; py < payments.length; py++) {
+        var pmt = payments[py];
+        totalRevenue += (pmt.amount || 0);
+        allEntries.push({ type: 'payment', date: pmt.created_at, payment: pmt });
+      }
+    }
+  }
+
+  // Load service reports
+  if (type === 'all' || type === 'reports') {
+    var { data: reports } = await sb.from('service_reports')
+      .select('*')
+      .gte('created_at', startISO)
+      .lt('created_at', endISO)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (reports) {
+      reportCount = reports.length;
+      for (var rp = 0; rp < reports.length; rp++) {
+        allEntries.push({ type: 'report', date: reports[rp].created_at, report: reports[rp] });
+      }
+    }
+  }
+
+  // Sort by date descending
+  allEntries.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+
+  // Render business summary card
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var periodLabel = weekVal !== 'all' ? 'Week of ' + months[month].substring(0,3) + ' ' + weekVal.split('-')[0] + '–' + weekVal.split('-')[1] : months[month] + ' ' + year;
+
+  if (summaryEl) {
+    var revenueStr = totalRevenue > 0 ? '$' + totalRevenue.toFixed(2) : '$0.00';
+    summaryEl.innerHTML =
+      '<div class="card" style="background:linear-gradient(135deg,var(--forest-pale),var(--gold-pale));border:2px solid rgba(200,150,62,0.2)">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">' +
+          '<div style="font-weight:700;font-size:1.05rem;color:var(--ink)">Business Summary — ' + periodLabel + '</div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">' +
+          '<div style="background:white;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)">' +
+            '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.6rem;font-weight:700;color:var(--forest)">' + revenueStr + '</div>' +
+            '<div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Revenue</div>' +
+          '</div>' +
+          '<div style="background:white;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)">' +
+            '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.6rem;font-weight:700;color:var(--forest)">' + bookingCount + '</div>' +
+            '<div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Bookings</div>' +
+          '</div>' +
+          '<div style="background:white;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)">' +
+            '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.6rem;font-weight:700;color:var(--gold-deep)">' + reportCount + '</div>' +
+            '<div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Reports Sent</div>' +
+          '</div>' +
+          '<div style="background:white;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)">' +
+            '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.6rem;font-weight:700;color:#2980b9">' + signupCount + '</div>' +
+            '<div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">New Clients</div>' +
+          '</div>' +
+          '<div style="background:white;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border)">' +
+            '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.6rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div>' +
+            '<div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Cancellations</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // Render stat cards row
+>>>>>>> Stashed changes
   if (statsEl) {
     statsEl.innerHTML =
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">' + allEntries.length + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Total Events</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + msgCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Messages</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">' + bookingCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Bookings</div></div>' +
+<<<<<<< Updated upstream
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2980b9">' + signupCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Sign‑ups</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Cancellations</div></div>';
   }
 
+=======
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2980b9">' + signupCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Sign-ups</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Cancellations</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">' + paymentCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Payments</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + reportCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Reports</div></div>';
+  }
+
+  // Render entries
+>>>>>>> Stashed changes
   if (allEntries.length === 0) {
     entriesEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:1.6rem;margin-bottom:8px">📭</div>No activity found for ' + months[month] + ' ' + year + '.</div>';
     return;
@@ -3060,7 +3245,11 @@ async function loadActivityLog() {
       var name = p.full_name || p.email || 'New Client';
       html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;background:rgba(41,128,185,0.04)">' +
         '<div style="width:32px;height:32px;border-radius:50%;background:#e3f2fd;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">🎉</div>' +
+<<<<<<< Updated upstream
         '<div style="flex:1"><span style="font-weight:600">New Sign‑up</span>' +
+=======
+        '<div style="flex:1"><span style="font-weight:600">New Sign-up</span>' +
+>>>>>>> Stashed changes
         '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(name) + '</div></div>' +
         '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div></div>';
     } else if (entry.type === 'cancellation') {
@@ -3073,6 +3262,30 @@ async function loadActivityLog() {
         '<div style="flex:1"><span style="font-weight:600">Cancellation</span> — <span>' + _escH(svcType) + '</span>' +
         '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(clientName) + (reason !== 'No reason given' ? ' · "' + _escH(reason) + '"' : '') + '</div></div>' +
         '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div></div>';
+<<<<<<< Updated upstream
+=======
+    } else if (entry.type === 'payment') {
+      var pmt = entry.payment;
+      var pmtAmount = pmt.amount ? '$' + pmt.amount.toFixed(2) : '$0.00';
+      var pmtDesc = pmt.description || pmt.service || 'Payment';
+      var pmtClient = pmt.client_name || pmt.customer_email || '';
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;background:rgba(39,174,96,0.06)">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">💰</div>' +
+        '<div style="flex:1"><span style="font-weight:600">Payment Received</span> — <span style="color:var(--forest);font-weight:700">' + pmtAmount + '</span>' +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(pmtDesc) + (pmtClient ? ' · ' + _escH(pmtClient) : '') + '</div></div>' +
+        '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div></div>';
+    } else if (entry.type === 'report') {
+      var rpt = entry.report;
+      var rptSvc = rpt.service || 'Service';
+      var rptPet = rpt.pet_name || '';
+      var rptMoodEmoji = { great:'😄', happy:'😊', calm:'😌', shy:'🙈', energetic:'⚡' };
+      var rptMood = rptMoodEmoji[rpt.mood] || '📋';
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;background:rgba(200,150,62,0.04)">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">📋</div>' +
+        '<div style="flex:1"><span style="font-weight:600">Report Sent</span> — <span>' + _escH(rptSvc) + '</span> ' + rptMood +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + (rptPet ? _escH(rptPet) + ' · ' : '') + (rpt.duration || '30 min') + (rpt.distance ? ' · ' + rpt.distance : '') + '</div></div>' +
+        '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div></div>';
+>>>>>>> Stashed changes
     }
   }
   entriesEl.innerHTML = html;
@@ -3605,6 +3818,10 @@ function buildCalendar(containerId, year, month) {
     if(isToday) cls += ' today';
     if(ev?.type==='event') cls += ' has-event';
     if(ev?.type==='off') cls += ' off';
+<<<<<<< Updated upstream
+=======
+    // Check if all bookings for this day are canceled
+>>>>>>> Stashed changes
     if(ev?.bookings && ev.bookings.length > 0 && ev.bookings.every(b => b.status === 'canceled')) cls += ' cal-canceled';
     html += `<div class="${cls}" onclick="showCalDetail('${key}','${ev?.label||''}',this)"><div class="cal-day-num">${d}</div>${ev?`<div class="cal-event-dot">${ev.label}</div>`:''}`;
     html += '</div>';
@@ -3650,6 +3867,7 @@ function showCalDetail(key, label, el) {
 
         var statusBadge = b.status === 'pending' ? '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Pending</span>' :
                          b.status === 'accepted' ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Confirmed</span>' :
+                         b.status === 'canceled' ? '<span style="background:var(--rose-light);color:var(--rose);padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Canceled</span>' :
                          '<span style="background:#e2e3e5;color:#383d41;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + b.status + '</span>';
 
         var paidBadge = '';
@@ -3712,6 +3930,7 @@ async function loadClientAppts(filter, tabBtn) {
     var today = new Date().toISOString().split('T')[0];
     if (filter === 'upcoming') query = query.gte('preferred_date', today).order('preferred_date', { ascending: true });
     else if (filter === 'past') query = query.lt('preferred_date', today);
+    else if (filter === 'canceled') query = query.eq('status', 'canceled').order('preferred_date', { ascending: false });
 
     var { data: appts, error } = await query;
     if (error) throw error;
@@ -3894,6 +4113,125 @@ async function confirmCancelBooking() {
   } catch (error) {
     console.error('Cancel booking error:', error);
     toast('â Error canceling booking: ' + error.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirm Cancellation';
+  }
+}
+
+// ── CANCELLATION SYSTEM ──
+// Store cancel data globally while modal is open
+var _cancelData = {
+  bookingRequestId: null,
+  service: null,
+  date: null,
+  clientName: null,
+  isRecurring: false,
+  canceledBy: null
+};
+
+function getCancelType(bookingDate) {
+  // Returns 'free' or 'late' based on policy:
+  // Free cancel = before midnight, 2 days before booking (ET timezone)
+  // e.g., Wednesday booking → must cancel by Monday 11:59 PM ET
+  var booking = new Date(bookingDate + 'T00:00:00');
+  var cutoff = new Date(booking);
+  cutoff.setDate(cutoff.getDate() - 2); // 2 days before
+  cutoff.setHours(23, 59, 59, 999);
+  var now = new Date();
+  return now <= cutoff ? 'free' : 'late';
+}
+
+function openCancelModal(bookingRequestId, service, date, clientName, isRecurring, canceledBy) {
+  // Store data for confirm action
+  _cancelData.bookingRequestId = bookingRequestId;
+  _cancelData.service = service;
+  _cancelData.date = date;
+  _cancelData.clientName = clientName;
+  _cancelData.isRecurring = isRecurring;
+  _cancelData.canceledBy = canceledBy;
+
+  // Populate modal with booking details
+  var dateDisplay = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
+  document.getElementById('cancelModal_service').textContent = service || 'Pet Care';
+  document.getElementById('cancelModal_date').textContent = dateDisplay;
+  document.getElementById('cancelModal_client').textContent = clientName || 'Client';
+
+  // Show/hide warning based on cancel type
+  var cancelType = getCancelType(date);
+  var warningEl = document.getElementById('cancelModal_warning');
+  if (cancelType === 'late') {
+    warningEl.style.display = '';
+  } else {
+    warningEl.style.display = 'none';
+  }
+
+  // Show/hide recurring options
+  var recurringGroup = document.getElementById('cancelModal_recurringGroup');
+  if (isRecurring) {
+    recurringGroup.style.display = '';
+    document.querySelector('input[name="cancelOption"][value="this"]').checked = true;
+  } else {
+    recurringGroup.style.display = 'none';
+  }
+
+  // Open modal
+  openModal('cancelBookingModal');
+}
+
+async function confirmCancelBooking() {
+  var btn = document.getElementById('cancelModal_confirmBtn');
+  if (!btn) return;
+
+  // Disable button during request
+  btn.disabled = true;
+  btn.textContent = 'Canceling...';
+
+  try {
+    var cancelOption = document.querySelector('input[name="cancelOption"]:checked');
+    var option = cancelOption ? cancelOption.value : 'this';
+
+    // Call the backend API
+    var response = await fetch('/api/cancel-booking.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingRequestId: _cancelData.bookingRequestId,
+        service: _cancelData.service,
+        date: _cancelData.date,
+        clientName: _cancelData.clientName,
+        isRecurring: _cancelData.isRecurring,
+        canceledBy: _cancelData.canceledBy,
+        cancelOption: option
+      })
+    });
+
+    var result = await response.json();
+    if (result.success) {
+      toast('✅ Booking canceled successfully 🐾');
+      closeModal('cancelBookingModal');
+      // Refresh the relevant portal view
+      if (_cancelData.canceledBy === 'client') {
+        if (typeof loadClientAppts === 'function') {
+          loadClientAppts('all');
+        }
+      } else if (_cancelData.canceledBy === 'owner') {
+        // Refresh owner booking admin
+        if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.load === 'function') {
+          window.HHP_BookingAdmin.load();
+        }
+      } else if (_cancelData.canceledBy === 'staff') {
+        // Refresh staff bookings
+        if (typeof loadStaffSchedule === 'function') {
+          loadStaffSchedule();
+        }
+      }
+    } else {
+      toast('❌ Cancellation failed: ' + (result.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Cancel booking error:', error);
+    toast('❌ Error canceling booking: ' + error.message);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Confirm Cancellation';
@@ -5568,6 +5906,10 @@ async function loadStaffSchedule() {
         '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div>' +
         (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>' : '') +
         '</div></div>' +
+<<<<<<< Updated upstream
+=======
+        '<div style="display:flex;align-items:center;gap:8px">' +
+>>>>>>> Stashed changes
         '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>' +
         (b.status === 'confirmed' ? '<button class="cancel-btn" style="font-size:0.74rem;padding:4px 10px" onclick="openCancelModal(\'' + (b.id || '').replace(/'/g, "\\'") + '\',\'' + (b.service || '').replace(/'/g, "\\'") + '\',\'' + b.date + '\',\'' + (b.pet_names || '').replace(/'/g, "\\'") + '\',false,\'staff\')">Cancel</button>' : '') +
         '</div>';
@@ -6519,20 +6861,22 @@ document.addEventListener('DOMContentLoaded', function() {
     for (var i = 0; i < cbs.length; i++) { try { cbs[i](); } catch(e) { console.error('Auth callback error:', e); } }
   }
 
+<<<<<<< Updated upstream
     // Initialize auth when page loads
+=======
+  // Initialize auth when page loads
+>>>>>>> Stashed changes
   document.addEventListener('DOMContentLoaded', async () => {
     if (typeof HHP_Auth !== 'undefined' && HHP_Auth.SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
       const ok = await HHP_Auth.init();
       // Set global alias so all functions can access the same Supabase client
       if (ok && HHP_Auth.supabase) window.HHP_supabase = HHP_Auth.supabase;
       if (ok && !HHP_Auth.isAuthenticated()) {
-        // Not logged in — show public site, hide login overlay for now
-        // Login overlay shows when they try to access a portal
         document.getElementById('navLoginBtn').style.display = 'inline-flex';
       } else if (ok && HHP_Auth.isAuthenticated()) {
         document.getElementById('navLoginBtn').style.display = 'none';
         document.getElementById('navLogoutBtn').style.display = 'inline-flex';
-        // Load dashboard stats on initial page load
+        // Load everything immediately — no delays
         if (typeof loadDashboardStats === 'function') loadDashboardStats();
       }
       // Signal auth is ready — all waiting modules fire immediately
@@ -6565,7 +6909,11 @@ document.addEventListener('DOMContentLoaded', function() {
       const userId = user.id;
 
       // Use cached role if available, otherwise fetch
+<<<<<<< Updated upstream
       var role = (window.HHP_Auth && window.HHP_Auth.currentRole) ? window.HHP_Auth.currentRole : null;
+=======
+      let role = (window.HHP_Auth && window.HHP_Auth.currentRole) ? window.HHP_Auth.currentRole : null;
+>>>>>>> Stashed changes
       if (!role) {
         var { data: profile } = await sb.from('profiles').select('role').eq('user_id', userId).single();
         role = profile ? profile.role : null;
@@ -6583,20 +6931,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const el2 = document.getElementById('stat-walksDone');
         if (el2) el2.textContent = walksDone || '0';
 
-        // Avg Rating Given — average rating from service_reports for this client
-        const { data: ratings } = await sb.from('service_reports').select('rating').eq('client_id', userId).not('rating', 'is', null);
-        let avgRating = '—';
-        if (ratings && ratings.length > 0) {
-          const sum = ratings.reduce((acc, r) => acc + (r.rating || 0), 0);
-          avgRating = (sum / ratings.length).toFixed(1);
-        }
+        // Reports Received — count of service reports for this client
+        const { count: reportsReceived } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('client_id', userId);
         const el3 = document.getElementById('stat-avgRatingGiven');
-        if (el3) el3.textContent = avgRating;
+        if (el3) el3.textContent = (reportsReceived || 0);
 
-        // Pets in Care — count pets owned by this client
-        const { count: petsCount } = await sb.from('pets').select('*', { count: 'exact', head: true }).eq('client_id', userId);
-        const el4 = document.getElementById('stat-petsInCare');
-        if (el4) el4.textContent = petsCount || '0';
+        // Pets in Care — count pets owned by this client (gracefully handle missing table)
+        try {
+          const { count: petsCount } = await sb.from('pets').select('*', { count: 'exact', head: true }).eq('client_id', userId);
+          const el4 = document.getElementById('stat-petsInCare');
+          if (el4) el4.textContent = petsCount || '0';
+        } catch(e) {
+          const el4 = document.getElementById('stat-petsInCare');
+          if (el4) el4.textContent = '—';
+        }
 
       } else if (role === 'staff') {
         // STAFF DASHBOARD STATS
@@ -6614,40 +6962,45 @@ document.addEventListener('DOMContentLoaded', function() {
         const el2 = document.getElementById('stat-staffAllTime');
         if (el2) el2.textContent = allTime || '0';
 
-        // Your Rating — avg_rating from profiles for this staff member
-        const { data: staffProfile } = await sb.from('profiles').select('avg_rating').eq('user_id', userId).single();
-        let yourRating = '—';
-        if (staffProfile && staffProfile.avg_rating) {
-          yourRating = staffProfile.avg_rating.toFixed(1);
-        }
+        // Reports Sent — count of service reports by this staff member
+        const { count: staffReports } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('author_id', userId);
         const el3 = document.getElementById('stat-staffYourRating');
-        if (el3) el3.textContent = yourRating;
+        if (el3) el3.textContent = (staffReports || 0) + ' sent';
 
-        // This Month — sum earnings from profiles.total_earnings for this month
+        // This Month bookings — count bookings assigned to this staff this month
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const { data: earnings } = await sb.from('profiles').select('total_earnings').eq('user_id', userId).single();
-        let monthEarnings = '—';
-        if (earnings && earnings.total_earnings) {
-          monthEarnings = '$' + earnings.total_earnings.toFixed(2);
-        }
+        const { count: monthJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId).gte('date', startOfMonth.toISOString());
         const el4 = document.getElementById('stat-staffThisMonth');
-        if (el4) el4.textContent = monthEarnings;
+        if (el4) el4.textContent = (monthJobs || 0) + ' jobs';
 
       } else if (role === 'owner') {
         // OWNER DASHBOARD STATS
-        // Active Clients — count profiles where role='client'
-        const { count: activeClients } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client');
-        const el1 = document.getElementById('stat-activeClients');
-        if (el1) el1.textContent = activeClients || '0';
-
-        // This Month — count bookings this month
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Active Clients — clients with at least one accepted/completed booking
+        // This matches the All Clients panel definition exactly
+        const { data: allClients } = await sb.from('profiles').select('user_id').eq('role', 'client');
+        const { data: activeBookings } = await sb.from('booking_requests').select('client_id, status').in('status', ['accepted', 'completed']);
+        const activeClientIds = {};
+        if (activeBookings) activeBookings.forEach(function(b) { if (b.client_id) activeClientIds[b.client_id] = true; });
+        const activeCount = (allClients || []).filter(function(c) { return activeClientIds[c.user_id]; }).length;
+        const newSignupCount = (allClients || []).length - activeCount;
+
+        const el1 = document.getElementById('stat-activeClients');
+        if (el1) el1.textContent = activeCount || '0';
+
+        // New Sign-ups — clients without any confirmed bookings (matches All Clients panel)
+        const elSignups = document.getElementById('stat-newSignups');
+        if (elSignups) elSignups.textContent = newSignupCount || '0';
+
+        // This Month — count bookings this month
         const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         const { count: bookingsMonth } = await sb.from('bookings').select('*', { count: 'exact', head: true }).gte('date', startOfMonth.toISOString()).lte('date', endOfMonth.toISOString());
         const el2 = document.getElementById('stat-bookingsThisMonth');
         if (el2) el2.textContent = bookingsMonth || '0';
 
+<<<<<<< Updated upstream
         // New Sign-ups — clients who signed up THIS month
         var { count: newSignups } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client').gte('created_at', startOfMonth.toISOString());
         var elSignups = document.getElementById('stat-newSignups');
@@ -6660,8 +7013,12 @@ document.addEventListener('DOMContentLoaded', function() {
           const sum = allRatings.reduce((acc, r) => acc + (r.rating || 0), 0);
           avgRating = (sum / allRatings.length).toFixed(1);
         }
+=======
+        // Total Reports — count of service reports sent (more reliable than rating which may not exist)
+        const { count: totalReports } = await sb.from('service_reports').select('*', { count: 'exact', head: true });
+>>>>>>> Stashed changes
         const el3 = document.getElementById('stat-avgRating');
-        if (el3) el3.textContent = avgRating + ' ⭐';
+        if (el3) el3.textContent = (totalReports || 0) + ' 📋';
 
         // Today's Jobs — count bookings for today
         const today = new Date();
@@ -6696,15 +7053,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const el7 = document.getElementById('stat-newInquiries');
         if (el7) el7.textContent = newInquiries || '0';
 
-        // Week Rating — average rating this week
-        const { data: weekRatings } = await sb.from('service_reports').select('rating').gte('created_at', startOfWeek.toISOString()).lt('created_at', endOfWeek.toISOString()).not('rating', 'is', null);
-        let weekRating = '—';
-        if (weekRatings && weekRatings.length > 0) {
-          const sum = weekRatings.reduce((acc, r) => acc + (r.rating || 0), 0);
-          weekRating = (sum / weekRatings.length).toFixed(1);
-        }
+        // Week Reports — count of service reports sent this week
+        const { count: weekReports } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).gte('created_at', startOfWeek.toISOString()).lt('created_at', endOfWeek.toISOString());
         const el8 = document.getElementById('stat-weekRating');
-        if (el8) el8.textContent = weekRating;
+        if (el8) el8.textContent = (weekReports || 0) + ' 📋';
       }
     } catch (error) {
       console.error('Error loading dashboard stats:', error);

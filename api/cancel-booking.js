@@ -38,6 +38,7 @@ module.exports = async function handler(req, res) {
     const isSingleCancel = cancelSingle && isRecurring;
 
     // 3. Calculate if it's a free or late cancel based on policy
+    // Policy: Free cancel = before midnight, 2 days before booking (EST)
     const cancellationType = calculateCancellationType(booking, isSingleCancel ? cancelDate : null);
 
     let refunded = false;
@@ -45,14 +46,18 @@ module.exports = async function handler(req, res) {
 
     // 4. Handle Stripe payment/invoice actions
     if (cancellationType === 'free') {
+      // Free cancel: try to cancel uncaptured payment intent or void open invoice
       if (booking.payment_intent_id) {
         try {
+          // Try to cancel the payment intent (for uncaptured holds)
           const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
           if (intent.status === 'requires_capture') {
             await stripe.paymentIntents.cancel(booking.payment_intent_id);
             stripeActionResult = { action: 'canceled_intent', paymentIntentId: booking.payment_intent_id };
             refunded = true;
           } else if (intent.status === 'succeeded') {
+            // Already captured - would need to refund instead
+            // For now, note this case
             stripeActionResult = { action: 'intent_already_captured', note: 'May need manual refund' };
           }
         } catch (stripeErr) {
@@ -60,6 +65,7 @@ module.exports = async function handler(req, res) {
           stripeActionResult = { action: 'cancel_intent_failed', error: stripeErr.message };
         }
       }
+
       // Check for open Stripe invoices (for recurring)
       if (isRecurring && booking.contact_email) {
         try {
@@ -76,11 +82,13 @@ module.exports = async function handler(req, res) {
 
           for (const invoice of relevantInvoices) {
             if (isSingleCancel && cancelDate) {
+              // Only void if it's for the canceled date
               if (invoice.metadata?.service_date === cancelDate) {
                 await stripe.invoices.voidInvoice(invoice.id);
                 refunded = true;
               }
             } else {
+              // Cancel all invoices for this booking
               await stripe.invoices.voidInvoice(invoice.id);
               refunded = true;
             }
@@ -90,6 +98,7 @@ module.exports = async function handler(req, res) {
         }
       }
     } else if (cancellationType === 'late') {
+      // Late cancel: capture any uncaptured payment intent
       if (booking.payment_intent_id) {
         try {
           const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
@@ -112,12 +121,14 @@ module.exports = async function handler(req, res) {
     };
 
     if (isSingleCancel && cancelDate) {
+      // For single occurrence cancel, add to canceled_dates array
       const currentCanceledDates = Array.isArray(booking.canceled_dates) ? booking.canceled_dates : [];
       if (!currentCanceledDates.includes(cancelDate)) {
         currentCanceledDates.push(cancelDate);
         updateData.canceled_dates = currentCanceledDates;
       }
     } else {
+      // For full booking cancel, set status to canceled
       updateData.status = 'canceled';
     }
 
@@ -130,7 +141,8 @@ module.exports = async function handler(req, res) {
       console.error('Failed to update booking:', updateErr.message);
       return res.status(500).json({ error: 'Failed to update booking cancellation status' });
     }
-    // 6. For recurring single-day cancel, also handle the specific recurring_invoice
+
+    // 6. For recurring single-day cancel, also cancel/capture the specific recurring_invoice
     if (isSingleCancel && cancelDate) {
       const { data: recurringInvoice } = await supabase
         .from('recurring_invoices')
@@ -142,12 +154,14 @@ module.exports = async function handler(req, res) {
       if (recurringInvoice && recurringInvoice.stripe_invoice_id) {
         try {
           if (cancellationType === 'free') {
+            // Void the invoice
             await stripe.invoices.voidInvoice(recurringInvoice.stripe_invoice_id);
             await supabase
               .from('recurring_invoices')
               .update({ status: 'voided' })
               .eq('id', recurringInvoice.id);
           } else if (cancellationType === 'late') {
+            // Finalize and mark as captured
             await supabase
               .from('recurring_invoices')
               .update({ status: 'captured' })
@@ -186,13 +200,19 @@ module.exports = async function handler(req, res) {
  */
 function calculateCancellationType(booking, specificDate) {
   const now = new Date();
+
+  // Determine the service date to check
   const serviceDate = specificDate || booking.scheduled_date || booking.preferred_date;
   if (!serviceDate) {
-    return 'late';
+    return 'late'; // Default to late if no date found
   }
-  const serviceDateObj = new Date(serviceDate + 'T00:00:00-05:00');
+
+  // Convert service date to EST midnight (2 days before)
+  const serviceDateObj = new Date(serviceDate + 'T00:00:00-05:00'); // EST
   const cutoffTime = new Date(serviceDateObj);
-  cutoffTime.setDate(cutoffTime.getDate() - 2);
-  cutoffTime.setHours(23, 59, 59, 999);
+  cutoffTime.setDate(cutoffTime.getDate() - 2); // 2 days before
+  cutoffTime.setHours(23, 59, 59, 999); // Midnight EST (11:59 PM)
+
+  // Compare current time with cutoff
   return now <= cutoffTime ? 'free' : 'late';
 }
