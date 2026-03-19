@@ -1548,6 +1548,7 @@ try {
         <button class="sb-item" onclick="sTab('o','o-deals')"><span class="sb-item-icon">🏷️</span>Specials & Deals</button>
         <button class="sb-item" onclick="sTab('o','o-sendInvoice')"><span class="sb-item-icon">🧾</span>Send Invoice</button>
         <button class="sb-item" onclick="sTab('o','o-linkpage')"><span class="sb-item-icon">🔗</span>Edit Link Page</button>
+        <button class="sb-item" onclick="sTab('o','o-activity')"><span class="sb-item-icon">📜</span>Activity Log</button>
       </div>
     </div>
     <div class="portal-main">
@@ -2289,6 +2290,43 @@ try {
         </div>
       </div>
 
+      <!-- ═══════════════ ACTIVITY LOG ═══════════════ -->
+      <div class="p-panel" id="o-activity">
+        <div class="p-header">
+          <h2>📜 Activity Log</h2>
+          <p>Complete record of messages, cancellations, and key events — browse by month and year.</p>
+        </div>
+        <!-- Filters -->
+        <div class="card" style="margin-bottom:14px">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:6px">
+              <label style="font-size:0.78rem;font-weight:600;color:var(--mid)">Month:</label>
+              <select id="actLogMonth" class="form-in" style="width:auto;min-width:120px;font-size:0.82rem" onchange="loadActivityLog()"></select>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <label style="font-size:0.78rem;font-weight:600;color:var(--mid)">Year:</label>
+              <select id="actLogYear" class="form-in" style="width:auto;min-width:90px;font-size:0.82rem" onchange="loadActivityLog()"></select>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <label style="font-size:0.78rem;font-weight:600;color:var(--mid)">Type:</label>
+              <select id="actLogType" class="form-in" style="width:auto;min-width:130px;font-size:0.82rem" onchange="loadActivityLog()">
+                <option value="all">All Activity</option>
+                <option value="messages">Messages</option>
+                <option value="cancellations">Cancellations</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <!-- Stats Summary -->
+        <div id="actLogStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
+        <!-- Log Entries -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div id="actLogEntries" style="max-height:600px;overflow-y:auto">
+            <div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem">Select a month to view activity.</div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -2728,6 +2766,7 @@ function sTab(portal, panelId) {
   if (panelId === 'o-msgs' && window.HHP_Messaging) HHP_Messaging.loadOwnerInbox();
   // Deals panel — load from Supabase
   if (panelId === 'o-deals' && typeof loadDealsPanel === 'function') loadDealsPanel();
+  if (panelId === 'o-activity' && typeof initActivityLog === 'function') initActivityLog();
   // Staff panels — load real data
   if (panelId === 's-sched' && typeof loadStaffSchedule === 'function') loadStaffSchedule();
   if (panelId === 's-jobs' && typeof loadStaffJobs === 'function') loadStaffJobs();
@@ -2764,8 +2803,228 @@ function sTab(portal, panelId) {
   }
 }
 function getIcon(id) {
-  const map = {'c-pets':'🐾','c-dash':'🏠','c-appts':'📅','c-track':'🗺️','c-photos':'📸','c-reports':'📋','c-msgs':'💬','c-notifs':'🔔','c-cal':'📆','c-bill':'💳','s-sched':'📅','s-jobs':'🦮','s-reports':'📋','s-msgs':'💬','s-earn':'💰','s-cal':'📆','o-overview':'📊','o-clients':'👥','o-sched':'📅','o-reports':'📋','o-staff':'🧑‍🤝‍🧑','o-msgs':'💬','o-cal':'📆','o-avail':'🗓️','o-auto':'🤖','o-studio':'✨','o-content':'✏️','o-photos':'🖼️','o-payments':'💳','o-deals':'🏷️','o-sendInvoice':'🧾','o-linkpage':'🔗'};
+  const map = {'c-pets':'🐾','c-dash':'🏠','c-appts':'📅','c-track':'🗺️','c-photos':'📸','c-reports':'📋','c-msgs':'💬','c-notifs':'🔔','c-cal':'📆','c-bill':'💳','s-sched':'📅','s-jobs':'🦮','s-reports':'📋','s-msgs':'💬','s-earn':'💰','s-cal':'📆','o-overview':'📊','o-clients':'👥','o-sched':'📅','o-reports':'📋','o-staff':'🧑‍🤝‍🧑','o-msgs':'💬','o-cal':'📆','o-avail':'🗓️','o-auto':'🤖','o-studio':'✨','o-content':'✏️','o-photos':'🖼️','o-payments':'💳','o-deals':'🏷️','o-sendInvoice':'🧾','o-linkpage':'🔗','o-activity':'📜'};
   return map[id]||'';
+}
+
+// ---- ACTIVITY LOG ----
+var _actLogInited = false;
+function initActivityLog() {
+  var monthSel = document.getElementById('actLogMonth');
+  var yearSel = document.getElementById('actLogYear');
+  if (!monthSel || !yearSel) return;
+
+  if (!_actLogInited) {
+    // Populate months
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    monthSel.innerHTML = '';
+    for (var m = 0; m < 12; m++) {
+      var opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = months[m];
+      monthSel.appendChild(opt);
+    }
+    // Populate years (current year back to 2023)
+    yearSel.innerHTML = '';
+    var curYear = new Date().getFullYear();
+    for (var y = curYear; y >= 2023; y--) {
+      var opt2 = document.createElement('option');
+      opt2.value = y;
+      opt2.textContent = y;
+      yearSel.appendChild(opt2);
+    }
+    // Set to current month/year
+    monthSel.value = new Date().getMonth();
+    yearSel.value = curYear;
+    _actLogInited = true;
+  }
+  loadActivityLog();
+}
+
+async function loadActivityLog() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  var monthSel = document.getElementById('actLogMonth');
+  var yearSel = document.getElementById('actLogYear');
+  var typeSel = document.getElementById('actLogType');
+  var statsEl = document.getElementById('actLogStats');
+  var entriesEl = document.getElementById('actLogEntries');
+  if (!monthSel || !yearSel || !entriesEl) return;
+
+  var month = parseInt(monthSel.value);
+  var year = parseInt(yearSel.value);
+  var type = typeSel ? typeSel.value : 'all';
+
+  // Date range for selected month
+  var startDate = new Date(year, month, 1);
+  var endDate = new Date(year, month + 1, 1);
+  var startISO = startDate.toISOString();
+  var endISO = endDate.toISOString();
+
+  entriesEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem">Loading activity...</div>';
+
+  var allEntries = [];
+  var msgCount = 0, cancelCount = 0;
+
+  // Load messages for this month
+  if (type === 'all' || type === 'messages') {
+    var { data: msgs } = await sb.from('messages')
+      .select('*')
+      .gte('created_at', startISO)
+      .lt('created_at', endISO)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (msgs) {
+      msgCount = msgs.length;
+      // Group messages by conversation pair per day for a cleaner log
+      var dayConvos = {};
+      for (var i = 0; i < msgs.length; i++) {
+        var m = msgs[i];
+        var day = new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        var pairKey = [m.sender_id, m.recipient_id].sort().join('-');
+        var key = day + '|' + pairKey;
+        if (!dayConvos[key]) {
+          dayConvos[key] = { type: 'messages', date: m.created_at, sender: m.sender_id, recipient: m.recipient_id, count: 0, day: day };
+        }
+        dayConvos[key].count++;
+      }
+      var grouped = Object.values(dayConvos);
+      for (var g = 0; g < grouped.length; g++) {
+        allEntries.push(grouped[g]);
+      }
+    }
+  }
+
+  // Load cancellations for this month
+  if (type === 'all' || type === 'cancellations') {
+    var { data: bookings } = await sb.from('bookings')
+      .select('*')
+      .eq('status', 'cancelled')
+      .gte('cancelled_at', startISO)
+      .lt('cancelled_at', endISO)
+      .order('cancelled_at', { ascending: false })
+      .limit(200);
+
+    // Also try with updated_at for older cancellations that might not have cancelled_at
+    if (!bookings || bookings.length === 0) {
+      var { data: bookings2 } = await sb.from('bookings')
+        .select('*')
+        .eq('status', 'cancelled')
+        .gte('updated_at', startISO)
+        .lt('updated_at', endISO)
+        .order('updated_at', { ascending: false })
+        .limit(200);
+      bookings = bookings2;
+    }
+
+    if (bookings) {
+      cancelCount = bookings.length;
+      for (var b = 0; b < bookings.length; b++) {
+        allEntries.push({
+          type: 'cancellation',
+          date: bookings[b].cancelled_at || bookings[b].updated_at,
+          booking: bookings[b]
+        });
+      }
+    }
+  }
+
+  // Sort all entries by date descending
+  allEntries.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+
+  // Render stats
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  if (statsEl) {
+    statsEl.innerHTML =
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">' + allEntries.length + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Total Events</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + msgCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Messages</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Cancellations</div></div>';
+  }
+
+  // Render entries
+  if (allEntries.length === 0) {
+    entriesEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:1.6rem;margin-bottom:8px">📭</div>No activity found for ' + months[month] + ' ' + year + '.</div>';
+    return;
+  }
+
+  var html = '';
+  var lastDay = '';
+  for (var e = 0; e < allEntries.length; e++) {
+    var entry = allEntries[e];
+    var entryDate = new Date(entry.date);
+    var dayLabel = entryDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    // Day separator
+    if (dayLabel !== lastDay) {
+      html += '<div style="padding:8px 16px;background:var(--warm);font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border)">' + dayLabel + '</div>';
+      lastDay = dayLabel;
+    }
+
+    if (entry.type === 'messages') {
+      // Message group entry
+      var sProfile = window._actProfileCache && window._actProfileCache[entry.sender];
+      var rProfile = window._actProfileCache && window._actProfileCache[entry.recipient];
+      var sName = sProfile ? sProfile.full_name : 'Loading...';
+      var rName = rProfile ? rProfile.full_name : 'Loading...';
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">💬</div>' +
+        '<div style="flex:1"><span style="font-weight:600">' + entry.count + ' message' + (entry.count > 1 ? 's' : '') + '</span> <span style="color:var(--mid)">exchanged</span>' +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px" data-sender="' + entry.sender + '" data-recipient="' + entry.recipient + '" class="act-msg-pair"></div></div>' +
+        '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + entryDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '</div></div>';
+    } else if (entry.type === 'cancellation') {
+      var bk = entry.booking;
+      var clientName = bk.client_name || bk.pet_name || 'Client';
+      var svcType = bk.service_type || bk.service || 'Service';
+      var reason = bk.cancellation_reason || bk.cancel_reason || 'No reason given';
+      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;background:rgba(220,53,69,0.04)">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:var(--rose-pale,#ffe0e3);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">❌</div>' +
+        '<div style="flex:1"><span style="font-weight:600">Cancellation</span> — <span>' + _escH(svcType) + '</span>' +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(clientName) + (reason !== 'No reason given' ? ' · "' + _escH(reason) + '"' : '') + '</div></div>' +
+        '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + entryDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '</div></div>';
+    }
+  }
+  entriesEl.innerHTML = html;
+
+  // Resolve profile names for message entries asynchronously
+  _resolveActivityNames();
+}
+
+function _escH(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+async function _resolveActivityNames() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  var pairs = document.querySelectorAll('.act-msg-pair');
+  if (!window._actProfileCache) window._actProfileCache = {};
+
+  // Collect unique user IDs
+  var ids = {};
+  for (var i = 0; i < pairs.length; i++) {
+    ids[pairs[i].getAttribute('data-sender')] = true;
+    ids[pairs[i].getAttribute('data-recipient')] = true;
+  }
+  var uniqueIds = Object.keys(ids);
+
+  // Fetch missing profiles
+  for (var j = 0; j < uniqueIds.length; j++) {
+    var uid = uniqueIds[j];
+    if (!window._actProfileCache[uid]) {
+      var { data: prof } = await sb.from('profiles').select('full_name, role').eq('user_id', uid).single();
+      if (prof) window._actProfileCache[uid] = prof;
+    }
+  }
+
+  // Update DOM
+  for (var k = 0; k < pairs.length; k++) {
+    var el = pairs[k];
+    var s = window._actProfileCache[el.getAttribute('data-sender')];
+    var r = window._actProfileCache[el.getAttribute('data-recipient')];
+    var sn = s ? s.full_name : 'Unknown';
+    var rn = r ? r.full_name : 'Unknown';
+    el.textContent = sn + ' ↔ ' + rn;
+  }
 }
 
 // ---- MODALS ----
