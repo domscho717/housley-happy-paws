@@ -173,12 +173,6 @@
     });
     container.appendChild(track);
 
-    // Re-add badges
-    savedBadges.forEach(function(badge) {
-      badge.style.zIndex = '3';
-      container.appendChild(badge);
-    });
-
     // Arrow navigation
     var leftArr = document.createElement('button');
     leftArr.innerHTML = '&#8249;';
