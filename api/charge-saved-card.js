@@ -41,7 +41,7 @@ module.exports = async function handler(req, res) {
 
     const paymentMethodId = methods.data[0].id;
 
-    // Create and confirm a PaymentIntent off-session
+    // Create and confirm a PaymentIntent off-session with manual capture
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // cents
       currency: 'usd',
@@ -49,6 +49,7 @@ module.exports = async function handler(req, res) {
       payment_method: paymentMethodId,
       off_session: true,
       confirm: true,
+      capture_method: 'manual', // Hold authorization until captured later
       description: `Housley Happy Paws — ${service || 'Pet Care Service'}`,
       metadata: {
         booking_request_id: bookingRequestId || '',
@@ -57,18 +58,26 @@ module.exports = async function handler(req, res) {
       },
     });
 
-    // Log payment to Supabase
-    if (paymentIntent.status === 'succeeded') {
+    // Log payment to Supabase and store payment_intent_id on booking_request
+    if (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded') {
       await supabase.from('payments').insert({
         stripe_session_id: paymentIntent.id,
         client_email: profile.email,
         client_name: profile.full_name,
         amount: amount,
         service: service || 'Pet Care',
-        status: 'paid',
+        status: paymentIntent.status === 'requires_capture' ? 'authorized' : 'paid',
         notes: bookingRequestId ? 'Auto-charged on booking accept (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Auto-charged',
         paid_at: new Date().toISOString(),
       });
+
+      // Store payment_intent_id on booking_request for later capture/cancellation
+      if (bookingRequestId) {
+        await supabase
+          .from('booking_requests')
+          .update({ payment_intent_id: paymentIntent.id })
+          .eq('id', bookingRequestId);
+      }
     }
 
     res.status(200).json({
