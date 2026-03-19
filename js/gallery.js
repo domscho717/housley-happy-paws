@@ -42,10 +42,12 @@
     // Check for real Cloudinary photos first
     var realPhotos = [];
     if (window.HHP_Photos && window.HHP_Photos.photos) {
-      ['about1','about2','about3'].forEach(function(key) {
-        if (window.HHP_Photos.photos[key]) {
-          realPhotos.push(window.HHP_Photos.photos[key]);
-        }
+      var photos = window.HHP_Photos.photos;
+      // Collect all keys matching "about" + number, sorted numerically
+      var aboutKeys = Object.keys(photos).filter(function(k) { return /^about\d+$/.test(k); });
+      aboutKeys.sort(function(a, b) { return parseInt(a.replace('about','')) - parseInt(b.replace('about','')); });
+      aboutKeys.forEach(function(key) {
+        if (photos[key]) realPhotos.push(photos[key]);
       });
     }
 
