@@ -3578,8 +3578,9 @@ async function loadCalendarBookings(year, month) {
       else if (svc.indexOf('meet') !== -1) icon = '🤝';
 
       var statusTag = b.status === 'pending' ? ' ⏳' : '';
-      var paidTag = isPaid ? ' ✅' : (b.estimated_total > 0 ? ' 💰' : '');
-      var petName = b.pet_names ? ' · ' + b.pet_names.split(',')[0].trim() : '';
+      // Only show paid/unpaid tags in portal calendars, not public
+      var paidTag = (role === 'owner' || role === 'client') ? (isPaid ? ' ✅' : (b.estimated_total > 0 ? ' 💰' : '')) : '';
+      var petName = (role !== 'public') && b.pet_names ? ' · ' + b.pet_names.split(',')[0].trim() : '';
 
       dates.forEach(function(dateKey) {
         if (!calEvents[dateKey]) {
@@ -3631,7 +3632,25 @@ function buildCalendar(containerId, year, month) {
     html += '</div>';
   }
   html += '</div>';
-  html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
+  // ── Context-aware legend ──
+  var isPublic = containerId === 'pubCalWrap';
+  var isClient = containerId === 'cCalWrap';
+  var isStaff = containerId === 'sCalWrap';
+  var isOwner = containerId === 'oCalWrap';
+
+  if (isPublic) {
+    // Public homepage: only availability, closures, today
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div></div>`;
+  } else if (isClient) {
+    // Client portal: their bookings + closures
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
+  } else if (isStaff) {
+    // Staff portal: assigned jobs + closures
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div></div>`;
+  } else {
+    // Owner portal: full legend
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
+  }
   html += `<div class="cal-detail" id="${containerId}-detail"></div>`;
   container.innerHTML = html;
 }
@@ -3653,51 +3672,82 @@ function showCalDetail(key, label, el) {
   const [y,m,d] = key.split('-');
   const dateStr = new Date(parseInt(y),parseInt(m)-1,parseInt(d)).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   const ev = calEvents[key];
+
+  // Detect context from parent container
+  var parentId = calWrap ? calWrap.id : '';
+  var isPublic = parentId === 'pubCalWrap';
+  var isClient = parentId === 'cCalWrap';
+  var isOwner = parentId === 'oCalWrap';
+
   let html = '<div style="font-weight:700;margin-bottom:8px">'+dateStr+'</div>';
-  if(ev) {
-    if(ev.type==='off') {
-      html += '<div style="font-size:0.9rem;color:var(--brown)">'+ev.label+'</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Rachel has marked this as a day off.</div>';
-    } else if(ev.bookings && ev.bookings.length > 0) {
-      ev.bookings.forEach(function(b) {
-        var svc = b.service || 'Pet Care';
-        var icon = '📅';
-        var s = svc.toLowerCase();
-        if (s.indexOf('walk') !== -1) icon = '🦮';
-        else if (s.indexOf('drop') !== -1) icon = '🐾';
-        else if (s.indexOf('cat') !== -1) icon = '🐱';
-        else if (s.indexOf('house') !== -1) icon = '🏡';
-        else if (s.indexOf('meet') !== -1) icon = '🤝';
 
-        var statusBadge = b.status === 'pending' ? '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Pending</span>' :
-                         b.status === 'accepted' ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Confirmed</span>' :
-                         '<span style="background:#e2e3e5;color:#383d41;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + b.status + '</span>';
-
-        var paidBadge = '';
-        if (b.estimated_total > 0) {
-          // Check if paid (simplified — look in calEvents._paid)
-          var isPaid = ev._paid;
-          paidBadge = isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">✅ Paid</span>' :
-                               '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">💰 Unpaid</span>';
-        }
-
-        html += '<div style="background:var(--warm);border-radius:8px;padding:10px 12px;margin-bottom:6px">';
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">';
-        html += '<div style="font-weight:600;font-size:0.88rem">' + icon + ' ' + svc + '</div>';
-        html += '<div>' + statusBadge + paidBadge + '</div>';
-        html += '</div>';
-        if (b.pet_names) html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:3px">Pets: ' + b.pet_names + '</div>';
-        if (b.contact_name) html += '<div style="font-size:0.8rem;color:var(--mid)">Client: ' + b.contact_name + '</div>';
-        if (b.preferred_time) html += '<div style="font-size:0.8rem;color:var(--mid)">Time: ' + b.preferred_time + '</div>';
-        if (b.estimated_total > 0) html += '<div style="font-size:0.8rem;color:var(--mid)">Amount: $' + Number(b.estimated_total).toFixed(2) + '</div>';
-        html += '</div>';
-      });
+  if (isPublic) {
+    // ── PUBLIC CALENDAR — simplified, no booking details ──
+    if (ev && ev.type === 'off') {
+      html += '<div style="font-size:0.9rem;color:var(--rose)">🚫 Closed</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">' + (ev.label || 'Rachel is off this day.') + '</div>';
+    } else if (ev && ev.type === 'announcement') {
+      html += '<div style="font-size:0.9rem;color:var(--gold-deep)">📢 ' + (ev.label || 'Announcement') + '</div>';
+    } else if (ev && ev.type === 'discount') {
+      html += '<div style="font-size:0.9rem;color:var(--forest)">🏷️ ' + (ev.label || 'Special offer') + '</div>';
+    } else if (ev && ev.bookings && ev.bookings.length > 0) {
+      // Has bookings — just show "busy" count, no details
+      var ct = ev.bookings.length;
+      html += '<div style="font-size:0.88rem;color:var(--brown)">📅 ' + ct + ' booking' + (ct > 1 ? 's' : '') + ' scheduled</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Limited availability — <a href="#" onclick="showBookingModal();return false;" style="color:var(--gold);font-weight:600">book now</a> to reserve your spot!</div>';
     } else {
-      html += '<div style="font-size:0.9rem;color:var(--brown)">'+ev.label+'</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Appointment confirmed.</div>';
+      html += '<div style="font-size:0.88rem;color:var(--forest)">✅ Available for booking!</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px"><a href="#" onclick="showBookingModal();return false;" style="color:var(--gold);font-weight:600">Book this day →</a></div>';
     }
   } else {
-    html += '<div style="font-size:0.88rem;color:var(--mid)">No events scheduled. Available for booking!</div>';
+    // ── PORTAL CALENDARS — full detail ──
+    if(ev) {
+      if(ev.type==='off') {
+        html += '<div style="font-size:0.9rem;color:var(--brown)">'+ev.label+'</div>';
+        html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Rachel has marked this as a day off.</div>';
+      } else if(ev.bookings && ev.bookings.length > 0) {
+        ev.bookings.forEach(function(b) {
+          var svc = b.service || 'Pet Care';
+          var icon = '📅';
+          var s = svc.toLowerCase();
+          if (s.indexOf('walk') !== -1) icon = '🦮';
+          else if (s.indexOf('drop') !== -1) icon = '🐾';
+          else if (s.indexOf('cat') !== -1) icon = '🐱';
+          else if (s.indexOf('house') !== -1) icon = '🏡';
+          else if (s.indexOf('meet') !== -1) icon = '🤝';
+
+          var statusBadge = b.status === 'pending' ? '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Pending</span>' :
+                           b.status === 'accepted' ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Confirmed</span>' :
+                           '<span style="background:#e2e3e5;color:#383d41;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + b.status + '</span>';
+
+          // Paid/unpaid badges: show for owner and client, not staff or public
+          var paidBadge = '';
+          if (b.estimated_total > 0 && (isOwner || isClient)) {
+            var isPaid = ev._paid;
+            paidBadge = isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">✅ Paid</span>' :
+                                 '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">💰 Unpaid</span>';
+          }
+
+          html += '<div style="background:var(--warm);border-radius:8px;padding:10px 12px;margin-bottom:6px">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">';
+          html += '<div style="font-weight:600;font-size:0.88rem">' + icon + ' ' + svc + '</div>';
+          html += '<div>' + statusBadge + paidBadge + '</div>';
+          html += '</div>';
+          if (b.pet_names) html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:3px">Pets: ' + b.pet_names + '</div>';
+          // Client name: only show for owner and staff, not client (they know who they are)
+          if (b.contact_name && (isOwner || parentId === 'sCalWrap')) html += '<div style="font-size:0.8rem;color:var(--mid)">Client: ' + b.contact_name + '</div>';
+          if (b.preferred_time) html += '<div style="font-size:0.8rem;color:var(--mid)">Time: ' + b.preferred_time + '</div>';
+          // Amount: show for owner and client
+          if (b.estimated_total > 0 && (isOwner || isClient)) html += '<div style="font-size:0.8rem;color:var(--mid)">Amount: $' + Number(b.estimated_total).toFixed(2) + '</div>';
+          html += '</div>';
+        });
+      } else {
+        html += '<div style="font-size:0.9rem;color:var(--brown)">'+ev.label+'</div>';
+        html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Appointment confirmed.</div>';
+      }
+    } else {
+      html += '<div style="font-size:0.88rem;color:var(--mid)">No events scheduled.</div>';
+    }
   }
   detail.innerHTML = html;
   detail.classList.add('show');
