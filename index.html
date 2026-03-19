@@ -260,6 +260,19 @@ body.loading-auth .nav{visibility:hidden}
   font-size:5rem;border:1px solid var(--border);overflow:hidden;
 }
 .about-photo-single img{width:100%;height:100%;object-fit:cover;border-radius:16px}
+/* About slideshow */
+.about-slideshow{position:relative;width:100%;min-height:420px;border-radius:16px;overflow:hidden;border:1px solid var(--border)}
+.about-slideshow .slide{position:absolute;inset:0;opacity:0;transition:opacity 0.8s ease;background-size:cover;background-position:center}
+.about-slideshow .slide.active{opacity:1}
+.about-slideshow .slide img{width:100%;height:100%;object-fit:cover}
+.about-slideshow .ss-arrow{position:absolute;top:50%;transform:translateY(-50%);background:rgba(30,20,9,0.55);color:white;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;z-index:2;transition:background 0.2s}
+.about-slideshow .ss-arrow:hover{background:rgba(200,150,62,0.85)}
+.about-slideshow .ss-prev{left:10px}
+.about-slideshow .ss-next{right:10px}
+.about-slideshow .ss-dots{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:2}
+.about-slideshow .ss-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.5);border:none;cursor:pointer;padding:0;transition:background 0.2s}
+.about-slideshow .ss-dot.active{background:white}
+.about-slideshow .ss-counter{position:absolute;top:10px;right:10px;background:rgba(30,20,9,0.55);color:white;padding:3px 10px;border-radius:12px;font-size:0.7rem;font-weight:600;z-index:2}
 
 /* SERVICES / PRICING */
 .services-section{padding:100px 48px;background:var(--warm)}
@@ -896,8 +909,12 @@ try {
   <section class="about-section" id="about">
     <div class="about-grid">
       <div class="about-photos fadeup">
-        <div class="about-photo-single" style="width:100%;min-height:420px;border-radius:16px;background:linear-gradient(135deg,var(--gold-pale),var(--forest-pale));display:flex;align-items:center;justify-content:center;font-size:5rem;border:1px solid var(--border);overflow:hidden;">
-          <span>🐾</span>
+        <div class="about-slideshow" id="aboutSlideshow">
+          <div class="slide active" style="background:linear-gradient(135deg,var(--gold-pale),var(--forest-pale));display:flex;align-items:center;justify-content:center;font-size:5rem"><span>🐾</span></div>
+          <button class="ss-arrow ss-prev" onclick="aboutSS.prev()" aria-label="Previous">‹</button>
+          <button class="ss-arrow ss-next" onclick="aboutSS.next()" aria-label="Next">›</button>
+          <div class="ss-dots"></div>
+          <div class="ss-counter">1 / 1</div>
         </div>
       </div>
       <div class="fadeup">
@@ -1970,15 +1987,12 @@ try {
           </div>
 
           <div class="card">
-            <div class="card-title" style="margin-bottom:16px">🐕 About Section Photos</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
-              <div class="photo-upload-slot" onclick="triggerUpload('aboutPhoto1')"><div style="font-size:1.8rem">🐕</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Photo 1</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('aboutPhoto2')"><div style="font-size:1.8rem">🐱</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Photo 2</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('aboutPhoto3')"><div style="font-size:1.8rem">🐾</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Photo 3</div></div>
+            <div class="card-title" style="margin-bottom:8px">🐕 About Section Photos</div>
+            <div style="font-size:0.75rem;color:var(--mid);margin-bottom:12px">These appear in the auto-fade slideshow on your About section. Add as many as you like!</div>
+            <div id="aboutPhotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+              <!-- Dynamic slots populated by JS -->
             </div>
-            <input type="file" id="aboutPhoto1" accept="image/*" style="display:none" onchange="previewPhoto(this,'aboutSlot1','about1')">
-            <input type="file" id="aboutPhoto2" accept="image/*" style="display:none" onchange="previewPhoto(this,'aboutSlot2','about2')">
-            <input type="file" id="aboutPhoto3" accept="image/*" style="display:none" onchange="previewPhoto(this,'aboutSlot3','about3')">
+            <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center" onclick="addAboutPhotoSlot()">➕ Add Another Photo</button>
           </div>
 
           <div class="card">
@@ -2471,6 +2485,94 @@ try {
 </div>
 
 <script>
+// ---- ABOUT SLIDESHOW ----
+const aboutSS = {
+  current: 0, timer: null, slides: [],
+  init(photos) {
+    const container = document.getElementById('aboutSlideshow');
+    if (!container || !photos || photos.length === 0) return;
+    this.slides = photos;
+    // Build slides
+    let html = '';
+    photos.forEach((p, i) => {
+      html += '<div class="slide' + (i === 0 ? ' active' : '') + '"><img src="' + p + '" alt="About photo ' + (i+1) + '"></div>';
+    });
+    html += '<button class="ss-arrow ss-prev" onclick="aboutSS.prev()" aria-label="Previous">\u2039</button>';
+    html += '<button class="ss-arrow ss-next" onclick="aboutSS.next()" aria-label="Next">\u203A</button>';
+    html += '<div class="ss-dots">';
+    photos.forEach((_, i) => { html += '<button class="ss-dot' + (i === 0 ? ' active' : '') + '" onclick="aboutSS.goTo(' + i + ')"></button>'; });
+    html += '</div>';
+    html += '<div class="ss-counter">1 / ' + photos.length + '</div>';
+    container.innerHTML = html;
+    this.current = 0;
+    // Only show arrows/dots if more than 1 photo
+    if (photos.length <= 1) {
+      container.querySelectorAll('.ss-arrow,.ss-dots,.ss-counter').forEach(el => el.style.display = 'none');
+    }
+    this.startAuto();
+  },
+  goTo(idx) {
+    const container = document.getElementById('aboutSlideshow');
+    if (!container) return;
+    const slides = container.querySelectorAll('.slide');
+    const dots = container.querySelectorAll('.ss-dot');
+    if (idx < 0) idx = slides.length - 1;
+    if (idx >= slides.length) idx = 0;
+    slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+    dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+    const counter = container.querySelector('.ss-counter');
+    if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    this.current = idx;
+    this.startAuto();
+  },
+  next() { this.goTo(this.current + 1); },
+  prev() { this.goTo(this.current - 1); },
+  startAuto() { clearInterval(this.timer); if (this.slides.length > 1) this.timer = setInterval(() => this.goTo(this.current + 1), 5000); }
+};
+
+// ---- ABOUT PHOTO GRID (Owner Portal) ----
+var _aboutSlotCount = 0;
+function initAboutPhotoGrid() {
+  const grid = document.getElementById('aboutPhotoGrid');
+  if (!grid) return;
+  // Count existing about photos
+  const existing = Object.keys(HHP_Photos.photos).filter(k => k.startsWith('about')).sort();
+  _aboutSlotCount = Math.max(existing.length, 3); // minimum 3 slots
+  grid.innerHTML = '';
+  for (let i = 1; i <= _aboutSlotCount; i++) {
+    _addAboutSlotEl(grid, i);
+  }
+  // Wire up uploads
+  if (HHP_Photos.wireUploadSlots) HHP_Photos.wireUploadSlots();
+  // Restore previews for existing photos
+  existing.forEach(slotId => {
+    if (HHP_Photos.photos[slotId]) HHP_Photos.updateSlotPreview(slotId, HHP_Photos.photos[slotId]);
+  });
+}
+function _addAboutSlotEl(grid, num) {
+  const slotId = 'about' + num;
+  const inputId = 'aboutPhoto' + num;
+  const div = document.createElement('div');
+  div.className = 'photo-upload-slot';
+  div.setAttribute('onclick', "triggerUpload('" + inputId + "')");
+  div.innerHTML = '<div style="font-size:1.8rem">\uD83D\uDCF7</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Photo ' + num + '</div>';
+  grid.appendChild(div);
+  // Add hidden input
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.id = inputId; inp.accept = 'image/*'; inp.style.display = 'none';
+  inp.setAttribute('onchange', "previewPhoto(this,'aboutSlot" + num + "','" + slotId + "')");
+  grid.appendChild(inp);
+}
+function addAboutPhotoSlot() {
+  const grid = document.getElementById('aboutPhotoGrid');
+  if (!grid) return;
+  _aboutSlotCount++;
+  _addAboutSlotEl(grid, _aboutSlotCount);
+  // Wire the new slot
+  if (HHP_Photos.wireSlot) HHP_Photos.wireSlot('aboutPhoto' + _aboutSlotCount, 'about' + _aboutSlotCount);
+  toast('\uD83D\uDCF7 Slot ' + _aboutSlotCount + ' added — click to upload!');
+}
+
 // ---- NAVIGATION ----
 // Track whether user explicitly chose to go home (prevents auth re-routing)
 let _userChosePublic = false;
@@ -2639,6 +2741,7 @@ function sTab(portal, panelId) {
     // Re-wire slots and restore photo previews every time the panel opens
     if (window.HHP_Photos) {
       HHP_Photos.wireUploadSlots();
+      initAboutPhotoGrid();
       HHP_Photos.restoreAllPreviews();
       // If photos never loaded (Supabase wasn't ready), try again now
       if (Object.keys(HHP_Photos.photos).length === 0) {
