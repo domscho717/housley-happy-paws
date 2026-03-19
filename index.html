@@ -1214,17 +1214,17 @@ try {
         <div class="stats-row">
           <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num" id="stat-totalVisits">—</div><div class="stat-lbl">Total Visits</div></div>
           <div class="stat-box"><div class="stat-icon">🦮</div><div class="stat-num" id="stat-walksDone">—</div><div class="stat-lbl">Walks Done</div></div>
-          <div class="stat-box"><div class="stat-icon">⭐</div><div class="stat-num" id="stat-avgRatingGiven">—</div><div class="stat-lbl">Avg Rating Given</div></div>
+          <div class="stat-box"><div class="stat-icon">📋</div><div class="stat-num" id="stat-avgRatingGiven">—</div><div class="stat-lbl">Reports Received</div></div>
           <div class="stat-box"><div class="stat-icon">🐾</div><div class="stat-num" id="stat-petsInCare">—</div><div class="stat-lbl">Pets in Care</div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span class="card-title">Upcoming</span><button class="btn btn-outline btn-sm" onclick="sTab('c','c-appts')">See all</button></div>
-            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No upcoming appointments.<br>Book a meet & greet to get started!</div>
+            <div id="clientDashUpcoming" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
           </div>
           <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span class="card-title">Recent Notifications</span></div>
-            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No notifications yet.</div>
+            <div id="clientDashNotifications" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
           </div>
         </div>
       </div>
@@ -1439,12 +1439,12 @@ try {
         <div class="stats-row">
           <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num" id="stat-staffThisWeek">—</div><div class="stat-lbl">This Week</div></div>
           <div class="stat-box"><div class="stat-icon">✅</div><div class="stat-num" id="stat-staffAllTime">—</div><div class="stat-lbl">All Time</div></div>
-          <div class="stat-box"><div class="stat-icon">⭐</div><div class="stat-num" id="stat-staffYourRating">—</div><div class="stat-lbl">Your Rating</div></div>
+          <div class="stat-box"><div class="stat-icon">📋</div><div class="stat-num" id="stat-staffYourRating">—</div><div class="stat-lbl">Reports Sent</div></div>
           <div class="stat-box"><div class="stat-icon">💰</div><div class="stat-num" id="stat-staffThisMonth">—</div><div class="stat-lbl">This Month</div></div>
         </div>
         <div class="card">
           <div class="card-title" style="margin-bottom:16px">This Week's Jobs</div>
-          <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No jobs scheduled yet.</div>
+          <div id="staffDashJobs" style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
         </div>
       </div>
 
@@ -1520,9 +1520,19 @@ try {
       </div>
 
       <div class="p-panel" id="s-earn">
-        <div class="p-header"><h2>My Earnings 💰</h2></div>
-        <div class="stats-row"><div class="stat-box"><div class="stat-icon">💵</div><div class="stat-num">$380</div><div class="stat-lbl">This Month</div></div><div class="stat-box"><div class="stat-icon">📊</div><div class="stat-num">$1,240</div><div class="stat-lbl">This Quarter</div></div><div class="stat-box"><div class="stat-icon">🦮</div><div class="stat-num">47</div><div class="stat-lbl">Total Walks</div></div><div class="stat-box"><div class="stat-icon">🕐</div><div class="stat-num">38 hrs</div><div class="stat-lbl">This Month</div></div></div>
-        <div class="card"><div class="card-title" style="margin-bottom:14px">Recent Payouts</div><div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;justify-content:space-between;padding:12px;background:var(--warm);border-radius:8px;font-size:0.86rem"><div><div style="font-weight:600">Week of Dec 9–15</div><div style="font-size:0.74px;color:var(--mid)">4 walks + 1 drop-in</div></div><div style="font-weight:700;color:var(--forest)">+$186.00</div></div><div style="display:flex;justify-content:space-between;padding:12px;background:var(--warm);border-radius:8px;font-size:0.86rem"><div><div style="font-weight:600">Week of Dec 2–8</div><div style="font-size:0.74px;color:var(--mid)">5 walks</div></div><div style="font-weight:700;color:var(--forest)">+$150.00</div></div></div></div>
+        <div class="p-header"><h2>My Earnings 💰</h2><p>Your work summary and payment history.</p></div>
+        <div class="stats-row">
+          <div class="stat-box"><div class="stat-icon">💵</div><div class="stat-num" id="stat-earnMonth">—</div><div class="stat-lbl">This Month</div></div>
+          <div class="stat-box"><div class="stat-icon">📊</div><div class="stat-num" id="stat-earnQuarter">—</div><div class="stat-lbl">This Quarter</div></div>
+          <div class="stat-box"><div class="stat-icon">🦮</div><div class="stat-num" id="stat-earnTotalJobs">—</div><div class="stat-lbl">Total Jobs</div></div>
+          <div class="stat-box"><div class="stat-icon">🕐</div><div class="stat-num" id="stat-earnMonthJobs">—</div><div class="stat-lbl">Jobs This Month</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:14px">Recent Completed Jobs</div>
+          <div id="staffEarningsHistory" style="display:flex;flex-direction:column;gap:10px">
+            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading earnings...</div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -6552,6 +6562,18 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  // ---- TIME AGO HELPER ----
+  function _dashTimeAgo(dateStr) {
+    if (!dateStr) return '';
+    var now = new Date(), then = new Date(dateStr);
+    var diff = Math.floor((now - then) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+    return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
   // ---- DASHBOARD STATS LOADER ----
   async function loadDashboardStats() {
     try {
@@ -6607,6 +6629,58 @@ document.addEventListener('DOMContentLoaded', function() {
           if (el4) el4.textContent = '—';
         }
 
+        // ── Upcoming Appointments (client dash card) ──
+        var upEl = document.getElementById('clientDashUpcoming');
+        if (upEl) {
+          try {
+            var today = new Date().toISOString().split('T')[0];
+            var { data: upcoming } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
+              .eq('client_id', userId).gte('date', today).order('date', { ascending: true }).limit(4);
+            if (upcoming && upcoming.length > 0) {
+              var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+              var h = '';
+              upcoming.forEach(function(b) {
+                var icon = svcIcons[b.service] || '🐾';
+                var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px">';
+                h += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">' + icon + '</span>';
+                h += '<div><div style="font-weight:600;font-size:0.84rem">' + (b.service || 'Service') + '</div>';
+                h += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div></div></div>';
+                h += '<div style="font-size:0.72rem;font-weight:600;color:var(--forest);text-transform:uppercase">' + (b.status || 'booked') + '</div></div>';
+              });
+              upEl.innerHTML = h;
+            } else {
+              upEl.innerHTML = 'No upcoming appointments.<br>Book a meet & greet to get started!';
+            }
+          } catch(e) { upEl.innerHTML = 'No upcoming appointments.<br>Book a meet & greet to get started!'; }
+        }
+
+        // ── Recent Notifications (client dash card) ──
+        var notifEl = document.getElementById('clientDashNotifications');
+        if (notifEl) {
+          try {
+            var { data: notifs } = await sb.from('notifications').select('id, title, body, type, created_at, read')
+              .eq('user_id', userId).order('created_at', { ascending: false }).limit(5);
+            if (notifs && notifs.length > 0) {
+              var nh = '';
+              notifs.forEach(function(n) {
+                var ico = n.type === 'booking' ? '📅' : n.type === 'message' ? '💬' : n.type === 'report' ? '📋' : '🔔';
+                var timeAgo = _dashTimeAgo(n.created_at);
+                var unreadDot = !n.read ? '<span style="width:6px;height:6px;background:var(--gold);border-radius:50%;display:inline-block;margin-right:4px"></span>' : '';
+                nh += '<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:0.84rem">';
+                nh += '<div style="display:flex;justify-content:space-between">';
+                nh += '<div>' + unreadDot + ico + ' <strong>' + (n.title || 'Notification') + '</strong></div>';
+                nh += '<div style="font-size:0.72rem;color:var(--mid)">' + timeAgo + '</div></div>';
+                if (n.body) nh += '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + n.body.substring(0, 80) + '</div>';
+                nh += '</div>';
+              });
+              notifEl.innerHTML = nh;
+            } else {
+              notifEl.innerHTML = 'No notifications yet.';
+            }
+          } catch(e) { notifEl.innerHTML = 'No notifications yet.'; }
+        }
+
       } else if (role === 'staff') {
         // STAFF DASHBOARD STATS
         // This Week — count bookings for this staff member this week
@@ -6627,6 +6701,40 @@ document.addEventListener('DOMContentLoaded', function() {
         const { count: staffReports } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('author_id', userId);
         const el3 = document.getElementById('stat-staffYourRating');
         if (el3) el3.textContent = (staffReports || 0) + ' sent';
+
+        // This Month — count bookings assigned to this staff this month
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const { count: monthJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId).gte('date', startOfMonth.toISOString());
+        const el4 = document.getElementById('stat-staffThisMonth');
+        if (el4) el4.textContent = (monthJobs || 0) + ' jobs';
+
+        // ── This Week's Jobs (staff dash card) ──
+        var jobsEl = document.getElementById('staffDashJobs');
+        if (jobsEl) {
+          try {
+            var { data: weekJobs } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
+              .eq('staff_id', userId).gte('date', startOfWeek.toISOString()).lt('date', new Date(startOfWeek.getTime() + 7*86400000).toISOString())
+              .order('date', { ascending: true }).limit(6);
+            if (weekJobs && weekJobs.length > 0) {
+              var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+              var jh = '';
+              weekJobs.forEach(function(b) {
+                var icon = svcIcons[b.service] || '🐾';
+                var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                jh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px">';
+                jh += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">' + icon + '</span>';
+                jh += '<div><div style="font-weight:600;font-size:0.84rem">' + (b.service || 'Service') + '</div>';
+                jh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div>';
+                if (b.pet_names) jh += '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>';
+                jh += '</div></div>';
+                jh += '<div style="font-size:0.72rem;font-weight:600;color:var(--forest);text-transform:uppercase">' + (b.status || 'scheduled') + '</div></div>';
+              });
+              jobsEl.innerHTML = jh;
+            } else {
+              jobsEl.innerHTML = 'No jobs scheduled this week.';
+            }
+          } catch(e) { jobsEl.innerHTML = 'No jobs scheduled yet.'; }
+        }
 
       } else if (role === 'owner') {
         // OWNER DASHBOARD STATS
@@ -6697,6 +6805,65 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
+    }
+  }
+
+  // ---- STAFF EARNINGS LOADER ----
+  async function loadStaffEarnings() {
+    var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+    var user = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser : null;
+    if (!sb || !user) return;
+    var userId = user.id;
+    try {
+      var now = new Date();
+      var startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      var startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+
+      // Monthly payments
+      var { data: monthPayments } = await sb.from('payments').select('amount').eq('staff_id', userId).gte('created_at', startOfMonth.toISOString());
+      var monthTotal = (monthPayments || []).reduce(function(acc, p) { return acc + (p.amount || 0); }, 0);
+      var e1 = document.getElementById('stat-earnMonth');
+      if (e1) e1.textContent = '$' + monthTotal.toFixed(0);
+
+      // Quarter payments
+      var { data: qtrPayments } = await sb.from('payments').select('amount').eq('staff_id', userId).gte('created_at', startOfQuarter.toISOString());
+      var qtrTotal = (qtrPayments || []).reduce(function(acc, p) { return acc + (p.amount || 0); }, 0);
+      var e2 = document.getElementById('stat-earnQuarter');
+      if (e2) e2.textContent = '$' + qtrTotal.toFixed(0);
+
+      // Total jobs all time
+      var { count: totalJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId);
+      var e3 = document.getElementById('stat-earnTotalJobs');
+      if (e3) e3.textContent = totalJobs || '0';
+
+      // Jobs this month
+      var { count: monthJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId).gte('date', startOfMonth.toISOString());
+      var e4 = document.getElementById('stat-earnMonthJobs');
+      if (e4) e4.textContent = monthJobs || '0';
+
+      // Recent completed jobs
+      var histEl = document.getElementById('staffEarningsHistory');
+      if (histEl) {
+        var { data: recentJobs } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
+          .eq('staff_id', userId).in('status', ['completed', 'confirmed']).order('date', { ascending: false }).limit(8);
+        if (recentJobs && recentJobs.length > 0) {
+          var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+          var rh = '';
+          recentJobs.forEach(function(b) {
+            var icon = svcIcons[b.service] || '🐾';
+            var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            rh += '<div style="display:flex;justify-content:space-between;padding:12px;background:var(--warm);border-radius:8px;font-size:0.86rem">';
+            rh += '<div><div style="font-weight:600">' + icon + ' ' + (b.service || 'Service') + '</div>';
+            rh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div></div>';
+            rh += '<div style="font-weight:600;color:var(--forest);font-size:0.82rem;text-transform:uppercase">' + (b.status || '') + '</div></div>';
+          });
+          histEl.innerHTML = rh;
+        } else {
+          histEl.innerHTML = '<div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No completed jobs yet. Your work history will appear here.</div>';
+        }
+      }
+    } catch(e) {
+      console.error('loadStaffEarnings error:', e);
     }
   }
 </script>
