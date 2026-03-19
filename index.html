@@ -400,7 +400,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .footer-bottom{max-width:1120px;margin:0 auto;border-top:1px solid rgba(255,255,255,0.08);padding-top:24px;display:flex;justify-content:space-between;align-items:center;font-size:0.8rem}
 
 /* ===================== PORTAL LAYOUT ===================== */
-.portal-wrap{display:grid;grid-template-columns:248px 1fr;min-height:100vh;padding-top:72px}
+.portal-wrap{display:grid;grid-template-columns:248px 1fr;min-height:calc(100vh - 72px);padding-top:72px}
 .sidebar{
   background:#16100A;padding:28px 16px;
   position:sticky;top:72px;height:calc(100vh - 72px);
@@ -425,7 +425,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .sb-item-icon{width:18px;text-align:center;font-size:0.9rem;flex-shrink:0}
 .sb-badge{margin-left:auto;background:var(--rose);color:white;border-radius:10px;padding:2px 7px;font-size:0.65rem;font-weight:800}
 
-.portal-main{padding:36px;background:var(--cream);overflow-y:auto}
+.portal-main{padding:36px;background:var(--cream)}
 .p-panel{display:none}
 .p-panel.active{display:block}
 .p-header{margin-bottom:28px}
@@ -2380,11 +2380,14 @@ function switchView(view) {
     }
   }
 
-  ['public','client','staff','owner'].forEach(v => {
-    document.getElementById('pg-'+v).classList.remove('active');
-  });
   var targetPage = document.getElementById('pg-'+view);
-  targetPage.classList.add('active');
+  // Add active to new page BEFORE removing from old to prevent flash
+  if (targetPage) targetPage.classList.add('active');
+  ['public','client','staff','owner'].forEach(v => {
+    if (v !== view) document.getElementById('pg-'+v).classList.remove('active');
+  });
+  // Ensure body scroll is never stuck from a modal or overlay
+  document.body.style.overflow = '';
 
   // For logged-in clients: show a floating "My Portal" button when viewing public/home
   var isClient = typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated() && HHP_Auth.currentRole === 'client';
@@ -2496,6 +2499,10 @@ function sTab(portal, panelId) {
   document.querySelectorAll('.p-panel[id^="'+prefix+'"]').forEach(p => p.classList.remove('active'));
   const el = document.getElementById(panelId);
   if(el) el.classList.add('active');
+  // Scroll to top of content when switching panels
+  window.scrollTo(0, 0);
+  var pm = el ? el.closest('.portal-main') : null;
+  if (pm) pm.scrollTop = 0;
   // Auto-load data when switching to specific panels
   if (panelId === 'c-bill' && typeof loadSavedCard === 'function') loadSavedCard();
   if (panelId === 'c-pets' && typeof loadMyPets === 'function') loadMyPets();
@@ -2519,7 +2526,11 @@ function sTab(portal, panelId) {
   if (panelId === 'c-track' && typeof loadLiveTracking === 'function') loadLiveTracking();
   // Gallery re-render when switching to photo panels
   if (panelId === 'c-photos' && window.HHP_Gallery) HHP_Gallery.render('client');
-  if (panelId === 'o-photos' && window.HHP_Gallery) HHP_Gallery.render('owner');
+  if (panelId === 'o-photos') {
+    if (window.HHP_Gallery) HHP_Gallery.render('owner');
+    // Re-apply photo previews to upload slots
+    if (window.HHP_Photos && HHP_Photos.photos) { HHP_Photos.restoreAllPreviews(); }
+  }
   // Load dashboard stats when switching to dashboard/overview panels
   if ((panelId === 'c-dash' || panelId === 's-sched' || panelId === 'o-overview') && typeof loadDashboardStats === 'function') loadDashboardStats();
   // update sidebar active state by matching onclick attribute
@@ -2560,8 +2571,10 @@ function closeModal(id) {
   if(el.classList.contains('modal-overlay')) { el.style.display='none'; }
   else { el.classList.remove('open'); }
   if(id==='mgModal'){ const f=document.getElementById('mgForm'); const s=document.getElementById('mgSuccess'); if(f)f.style.display=''; if(s)s.style.display='none'; }
+  // Always ensure body scroll is restored when closing any modal
+  document.body.style.overflow = '';
 }
-document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
+document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) { o.classList.remove('open'); document.body.style.overflow = ''; } }));
 
 // ── Meet & Greet: load user info + pet profiles when modal opens ──
 function loadMGData() {

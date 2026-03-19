@@ -234,7 +234,13 @@ const HHP_Photos = {
   updateHeroPreview(photoData) {
     const preview = document.getElementById('heroPhotoPreview');
     if (preview) {
-      preview.style.cssText += `;background-image:url(${photoData.thumbnail});background-size:cover;background-position:center`;
+      preview.style.backgroundImage = `url(${photoData.thumbnail})`;
+      preview.style.backgroundSize = 'cover';
+      preview.style.backgroundPosition = 'center';
+      preview.style.border = 'none';
+      // Remove hover handlers that reset the background
+      preview.onmouseover = null;
+      preview.onmouseout = null;
       preview.innerHTML = `
         <div style="position:absolute;bottom:8px;right:8px;background:rgba(30,20,9,0.7);color:white;padding:3px 10px;border-radius:4px;font-size:0.7rem;font-weight:600">✅ Uploaded</div>
       `;
