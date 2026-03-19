@@ -299,6 +299,13 @@ async function handleLogin(e) {
 
         if (password) {
             await HHP_Auth.login(email, password);
+            // Trigger browser password save prompt
+            if (window.PasswordCredential) {
+                try {
+                    var cred = new PasswordCredential({ id: email, password: password });
+                    navigator.credentials.store(cred);
+                } catch(e) { /* not supported */ }
+            }
         } else {
             await HHP_Auth.sendMagicLink(email);
             if (errEl) {
