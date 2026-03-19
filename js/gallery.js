@@ -395,8 +395,14 @@
     }
 
     if (photos.length === 0) {
+      // Owner already has upload cards for site photos — don't show empty gallery placeholder
+      if (role === 'owner') {
+        header.style.display = 'none';
+        grid.style.display = 'none';
+        return;
+      }
       grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--mid,#8c6b4a);font-size:0.95rem;">' +
-        '<div style="font-size:3rem;margin-bottom:12px;">ð¸</div>' +
+        '<div style="font-size:3rem;margin-bottom:12px;">📸</div>' +
         '<div>No photos yet</div>' +
         '<div style="font-size:0.82rem;margin-top:6px;opacity:0.7;">Photos from visits will appear here.</div></div>';
       return;
