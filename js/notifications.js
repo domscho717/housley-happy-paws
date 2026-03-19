@@ -58,18 +58,21 @@
       'color:white', 'border:none', 'cursor:pointer',
       'box-shadow:0 4px 20px rgba(200,150,62,0.4)',
       'display:flex', 'align-items:center', 'justify-content:center',
-      'font-size:1.4rem', 'transition:transform 0.2s,box-shadow 0.2s'
+      'font-size:1.4rem', 'transition:transform 0.2s,box-shadow 0.2s,opacity 0.2s',
+      'opacity:0.62'
     ].join(';');
     _bellEl.innerHTML = '🔔';
 
     _bellEl.addEventListener('mouseenter', function() {
       this.style.transform = 'scale(1.1)';
       this.style.boxShadow = '0 6px 28px rgba(200,150,62,0.55)';
+      this.style.opacity = '1';
     });
     _bellEl.addEventListener('mouseleave', function() {
       if (!_drawerOpen) {
         this.style.transform = 'scale(1)';
         this.style.boxShadow = '0 4px 20px rgba(200,150,62,0.4)';
+        this.style.opacity = '0.62';
       }
     });
     _bellEl.addEventListener('click', toggleDrawer);
@@ -128,6 +131,7 @@
       renderDrawer();
       _drawerEl.style.display = 'flex';
       _bellEl.style.transform = 'scale(1.1)';
+      _bellEl.style.opacity = '1';
       _bellEl.innerHTML = '✕';
       _bellEl.appendChild(_badgeEl);
       // Close on outside click
@@ -143,6 +147,7 @@
     _drawerOpen = false;
     _drawerEl.style.display = 'none';
     _bellEl.style.transform = 'scale(1)';
+    _bellEl.style.opacity = '0.62';
     _bellEl.innerHTML = '🔔';
     _bellEl.appendChild(_badgeEl);
     document.removeEventListener('click', outsideClickHandler);
