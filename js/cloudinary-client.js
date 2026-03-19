@@ -3,7 +3,7 @@
 // Client-side upload & display via Cloudinary Upload Widget
 // ============================================================
 
-const HHP_Photos = {
+const HHP_Photos = window.HHP_Photos = {
   CLOUD_NAME: 'dg1p1zjgv',
   UPLOAD_PRESET: 'hhp_unsigned',  // We'll create this unsigned preset
   FOLDER: 'housley-happy-paws',
