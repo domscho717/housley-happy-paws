@@ -581,6 +581,12 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .submit-btn.gold{background:var(--gold)}
 .submit-btn.gold:hover{background:var(--gold-deep)}
 
+/* Cancel Booking Styles */
+.cancel-btn{padding:8px 16px;border-radius:8px;font-size:0.82rem;font-weight:600;border:1.5px solid var(--rose);background:transparent;color:var(--rose);cursor:pointer;transition:all 0.2s;letter-spacing:0.04em}
+.cancel-btn:hover{background:var(--rose-pale);border-color:var(--rose-light)}
+.cancel-badge{display:inline-block;background:var(--rose);color:white;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+.cal-canceled{text-decoration:line-through;opacity:0.6;color:var(--mid);background:rgba(196,117,106,0.08);border-color:var(--rose-light) !important}
+
 .success-box{text-align:center;padding:16px 0}
 .success-box .icon{font-size:3.5rem;margin-bottom:14px}
 .success-box h3{font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700;margin-bottom:8px}
@@ -1299,7 +1305,7 @@ try {
         <div class="p-header"><h2>Appointments 📅</h2><p>All your visits in one place.</p></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
           <div class="tabs" style="margin:0">
-            <button class="tab active" onclick="loadClientAppts('all',this)">All</button><button class="tab" onclick="loadClientAppts('upcoming',this)">Upcoming</button><button class="tab" onclick="loadClientAppts('past',this)">Past</button>
+            <button class="tab active" onclick="loadClientAppts('all',this)">All</button><button class="tab" onclick="loadClientAppts('upcoming',this)">Upcoming</button><button class="tab" onclick="loadClientAppts('past',this)">Past</button><button class="tab" onclick="loadClientAppts('canceled',this)">Canceled</button>
           </div>
           <button class="btn btn-gold btn-sm" onclick="if(typeof openBookingModal==='function')openBookingModal()">+ Request Booking</button>
         </div>
@@ -2418,6 +2424,52 @@ try {
 
 
 
+
+<!-- CANCEL BOOKING MODAL -->
+<div class="overlay" id="cancelBookingModal" style="display:none" onclick="if(event.target===this)closeModal('cancelBookingModal')">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head">
+      <div class="modal-title">Cancel Booking ð´</div>
+      <button class="modal-close" onclick="closeModal('cancelBookingModal')">â</button>
+    </div>
+
+    <!-- Booking Details -->
+    <div style="background:var(--warm);border-radius:10px;padding:14px 16px;margin-bottom:16px;border-left:4px solid var(--mid)">
+      <div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Booking Details</div>
+      <div style="font-weight:600;color:var(--ink)" id="cancelModal_service">Dog Walk</div>
+      <div style="font-size:0.85rem;color:var(--mid)" id="cancelModal_date">Date Â· Time</div>
+      <div style="font-size:0.85rem;color:var(--mid)" id="cancelModal_client">Client Name</div>
+    </div>
+
+    <!-- Cancel Type Warning -->
+    <div id="cancelModal_warning" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:16px;border-left:4px solid #ffc107">
+      <div style="font-size:0.72rem;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">â ï¸ Late Cancellation Fee</div>
+      <div style="font-size:0.84rem;color:#856404;line-height:1.4">You're canceling within 2 days of the booking. Payment will still be processed according to the cancellation policy.</div>
+    </div>
+
+    <!-- Recurring Options -->
+    <div id="cancelModal_recurringGroup" style="display:none;margin-bottom:16px">
+      <label style="font-size:0.88rem;font-weight:600;color:var(--ink);display:block;margin-bottom:10px">Cancel:</label>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
+          <input type="radio" name="cancelOption" value="this" checked style="cursor:pointer">
+          <span style="font-size:0.85rem;color:var(--ink)">This booking only</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
+          <input type="radio" name="cancelOption" value="future" style="cursor:pointer">
+          <span style="font-size:0.85rem;color:var(--ink)">All future bookings</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div style="display:flex;gap:10px">
+      <button class="submit-btn" onclick="closeModal('cancelBookingModal')" style="background:var(--mid);color:white">Go Back</button>
+      <button class="submit-btn" id="cancelModal_confirmBtn" onclick="confirmCancelBooking()" style="background:var(--rose);color:white">Confirm Cancellation</button>
+    </div>
+  </div>
+</div>
+
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ---- NAVIGATION ----
 // Track whether user explicitly chose to go home (prevents auth re-routing)
@@ -3102,11 +3154,12 @@ function buildCalendar(containerId, year, month) {
     if(isToday) cls += ' today';
     if(ev?.type==='event') cls += ' has-event';
     if(ev?.type==='off') cls += ' off';
+    if(ev?.bookings && ev.bookings.length > 0 && ev.bookings.every(b => b.status === 'canceled')) cls += ' cal-canceled';
     html += `<div class="${cls}" onclick="showCalDetail('${key}','${ev?.label||''}',this)"><div class="cal-day-num">${d}</div>${ev?`<div class="cal-event-dot">${ev.label}</div>`:''}`;
     html += '</div>';
   }
   html += '</div>';
-  html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
+  html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
   html += `<div class="cal-detail" id="${containerId}-detail"></div>`;
   container.innerHTML = html;
 }
@@ -3255,17 +3308,144 @@ async function loadClientAppts(filter, tabBtn) {
       html += '<div style="font-size:0.8rem;color:var(--mid)">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div>';
       if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid)">Pets: ' + b.pet_names + '</div>';
       html += '</div>';
-      html += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
+      html += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
+      html += '<div style="display:flex;gap:6px;align-items:center">';
       html += '<span style="background:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + statusText + '</span>';
+      if (b.status === 'canceled') {
+        html += '<span class="cancel-badge">CANCELED</span>';
+      }
+      html += '</div>';
+      if (b.status === 'accepted') {
+        html += '<button class="cancel-btn" onclick="openCancelModal(\'' + b.id + '\',\'' + (b.service || '').replace(/'/g, "\\'") + '\',\'' + b.preferred_date + '\',\'' + (user.full_name || user.email).replace(/'/g, "\\'") + '\',false,\'client\')">Cancel</button>';
+      }
+      html += '<div style="display:flex;gap:4px;align-items:center">';
       html += paidBadge;
       if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
-      html += '</div></div>';
+      html += '</div></div></div>';
     });
     html += '</div>';
     listEl.innerHTML = html;
   } catch (err) {
     console.error('Load client appts error:', err);
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
+  }
+}
+// ââ CANCELLATION SYSTEM ââ
+// Store cancel data globally while modal is open
+var _cancelData = {
+  bookingRequestId: null,
+  service: null,
+  date: null,
+  clientName: null,
+  isRecurring: false,
+  canceledBy: null
+};
+
+function getCancelType(bookingDate) {
+  // Returns 'free' or 'late' based on policy:
+  // Free cancel = before midnight, 2 days before booking (ET timezone)
+  // e.g., Wednesday booking â must cancel by Monday 11:59 PM ET
+  var booking = new Date(bookingDate + 'T00:00:00');
+  var cutoff = new Date(booking);
+  cutoff.setDate(cutoff.getDate() - 2); // 2 days before
+  cutoff.setHours(23, 59, 59, 999);
+  var now = new Date();
+  return now <= cutoff ? 'free' : 'late';
+}
+
+function openCancelModal(bookingRequestId, service, date, clientName, isRecurring, canceledBy) {
+  // Store data for confirm action
+  _cancelData.bookingRequestId = bookingRequestId;
+  _cancelData.service = service;
+  _cancelData.date = date;
+  _cancelData.clientName = clientName;
+  _cancelData.isRecurring = isRecurring;
+  _cancelData.canceledBy = canceledBy;
+
+  // Populate modal with booking details
+  var dateDisplay = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
+  document.getElementById('cancelModal_service').textContent = service || 'Pet Care';
+  document.getElementById('cancelModal_date').textContent = dateDisplay;
+  document.getElementById('cancelModal_client').textContent = clientName || 'Client';
+
+  // Show/hide warning based on cancel type
+  var cancelType = getCancelType(date);
+  var warningEl = document.getElementById('cancelModal_warning');
+  if (cancelType === 'late') {
+    warningEl.style.display = '';
+  } else {
+    warningEl.style.display = 'none';
+  }
+
+  // Show/hide recurring options
+  var recurringGroup = document.getElementById('cancelModal_recurringGroup');
+  if (isRecurring) {
+    recurringGroup.style.display = '';
+    document.querySelector('input[name="cancelOption"][value="this"]').checked = true;
+  } else {
+    recurringGroup.style.display = 'none';
+  }
+
+  // Open modal
+  openModal('cancelBookingModal');
+}
+
+async function confirmCancelBooking() {
+  var btn = document.getElementById('cancelModal_confirmBtn');
+  if (!btn) return;
+
+  // Disable button during request
+  btn.disabled = true;
+  btn.textContent = 'Canceling...';
+
+  try {
+    var cancelOption = document.querySelector('input[name="cancelOption"]:checked');
+    var option = cancelOption ? cancelOption.value : 'this';
+
+    // Call the backend API
+    var response = await fetch('/api/cancel-booking.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingRequestId: _cancelData.bookingRequestId,
+        service: _cancelData.service,
+        date: _cancelData.date,
+        clientName: _cancelData.clientName,
+        isRecurring: _cancelData.isRecurring,
+        canceledBy: _cancelData.canceledBy,
+        cancelOption: option
+      })
+    });
+
+    var result = await response.json();
+    if (result.success) {
+      toast('â Booking canceled successfully ð¾');
+      closeModal('cancelBookingModal');
+      // Refresh the relevant portal view
+      if (_cancelData.canceledBy === 'client') {
+        if (typeof loadClientAppts === 'function') {
+          loadClientAppts('all');
+        }
+      } else if (_cancelData.canceledBy === 'owner') {
+        // Refresh owner booking admin
+        if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.load === 'function') {
+          window.HHP_BookingAdmin.load();
+        }
+      } else if (_cancelData.canceledBy === 'staff') {
+        // Refresh staff bookings
+        if (typeof loadStaffSchedule === 'function') {
+          loadStaffSchedule();
+        }
+      }
+    } else {
+      toast('â Cancellation failed: ' + (result.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Cancel booking error:', error);
+    toast('â Error canceling booking: ' + error.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirm Cancellation';
   }
 }
 
@@ -4937,7 +5117,9 @@ async function loadStaffSchedule() {
         '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div>' +
         (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>' : '') +
         '</div></div>' +
-        '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>';
+        '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>' +
+        (b.status === 'confirmed' ? '<button class="cancel-btn" style="font-size:0.74rem;padding:4px 10px" onclick="openCancelModal(\'' + (b.id || '').replace(/'/g, "\\'") + '\',\'' + (b.service || '').replace(/'/g, "\\'") + '\',\'' + b.date + '\',\'' + (b.pet_names || '').replace(/'/g, "\\'") + '\',false,\'staff\')">Cancel</button>' : '') +
+        '</div>';
       card.appendChild(row);
     });
   } catch (e) {
