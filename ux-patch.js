@@ -436,7 +436,8 @@
         '.modal-title { font-size: 1.4rem !important; }' +
 
         /* -- Auth overlay (restored from v7) -- */
-        '.auth-card { padding: 28px 20px !important; margin: 12px !important; }' +
+        '#authOverlay { align-items: flex-start !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; padding: 24px 0 !important; }' +
+        '.auth-card { padding: 28px 20px !important; margin: 12px auto !important; max-height: none !important; overflow-y: visible !important; }' +
         '.auth-logo { font-size: 1.5rem !important; }' +
 
         /* -- Toast (restored from v7) -- */
