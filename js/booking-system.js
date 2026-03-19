@@ -2488,12 +2488,12 @@
     // Load calendar bookings
     setTimeout(loadAcceptedBookingsToCalendar, 3000);
 
-    // Init admin dashboard if owner is logged in
-    setTimeout(function() {
+    // Init admin dashboard — use auth-ready callback (no arbitrary delays)
+    function _initAdminWhenReady() {
       if (window.HHP_Auth && window.HHP_Auth.currentRole === 'owner') {
         HHP_BookingAdmin.init();
       }
-      // Also watch for auth state changes
+      // Also watch for auth state changes (fresh login while page is open)
       if (window.HHP_Auth && window.HHP_Auth.supabase) {
         window.HHP_Auth.supabase.auth.onAuthStateChange(function(event) {
           if (event === 'SIGNED_IN') {
@@ -2501,19 +2501,24 @@
               if (window.HHP_Auth.currentRole === 'owner') {
                 HHP_BookingAdmin.init();
               }
-            }, 1000);
+            }, 200);
           }
         });
       }
-    }, 3000);
+    }
+    if (window.onHHPAuthReady) {
+      window.onHHPAuthReady(_initAdminWhenReady);
+    } else {
+      setTimeout(_initAdminWhenReady, 2000);
+    }
   }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(initBookingSystem, 1000);
+      setTimeout(initBookingSystem, 200);
     });
   } else {
-    setTimeout(initBookingSystem, 500);
+    setTimeout(initBookingSystem, 100);
   }
 
 })();
