@@ -661,6 +661,10 @@
   });
 
   // Public API
-  window.HHP_Gallery = { render: renderGallery, upload: openGalleryUpload };
+  window.HHP_Gallery = {
+    render: renderGallery,
+    upload: openGalleryUpload,
+    rebuildSlideshows: function() { buildAboutSlideshow(); buildHeroCarousel(); }
+  };
 
 })();

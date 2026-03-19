@@ -188,10 +188,21 @@ const HHP_Photos = {
     this.wireSlot('logoUpload', 'logo');
   },
 
+  // Direct mapping of slotId → the onclick selector used to find the element
+  SLOT_INPUT_MAP: {
+    'about1': 'aboutPhoto1', 'about2': 'aboutPhoto2', 'about3': 'aboutPhoto3',
+    'svc-dog-walk': 'svcPhoto1', 'svc-drop-in': 'svcPhoto2', 'svc-boarding': 'svcPhoto3',
+    'svc-cat-care': 'svcPhoto4', 'svc-paw-bus': 'svcPhoto5', 'svc-house-sitting': 'svcPhoto6',
+    'svc-doggy-daycare': 'svcPhoto7', 'svc-extra': 'svcPhoto8', 'logo': 'logoUpload'
+  },
+
   wireSlot(inputId, slotId) {
     // Find the parent upload slot div that triggers the hidden input
     const input = document.getElementById(inputId);
-    if (!input) return;
+    if (!input) {
+      console.warn(`📸 wireSlot: input #${inputId} not found for slot "${slotId}"`);
+      return;
+    }
 
     const parentSlot = input.previousElementSibling ||
       document.querySelector(`[onclick*="${inputId}"]`) ||
@@ -199,6 +210,9 @@ const HHP_Photos = {
 
     // Find the clickable slot div
     const clickables = document.querySelectorAll(`[onclick*="triggerUpload('${inputId}')"]`);
+    if (clickables.length === 0) {
+      console.warn(`📸 wireSlot: no clickable elements found for input "${inputId}" / slot "${slotId}"`);
+    }
     clickables.forEach(el => {
       el.onclick = (e) => {
         e.preventDefault();
@@ -363,7 +377,8 @@ const HHP_Photos = {
     return null;
   },
 
-  // ── Load photos from Supabase ───────────────────────────────────
+  // ── Load photos from Supabase (with retry if auth not ready) ──
+  _loadRetries: 0,
   async loadPhotos() {
     // Try Supabase — works for all visitors via anon key + public RLS
     const sb = this._getSupabase();
@@ -395,6 +410,17 @@ const HHP_Photos = {
       } catch (err) {
         console.error('Error loading photos from Supabase:', err);
       }
+    } else {
+      // Supabase client not ready — retry up to 5 times with increasing delay
+      if (this._loadRetries < 5) {
+        this._loadRetries++;
+        const delay = 800 * this._loadRetries;
+        console.log(`📸 Supabase not ready, retrying in ${delay}ms (attempt ${this._loadRetries}/5)...`);
+        setTimeout(() => this.loadPhotos(), delay);
+        return;
+      } else {
+        console.warn('📸 Supabase client never became available after 5 retries');
+      }
     }
 
     // Fallback: try localStorage
@@ -412,9 +438,28 @@ const HHP_Photos = {
 
   // ── Restore all preview slots from stored data ──────────────────
   restoreAllPreviews() {
+    // First, re-wire upload slots to ensure data-photo-slot attrs are set
+    this.wireUploadSlots();
+
     Object.entries(this.photos).forEach(([slotId, photoData]) => {
       if (photoData && photoData.thumbnail) {
         this.updateSlotPreview(slotId, photoData);
+
+        // Fallback: if data-photo-slot element wasn't found, try the direct input mapping
+        if (slotId !== 'hero') {
+          const existing = document.querySelector(`[data-photo-slot="${slotId}"]`);
+          if (!existing) {
+            const inputId = this.SLOT_INPUT_MAP[slotId];
+            if (inputId) {
+              const fallbackEl = document.querySelector(`[onclick*="triggerUpload('${inputId}')"]`);
+              if (fallbackEl) {
+                fallbackEl.dataset.photoSlot = slotId;
+                this.updateSlotPreview(slotId, photoData);
+                console.log(`📸 Restored slot "${slotId}" via fallback lookup`);
+              }
+            }
+          }
+        }
       }
     });
   },

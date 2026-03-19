@@ -1915,7 +1915,7 @@ try {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
           <div class="card">
             <div class="card-title" style="margin-bottom:16px">🐾 Profile / Hero Photo</div>
-            <div id="heroPhotoPreview" style="width:100%;aspect-ratio:4/3;border-radius:10px;background:linear-gradient(135deg,var(--gold-pale),var(--forest-pale));display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed rgba(200,150,62,0.4);cursor:pointer;transition:all 0.2s;margin-bottom:12px" onclick="document.getElementById('heroPhotoInput').click()" onmouseover="this.style.borderColor='var(--gold)';this.style.background='var(--gold-pale)'" onmouseout="this.style.borderColor='rgba(200,150,62,0.4)';this.style.background='linear-gradient(135deg,var(--gold-pale),var(--forest-pale))'">
+            <div id="heroPhotoPreview" style="width:100%;aspect-ratio:4/3;border-radius:10px;background:linear-gradient(135deg,var(--gold-pale),var(--forest-pale));display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed rgba(200,150,62,0.4);cursor:pointer;transition:all 0.2s;margin-bottom:12px" onclick="document.getElementById('heroPhotoInput').click()">
               <div style="font-size:3rem;margin-bottom:8px">📸</div>
               <div style="font-size:0.85rem;font-weight:600;color:var(--brown)">Click to upload your photo</div>
               <div style="font-size:0.74rem;color:var(--mid);margin-top:4px">JPG, PNG · Recommended 800×600+</div>
@@ -2528,8 +2528,16 @@ function sTab(portal, panelId) {
   if (panelId === 'c-photos' && window.HHP_Gallery) HHP_Gallery.render('client');
   if (panelId === 'o-photos') {
     if (window.HHP_Gallery) HHP_Gallery.render('owner');
-    // Re-apply photo previews to upload slots
-    if (window.HHP_Photos && HHP_Photos.photos) { HHP_Photos.restoreAllPreviews(); }
+    // Re-wire slots and restore photo previews every time the panel opens
+    if (window.HHP_Photos) {
+      HHP_Photos.wireUploadSlots();
+      HHP_Photos.restoreAllPreviews();
+      // If photos never loaded (Supabase wasn't ready), try again now
+      if (Object.keys(HHP_Photos.photos).length === 0) {
+        HHP_Photos._loadRetries = 0;
+        HHP_Photos.loadPhotos();
+      }
+    }
   }
   // Load dashboard stats when switching to dashboard/overview panels
   if ((panelId === 'c-dash' || panelId === 's-sched' || panelId === 'o-overview') && typeof loadDashboardStats === 'function') loadDashboardStats();
