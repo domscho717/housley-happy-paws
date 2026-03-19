@@ -1,5 +1,5 @@
 // ============================================================
-//  HHP Messaging System — Real-time Supabase-backed messaging
+//  HHP Messaging System â Real-time Supabase-backed messaging
 //  Privacy model:
 //    - Client: sees ONLY their 1:1 thread with the owner
 //    - Staff:  sees their own thread with owner + their assigned clients' threads
@@ -144,22 +144,60 @@
 
   // ============================================================
   //  CORE: Load 1:1 conversation between current user and another
+  //  By default loads only the current 2-week period.
+  //  Pass since/until to load a specific date range.
   // ============================================================
-  async function loadConversation(otherUserId, limit) {
+  var ARCHIVE_DAYS = 14; // 2-week rolling window
+
+  function getArchiveStart() {
+    var d = new Date();
+    d.setDate(d.getDate() - ARCHIVE_DAYS);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString();
+  }
+
+  async function loadConversation(otherUserId, opts) {
     var sb = getSB();
     if (!sb) return [];
     var user = getCurrentUser();
     if (!user) return [];
-    limit = limit || 50;
+    opts = opts || {};
+    var limit = opts.limit || 200;
+    var since = opts.since || getArchiveStart();
+    var until = opts.until || null;
 
-    var { data, error } = await sb.from('messages')
+    var query = sb.from('messages')
       .select('*')
       .or('and(sender_id.eq.'+user.id+',recipient_id.eq.'+otherUserId+'),and(sender_id.eq.'+otherUserId+',recipient_id.eq.'+user.id+')')
+      .gte('created_at', since);
+
+    if (until) {
+      query = query.lt('created_at', until);
+    }
+
+    var { data, error } = await query
       .order('created_at', { ascending: true })
       .limit(limit);
 
     if (error) { console.error('Load conversation error:', error); return []; }
     return data || [];
+  }
+
+  // Check if there are older messages before the current window
+  async function hasOlderMessages(otherUserId) {
+    var sb = getSB();
+    if (!sb) return false;
+    var user = getCurrentUser();
+    if (!user) return false;
+    var cutoff = getArchiveStart();
+
+    var { count, error } = await sb.from('messages')
+      .select('*', { count: 'exact', head: true })
+      .or('and(sender_id.eq.'+user.id+',recipient_id.eq.'+otherUserId+'),and(sender_id.eq.'+otherUserId+',recipient_id.eq.'+user.id+')')
+      .lt('created_at', cutoff);
+
+    if (error) return false;
+    return (count || 0) > 0;
   }
 
   // ============================================================
@@ -294,19 +332,31 @@
 
   // ============================================================
   //  UI: Render a message thread
+  //  opts.otherUserId â for "view older" button
+  //  opts.prepend â if true, prepend older messages instead of replacing
   // ============================================================
-  async function renderThread(containerId, messages, viewerUserId) {
+  async function renderThread(containerId, messages, viewerUserId, opts) {
     var container = document.getElementById(containerId);
     if (!container) return;
+    opts = opts || {};
 
     if (!messages || messages.length === 0) {
-      container.innerHTML = '<div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">No messages yet — say hello!</div>';
+      if (!opts.prepend) {
+        container.innerHTML = '<div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">No messages yet â say hello!</div>';
+      }
       return;
     }
 
+    // Build message bubbles with date separators
     var html = '';
+    var lastDate = '';
     for (var i = 0; i < messages.length; i++) {
       var msg = messages[i];
+      var msgDate = new Date(msg.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      if (msgDate !== lastDate) {
+        html += '<div style="align-self:center;font-size:0.68rem;color:var(--mid);padding:8px 12px;margin:4px 0;background:var(--warm);border-radius:10px;font-weight:600">' + msgDate + '</div>';
+        lastDate = msgDate;
+      }
       var isMine = msg.sender_id === viewerUserId;
       var profile = await getProfileByUserId(msg.sender_id);
       var name = profile.full_name || 'Unknown';
@@ -315,17 +365,111 @@
       if (isMine) {
         html += '<div style="display:flex;gap:8px;align-items:flex-end;justify-content:flex-end">' +
           '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(msg.body) + '</div>' +
-          '<div class="msg-meta" style="text-align:right">You · ' + formatTime(msg.created_at) + '</div></div>' +
+          '<div class="msg-meta" style="text-align:right">You Â· ' + formatTime(msg.created_at) + '</div></div>' +
           ava + '</div>';
       } else {
         html += '<div style="display:flex;gap:8px;align-items:flex-end">' +
           ava + '<div><div class="msg-in">' + escHTML(msg.body) + '</div>' +
-          '<div class="msg-meta">' + escHTML(name) + ' · ' + formatTime(msg.created_at) + '</div></div></div>';
+          '<div class="msg-meta">' + escHTML(name) + ' Â· ' + formatTime(msg.created_at) + '</div></div></div>';
       }
     }
 
-    container.innerHTML = html;
-    container.scrollTop = container.scrollHeight;
+    if (opts.prepend) {
+      // Prepending older messages â insert before existing content
+      var oldScroll = container.scrollHeight;
+      var olderDiv = container.querySelector('.msg-older-loaded');
+      if (olderDiv) {
+        // Append into existing older section
+        olderDiv.insertAdjacentHTML('beforeend', html);
+      } else {
+        var wrapper = document.createElement('div');
+        wrapper.className = 'msg-older-loaded';
+        wrapper.style.cssText = 'border-bottom:1px dashed var(--border);padding-bottom:10px;margin-bottom:10px';
+        wrapper.innerHTML = html;
+        var firstChild = container.firstChild;
+        // Insert after the "view older" button if it exists
+        var olderBtn = container.querySelector('.msg-older-btn');
+        if (olderBtn) {
+          olderBtn.insertAdjacentElement('afterend', wrapper);
+        } else if (firstChild) {
+          container.insertBefore(wrapper, firstChild);
+        } else {
+          container.appendChild(wrapper);
+        }
+      }
+      // Keep scroll position stable
+      container.scrollTop = container.scrollHeight - oldScroll;
+    } else {
+      container.innerHTML = html;
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Add "View older messages" button if applicable
+    if (opts.otherUserId && !opts.prepend && !container.querySelector('.msg-older-btn')) {
+      var older = await hasOlderMessages(opts.otherUserId);
+      if (older) {
+        var btn = document.createElement('button');
+        btn.className = 'msg-older-btn';
+        btn.style.cssText = 'display:block;width:100%;text-align:center;padding:8px;font-size:0.76rem;color:var(--gold-deep);background:var(--warm);border:1px dashed var(--border);border-radius:8px;cursor:pointer;font-weight:600;margin-bottom:10px;transition:background 0.15s';
+        btn.textContent = 'ð View older messages';
+        btn.setAttribute('data-partner', opts.otherUserId);
+        btn.setAttribute('data-container', containerId);
+        btn.setAttribute('data-page', '1');
+        btn.onmouseover = function() { this.style.background = 'rgba(200,150,62,0.15)'; };
+        btn.onmouseout = function() { this.style.background = 'var(--warm)'; };
+        btn.onclick = function() { _loadOlderChunk(this); };
+        container.insertBefore(btn, container.firstChild);
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+  }
+
+  // Load an older 2-week chunk when user clicks "View older messages"
+  async function _loadOlderChunk(btnEl) {
+    var partnerId = btnEl.getAttribute('data-partner');
+    var containerId = btnEl.getAttribute('data-container');
+    var page = parseInt(btnEl.getAttribute('data-page')) || 1;
+    if (!partnerId || !containerId) return;
+
+    btnEl.textContent = 'Loading...';
+    btnEl.disabled = true;
+
+    // Calculate the date window for this chunk
+    var untilDate = new Date();
+    untilDate.setDate(untilDate.getDate() - (ARCHIVE_DAYS * page));
+    untilDate.setHours(0, 0, 0, 0);
+    var sinceDate = new Date(untilDate);
+    sinceDate.setDate(sinceDate.getDate() - ARCHIVE_DAYS);
+
+    var user = getCurrentUser();
+    if (!user) return;
+
+    var olderMsgs = await loadConversation(partnerId, {
+      since: sinceDate.toISOString(),
+      until: untilDate.toISOString(),
+      limit: 200
+    });
+
+    if (olderMsgs.length > 0) {
+      await renderThread(containerId, olderMsgs, user.id, { prepend: true });
+    }
+
+    // Check if there are even older messages
+    var { count } = await getSB().from('messages')
+      .select('*', { count: 'exact', head: true })
+      .or('and(sender_id.eq.'+user.id+',recipient_id.eq.'+partnerId+'),and(sender_id.eq.'+partnerId+',recipient_id.eq.'+user.id+')')
+      .lt('created_at', sinceDate.toISOString());
+
+    if (count && count > 0) {
+      btnEl.textContent = 'ð View even older messages';
+      btnEl.disabled = false;
+      btnEl.setAttribute('data-page', String(page + 1));
+    } else {
+      btnEl.textContent = 'ð All messages loaded';
+      btnEl.style.opacity = '0.5';
+      btnEl.style.cursor = 'default';
+      btnEl.onclick = null;
+    }
   }
 
   // ============================================================
@@ -355,16 +499,16 @@
     _clientMsgContacts = contacts;
 
     if (contacts.length === 1) {
-      // Only owner — simple thread, no tabs needed
-      var messages = await loadConversation(ownerUserId);
-      await renderThread('cMsgs', messages, user.id);
+      // Only owner â simple thread, no tabs needed
+      var messages = await loadConversation(ownerUserId, {});
+      await renderThread('cMsgs', messages, user.id, { otherUserId: ownerUserId });
       await markAsRead(ownerUserId);
       updateUnreadBadges();
       return;
     }
 
-    // Multiple contacts — build tabbed UI
-    var html = '<div class="p-header"><h2>Messages 💬</h2><p>Your private conversations.</p></div>';
+    // Multiple contacts â build tabbed UI
+    var html = '<div class="p-header"><h2>Messages ð¬</h2><p>Your private conversations.</p></div>';
     html += '<div class="card">';
     html += '<div id="clientMsgTabs" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">';
     for (var t = 0; t < contacts.length; t++) {
@@ -374,7 +518,7 @@
     }
     html += '</div>';
     html += '<div class="msg-thread" id="cMsgs" style="max-height:350px"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading...</div></div>';
-    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="cMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.clientSend()"><button class="msg-send" onclick="HHP_Messaging.clientSend()">➤</button></div>';
+    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="cMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.clientSend()"><button class="msg-send" onclick="HHP_Messaging.clientSend()">â¤</button></div>';
     html += '</div>';
 
     panel.innerHTML = html;
@@ -388,8 +532,8 @@
     if (!contact) return;
 
     var user = getCurrentUser();
-    var messages = await loadConversation(contact.userId);
-    await renderThread('cMsgs', messages, user.id);
+    var messages = await loadConversation(contact.userId, {});
+    await renderThread('cMsgs', messages, user.id, { otherUserId: contact.userId });
     await markAsRead(contact.userId);
 
     var btns = document.querySelectorAll('#clientMsgTabs .admin-filter-btn');
@@ -422,7 +566,7 @@
       var ava = avatarHTML((myProfile && myProfile.full_name) || 'C', 32);
       var d = document.createElement('div');
       d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
-      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + ava;
+      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You Â· Just now</div></div>' + ava;
       threadEl.appendChild(d);
       threadEl.scrollTop = threadEl.scrollHeight;
     }
@@ -432,7 +576,7 @@
       var last = threadEl.lastElementChild;
       if (last) {
         var meta = last.querySelector('.msg-meta');
-        if (meta) meta.innerHTML = 'You · <span style="color:var(--rose)">Failed to send</span>';
+        if (meta) meta.innerHTML = 'You Â· <span style="color:var(--rose)">Failed to send</span>';
       }
     }
   }
@@ -463,18 +607,18 @@
     _staffMsgContacts = contacts;
 
     if (contacts.length === 1) {
-      // Only owner — simple thread, no tabs
+      // Only owner â simple thread, no tabs
       var threadEl = document.getElementById('sMsgs');
       if (!threadEl) return;
-      var messages = await loadConversation(ownerUserId);
-      await renderThread('sMsgs', messages, user.id);
+      var messages = await loadConversation(ownerUserId, {});
+      await renderThread('sMsgs', messages, user.id, { otherUserId: ownerUserId });
       await markAsRead(ownerUserId);
       updateUnreadBadges();
       return;
     }
 
-    // Multiple contacts — build tabbed UI
-    var html = '<div class="p-header"><h2>Messages 💬</h2><p>Your private conversations.</p></div>';
+    // Multiple contacts â build tabbed UI
+    var html = '<div class="p-header"><h2>Messages ð¬</h2><p>Your private conversations.</p></div>';
     html += '<div class="card">';
     html += '<div id="staffMsgTabs" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">';
     for (var t = 0; t < contacts.length; t++) {
@@ -484,7 +628,7 @@
     }
     html += '</div>';
     html += '<div class="msg-thread" id="sMsgs" style="max-height:350px"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading...</div></div>';
-    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="sMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.staffSend()"><button class="msg-send" onclick="HHP_Messaging.staffSend()">➤</button></div>';
+    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="sMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.staffSend()"><button class="msg-send" onclick="HHP_Messaging.staffSend()">â¤</button></div>';
     html += '</div>';
 
     panel.innerHTML = html;
@@ -498,8 +642,8 @@
     if (!contact) return;
 
     var user = getCurrentUser();
-    var messages = await loadConversation(contact.userId);
-    await renderThread('sMsgs', messages, user.id);
+    var messages = await loadConversation(contact.userId, {});
+    await renderThread('sMsgs', messages, user.id, { otherUserId: contact.userId });
     await markAsRead(contact.userId);
 
     // Update tab active states
@@ -533,7 +677,7 @@
       var ava = avatarHTML((myProfile && myProfile.full_name) || 'S', 32);
       var d = document.createElement('div');
       d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
-      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + ava;
+      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You Â· Just now</div></div>' + ava;
       threadEl.appendChild(d);
       threadEl.scrollTop = threadEl.scrollHeight;
     }
@@ -543,13 +687,13 @@
       var last = threadEl.lastElementChild;
       if (last) {
         var meta = last.querySelector('.msg-meta');
-        if (meta) meta.innerHTML = 'You · <span style="color:var(--rose)">Failed to send</span>';
+        if (meta) meta.innerHTML = 'You Â· <span style="color:var(--rose)">Failed to send</span>';
       }
     }
   }
 
   // ============================================================
-  //  UI: Owner Messages (o-msgs) — full inbox, all conversations
+  //  UI: Owner Messages (o-msgs) â full inbox, all conversations
   // ============================================================
   async function loadOwnerInbox() {
     var sb = getSB(); if (!sb) return;
@@ -562,16 +706,16 @@
 
     if (convos.length === 0) {
       panel.innerHTML =
-        '<div class="p-header"><h2>All Messages 💬</h2><p>Every client & staff conversation in one inbox.</p></div>' +
+        '<div class="p-header"><h2>All Messages ð¬</h2><p>Every client & staff conversation in one inbox.</p></div>' +
         '<div class="card"><div style="padding:28px;text-align:center;color:var(--mid)">' +
-        '<div style="font-size:2rem;margin-bottom:10px">💬</div>' +
+        '<div style="font-size:2rem;margin-bottom:10px">ð¬</div>' +
         '<div style="font-weight:600;margin-bottom:6px">No messages yet</div>' +
         '<div style="font-size:0.84rem">Messages from clients and staff will appear here.</div>' +
         '</div></div>';
       return;
     }
 
-    var html = '<div class="p-header"><h2>All Messages 💬</h2><p>Every client & staff conversation — private per person.</p></div>';
+    var html = '<div class="p-header"><h2>All Messages ð¬</h2><p>Every client & staff conversation â private per person.</p></div>';
     html += '<div class="card" style="padding:0;overflow:hidden">';
     html += '<div id="ownerConvoList">';
 
@@ -603,11 +747,11 @@
     // Conversation detail view
     html += '<div id="ownerConvoView" style="display:none;padding:16px">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">' +
-      '<button onclick="HHP_Messaging.closeConvo()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:4px">←</button>' +
+      '<button onclick="HHP_Messaging.closeConvo()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:4px">â</button>' +
       '<div id="ownerConvoName" style="font-weight:700;font-size:0.95rem"></div>' +
       '</div>' +
       '<div class="msg-thread" id="ownerMsgs" style="max-height:400px"></div>' +
-      '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="ownerMsgIn" placeholder="Type a reply..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.sendFromOwner()"><button class="msg-send" onclick="HHP_Messaging.sendFromOwner()">➤</button></div>' +
+      '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="ownerMsgIn" placeholder="Type a reply..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.sendFromOwner()"><button class="msg-send" onclick="HHP_Messaging.sendFromOwner()">â¤</button></div>' +
       '</div>';
     html += '</div>';
 
@@ -641,8 +785,8 @@
 
     var user = getCurrentUser();
     if (!user) return;
-    var messages = await loadConversation(partnerId);
-    await renderThread('ownerMsgs', messages, user.id);
+    var messages = await loadConversation(partnerId, {});
+    await renderThread('ownerMsgs', messages, user.id, { otherUserId: partnerId });
     await markAsRead(partnerId);
     updateUnreadBadges();
   }
@@ -665,8 +809,8 @@
     await sendMessage(_currentConvoPartnerId, body);
     var user = getCurrentUser();
     if (user) {
-      var messages = await loadConversation(_currentConvoPartnerId);
-      await renderThread('ownerMsgs', messages, user.id);
+      var messages = await loadConversation(_currentConvoPartnerId, {});
+      await renderThread('ownerMsgs', messages, user.id, { otherUserId: _currentConvoPartnerId });
     }
   }
 
@@ -690,7 +834,7 @@
 
     if (error || !unreadMsgs) unreadMsgs = [];
 
-    var html = '<div class="card-title" style="margin-bottom:14px">🔔 Alerts & Messages</div>';
+    var html = '<div class="card-title" style="margin-bottom:14px">ð Alerts & Messages</div>';
 
     if (unreadMsgs.length > 0) {
       html += '<div style="font-size:0.8rem;font-weight:600;color:var(--mid);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.03em">'+unreadMsgs.length+' new message'+(unreadMsgs.length > 1 ? 's' : '')+'</div>';
@@ -716,7 +860,7 @@
       html += '<button class="btn btn-outline btn-sm" onclick="sTab(\'o\',\'o-msgs\')" style="width:100%;justify-content:center;margin-top:8px;font-size:0.78rem">View All Messages</button>';
     } else {
       html += '<div style="padding:14px;text-align:center;color:var(--mid);font-size:0.85rem">' +
-        '<div style="font-size:1.4rem;margin-bottom:6px">✓</div>' +
+        '<div style="font-size:1.4rem;margin-bottom:6px">â</div>' +
         'No new messages or alerts</div>';
     }
 
@@ -759,7 +903,7 @@
     var d = document.createElement('div');
     d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;opacity:0;transition:opacity 0.3s';
     d.innerHTML = ava + '<div><div class="msg-in">' + escHTML(msg.body) + '</div>' +
-      '<div class="msg-meta">' + escHTML(senderName) + ' · Just now</div></div>';
+      '<div class="msg-meta">' + escHTML(senderName) + ' Â· Just now</div></div>';
     threadEl.appendChild(d);
     // Animate in
     requestAnimationFrame(function() { d.style.opacity = '1'; });
@@ -808,32 +952,32 @@
 
           if (portal === 'owner') {
             if (_currentConvoPartnerId === msg.sender_id) {
-              // Owner has this convo open — append directly
+              // Owner has this convo open â append directly
               appendIncomingBubble('ownerMsgs', msg, name);
               await markAsRead(msg.sender_id);
               updateUnreadBadges();
             } else {
-              if (typeof toast === 'function') toast('💬 New message from ' + name);
+              if (typeof toast === 'function') toast('ð¬ New message from ' + name);
               toasted = true;
             }
             loadAlertMessages();
           } else if (portal === 'client') {
             var cPanel = document.getElementById('c-msgs');
             if (cPanel && cPanel.classList.contains('active')) {
-              // Client is viewing Messages — find which contact matches and append
+              // Client is viewing Messages â find which contact matches and append
               var contact = _clientMsgContacts[_activeClientTab];
               if (contact && contact.userId === msg.sender_id) {
                 appendIncomingBubble('cMsgs', msg, name);
                 await markAsRead(msg.sender_id);
                 updateUnreadBadges();
               } else {
-                // Different contact sent the message — reload to update tabs
+                // Different contact sent the message â reload to update tabs
                 loadClientMessages();
-                if (typeof toast === 'function') toast('💬 New message from ' + name);
+                if (typeof toast === 'function') toast('ð¬ New message from ' + name);
                 toasted = true;
               }
             } else {
-              if (typeof toast === 'function') toast('💬 New message from ' + name);
+              if (typeof toast === 'function') toast('ð¬ New message from ' + name);
               toasted = true;
             }
           } else if (portal === 'staff') {
@@ -846,11 +990,11 @@
                 updateUnreadBadges();
               } else {
                 loadStaffMessages();
-                if (typeof toast === 'function') toast('💬 New message from ' + name);
+                if (typeof toast === 'function') toast('ð¬ New message from ' + name);
                 toasted = true;
               }
             } else {
-              if (typeof toast === 'function') toast('💬 New message from ' + name);
+              if (typeof toast === 'function') toast('ð¬ New message from ' + name);
               toasted = true;
             }
           }
@@ -877,7 +1021,7 @@
   }
 
   // ============================================================
-  //  Drop-in replacement for old sendMsg() — used by client input
+  //  Drop-in replacement for old sendMsg() â used by client input
   // ============================================================
   async function sendMsgReal(prefix) {
     // Both client and staff use their own tabbed send functions
@@ -918,7 +1062,8 @@
     staffTab: switchStaffTab,
     staffSend: staffSend,
     updateBadges: updateUnreadBadges,
-    getUnreadCount: getUnreadCount
+    getUnreadCount: getUnreadCount,
+    loadOlderChunk: _loadOlderChunk
   };
 
   // Auto-init
