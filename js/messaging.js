@@ -1035,13 +1035,11 @@
   function init() {
     window.sendMsg = sendMsgReal;
     subscribeToMessages();
-    setTimeout(updateUnreadBadges, 1000);
-    // Load alerts in owner overview if present
-    setTimeout(function() {
-      if (document.getElementById('hhpAlertsCard')) {
-        loadAlertMessages();
-      }
-    }, 1500);
+    updateUnreadBadges();
+    // Load alerts in owner overview immediately if present
+    if (document.getElementById('hhpAlertsCard')) {
+      loadAlertMessages();
+    }
   }
 
   // ============================================================
@@ -1066,11 +1064,18 @@
     loadOlderChunk: _loadOlderChunk
   };
 
-  // Auto-init
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 500); });
-  } else {
-    setTimeout(init, 500);
+  // Auto-init — wait for auth to be ready (no arbitrary delays)
+  function _startMessaging() {
+    if (window.onHHPAuthReady) {
+      window.onHHPAuthReady(init);
+    } else {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 300); });
+      } else {
+        setTimeout(init, 300);
+      }
+    }
   }
+  _startMessaging();
 
 })();
