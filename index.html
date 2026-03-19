@@ -6640,6 +6640,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const el1 = document.getElementById('stat-activeClients');
         if (el1) el1.textContent = activeClients || '0';
 
+        // New Sign-ups — clients who signed up THIS month
+        var { count: newSignups } = await sb.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'client').gte('created_at', startOfMonth.toISOString());
+        var elSignups = document.getElementById('stat-newSignups');
+        if (elSignups) elSignups.textContent = newSignups || '0';
+
         // This Month — count bookings this month
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
