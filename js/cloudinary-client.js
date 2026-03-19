@@ -247,14 +247,22 @@ const HHP_Photos = {
     const slotEl = document.querySelector(`[data-photo-slot="${slotId}"]`);
     if (slotEl) {
       const imgUrl = this._previewUrl(photoData, 300, 300);
-      // Use background shorthand to fully override the .photo-upload-slot class background
-      slotEl.style.cssText = `aspect-ratio:1;border-radius:8px;cursor:pointer;position:relative;background:url(${imgUrl}) center/cover no-repeat;border:2px solid var(--gold)`;
+      console.log(`📸 updateSlotPreview "${slotId}" → ${imgUrl}`);
+      // Remove the class so its background doesn't fight, set everything inline
+      slotEl.className = '';
+      slotEl.style.cssText = 'aspect-ratio:1;border-radius:8px;cursor:pointer;position:relative;border:2px solid var(--gold);overflow:hidden';
+      slotEl.style.backgroundImage = `url(${imgUrl})`;
+      slotEl.style.backgroundSize = 'cover';
+      slotEl.style.backgroundPosition = 'center';
+      slotEl.style.backgroundRepeat = 'no-repeat';
       slotEl.innerHTML = `
         <div style="position:absolute;inset:0;background:rgba(0,0,0,0.15);border-radius:inherit;display:flex;align-items:flex-end;justify-content:center;padding:6px">
           <div style="background:rgba(30,20,9,0.75);color:white;padding:2px 8px;border-radius:4px;font-size:0.6rem;font-weight:600">✅ Uploaded</div>
         </div>
       `;
       slotEl.title = 'Click to replace photo';
+    } else {
+      console.warn(`📸 updateSlotPreview: no element found for [data-photo-slot="${slotId}"]`);
     }
   },
 
@@ -262,11 +270,18 @@ const HHP_Photos = {
     const preview = document.getElementById('heroPhotoPreview');
     if (preview) {
       const imgUrl = this._previewUrl(photoData, 600, 450);
-      // Use background shorthand to fully override any class/inline styles
-      preview.style.cssText = `width:100%;aspect-ratio:4/3;border-radius:10px;cursor:pointer;transition:all 0.2s;margin-bottom:12px;position:relative;background:url(${imgUrl}) center/cover no-repeat;border:2px solid var(--gold)`;
+      console.log(`📸 updateHeroPreview → ${imgUrl}`);
+      // Set everything inline with individual properties to avoid shorthand issues
+      preview.style.cssText = 'width:100%;aspect-ratio:4/3;border-radius:10px;cursor:pointer;transition:all 0.2s;margin-bottom:12px;position:relative;border:2px solid var(--gold);overflow:hidden';
+      preview.style.backgroundImage = `url(${imgUrl})`;
+      preview.style.backgroundSize = 'cover';
+      preview.style.backgroundPosition = 'center';
+      preview.style.backgroundRepeat = 'no-repeat';
       // Remove hover handlers that reset the background
       preview.onmouseover = null;
       preview.onmouseout = null;
+      preview.removeAttribute('onmouseover');
+      preview.removeAttribute('onmouseout');
       preview.innerHTML = `
         <div style="position:absolute;bottom:8px;right:8px;background:rgba(30,20,9,0.7);color:white;padding:3px 10px;border-radius:4px;font-size:0.7rem;font-weight:600">✅ Uploaded</div>
       `;
@@ -450,11 +465,16 @@ const HHP_Photos = {
 
   // ── Restore all preview slots from stored data ──────────────────
   restoreAllPreviews() {
+    console.log('📸 restoreAllPreviews called, photos:', Object.keys(this.photos));
     // First, re-wire upload slots to ensure data-photo-slot attrs are set
     this.wireUploadSlots();
 
+    // Debug: check which data-photo-slot elements exist
+    const slotEls = document.querySelectorAll('[data-photo-slot]');
+    console.log('📸 Found data-photo-slot elements:', slotEls.length, Array.from(slotEls).map(e => e.dataset.photoSlot));
+
     Object.entries(this.photos).forEach(([slotId, photoData]) => {
-      if (photoData && photoData.thumbnail) {
+      if (photoData && (photoData.thumbnail || photoData.publicId || photoData.url)) {
         this.updateSlotPreview(slotId, photoData);
 
         // Fallback: if data-photo-slot element wasn't found, try the direct input mapping
