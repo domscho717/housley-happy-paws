@@ -296,7 +296,7 @@
 
         /* -- Nav: hide desktop elements -- */
         '.nav { padding: 0 12px !important; height: 56px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; position: relative !important; }' +
-        '.nav-logo { font-size: 1.35rem !important; position: absolute !important; left: 50% !important; transform: translateX(-50%) !important; text-align: center !important; pointer-events: auto !important; white-space: nowrap !important; }' +
+        '.nav-logo { font-size: 1.35rem !important; order: 1 !important; flex: 1 1 auto !important; text-align: center !important; justify-content: center !important; pointer-events: auto !important; white-space: nowrap !important; position: static !important; transform: none !important; }' +
         '.nav-center { display: none !important; }' +
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
@@ -1793,7 +1793,7 @@
       // Phone + iPad: clean mobile nav
       '@media (max-width: 1024px) {' +
         '.nav { padding: 0 12px !important; height: 56px !important; display: flex !important; align-items: center !important; justify-content: space-between !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; z-index: 9999 !important; background: rgba(253,250,245,0.97) !important; }' +
-        '.nav-logo { font-size: 1.35rem !important; position: absolute !important; left: 50% !important; transform: translateX(-50%) !important; text-align: center !important; pointer-events: auto !important; white-space: nowrap !important; }' +
+        '.nav-logo { font-size: 1.35rem !important; order: 1 !important; flex: 1 1 auto !important; text-align: center !important; justify-content: center !important; pointer-events: auto !important; white-space: nowrap !important; position: static !important; transform: none !important; }' +
         '.nav-center { display: none !important; }' +
         '.nav-right { display: none !important; }' +
         '#viewSwitcher { display: none !important; }' +
