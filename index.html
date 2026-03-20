@@ -1428,6 +1428,7 @@ try {
         <button class="sb-item" onclick="sTab('s','s-jobs')"><span class="sb-item-icon">🦮</span>Job Queue</button>
         <button class="sb-item" onclick="sTab('s','s-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
         <button class="sb-item" onclick="sTab('s','s-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
+        <button class="sb-item" onclick="sTab('s','s-avail')"><span class="sb-item-icon">🗓️</span>My Availability</button>
       </div>
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Communication <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:200px">
@@ -1528,6 +1529,18 @@ try {
       <div class="p-panel" id="s-cal">
         <div class="p-header"><h2>Team Calendar 📆</h2></div>
         <div class="card" id="sCalWrap"></div>
+      </div>
+
+      <div class="p-panel" id="s-avail">
+        <div class="p-header"><h2>My Availability 🗓️</h2><p>Click any future date to block/unblock your availability. Rachel will be notified of changes.</p></div>
+        <div class="card" id="staffAvailCalWrap" style="min-height:340px"><div style="padding:30px;text-align:center;color:var(--mid)">Loading availability calendar...</div></div>
+        <div class="card" style="margin-top:18px">
+          <div class="card-title" style="margin-bottom:14px">Block Date Range</div>
+          <p style="font-size:0.83rem;color:var(--mid);margin-bottom:12px">Block off multiple days at once — Rachel will be notified.</p>
+          <div class="form-row" style="margin-bottom:12px"><div><label class="form-lbl">From</label><input class="form-in" type="date" id="staff-avail-range-from"></div><div><label class="form-lbl">To</label><input class="form-in" type="date" id="staff-avail-range-to"></div></div>
+          <div class="form-group" style="margin-bottom:12px"><label class="form-lbl">Reason (optional)</label><input class="form-in" type="text" id="staff-avail-range-reason" placeholder="e.g. Vacation, Doctor appt, Personal"></div>
+          <button class="btn btn-rose btn-sm" onclick="staffBlockAvailRange()" style="width:100%;justify-content:center">Block These Dates & Notify Rachel</button>
+        </div>
       </div>
 
       <div class="p-panel" id="s-msgs">
@@ -1786,10 +1799,17 @@ try {
       </div>
 
       <div class="p-panel" id="o-avail">
-        <div class="p-header"><h2>Availability & Holidays 🗓️</h2></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-          <div class="card"><div class="card-title" style="margin-bottom:14px">Weekly Availability</div><div class="avail-grid" id="availGrid"><div class="avail-day on" onclick="toggleAvail(this)">Mon</div><div class="avail-day on" onclick="toggleAvail(this)">Tue</div><div class="avail-day on" onclick="toggleAvail(this)">Wed</div><div class="avail-day on" onclick="toggleAvail(this)">Thu</div><div class="avail-day on" onclick="toggleAvail(this)">Fri</div><div class="avail-day on" onclick="toggleAvail(this)">Sat</div><div class="avail-day on" onclick="toggleAvail(this)">Sun</div></div><div style="height:14px"></div><div style="font-size:0.85rem;color:var(--mid);padding:4px 0;margin-bottom:8px">Currently: Available any time on active days.</div><div class="form-row"><div><label class="form-lbl">Earliest Time (optional)</label><input class="form-in" type="time" id="avail-start" placeholder="Open"></div><div><label class="form-lbl">Latest Time (optional)</label><input class="form-in" type="time" id="avail-end" placeholder="Open"></div></div><div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Leave blank for anytime availability.</div><button class="btn btn-forest btn-sm" onclick="saveAvailability()" style="margin-top:8px">Save Availability</button></div>
-          <div class="card"><div class="card-title" style="margin-bottom:14px">Post Holiday / Day Off</div><div class="form-group"><label class="form-lbl">Announcement</label><textarea class="form-ta" id="holiday-msg" style="min-height:100px" placeholder="e.g. 🎄 I'm closed Dec 24–26 & Jan 1st. Please book early!"></textarea></div><div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">From</label><input class="form-in" type="date" id="holiday-from"></div><div><label class="form-lbl">To</label><input class="form-in" type="date" id="holiday-to"></div></div><button class="btn btn-gold btn-sm" onclick="saveHolidayNotice()" style="width:100%;justify-content:center">📢 Save & Post Holiday Notice</button></div>
+        <div class="p-header"><h2>Availability & Holidays 🗓️</h2><p>Click any future date to block/unblock it. Blocked dates show as unavailable on all calendars.</p></div>
+        <div class="card" id="availCalWrap" style="min-height:340px"><div style="padding:30px;text-align:center;color:var(--mid)">Loading availability calendar...</div></div>
+        <div class="card" style="margin-top:18px">
+          <div class="card-title" style="margin-bottom:14px">Block Date Range</div>
+          <p style="font-size:0.83rem;color:var(--mid);margin-bottom:12px">Quickly block off multiple days at once (vacation, holiday break, etc.)</p>
+          <div class="form-row" style="margin-bottom:12px"><div><label class="form-lbl">From</label><input class="form-in" type="date" id="avail-range-from"></div><div><label class="form-lbl">To</label><input class="form-in" type="date" id="avail-range-to"></div></div>
+          <div class="form-group" style="margin-bottom:12px"><label class="form-lbl">Reason (optional)</label><input class="form-in" type="text" id="avail-range-reason" placeholder="e.g. Holiday break, Vacation, Personal"></div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-rose btn-sm" onclick="blockAvailRange()" style="flex:1;justify-content:center">Block These Dates</button>
+            <button class="btn btn-forest btn-sm" onclick="unblockAvailRange()" style="flex:1;justify-content:center">Unblock These Dates</button>
+          </div>
         </div>
       </div>
 
@@ -2809,6 +2829,8 @@ function sTab(portal, panelId) {
   if ((panelId === 'c-cal' || panelId === 's-cal' || panelId === 'o-cal') && typeof loadCalendarBookings === 'function') {
     var now = new Date(); loadCalendarBookings(now.getFullYear(), now.getMonth());
   }
+  if (panelId === 'o-avail' && typeof buildAvailCalendar === 'function') buildAvailCalendar();
+  if (panelId === 's-avail' && typeof buildStaffAvailCalendar === 'function') buildStaffAvailCalendar();
   if (panelId === 'c-appts' && typeof loadClientAppts === 'function') loadClientAppts('all');
   if (panelId === 'o-staff' && typeof loadStaffTeam === 'function') loadStaffPanel('team');
   if (panelId === 'o-linkpage') { if (typeof loadLandingPageEditor === 'function') loadLandingPageEditor(); if (typeof loadQRScanStats === 'function') loadQRScanStats(); }
@@ -2860,7 +2882,7 @@ function sTab(portal, panelId) {
   }
 }
 function getIcon(id) {
-  const map = {'c-pets':'🐾','c-dash':'🏠','c-appts':'📅','c-track':'🗺️','c-photos':'📸','c-reports':'📋','c-msgs':'💬','c-notifs':'🔔','c-cal':'📆','c-bill':'💳','s-sched':'📅','s-jobs':'🦮','s-reports':'📋','s-msgs':'💬','s-earn':'💰','s-cal':'📆','o-overview':'📊','o-clients':'👥','o-sched':'📅','o-reports':'📋','o-staff':'🧑‍🤝‍🧑','o-msgs':'💬','o-cal':'📆','o-avail':'🗓️','o-auto':'🤖','o-studio':'✨','o-content':'✏️','o-photos':'🖼️','o-payments':'💳','o-deals':'🏷️','o-sendInvoice':'🧾','o-linkpage':'🔗','o-activity':'📜'};
+  const map = {'c-pets':'🐾','c-dash':'🏠','c-appts':'📅','c-track':'🗺️','c-photos':'📸','c-reports':'📋','c-msgs':'💬','c-notifs':'🔔','c-cal':'📆','c-bill':'💳','s-sched':'📅','s-jobs':'🦮','s-reports':'📋','s-msgs':'💬','s-earn':'💰','s-cal':'📆','s-avail':'🗓️','o-overview':'📊','o-clients':'👥','o-sched':'📅','o-reports':'📋','o-staff':'🧑‍🤝‍🧑','o-msgs':'💬','o-cal':'📆','o-avail':'🗓️','o-auto':'🤖','o-studio':'✨','o-content':'✏️','o-photos':'🖼️','o-payments':'💳','o-deals':'🏷️','o-sendInvoice':'🧾','o-linkpage':'🔗','o-activity':'📜'};
   return map[id]||'';
 }
 
@@ -4082,6 +4104,25 @@ async function loadCalendarBookings(year, month) {
       });
     }
 
+    // Load availability blocks (owner's blocked dates show on all calendars)
+    window._calOwnerBlocks = {};
+    try {
+      var { data: availBlocks } = await sb.from('availability_blocks')
+        .select('user_id, block_date, reason')
+        .gte('block_date', firstDay)
+        .lte('block_date', lastDay);
+      if (availBlocks) {
+        // Find owner user_id
+        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+        var ownerUid = ownerProf ? ownerProf.user_id : null;
+        availBlocks.forEach(function(ab) {
+          if (ab.user_id === ownerUid) {
+            window._calOwnerBlocks[ab.block_date] = { reason: ab.reason || '' };
+          }
+        });
+      }
+    } catch (abErr) { console.warn('Availability blocks load:', abErr); }
+
     // Clear existing dynamic events for this month
     Object.keys(calEvents).forEach(function(k) {
       if (k >= firstDay && k <= lastDay && calEvents[k]._dynamic) delete calEvents[k];
@@ -4168,16 +4209,25 @@ function buildCalendar(containerId, year, month) {
   html += '<div class="cal-grid">';
   days.forEach(d => html += `<div class="cal-dow">${d}</div>`);
   for(let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
+  // Get holidays and availability blocks for this month
+  var monthHolidays = (typeof getMonthHolidays === 'function') ? getMonthHolidays(year, month) : {};
+  var ownerBlocked = window._calOwnerBlocks || {};
+
   for(let d=1;d<=daysInMonth;d++){
     const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const ev = calEvents[key];
     const isToday = d===today.getDate()&&month===today.getMonth()&&year===today.getFullYear();
+    const holiday = monthHolidays[key] || null;
+    const isOwnerBlocked = ownerBlocked[key] ? true : false;
     let cls = 'cal-day';
     if(isToday) cls += ' today';
     if(ev?.type==='event') cls += ' has-event';
-    if(ev?.type==='off') cls += ' off';
+    if(ev?.type==='off' || isOwnerBlocked) cls += ' off';
     if(ev?.bookings && ev.bookings.length > 0 && ev.bookings.every(b => b.status === 'canceled')) cls += ' cal-canceled';
-    html += `<div class="${cls}" onclick="showCalDetail('${key}','${ev?.label||''}',this)"><div class="cal-day-num">${d}</div>${ev?`<div class="cal-event-dot">${ev.label}</div>`:''}`;
+    html += `<div class="${cls}" onclick="showCalDetail('${key}','${ev?.label||''}',this)"><div class="cal-day-num">${d}</div>`;
+    if(holiday) html += `<div style="font-size:0.6rem;line-height:1.15;color:var(--gold-deep);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${holiday}</div>`;
+    if(isOwnerBlocked && !(ev?.type==='off')) html += '<div style="font-size:0.58rem;color:var(--rose);font-weight:700">Unavailable</div>';
+    if(ev) html += `<div class="cal-event-dot">${ev.label}</div>`;
     html += '</div>';
   }
   html += '</div>';
@@ -4189,24 +4239,39 @@ function buildCalendar(containerId, year, month) {
 
   if (isPublic) {
     // Public homepage: only availability, closures, today
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div></div>`;
   } else if (isClient) {
     // Client portal: their bookings + closures
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
   } else if (isStaff) {
     // Staff portal: assigned jobs + closures
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div></div>`;
   } else {
     // Owner portal: full legend
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Day Off</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Blocked / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
   }
   html += `<div class="cal-detail" id="${containerId}-detail"></div>`;
   container.innerHTML = html;
 }
 
-function changeMonth(containerId, year, month, dir) {
+async function changeMonth(containerId, year, month, dir) {
   let m = month + dir, y = year;
   if(m>11){m=0;y++}if(m<0){m=11;y--}
+  // Reload owner availability blocks for the new month
+  try {
+    var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    if (sb) {
+      var fd = y + '-' + String(m + 1).padStart(2, '0') + '-01';
+      var ld = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(new Date(y, m + 1, 0).getDate()).padStart(2, '0');
+      var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+      if (ownerProf) {
+        window._calOwnerBlocks = {};
+        var { data: blocks } = await sb.from('availability_blocks').select('block_date, reason')
+          .eq('user_id', ownerProf.user_id).gte('block_date', fd).lte('block_date', ld);
+        if (blocks) blocks.forEach(function(b) { window._calOwnerBlocks[b.block_date] = { reason: b.reason || '' }; });
+      }
+    }
+  } catch (e) { console.warn('changeMonth avail load:', e); }
   buildCalendar(containerId, y, m);
   // Reload bookings for the new month
   if (typeof loadCalendarBookings === 'function') loadCalendarBookings(y, m);
@@ -4230,11 +4295,23 @@ function showCalDetail(key, label, el) {
 
   let html = '<div style="font-weight:700;margin-bottom:8px">'+dateStr+'</div>';
 
+  // Show holiday if applicable
+  var holidayName = (typeof isHoliday === 'function') ? isHoliday(key) : null;
+  if (holidayName) {
+    html += '<div style="font-size:0.88rem;color:var(--gold-deep);font-weight:600;margin-bottom:6px">🎉 ' + holidayName + '</div>';
+  }
+
+  // Show owner availability block
+  var ownerBlock = (window._calOwnerBlocks || {})[key];
+  if (ownerBlock) {
+    html += '<div style="font-size:0.88rem;color:var(--rose);font-weight:600;margin-bottom:6px">🚫 Rachel is unavailable' + (ownerBlock.reason ? ' — ' + ownerBlock.reason : '') + '</div>';
+  }
+
   if (isPublic) {
     // ── PUBLIC CALENDAR — simplified, no booking details ──
-    if (ev && ev.type === 'off') {
-      html += '<div style="font-size:0.9rem;color:var(--rose)">🚫 Closed</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">' + (ev.label || 'Rachel is off this day.') + '</div>';
+    if (ownerBlock || (ev && ev.type === 'off')) {
+      if (!ownerBlock) html += '<div style="font-size:0.9rem;color:var(--rose)">🚫 Closed</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">' + (ev && ev.label ? ev.label : 'Rachel is not available this day.') + '</div>';
     } else if (ev && ev.type === 'announcement') {
       html += '<div style="font-size:0.9rem;color:var(--gold-deep)">📢 ' + (ev.label || 'Announcement') + '</div>';
     } else if (ev && ev.type === 'discount') {
@@ -4302,12 +4379,29 @@ function showCalDetail(key, label, el) {
   detail.classList.add('show');
 }
 
-// Init calendars
+// Init calendars (load owner availability blocks first, then build)
 const now = new Date();
-buildCalendar('pubCalWrap', now.getFullYear(), now.getMonth());
-buildCalendar('cCalWrap', now.getFullYear(), now.getMonth());
-buildCalendar('sCalWrap', now.getFullYear(), now.getMonth());
-buildCalendar('oCalWrap', now.getFullYear(), now.getMonth());
+window._calOwnerBlocks = {};
+(async function initCalendars() {
+  try {
+    var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    if (sb) {
+      var y = now.getFullYear(), m = now.getMonth();
+      var fd = y + '-' + String(m + 1).padStart(2, '0') + '-01';
+      var ld = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(new Date(y, m + 1, 0).getDate()).padStart(2, '0');
+      var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+      if (ownerProf) {
+        var { data: blocks } = await sb.from('availability_blocks').select('block_date, reason')
+          .eq('user_id', ownerProf.user_id).gte('block_date', fd).lte('block_date', ld);
+        if (blocks) blocks.forEach(function(b) { window._calOwnerBlocks[b.block_date] = { reason: b.reason || '' }; });
+      }
+    }
+  } catch (e) { console.warn('Init avail load:', e); }
+  buildCalendar('pubCalWrap', now.getFullYear(), now.getMonth());
+  buildCalendar('cCalWrap', now.getFullYear(), now.getMonth());
+  buildCalendar('sCalWrap', now.getFullYear(), now.getMonth());
+  buildCalendar('oCalWrap', now.getFullYear(), now.getMonth());
+})();
 
 // ── Client Appointments List ──
 async function loadClientAppts(filter, tabBtn) {
@@ -7611,5 +7705,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/messaging.js" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/avatar-system.js" defer></script></body>
+  <script src="/js/avatar-system.js" defer></script>
+  <script src="/js/availability.js" defer></script></body>
 </html>
