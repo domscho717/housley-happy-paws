@@ -1256,10 +1256,15 @@ try {
               <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Pet Details</div>
               <div class="form-row">
                 <div class="form-group"><label class="form-lbl">Pet Name *</label><input class="form-in" id="pet-name" placeholder="e.g. Moose" required></div>
-                <div class="form-group"><label class="form-lbl">Species *</label><select class="form-sel" id="pet-species" onchange="calcPetAge()"><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
+                <div class="form-group"><label class="form-lbl">Species *</label><select class="form-sel" id="pet-species" onchange="calcPetAge();resetBreedOnSpeciesChange()"><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
               </div>
               <div class="form-row">
-                <div class="form-group"><label class="form-lbl">Breed</label><input class="form-in" id="pet-breed" placeholder="e.g. Golden Retriever"></div>
+                <div class="form-group"><label class="form-lbl">Breed</label>
+                  <div id="breed-search-wrap" style="position:relative">
+                    <input class="form-in" id="pet-breed" placeholder="Start typing to search breeds..." autocomplete="off" onfocus="openBreedDropdown()" oninput="filterBreeds()">
+                    <div id="breed-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #d4c5b0;border-top:none;border-radius:0 0 8px 8px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+                  </div>
+                </div>
                 <div class="form-group"><label class="form-lbl">Sex</label><select class="form-sel" id="pet-sex"><option value="">Select...</option><option value="male">Male</option><option value="female">Female</option></select></div>
               </div>
               <div class="form-group"><label class="form-lbl">Birthday / Age</label><input class="form-in" type="date" id="pet-birthday" onchange="calcPetAge()"></div>
@@ -3932,6 +3937,122 @@ function calcPetAge() {
   }
   if (displayEl) displayEl.style.display = 'block';
 }
+
+// ---- BREED SEARCH ----
+var _dogBreeds = [
+  'Affenpinscher','Afghan Hound','Airedale Terrier','Akita','Alaskan Malamute',
+  'American Bulldog','American Eskimo Dog','American Foxhound','American Pit Bull Terrier',
+  'American Staffordshire Terrier','Australian Cattle Dog','Australian Shepherd',
+  'Australian Terrier','Basenji','Basset Hound','Beagle','Bearded Collie',
+  'Belgian Malinois','Bernedoodle','Bernese Mountain Dog','Bichon Frise',
+  'Bloodhound','Blue Heeler','Border Collie','Border Terrier','Borzoi',
+  'Boston Terrier','Boxer','Boykin Spaniel','Briard','Brittany','Brussels Griffon',
+  'Bull Terrier','Bullmastiff','Cairn Terrier','Cane Corso','Cardigan Welsh Corgi',
+  'Cavalier King Charles Spaniel','Chesapeake Bay Retriever','Chihuahua',
+  'Chinese Crested','Chinese Shar-Pei','Chow Chow','Clumber Spaniel',
+  'Cockapoo','Cocker Spaniel','Collie','Corgi','Coton de Tulear',
+  'Dachshund','Dalmatian','Doberman Pinscher','Dogo Argentino','Dogue de Bordeaux',
+  'Dutch Shepherd','English Bulldog','English Cocker Spaniel','English Setter',
+  'English Springer Spaniel','Flat-Coated Retriever','French Bulldog',
+  'German Pinscher','German Shepherd','German Shorthaired Pointer',
+  'Giant Schnauzer','Glen of Imaal Terrier','Goldendoodle','Golden Retriever',
+  'Gordon Setter','Great Dane','Great Pyrenees','Greater Swiss Mountain Dog',
+  'Greyhound','Harrier','Havanese','Husky','Irish Setter','Irish Terrier',
+  'Irish Water Spaniel','Irish Wolfhound','Italian Greyhound',
+  'Jack Russell Terrier','Japanese Chin','Keeshond','Kerry Blue Terrier',
+  'King Charles Spaniel','Labradoodle','Labrador Retriever','Lakeland Terrier',
+  'Leonberger','Lhasa Apso','Maltese','Maltipoo','Manchester Terrier',
+  'Mastiff','Miniature Pinscher','Miniature Poodle','Miniature Schnauzer',
+  'Morkie','Newfoundland','Norfolk Terrier','Norwegian Elkhound',
+  'Norwich Terrier','Nova Scotia Duck Tolling Retriever','Old English Sheepdog',
+  'Papillon','Peekapoo','Pekingese','Pembroke Welsh Corgi','Pit Bull',
+  'Pointer','Pomeranian','Pomsky','Poodle','Portuguese Water Dog','Pug',
+  'Puggle','Rat Terrier','Redbone Coonhound','Rhodesian Ridgeback',
+  'Rottweiler','Saint Bernard','Samoyed','Schipperke','Schnauzer',
+  'Schnoodle','Scottish Deerhound','Scottish Terrier','Shetland Sheepdog',
+  'Shiba Inu','Shih Tzu','Shih-Poo','Siberian Husky','Silky Terrier',
+  'Soft Coated Wheaten Terrier','Staffordshire Bull Terrier','Standard Poodle',
+  'Standard Schnauzer','Tibetan Mastiff','Tibetan Spaniel','Tibetan Terrier',
+  'Toy Poodle','Treeing Walker Coonhound','Vizsla','Weimaraner',
+  'Welsh Springer Spaniel','Welsh Terrier','West Highland White Terrier',
+  'Whippet','Wire Fox Terrier','Wirehaired Pointing Griffon',
+  'Xoloitzcuintli','Yorkipoo','Yorkshire Terrier','Mixed Breed','Other'
+];
+var _catBreeds = [
+  'Abyssinian','American Bobtail','American Curl','American Shorthair',
+  'American Wirehair','Balinese','Bengal','Birman','Bombay','British Longhair',
+  'British Shorthair','Burmese','Burmilla','Calico','Chartreux','Chausie',
+  'Cornish Rex','Devon Rex','Domestic Longhair','Domestic Medium Hair',
+  'Domestic Shorthair','Egyptian Mau','Exotic Shorthair','Havana Brown',
+  'Himalayan','Japanese Bobtail','Javanese','Khao Manee','Korat',
+  'LaPerm','Lykoi','Maine Coon','Manx','Munchkin','Nebelung',
+  'Norwegian Forest Cat','Ocicat','Oriental Shorthair','Persian',
+  'Pixie-Bob','Ragamuffin','Ragdoll','Russian Blue','Savannah',
+  'Scottish Fold','Selkirk Rex','Siamese','Siberian','Singapura',
+  'Snowshoe','Somali','Sphynx','Tabby','Tonkinese','Toyger',
+  'Turkish Angora','Turkish Van','Tuxedo','Mixed Breed','Other'
+];
+
+function getBreedList() {
+  var species = (document.getElementById('pet-species') || {}).value || 'dog';
+  return species === 'cat' ? _catBreeds : _dogBreeds;
+}
+
+function openBreedDropdown() {
+  filterBreeds();
+}
+
+function filterBreeds() {
+  var input = document.getElementById('pet-breed');
+  var dropdown = document.getElementById('breed-dropdown');
+  if (!input || !dropdown) return;
+  var query = input.value.trim().toLowerCase();
+  var breeds = getBreedList();
+  var filtered = query ? breeds.filter(function(b) { return b.toLowerCase().indexOf(query) !== -1; }) : breeds;
+
+  if (filtered.length === 0) {
+    dropdown.innerHTML = '<div style="padding:10px 14px;color:#a08a6e;font-size:0.82rem">No matches — type a custom breed or keep typing</div>';
+    dropdown.style.display = 'block';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(breed) {
+    var display = breed;
+    if (query) {
+      var idx = breed.toLowerCase().indexOf(query);
+      if (idx !== -1) {
+        display = breed.substring(0, idx) + '<strong style="color:var(--gold-deep)">' + breed.substring(idx, idx + query.length) + '</strong>' + breed.substring(idx + query.length);
+      }
+    }
+    html += '<div class="breed-option" onclick="selectBreed(\'' + breed.replace(/'/g, "\\'") + '\')" style="padding:8px 14px;cursor:pointer;font-size:0.85rem;color:#4a3728;border-bottom:1px solid #f5f0e8;transition:background 0.12s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'#fff\'">' + display + '</div>';
+  });
+  dropdown.innerHTML = html;
+  dropdown.style.display = 'block';
+}
+
+function selectBreed(breed) {
+  var input = document.getElementById('pet-breed');
+  var dropdown = document.getElementById('breed-dropdown');
+  if (input) input.value = breed;
+  if (dropdown) dropdown.style.display = 'none';
+}
+
+function resetBreedOnSpeciesChange() {
+  var input = document.getElementById('pet-breed');
+  var dropdown = document.getElementById('breed-dropdown');
+  if (input) { input.value = ''; input.placeholder = (document.getElementById('pet-species').value === 'cat') ? 'Start typing to search cat breeds...' : 'Start typing to search dog breeds...'; }
+  if (dropdown) dropdown.style.display = 'none';
+}
+
+// Close breed dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('breed-search-wrap');
+  var dropdown = document.getElementById('breed-dropdown');
+  if (dropdown && wrap && !wrap.contains(e.target)) {
+    dropdown.style.display = 'none';
+  }
+});
 
 // ---- TOAST ----
 function toast(msg) {
