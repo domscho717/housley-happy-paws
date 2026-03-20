@@ -1784,6 +1784,25 @@ try {
           <div style="background:#e0f2fe;border-radius:10px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700" id="rv-publicCount">0</div><div style="font-size:0.7rem;font-weight:600;color:var(--mid);text-transform:uppercase">On Website</div></div>
         </div>
 
+        <!-- Action buttons -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+          <button class="btn btn-gold btn-sm" onclick="openAddPastReview()">+ Add Past Review</button>
+        </div>
+
+        <!-- External reviews count (Rover etc.) -->
+        <div class="card" style="margin-bottom:16px;padding:14px;border:1px dashed rgba(200,150,62,0.3)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-weight:700;font-size:0.88rem">📊 Total Review Count (Rover + Site)</div>
+              <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Set your total review count and rating from all sources — shown on public website</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div><label style="font-size:0.7rem;font-weight:600;color:var(--mid)">Total Count</label><input type="number" id="rv-ext-count" class="form-in" value="102" style="width:70px;text-align:center;padding:5px" onchange="saveExternalReviewStats()"></div>
+              <div><label style="font-size:0.7rem;font-weight:600;color:var(--mid)">Avg Rating</label><input type="number" id="rv-ext-rating" class="form-in" value="5.0" step="0.1" min="1" max="5" style="width:70px;text-align:center;padding:5px" onchange="saveExternalReviewStats()"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Filter tabs -->
         <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
           <button class="btn btn-sm rv-filter-btn active" onclick="filterReviews('all')" data-filter="all" style="font-size:0.76rem">All Reviews</button>
@@ -2625,6 +2644,51 @@ try {
     </div>
     <input type="hidden" id="rvr-review-id">
     <button class="submit-btn gold" onclick="submitOwnerResponse()" style="width:100%">Save Response</button>
+  </div>
+</div>
+
+<!-- Add Past Review Modal (Owner) -->
+<div class="overlay" id="addPastReviewModal" style="display:none" onclick="if(event.target===this)closeModal('addPastReviewModal')">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div class="modal-title">+ Add Past Review</div>
+      <button class="modal-close" onclick="closeModal('addPastReviewModal')">✕</button>
+    </div>
+    <div style="background:var(--gold-pale);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:var(--brown)">Add a review from Rover, Google, or any other source. These will appear in your review management and can be published to your website.</div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label class="form-lbl">Client Name</label>
+      <input class="form-in" id="apr-name" placeholder="e.g. Sarah W.">
+    </div>
+    <div class="form-row" style="margin-bottom:12px">
+      <div class="form-group"><label class="form-lbl">Service</label>
+        <select class="form-sel" id="apr-service"><option>Dog Walking</option><option>Drop-In Visit</option><option>Cat Care Visit</option><option>House Sitting</option></select>
+      </div>
+      <div class="form-group"><label class="form-lbl">Pet Name (optional)</label>
+        <input class="form-in" id="apr-pet" placeholder="e.g. Cooper">
+      </div>
+    </div>
+    <div style="text-align:center;margin-bottom:12px">
+      <div id="apr-stars" style="display:flex;justify-content:center;gap:8px;margin-bottom:4px">
+        <span class="apr-star" data-val="1" onclick="setAPRStars(1)" style="font-size:2rem;cursor:pointer;color:#c8963e">★</span>
+        <span class="apr-star" data-val="2" onclick="setAPRStars(2)" style="font-size:2rem;cursor:pointer;color:#c8963e">★</span>
+        <span class="apr-star" data-val="3" onclick="setAPRStars(3)" style="font-size:2rem;cursor:pointer;color:#c8963e">★</span>
+        <span class="apr-star" data-val="4" onclick="setAPRStars(4)" style="font-size:2rem;cursor:pointer;color:#c8963e">★</span>
+        <span class="apr-star" data-val="5" onclick="setAPRStars(5)" style="font-size:2rem;cursor:pointer;color:#c8963e">★</span>
+      </div>
+      <input type="hidden" id="apr-rating" value="5">
+    </div>
+    <div class="form-group" style="margin-bottom:12px">
+      <label class="form-lbl">Review Text</label>
+      <textarea class="form-ta" id="apr-text" placeholder="Paste the review text here..." style="min-height:80px"></textarea>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-lbl">Date (approximate)</label>
+      <input class="form-in" type="date" id="apr-date">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="submit-btn gold" onclick="submitPastReview()" style="flex:1">Add Review</button>
+      <button class="submit-btn gold" onclick="submitPastReview(true)" style="flex:1;background:var(--forest)">Add & Approve</button>
+    </div>
   </div>
 </div>
 
@@ -7771,17 +7835,23 @@ async function loadOwnerReviews() {
     if (error) throw error;
     _rvCache = reviews || [];
 
-    // Update stats
-    var total = _rvCache.length;
+    // Update stats — show combined totals
+    var extStats = _getExternalReviewStats();
+    var dbTotal = _rvCache.length;
     var pending = _rvCache.filter(function(r) { return r.status === 'pending'; }).length;
     var approved = _rvCache.filter(function(r) { return r.status === 'approved'; }).length;
     var featured = _rvCache.filter(function(r) { return r.featured; }).length;
-    var avgRating = total > 0 ? (_rvCache.reduce(function(s, r) { return s + r.rating; }, 0) / total).toFixed(1) : '—';
+    var displayTotal = Math.max(extStats.count, dbTotal);
+    var avgRating = extStats.rating.toFixed(1);
 
-    var el1 = document.getElementById('rv-avgRating'); if (el1) el1.textContent = avgRating + (total > 0 ? ' ⭐' : '');
-    var el2 = document.getElementById('rv-totalReviews'); if (el2) el2.textContent = total;
+    var el1 = document.getElementById('rv-avgRating'); if (el1) el1.textContent = avgRating + ' ⭐';
+    var el2 = document.getElementById('rv-totalReviews'); if (el2) el2.textContent = displayTotal + (dbTotal < displayTotal ? ' (' + dbTotal + ' entered)' : '');
     var el3 = document.getElementById('rv-pendingCount'); if (el3) el3.textContent = pending;
     var el4 = document.getElementById('rv-publicCount'); if (el4) el4.textContent = approved;
+
+    // Load external stats into fields
+    var extCountEl = document.getElementById('rv-ext-count'); if (extCountEl) extCountEl.value = extStats.count;
+    var extRatingEl = document.getElementById('rv-ext-rating'); if (extRatingEl) extRatingEl.value = extStats.rating;
 
     renderReviewsList(_rvCurrentFilter);
   } catch (e) {
@@ -7933,6 +8003,90 @@ function toggleReviewsOnWebsite() {
   try { localStorage.setItem('hhp_showReviews', checked ? '1' : '0'); } catch(e) {}
 }
 
+// ── Add Past Review (owner manually entering Rover/Google reviews) ──
+function openAddPastReview() {
+  document.getElementById('apr-name').value = '';
+  document.getElementById('apr-pet').value = '';
+  document.getElementById('apr-text').value = '';
+  document.getElementById('apr-rating').value = '5';
+  document.getElementById('apr-date').value = '';
+  setAPRStars(5);
+  var modal = document.getElementById('addPastReviewModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function setAPRStars(val) {
+  document.getElementById('apr-rating').value = val;
+  document.querySelectorAll('#apr-stars .apr-star').forEach(function(s) {
+    var sv = parseInt(s.getAttribute('data-val'));
+    s.textContent = sv <= val ? '★' : '☆';
+    s.style.color = sv <= val ? '#c8963e' : '#d4c5b0';
+  });
+}
+
+async function submitPastReview(autoApprove) {
+  var name = document.getElementById('apr-name').value.trim();
+  if (!name) { toast('Please enter a client name.'); return; }
+
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (!sb) return;
+
+  var rating = parseInt(document.getElementById('apr-rating').value) || 5;
+  var text = document.getElementById('apr-text').value.trim();
+  var service = document.getElementById('apr-service').value;
+  var pet = document.getElementById('apr-pet').value.trim();
+  var date = document.getElementById('apr-date').value;
+
+  var { error } = await sb.from('reviews').insert({
+    client_id: null,
+    client_user_id: null,
+    client_name: name,
+    report_id: null,
+    booking_id: null,
+    service: service || null,
+    pet_name: pet || null,
+    rating: rating,
+    review_text: text || null,
+    status: autoApprove ? 'approved' : 'pending',
+    created_at: date ? new Date(date + 'T12:00:00').toISOString() : new Date().toISOString()
+  });
+
+  if (error) {
+    console.error('Add past review error:', error);
+    toast('Failed to add review.');
+    return;
+  }
+
+  toast(autoApprove ? '⭐ Review added and approved!' : '⭐ Review added! Approve it to show on site.');
+  closeModal('addPastReviewModal');
+  loadOwnerReviews();
+  if (autoApprove && typeof loadPublicReviews === 'function') loadPublicReviews();
+}
+
+// ── External review stats (Rover/Google totals) ──
+function saveExternalReviewStats() {
+  var count = parseInt(document.getElementById('rv-ext-count').value) || 0;
+  var rating = parseFloat(document.getElementById('rv-ext-rating').value) || 5.0;
+  if (rating > 5) rating = 5; if (rating < 1) rating = 1;
+  // Save to site data (same system as footer, pricing, etc.)
+  setSiteData({ extReviewCount: count, extReviewRating: rating });
+  toast('📊 External review stats saved!');
+  if (typeof loadPublicReviews === 'function') loadPublicReviews();
+}
+
+function _getExternalReviewStats() {
+  try {
+    var d = getSiteData();
+    var count = parseInt(d.extReviewCount);
+    var rating = parseFloat(d.extReviewRating);
+    if (isNaN(count)) count = 102;
+    if (isNaN(rating)) rating = 5.0;
+    return { count: count, rating: rating };
+  } catch(e) {
+    return { count: 102, rating: 5.0 };
+  }
+}
+
 // ── Load client's own reviews (My Reviews panel) ──
 async function loadClientReviewsList() {
   var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
@@ -8014,23 +8168,40 @@ async function loadPublicReviews() {
     var { data: reviews } = await sb.from('reviews').select('client_name, rating, review_text, service, pet_name, owner_response, created_at, featured')
       .eq('status', 'approved').order('featured', { ascending: false }).order('created_at', { ascending: false }).limit(12);
 
-    if (!reviews || reviews.length === 0) {
+    reviews = reviews || [];
+    var extStats = _getExternalReviewStats();
+
+    // Hide section only if no DB reviews AND no external review count
+    if (reviews.length === 0 && extStats.count === 0) {
       section.style.display = 'none';
       return;
     }
 
     section.style.display = '';
 
-    // Calculate aggregate rating
-    var total = reviews.length;
-    var avg = (reviews.reduce(function(s, r) { return s + r.rating; }, 0) / total).toFixed(1);
+    // Calculate aggregate rating — combine database reviews with external (Rover/Google) stats
+    var dbCount = reviews.length;
+    var dbSum = reviews.reduce(function(s, r) { return s + r.rating; }, 0);
+    // External count represents ALL reviews (Rover + Google + site). Use higher of external or DB.
+    var displayTotal = Math.max(extStats.count, dbCount);
+    // Compute display average: if DB has enough reviews, blend with external; otherwise use external
+    var displayAvg;
+    if (dbCount >= displayTotal) {
+      // All reviews are in DB — use real average
+      displayAvg = (dbSum / dbCount).toFixed(1);
+    } else {
+      // Blend: external covers the non-DB reviews
+      var extOnlyCount = displayTotal - dbCount;
+      displayAvg = ((extStats.rating * extOnlyCount + dbSum) / displayTotal).toFixed(1);
+    }
+    if (parseFloat(displayAvg) > 5) displayAvg = '5.0';
 
     var headerH = '<div style="text-align:center;margin-bottom:28px">' +
       '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:2rem;font-weight:700;color:var(--ink);margin-bottom:6px">What Our Clients Say</h2>' +
       '<div style="display:flex;align-items:center;justify-content:center;gap:8px">' +
-      '<div style="font-size:1.4rem;font-weight:700;color:var(--gold,#c8963e)">' + avg + '</div>' +
-      '<div>' + _rvStarsHTML(Math.round(parseFloat(avg)), '1.2rem') + '</div>' +
-      '<div style="font-size:0.82rem;color:var(--mid)">(' + total + ' review' + (total !== 1 ? 's' : '') + ')</div>' +
+      '<div style="font-size:1.4rem;font-weight:700;color:var(--gold,#c8963e)">' + displayAvg + '</div>' +
+      '<div>' + _rvStarsHTML(Math.round(parseFloat(displayAvg)), '1.2rem') + '</div>' +
+      '<div style="font-size:0.82rem;color:var(--mid)">(' + displayTotal + ' review' + (displayTotal !== 1 ? 's' : '') + ')</div>' +
       '</div></div>';
 
     var cardsH = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">';
@@ -8049,10 +8220,11 @@ async function loadPublicReviews() {
     });
     cardsH += '</div>';
 
-    section.innerHTML = headerH + cardsH;
+    var innerDiv = section.querySelector('div') || section;
+    innerDiv.innerHTML = headerH + (reviews.length > 0 ? cardsH : '');
 
     // ── SEO: Inject JSON-LD structured data for reviews ──
-    _injectReviewSchema(reviews, avg, total);
+    _injectReviewSchema(reviews, displayAvg, displayTotal);
 
   } catch (e) {
     console.warn('Load public reviews error:', e);
