@@ -524,7 +524,7 @@
       '      <label class="brm-label">Select Your Date(s) *</label>',
       '      <div id="brm-selected-chips" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>',
       '      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">',
-      '        <input type="date" id="brm-add-date-input" class="brm-input" style="flex:1" min="' + new Date().toISOString().split('T')[0] + '" value="">',
+      '        <input type="date" id="brm-add-date-input" class="brm-input" style="flex:1" value="">',
       '      </div>',
       '      <div id="brm-dates-list" style="display:flex;flex-direction:column;gap:8px"></div>',
       '      <div id="brm-no-dates-msg" style="text-align:center;color:#a08a6e;font-size:0.82rem;padding:12px;background:#f9f6f0;border:1px dashed #e0d5c5;border-radius:8px">Tap a date above to add it to your booking</div>',
@@ -905,8 +905,17 @@
       // Auto-add date card when user picks a date from the calendar
       var addDateInput = document.getElementById('brm-add-date-input');
       if (addDateInput) {
+        // Track whether user has interacted with the picker (not just opened it)
+        addDateInput._lastVal = '';
+        addDateInput.addEventListener('focus', function() {
+          addDateInput._lastVal = addDateInput.value || '';
+        });
         addDateInput.addEventListener('change', function() {
-          if (addDateInput.value) window._brmAddDateCard();
+          // Only add card if value actually changed from what it was before
+          if (addDateInput.value && addDateInput.value !== addDateInput._lastVal) {
+            addDateInput._lastVal = '';
+            window._brmAddDateCard();
+          }
         });
       }
 
@@ -1019,6 +1028,14 @@
       }
       var dateVal = dateInput.value;
 
+      // Prevent past dates
+      var todayStr = new Date().toISOString().split('T')[0];
+      if (dateVal < todayStr) {
+        if (typeof toast === 'function') toast('Please select a future date.');
+        dateInput.value = '';
+        return;
+      }
+
       // Check for duplicate
       var isDupe = window._brmDateCards.some(function(c) { return c && c.date === dateVal; });
       if (isDupe) {
@@ -1086,6 +1103,7 @@
 
       // Clear the date input for next selection
       dateInput.value = '';
+      dateInput._lastVal = '';
       _syncPrimaryFromCards();
       updatePriceEstimate();
     };
