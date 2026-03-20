@@ -517,8 +517,12 @@
           'top: 56px !important; width: 75vw !important; height: calc(100vh - 56px) !important;' +
           'z-index: 9995 !important; background: #fefcf8 !important;' +
           'box-shadow: 2px 0 8px rgba(0,0,0,0.1) !important;' +
-          'overflow-y: auto !important; -webkit-overflow-scrolling: touch !important;' +
-          'padding-bottom: 140px !important;' +
+          'overflow-y: scroll !important; overflow-x: hidden !important;' +
+          'padding-bottom: 80px !important;' +
+        '}' +
+        '.hhp-drawer::after {' +
+          'content: "" !important; display: block !important; height: 80px !important;' +
+          'flex-shrink: 0 !important;' +
         '}' +
         '.hhp-drawer.hhp-drawer-open {' +
           'display: block !important;' +
