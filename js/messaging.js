@@ -45,9 +45,12 @@
     return 'client';
   }
 
-  // Avatar HTML
-  function avatarHTML(name, size) {
+  // Avatar HTML — shows profile picture if available, otherwise colored initial
+  function avatarHTML(name, size, avatarUrl) {
     size = size || 32;
+    if (avatarUrl) {
+      return '<img src="' + avatarUrl + '" alt="' + (name || '').charAt(0) + '" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #e0d5c5">';
+    }
     var initial = (name || '?').charAt(0).toUpperCase();
     var colors = {
       'A':'#e74c3c','B':'#3498db','C':'#2ecc71','D':'#9b59b6','E':'#f39c12',
@@ -360,7 +363,7 @@
       var isMine = msg.sender_id === viewerUserId;
       var profile = await getProfileByUserId(msg.sender_id);
       var name = profile.full_name || 'Unknown';
-      var ava = avatarHTML(name, 32);
+      var ava = avatarHTML(name, 32, profile.avatar_url);
 
       if (isMine) {
         html += '<div style="display:flex;gap:8px;align-items:flex-end;justify-content:flex-end">' +
@@ -563,7 +566,7 @@
     var threadEl = document.getElementById('cMsgs');
     if (threadEl) {
       var myProfile = await getMyProfile();
-      var ava = avatarHTML((myProfile && myProfile.full_name) || 'C', 32);
+      var ava = avatarHTML((myProfile && myProfile.full_name) || 'C', 32, myProfile && myProfile.avatar_url);
       var d = document.createElement('div');
       d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
       d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + ava;
@@ -674,7 +677,7 @@
     var threadEl = document.getElementById('sMsgs');
     if (threadEl) {
       var myProfile = await getMyProfile();
-      var ava = avatarHTML((myProfile && myProfile.full_name) || 'S', 32);
+      var ava = avatarHTML((myProfile && myProfile.full_name) || 'S', 32, myProfile && myProfile.avatar_url);
       var d = document.createElement('div');
       d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
       d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + ava;
@@ -734,7 +737,7 @@
         'style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s' +
         (c.unread > 0 ? ';background:rgba(200,150,62,0.08)' : '') + '"' +
         ' onmouseover="this.style.background=\'rgba(200,150,62,0.12)\'" onmouseout="this.style.background=\'' + (c.unread > 0 ? 'rgba(200,150,62,0.08)' : '') + '\'">' +
-        avatarHTML(name, 40) +
+        avatarHTML(name, 40, profile.avatar_url) +
         '<div style="flex:1;min-width:0">' +
         '<div style="display:flex;align-items:center;gap:4px"><span style="font-weight:600;font-size:0.88rem">' + escHTML(name) + '</span>' + roleBadge + unreadDot + '</div>' +
         '<div style="font-size:0.78rem;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(preview) + '</div>' +
@@ -1000,14 +1003,15 @@
   // ============================================================
   //  Realtime: append a single incoming bubble to the thread
   // ============================================================
-  function appendIncomingBubble(threadId, msg, senderName) {
+  async function appendIncomingBubble(threadId, msg, senderName) {
     var threadEl = document.getElementById(threadId);
     if (!threadEl) return false;
     // Don't append if the thread is empty placeholder
     if (threadEl.children.length === 1 && threadEl.querySelector('[style*="align-self:center"]')) {
       threadEl.innerHTML = '';
     }
-    var ava = avatarHTML(senderName, 32);
+    var senderProfile = msg.sender_id ? await getProfileByUserId(msg.sender_id) : null;
+    var ava = avatarHTML(senderName, 32, senderProfile && senderProfile.avatar_url);
     var d = document.createElement('div');
     d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;opacity:0;transition:opacity 0.3s';
     d.innerHTML = ava + '<div><div class="msg-in">' + escHTML(msg.body) + '</div>' +
