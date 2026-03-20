@@ -1492,7 +1492,7 @@ try {
 
           <!-- Date & Duration -->
           <div class="form-row" style="margin-bottom:16px;align-items:end">
-            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="srpt-date" type="text" readonly style="width:100%;box-sizing:border-box" data-date=""></div>
+            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="srpt-date" type="date" style="width:100%;box-sizing:border-box"></div>
             <div style="flex:1"><label class="form-lbl">Duration</label><select class="form-sel" id="srpt-duration"><option value="30 min">30 Minutes</option><option value="1 hour">1 Hour</option></select></div>
           </div>
 
@@ -1670,9 +1670,9 @@ try {
             <div><label class="form-lbl">Service</label><select class="form-sel" id="rpt-service" onchange="toggleReportDistance()"><option value="Dog Walk">Dog Walk</option><option value="Cat Drop-In">Cat Drop-In</option><option value="Drop-In Visit">Drop-In Visit</option><option value="Dog Boarding">Dog Boarding</option><option value="Day Care">Day Care</option><option value="House Sitting (Dog)">House Sitting (Dog)</option><option value="House Sitting (Cat)">House Sitting (Cat)</option></select></div>
           </div>
 
-          <!-- Date (auto today) & Duration dropdown -->
+          <!-- Date & Duration dropdown -->
           <div class="form-row" style="margin-bottom:16px;align-items:end">
-            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="rpt-date" type="text" readonly style="width:100%;box-sizing:border-box" data-date=""></div>
+            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="rpt-date" type="date" style="width:100%;box-sizing:border-box"></div>
             <div style="flex:1"><label class="form-lbl">Duration</label><select class="form-sel" id="rpt-duration"><option value="30 min">30 Minutes</option><option value="1 hour">1 Hour</option></select></div>
           </div>
 
@@ -6747,11 +6747,10 @@ function toggleStaffReportDistance() {
 function initReportDate() {
   var now = new Date();
   var isoDate = now.toISOString().split('T')[0];
-  var display = now.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
   var rptDate = document.getElementById('rpt-date');
-  if (rptDate) { rptDate.value = display; rptDate.setAttribute('data-date', isoDate); }
+  if (rptDate) rptDate.value = isoDate;
   var srptDate = document.getElementById('srpt-date');
-  if (srptDate) { srptDate.value = display; srptDate.setAttribute('data-date', isoDate); }
+  if (srptDate) srptDate.value = isoDate;
 }
 
 // ── Populate client dropdown from profiles table ──
@@ -6868,7 +6867,7 @@ async function submitServiceReport() {
   }
   var clientId = document.getElementById('rpt-client')?.value;
   var service = document.getElementById('rpt-service')?.value;
-  var reportDate = document.getElementById('rpt-date')?.getAttribute('data-date');
+  var reportDate = document.getElementById('rpt-date')?.value;
   var duration = document.getElementById('rpt-duration')?.value;
   var distance = document.getElementById('rpt-distance')?.value?.trim();
   var mood = document.getElementById('rpt-mood')?.value;
@@ -6924,7 +6923,7 @@ async function submitStaffServiceReport() {
   }
   var clientId = document.getElementById('srpt-client')?.value;
   var service = document.getElementById('srpt-service')?.value;
-  var reportDate = document.getElementById('srpt-date')?.getAttribute('data-date');
+  var reportDate = document.getElementById('srpt-date')?.value;
   var duration = document.getElementById('srpt-duration')?.value;
   var distance = document.getElementById('srpt-distance')?.value?.trim();
   var mood = document.getElementById('srpt-mood')?.value;
