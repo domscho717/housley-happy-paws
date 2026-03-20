@@ -261,10 +261,10 @@ body.loading-auth .nav{visibility:hidden}
 }
 .about-photo-single img{width:100%;height:100%;object-fit:cover;border-radius:16px}
 /* About slideshow */
-.about-slideshow{position:relative;width:100%;min-height:420px;border-radius:16px;overflow:hidden;border:1px solid var(--border)}
+.about-slideshow{position:relative;width:100%;aspect-ratio:4/3;min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--border)}
 .about-slideshow .slide{position:absolute;inset:0;opacity:0;transition:opacity 0.8s ease;background-size:cover;background-position:center}
 .about-slideshow .slide.active{opacity:1}
-.about-slideshow .slide img{width:100%;height:100%;object-fit:cover}
+.about-slideshow .slide img{width:100%;height:100%;object-fit:cover;object-position:center}
 .about-slideshow .ss-arrow{position:absolute;top:50%;transform:translateY(-50%);background:rgba(30,20,9,0.55);color:white;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;z-index:2;transition:background 0.2s}
 .about-slideshow .ss-arrow:hover{background:rgba(200,150,62,0.85)}
 .about-slideshow .ss-prev{left:10px}
