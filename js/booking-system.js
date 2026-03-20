@@ -519,15 +519,13 @@
       '    <input type="hidden" id="brm-time" value="">',
       '    <div id="brm-endtime-display" style="display:none"></div>',
       '',
-      '    <!-- Unified date picker: tap a date to add it -->',
+      '    <!-- Unified date picker: tap dates on calendar to select -->',
       '    <div id="brm-multidate-section" style="margin:6px 0 14px">',
-      '      <label class="brm-label">Select Your Date(s) *</label>',
-      '      <div id="brm-selected-chips" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>',
-      '      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">',
-      '        <input type="date" id="brm-add-date-input" class="brm-input" style="flex:1" value="">',
-      '      </div>',
+      '      <label class="brm-label">Tap the dates you want to book</label>',
+      '      <div id="brm-cal-picker" style="background:#f9f6f0;border:1px solid #e0d5c5;border-radius:10px;padding:12px;margin-bottom:10px"></div>',
+      '      <input type="hidden" id="brm-add-date-input" value="">',
       '      <div id="brm-dates-list" style="display:flex;flex-direction:column;gap:8px"></div>',
-      '      <div id="brm-no-dates-msg" style="text-align:center;color:#a08a6e;font-size:0.82rem;padding:12px;background:#f9f6f0;border:1px dashed #e0d5c5;border-radius:8px">Tap a date above to add it to your booking</div>',
+      '      <div id="brm-no-dates-msg" style="text-align:center;color:#a08a6e;font-size:0.82rem;padding:12px;background:#f9f6f0;border:1px dashed #e0d5c5;border-radius:8px">Tap dates on the calendar to add them to your booking</div>',
       '    </div>',
       '    <!-- Hidden recurring fields for backward compat (populated from per-card recurring) -->',
       '    <input type="hidden" id="brm-recur-toggle" value="">',
@@ -902,22 +900,11 @@
       var puppyEl = document.getElementById('brm-puppy');
       if (puppyEl) puppyEl.addEventListener('change', updatePriceEstimate);
 
-      // Auto-add date card when user picks a date from the calendar
-      var addDateInput = document.getElementById('brm-add-date-input');
-      if (addDateInput) {
-        // Track whether user has interacted with the picker (not just opened it)
-        addDateInput._lastVal = '';
-        addDateInput.addEventListener('focus', function() {
-          addDateInput._lastVal = addDateInput.value || '';
-        });
-        addDateInput.addEventListener('change', function() {
-          // Only add card if value actually changed from what it was before
-          if (addDateInput.value && addDateInput.value !== addDateInput._lastVal) {
-            addDateInput._lastVal = '';
-            window._brmAddDateCard();
-          }
-        });
-      }
+      // Build the visual calendar date picker
+      window._brmCalPickerYear = new Date().getFullYear();
+      window._brmCalPickerMonth = new Date().getMonth();
+      window._buildBrmCalPicker();
+
 
       // Toggle between House Sitting (date range) vs regular services (date cards)
       var svcEl = document.getElementById('brm-service');
@@ -1114,10 +1101,138 @@
       window._brmDateCards = window._brmDateCards.filter(function(c) { return c && c.idx !== idx; });
       _syncPrimaryFromCards();
       updatePriceEstimate();
+      // Refresh calendar picker to un-highlight removed date
+      if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
     };
 
     // Expose sync for time dropdown changes
     window._brmSyncPrimary = _syncPrimaryFromCards;
+
+    // ── Visual calendar date picker ──
+    window._buildBrmCalPicker = function() {
+      var container = document.getElementById('brm-cal-picker');
+      if (!container) return;
+      var year = window._brmCalPickerYear;
+      var month = window._brmCalPickerMonth;
+      var names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      var dayLabels = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+      var firstDay = new Date(year, month, 1).getDay();
+      var daysInMonth = new Date(year, month + 1, 0).getDate();
+      var today = new Date();
+      var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+      var isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
+
+      // Get selected dates from cards
+      var selectedDates = {};
+      (window._brmDateCards || []).forEach(function(c) { if (c) selectedDates[c.date] = true; });
+
+      // Get holidays
+      var monthHolidays = (typeof getMonthHolidays === 'function') ? getMonthHolidays(year, month) : {};
+
+      // Get owner blocked dates
+      var ownerBlocked = window._calOwnerBlocks || {};
+
+      var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+      html += '<button type="button" onclick="window._brmCalPickerMonth--;if(window._brmCalPickerMonth<0){window._brmCalPickerMonth=11;window._brmCalPickerYear--;}window._buildBrmCalPicker()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409">&#8592;</button>';
+      html += '<span style="font-weight:700;font-size:0.9rem;color:#1e1409">' + names[month] + ' ' + year + '</span>';
+      html += '<button type="button" onclick="window._brmCalPickerMonth++;if(window._brmCalPickerMonth>11){window._brmCalPickerMonth=0;window._brmCalPickerYear++;}window._buildBrmCalPicker()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409">&#8594;</button>';
+      html += '</div>';
+
+      if (!isCurrentMonth) {
+        html += '<div style="text-align:center;margin-bottom:6px"><button type="button" onclick="window._brmCalPickerMonth=new Date().getMonth();window._brmCalPickerYear=new Date().getFullYear();window._buildBrmCalPicker()" style="background:#fff8ec;border:1px solid #c8963e;border-radius:6px;padding:3px 12px;cursor:pointer;font-size:0.75rem;font-weight:600;color:#1e1409">Back to Today</button></div>';
+      }
+
+      html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">';
+      dayLabels.forEach(function(dl) {
+        html += '<div style="font-size:0.7rem;font-weight:700;color:#8c6b4a;padding:4px 0">' + dl + '</div>';
+      });
+
+      for (var i = 0; i < firstDay; i++) {
+        html += '<div></div>';
+      }
+
+      for (var d = 1; d <= daysInMonth; d++) {
+        var key = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        var isPast = key < todayStr;
+        var isToday = key === todayStr;
+        var isSelected = selectedDates[key] || false;
+        var holiday = monthHolidays[key] || null;
+        var isBlocked = ownerBlocked[key] ? true : false;
+
+        var bg = 'white';
+        var color = '#1e1409';
+        var border = '1px solid #e8dece';
+        var cursor = 'pointer';
+        var opacity = '1';
+        var fontWeight = '600';
+
+        if (isPast) { bg = '#f5f2ed'; color = '#bbb'; cursor = 'default'; opacity = '0.5'; }
+        else if (isBlocked) { bg = '#fce8e6'; color = '#c4756a'; cursor = 'not-allowed'; }
+        else if (isSelected) { bg = '#c8963e'; color = '#fff'; border = '1px solid #a07830'; }
+        else if (isToday) { bg = '#fff8ec'; border = '1px solid #c8963e'; }
+
+        var onclick = '';
+        if (!isPast && !isBlocked) {
+          onclick = ' onclick="window._brmToggleCalDate(\'' + key + '\')"';
+        }
+
+        var title = '';
+        if (holiday) title = holiday;
+        if (isBlocked) title = (title ? title + ' — ' : '') + 'Rachel is unavailable';
+
+        html += '<div' + onclick + ' title="' + title + '" style="';
+        html += 'background:' + bg + ';color:' + color + ';border:' + border + ';';
+        html += 'border-radius:8px;padding:6px 2px;cursor:' + cursor + ';opacity:' + opacity + ';';
+        html += 'font-size:0.82rem;font-weight:' + fontWeight + ';position:relative;min-height:32px;';
+        html += 'display:flex;flex-direction:column;align-items:center;justify-content:center;';
+        html += 'transition:all 0.15s;user-select:none">';
+        html += d;
+        if (holiday) html += '<div style="font-size:0.5rem;line-height:1;color:' + (isSelected ? 'rgba(255,255,255,0.8)' : '#c8963e') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">' + holiday + '</div>';
+        if (isBlocked && !isPast) html += '<div style="font-size:0.5rem;line-height:1;color:#c4756a">closed</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+
+      // Selected count
+      var selCount = Object.keys(selectedDates).length;
+      if (selCount > 0) {
+        html += '<div style="margin-top:8px;text-align:center;font-size:0.82rem;color:#6b5c4d;font-weight:600">' + selCount + ' date' + (selCount > 1 ? 's' : '') + ' selected</div>';
+      }
+
+      container.innerHTML = html;
+    };
+
+    // Toggle a date on/off from the calendar picker
+    window._brmToggleCalDate = function(dateStr) {
+      // Check if already selected
+      var existingIdx = -1;
+      window._brmDateCards.forEach(function(c, i) {
+        if (c && c.date === dateStr) existingIdx = i;
+      });
+
+      if (existingIdx >= 0) {
+        // Remove this date
+        var cardData = window._brmDateCards[existingIdx];
+        if (cardData) {
+          var cardEl = document.getElementById('brm-dc-' + cardData.idx);
+          if (cardEl) cardEl.remove();
+        }
+        window._brmDateCards.splice(existingIdx, 1);
+        _syncPrimaryFromCards();
+        updatePriceEstimate();
+      } else {
+        // Add this date — set hidden input and call existing add function
+        var addInput = document.getElementById('brm-add-date-input');
+        if (addInput) addInput.value = dateStr;
+        window._brmAddDateCard();
+      }
+      // Refresh calendar to show updated selection
+      window._buildBrmCalPicker();
+
+      // Update no-dates message
+      var noMsg = document.getElementById('brm-no-dates-msg');
+      if (noMsg) noMsg.style.display = (window._brmDateCards.length > 0) ? 'none' : '';
+    };
 
     // Get all selected date cards data (used by submission)
     window._brmGetDateCardsData = function() {
@@ -1529,11 +1644,13 @@
       var hsEndEl = document.getElementById('brm-enddate');
       if (hsDateEl) { hsDateEl.value = ''; hsDateEl.defaultValue = ''; }
       if (hsEndEl) { hsEndEl.value = ''; hsEndEl.defaultValue = ''; }
-      // Show the helper message and clear chips
+      // Show the helper message and rebuild calendar picker
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = '';
-      var chipsEl = document.getElementById('brm-selected-chips');
-      if (chipsEl) { chipsEl.innerHTML = ''; chipsEl.style.display = 'none'; }
+      // Reset calendar picker to current month and rebuild
+      window._brmCalPickerYear = new Date().getFullYear();
+      window._brmCalPickerMonth = new Date().getMonth();
+      if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
 
       // Pre-fill and show greeting if logged in
       if (window.HHP_Auth && window.HHP_Auth.currentUser) {
