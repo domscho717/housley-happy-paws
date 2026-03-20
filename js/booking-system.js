@@ -1067,22 +1067,22 @@
             ' Make this recurring' +
           '</label>' +
           '<div id="brm-dc-recur-opts-' + idx + '" style="display:none;margin-top:8px;background:#fff;border:1px solid #e8dece;border-radius:8px;padding:10px">' +
-            '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end">' +
-              '<div style="flex:1;min-width:110px">' +
+            '<div style="display:flex;flex-direction:column;gap:8px">' +
+              '<div>' +
                 '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Frequency</label>' +
-                '<select id="brm-dc-freq-' + idx + '" class="brm-input" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:5px 8px;font-size:0.8rem">' +
+                '<select id="brm-dc-freq-' + idx + '" class="brm-input" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:8px 10px;font-size:0.85rem;width:100%;box-sizing:border-box">' +
                   '<option value="weekly">Every week</option>' +
                   '<option value="biweekly">Every other week</option>' +
                 '</select>' +
               '</div>' +
-              '<div style="flex:1;min-width:110px" id="brm-dc-end-wrap-' + idx + '">' +
+              '<div id="brm-dc-end-wrap-' + idx + '">' +
                 '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Until</label>' +
-                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:5px 8px;font-size:0.8rem">' +
+                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:8px 10px;font-size:0.85rem;width:100%;box-sizing:border-box">' +
               '</div>' +
+              '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#6b5c4d;cursor:pointer">' +
+                '<input type="checkbox" id="brm-dc-ongoing-' + idx + '" onchange="window._brmToggleOngoing(' + idx + ')" style="accent-color:#c8963e;width:16px;height:16px"> Until stopped (no end date)' +
+              '</label>' +
             '</div>' +
-            '<label style="display:flex;align-items:center;gap:5px;margin-top:6px;font-size:0.78rem;color:#6b5c4d;cursor:pointer">' +
-              '<input type="checkbox" id="brm-dc-ongoing-' + idx + '" onchange="window._brmToggleOngoing(' + idx + ')" style="accent-color:#c8963e"> Until stopped (no end date)' +
-            '</label>' +
             '<div id="brm-dc-recur-preview-' + idx + '" style="margin-top:8px;font-size:0.78rem;color:#6b5c4d;max-height:80px;overflow-y:auto"></div>' +
           '</div>' +
         '</div>';
