@@ -2997,8 +2997,21 @@ async function loadActivityLog() {
 
     if (newBookings) {
       bookingCount = newBookings.length;
+      // Pre-resolve client names for bookings
+      var bkClientIds = [];
       for (var nb = 0; nb < newBookings.length; nb++) {
-        allEntries.push({ type: 'booking', date: newBookings[nb].created_at, booking: newBookings[nb] });
+        if (newBookings[nb].client_id && bkClientIds.indexOf(newBookings[nb].client_id) === -1) bkClientIds.push(newBookings[nb].client_id);
+      }
+      var bkNameMap = {};
+      if (bkClientIds.length > 0) {
+        var { data: bkProfiles } = await sb.from('profiles').select('user_id, full_name, id').in('user_id', bkClientIds);
+        if (bkProfiles) bkProfiles.forEach(function(bp) { bkNameMap[bp.user_id] = { name: bp.full_name, profileId: bp.id }; });
+      }
+      for (var nb2 = 0; nb2 < newBookings.length; nb2++) {
+        var bkEntry = newBookings[nb2];
+        var resolved = bkNameMap[bkEntry.client_id];
+        if (resolved) { bkEntry.client_name = resolved.name; bkEntry._profileId = resolved.profileId; }
+        allEntries.push({ type: 'booking', date: bkEntry.created_at, booking: bkEntry });
       }
     }
   }
@@ -3044,8 +3057,21 @@ async function loadActivityLog() {
 
     if (cancelled) {
       cancelCount = cancelled.length;
+      // Pre-resolve client names for cancellations
+      var cxClientIds = [];
       for (var cb = 0; cb < cancelled.length; cb++) {
-        allEntries.push({ type: 'cancellation', date: cancelled[cb].cancelled_at || cancelled[cb].updated_at, booking: cancelled[cb] });
+        if (cancelled[cb].client_id && cxClientIds.indexOf(cancelled[cb].client_id) === -1) cxClientIds.push(cancelled[cb].client_id);
+      }
+      var cxNameMap = {};
+      if (cxClientIds.length > 0) {
+        var { data: cxProfiles } = await sb.from('profiles').select('user_id, full_name, id').in('user_id', cxClientIds);
+        if (cxProfiles) cxProfiles.forEach(function(cp) { cxNameMap[cp.user_id] = { name: cp.full_name, profileId: cp.id }; });
+      }
+      for (var cb2 = 0; cb2 < cancelled.length; cb2++) {
+        var cxEntry = cancelled[cb2];
+        var cxResolved = cxNameMap[cxEntry.client_id];
+        if (cxResolved) { cxEntry.client_name = cxResolved.name; cxEntry._profileId = cxResolved.profileId; }
+        allEntries.push({ type: 'cancellation', date: cxEntry.cancelled_at || cxEntry.updated_at, booking: cxEntry });
       }
     }
   }
@@ -3185,13 +3211,15 @@ async function loadActivityLog() {
 // ---- ACTIVITY DETAIL MODAL ----
 async function showActivityDetail(index) {
   var entries = window._actLogEntries;
-  if (!entries || !entries[index]) return;
+  if (!entries || !entries[index]) { console.warn('[ActivityDetail] No entry at index', index); return; }
   var entry = entries[index];
+  console.log('[ActivityDetail] Opening detail for entry type:', entry.type, 'index:', index, entry);
 
   // Remove any existing detail modal
   var existing = document.getElementById('actDetailModal');
   if (existing) existing.remove();
 
+  try {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var entryDate = new Date(entry.date);
   var fullDate = entryDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -3343,6 +3371,10 @@ async function showActivityDetail(index) {
       (rpt.note ? '<div style="padding:14px;background:var(--warm);border-radius:10px;font-size:0.88rem;line-height:1.6;border-left:3px solid var(--gold)"><strong>Note:</strong><br>' + _escH(rpt.note) + '</div>' : '');
   }
 
+  if (!content) {
+    content = '<div style="padding:16px;background:var(--cream);border-radius:8px;color:var(--mid);font-size:0.88rem;text-align:center">No additional details available for this entry.</div>';
+  }
+
   // Build modal
   var modal = document.createElement('div');
   modal.id = 'actDetailModal';
@@ -3359,6 +3391,17 @@ async function showActivityDetail(index) {
       content +
     '</div>';
   document.body.appendChild(modal);
+
+  } catch (err) {
+    console.error('[ActivityDetail] Error building detail modal:', err);
+    // Show error modal so user sees something
+    var errModal = document.createElement('div');
+    errModal.id = 'actDetailModal';
+    errModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+    errModal.onclick = function(ev) { if (ev.target === errModal) errModal.remove(); };
+    errModal.innerHTML = '<div style="background:white;border-radius:16px;max-width:400px;width:100%;padding:28px;text-align:center"><button onclick="document.getElementById(\'actDetailModal\').remove()" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer">&times;</button><div style="font-size:2rem;margin-bottom:12px">⚠️</div><h3 style="color:var(--forest);margin-bottom:8px">Could not load details</h3><p style="color:var(--mid);font-size:0.88rem">Check the browser console for more information.</p></div>';
+    document.body.appendChild(errModal);
+  }
 }
 
 function _escH(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }

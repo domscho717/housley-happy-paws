@@ -18,16 +18,21 @@ async function showClientProfile(profileId) {
   var existing = document.getElementById('profile-modal');
   if (existing) existing.remove();
 
-  // Fetch profile + pets + bookings + payments
-  const [profileRes, petsRes, bookingsRes, paymentsRes] = await Promise.all([
-    sb.from('profiles').select('*').eq('id', profileId).single(),
-    sb.from('pets').select('*').eq('owner_id', profileId),
-    sb.from('bookings').select('*').eq('client_id', profileId).order('date', { ascending: false }).limit(20),
-    sb.from('payments').select('*').eq('client_id', profileId).order('created_at', { ascending: false }).limit(20)
-  ]);
-
+  // First fetch the profile to get user_id (needed for pets/bookings/payments lookups)
+  const profileRes = await sb.from('profiles').select('*').eq('id', profileId).single();
   const p = profileRes.data;
   if (!p) { toast('Profile not found'); return; }
+
+  // pets.owner_id and bookings.client_id store user_id (auth UUID), NOT profiles.id
+  var uid = p.user_id || profileId;
+
+  // Now fetch pets, bookings, payments using the correct user_id
+  const [petsRes, bookingsRes, paymentsRes] = await Promise.all([
+    sb.from('pets').select('*').eq('owner_id', uid),
+    sb.from('bookings').select('*').eq('client_id', uid).order('date', { ascending: false }).limit(20),
+    sb.from('payments').select('*').eq('client_id', uid).order('created_at', { ascending: false }).limit(20)
+  ]);
+
   const pets = petsRes.data || [];
   const bookings = bookingsRes.data || [];
   const payments = paymentsRes.data || [];
