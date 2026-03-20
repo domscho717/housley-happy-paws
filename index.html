@@ -4282,6 +4282,11 @@ async function changeMonth(containerId, year, month, dir) {
   if (typeof loadCalendarBookings === 'function') loadCalendarBookings(y, m);
 }
 
+function calBookNow() {
+  if (typeof openBookingModal === 'function') { openBookingModal(); }
+  else { var svc = document.getElementById('services'); if (svc) svc.scrollIntoView({behavior:'smooth'}); }
+}
+
 function showCalDetail(key, label, el) {
   const calWrap = el ? el.closest('.cal-wrap, .card') : null;
   const detail = calWrap ? calWrap.querySelector('.cal-detail') : null;
@@ -4330,10 +4335,10 @@ function showCalDetail(key, label, el) {
       // Has bookings — just show "busy" count, no details
       var ct = ev.bookings.length;
       html += '<div style="font-size:0.88rem;color:var(--brown)">📅 ' + ct + ' booking' + (ct > 1 ? 's' : '') + ' scheduled</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Limited availability — <a href="#" onclick="if(typeof openBookingModal==='function'){openBookingModal()}else{document.getElementById('services')&&document.getElementById('services').scrollIntoView({behavior:'smooth'})};return false;" style="color:var(--gold);font-weight:600">book now</a> to reserve your spot!</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Limited availability — <a href="#" onclick="calBookNow();return false;" style="color:var(--gold);font-weight:600">book now</a> to reserve your spot!</div>';
     } else {
       html += '<div style="font-size:0.88rem;color:var(--forest)">✅ Available for booking!</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px"><a href="#" onclick="if(typeof openBookingModal==='function'){openBookingModal()}else{document.getElementById('services')&&document.getElementById('services').scrollIntoView({behavior:'smooth'})};return false;" style="color:var(--gold);font-weight:600">Book this day →</a></div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px"><a href="#" onclick="calBookNow();return false;" style="color:var(--gold);font-weight:600">Book this day →</a></div>';
     }
   } else {
     // ── PORTAL CALENDARS — full detail ──
