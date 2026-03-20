@@ -1052,14 +1052,17 @@
       card.style.cssText = 'background:#f9f6f0;border:1px solid #e0d5c5;border-radius:10px;padding:12px 14px;position:relative';
       card.innerHTML =
         '<button type="button" onclick="window._brmRemoveDateCard(' + idx + ')" style="position:absolute;top:8px;right:10px;background:none;border:none;color:#c4756a;cursor:pointer;font-size:18px;line-height:1">&times;</button>' +
-        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
-          '<div style="font-weight:700;font-size:0.92rem;color:#1e1409;min-width:130px">' +
-            '<span style="color:#c8963e">' + dayName + '</span> ' + monthDay +
-          '</div>' +
-          '<select id="brm-dc-time-' + idx + '" class="brm-input" onchange="window._brmSyncPrimary()" style="flex:1;min-width:120px;max-width:180px;margin:0;padding:6px 8px;font-size:0.82rem">' +
-            _brmTimeOptionsHTML() +
-          '</select>' +
+        '<div style="font-weight:700;font-size:0.92rem;color:#1e1409;margin-bottom:6px">' +
+          '<span style="color:#c8963e">' + dayName + '</span> ' + monthDay +
         '</div>' +
+        '<div id="brm-dc-times-' + idx + '">' +
+          '<div class="brm-time-slot" data-slot="0" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
+            '<select id="brm-dc-time-' + idx + '" class="brm-input brm-dc-time-sel" data-card="' + idx + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:120px;max-width:180px;margin:0;padding:6px 8px;font-size:0.82rem">' +
+              _brmTimeOptionsHTML() +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        '<button type="button" onclick="window._brmAddTimeSlot(' + idx + ')" style="background:none;border:1px dashed #c8963e;color:#c8963e;border-radius:6px;padding:4px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-top:2px;margin-bottom:4px">+ Add another time</button>' +
         _brmPetChipsHTML(idx) +
         '<div style="margin-top:8px;border-top:1px dashed #e0d5c5;padding-top:8px">' +
           '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer;color:#6b5c4d;font-weight:600">' +
@@ -1107,6 +1110,34 @@
 
     // Expose sync for time dropdown changes
     window._brmSyncPrimary = _syncPrimaryFromCards;
+
+    // Add another time slot to a date card
+    window._brmAddTimeSlot = function(cardIdx) {
+      var container = document.getElementById('brm-dc-times-' + cardIdx);
+      if (!container) return;
+      var slots = container.querySelectorAll('.brm-time-slot');
+      var slotIdx = slots.length;
+      var div = document.createElement('div');
+      div.className = 'brm-time-slot';
+      div.setAttribute('data-slot', slotIdx);
+      div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px';
+      div.innerHTML =
+        '<select class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:120px;max-width:180px;margin:0;padding:6px 8px;font-size:0.82rem">' +
+          _brmTimeOptionsHTML() +
+        '</select>' +
+        '<button type="button" onclick="window._brmRemoveTimeSlot(this,' + cardIdx + ')" style="background:none;border:none;color:#c4756a;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px">&times;</button>';
+      container.appendChild(div);
+      _syncPrimaryFromCards();
+      updatePriceEstimate();
+    };
+
+    // Remove a time slot from a date card
+    window._brmRemoveTimeSlot = function(btn, cardIdx) {
+      var slot = btn.closest('.brm-time-slot');
+      if (slot) slot.remove();
+      _syncPrimaryFromCards();
+      updatePriceEstimate();
+    };
 
     // ── Visual calendar date picker ──
     window._buildBrmCalPicker = function() {
@@ -1235,19 +1266,28 @@
     };
 
     // Get all selected date cards data (used by submission)
+    // Returns one entry per time slot — so a day with 2 times = 2 entries
     window._brmGetDateCardsData = function() {
       var results = [];
       var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
       cards.forEach(function(card) {
         var dateVal = card.getAttribute('data-date');
         var idx = card.id.replace('brm-dc-', '');
-        var timeEl = document.getElementById('brm-dc-time-' + idx);
-        var time = timeEl ? timeEl.value : '';
         var pets = [];
         card.querySelectorAll('.brm-dc-pet:checked').forEach(function(cb) {
           pets.push({ id: cb.value, name: cb.getAttribute('data-name'), species: cb.getAttribute('data-species') });
         });
-        results.push({ date: dateVal, time: time, pets: pets });
+        // Collect all time slots for this card
+        var timeSelects = card.querySelectorAll('.brm-dc-time-sel');
+        if (timeSelects.length === 0) {
+          // Fallback: legacy single select
+          var timeEl = document.getElementById('brm-dc-time-' + idx);
+          results.push({ date: dateVal, time: timeEl ? timeEl.value : '', pets: pets });
+        } else {
+          timeSelects.forEach(function(sel) {
+            results.push({ date: dateVal, time: sel.value || '', pets: pets });
+          });
+        }
       });
       return results;
     };
@@ -1980,8 +2020,8 @@
     }
     var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights);
 
-    // For multi-date / recurring pricing
-    var totalDates = allBookingDates.length;
+    // For multi-date / recurring pricing — count total visits (time slots), not just unique dates
+    var totalDates = dateCardDetails.length > 0 ? dateCardDetails.length : allBookingDates.length;
     var multiDateTotal, multiDateBreakdown;
     if (isRecurring && !isHouseSitting) {
       // Recurring: store per-session price, billed weekly
@@ -2096,12 +2136,10 @@
           // Include per-date times if available from date cards
           if (dateCardDetails.length > 0) {
             var dateParts = [];
-            // Primary date
-            dateParts.push(date + ' @ ' + time);
             dateCardDetails.forEach(function(dc) {
               dateParts.push(dc.date + (dc.time ? ' @ ' + dc.time : ''));
             });
-            dateDisplay = dateParts.join(', ') + ' (' + totalDates + ' dates)';
+            dateDisplay = dateParts.join(', ') + ' (' + totalDates + ' visit' + (totalDates > 1 ? 's' : '') + ')';
           } else {
             dateDisplay = allBookingDates.join(', ') + ' (' + totalDates + ' dates)';
           }
