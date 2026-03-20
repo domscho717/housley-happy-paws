@@ -4205,7 +4205,12 @@ function buildCalendar(containerId, year, month) {
   const daysInMonth = new Date(year,month+1,0).getDate();
   const today = new Date();
 
-  let html = `<div class="cal-header"><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${year},${month},-1)">←</button><span class="cal-month">${names[month]} ${year}</span><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${year},${month},1)">→</button></div>`;
+  var isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
+  let html = `<div class="cal-header"><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${year},${month},-1)">←</button><span class="cal-month">${names[month]} ${year}</span><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${year},${month},1)">→</button>`;
+  if (!isCurrentMonth) {
+    html += `<button class="cal-nav-btn" onclick="changeMonth('${containerId}',${today.getFullYear()},${today.getMonth()},0)" style="margin-left:8px;font-size:0.72rem;padding:4px 10px;background:var(--gold-pale);border-color:var(--gold);color:var(--ink);font-weight:600" title="Back to today">Today</button>`;
+  }
+  html += '</div>';
   html += '<div class="cal-grid">';
   days.forEach(d => html += `<div class="cal-dow">${d}</div>`);
   for(let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
@@ -4310,8 +4315,13 @@ function showCalDetail(key, label, el) {
   if (isPublic) {
     // ── PUBLIC CALENDAR — simplified, no booking details ──
     if (ownerBlock || (ev && ev.type === 'off')) {
-      if (!ownerBlock) html += '<div style="font-size:0.9rem;color:var(--rose)">🚫 Closed</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">' + (ev && ev.label ? ev.label : 'Rachel is not available this day.') + '</div>';
+      if (!ownerBlock) html += '<div style="font-size:0.9rem;color:var(--rose);font-weight:600">🚫 Closed</div>';
+      html += '<div style="background:var(--rose-pale);border:1px solid var(--rose-light);border-radius:8px;padding:10px 14px;margin-top:8px">';
+      html += '<div style="font-size:0.85rem;color:var(--ink);font-weight:600;margin-bottom:4px">Not accepting bookings this day</div>';
+      if (ownerBlock && ownerBlock.reason) html += '<div style="font-size:0.8rem;color:var(--mid);margin-bottom:4px">Reason: ' + ownerBlock.reason + '</div>';
+      else if (ev && ev.label) html += '<div style="font-size:0.8rem;color:var(--mid);margin-bottom:4px">' + ev.label + '</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid)">Please choose a different date or <a href="#" onclick="openModal(\'contactModal\');return false;" style="color:var(--gold);font-weight:600">contact Rachel</a> with questions.</div>';
+      html += '</div>';
     } else if (ev && ev.type === 'announcement') {
       html += '<div style="font-size:0.9rem;color:var(--gold-deep)">📢 ' + (ev.label || 'Announcement') + '</div>';
     } else if (ev && ev.type === 'discount') {
@@ -4320,10 +4330,10 @@ function showCalDetail(key, label, el) {
       // Has bookings — just show "busy" count, no details
       var ct = ev.bookings.length;
       html += '<div style="font-size:0.88rem;color:var(--brown)">📅 ' + ct + ' booking' + (ct > 1 ? 's' : '') + ' scheduled</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Limited availability — <a href="#" onclick="showBookingModal();return false;" style="color:var(--gold);font-weight:600">book now</a> to reserve your spot!</div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Limited availability — <a href="#" onclick="if(typeof openBookingModal==='function'){openBookingModal()}else{document.getElementById('services')&&document.getElementById('services').scrollIntoView({behavior:'smooth'})};return false;" style="color:var(--gold);font-weight:600">book now</a> to reserve your spot!</div>';
     } else {
       html += '<div style="font-size:0.88rem;color:var(--forest)">✅ Available for booking!</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px"><a href="#" onclick="showBookingModal();return false;" style="color:var(--gold);font-weight:600">Book this day →</a></div>';
+      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px"><a href="#" onclick="if(typeof openBookingModal==='function'){openBookingModal()}else{document.getElementById('services')&&document.getElementById('services').scrollIntoView({behavior:'smooth'})};return false;" style="color:var(--gold);font-weight:600">Book this day →</a></div>';
     }
   } else {
     // ── PORTAL CALENDARS — full detail ──

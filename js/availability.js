@@ -259,10 +259,14 @@
     var myId = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser.id : '';
 
     // Build calendar HTML
+    var isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
     var html = '<div class="cal-header">';
     html += '<button class="cal-nav-btn" onclick="window._availCalMonth--;if(window._availCalMonth<0){window._availCalMonth=11;window._availCalYear--;}buildAvailCalendar()">←</button>';
     html += '<span class="cal-month">' + names[month] + ' ' + year + '</span>';
     html += '<button class="cal-nav-btn" onclick="window._availCalMonth++;if(window._availCalMonth>11){window._availCalMonth=0;window._availCalYear++;}buildAvailCalendar()">→</button>';
+    if (!isCurrentMonth) {
+      html += '<button class="cal-nav-btn" onclick="window._availCalMonth=new Date().getMonth();window._availCalYear=new Date().getFullYear();buildAvailCalendar()" style="margin-left:8px;font-size:0.72rem;padding:4px 10px;background:var(--gold-pale);border-color:var(--gold);color:var(--ink);font-weight:600" title="Back to today">Today</button>';
+    }
     html += '</div>';
 
     html += '<div class="cal-grid">';
@@ -352,10 +356,14 @@
     var monthHolidays = window.getMonthHolidays(year, month);
     var myId = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser.id : '';
 
+    var isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
     var html = '<div class="cal-header">';
     html += '<button class="cal-nav-btn" onclick="window._staffAvailCalYear+=(window._staffAvailCalMonth===0?-1:0);window._staffAvailCalMonth=(window._staffAvailCalMonth+11)%12;buildStaffAvailCalendar()">←</button>';
     html += '<span class="cal-month">' + names[month] + ' ' + year + '</span>';
     html += '<button class="cal-nav-btn" onclick="window._staffAvailCalYear+=(window._staffAvailCalMonth===11?1:0);window._staffAvailCalMonth=(window._staffAvailCalMonth+1)%12;buildStaffAvailCalendar()">→</button>';
+    if (!isCurrentMonth) {
+      html += '<button class="cal-nav-btn" onclick="window._staffAvailCalMonth=new Date().getMonth();window._staffAvailCalYear=new Date().getFullYear();buildStaffAvailCalendar()" style="margin-left:8px;font-size:0.72rem;padding:4px 10px;background:var(--gold-pale);border-color:var(--gold);color:var(--ink);font-weight:600" title="Back to today">Today</button>';
+    }
     html += '</div>';
 
     html += '<div class="cal-grid">';
