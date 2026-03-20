@@ -584,8 +584,8 @@
       '      <div style="font-weight:700;font-size:1.15rem;color:#1e1409;margin-top:6px">$<span id="brm-price-total">0</span></div>',
       '    </div>',
       '',
-      '    <label class="brm-label">Home Address / Area *</label>',
-      '    <input type="text" id="brm-address" class="brm-input" placeholder="Street address or neighborhood in Lancaster" required>',
+      '    <label class="brm-label">Home Address <span style="color:var(--rose,#c25656);font-weight:700">*</span></label>',
+      '    <input type="text" id="brm-address" class="brm-input" placeholder="Enter your street address" required>',
       '',
       '    <label class="brm-label">Special Notes</label>',
       '    <textarea id="brm-notes" class="brm-input brm-textarea" rows="4" placeholder="Medication schedules, behavioral notes, access instructions, alarm codes, anything Rachel should know..."></textarea>',
@@ -2002,7 +2002,7 @@
     // For logged-in users: require at least one pet checkbox selected
     // For guests: require pets text + petCombo dropdown
     if (!service || !name || !email || !address) {
-      if (errEl) errEl.textContent = 'Please fill in all required fields.';
+      if (errEl) errEl.textContent = !address ? 'Please enter your home address — it\'s needed so Rachel knows where to go!' : 'Please fill in all required fields.';
       return;
     }
     // Date validation: need at least one date (from cards or HS fields)
