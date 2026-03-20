@@ -1,5 +1,5 @@
 // ============================================================
-//  HHP Messaging System â Real-time Supabase-backed messaging
+//  HHP Messaging System — Real-time Supabase-backed messaging
 //  Privacy model:
 //    - Client: sees ONLY their 1:1 thread with the owner
 //    - Staff:  sees their own thread with owner + their assigned clients' threads
@@ -332,8 +332,8 @@
 
   // ============================================================
   //  UI: Render a message thread
-  //  opts.otherUserId â for "view older" button
-  //  opts.prepend â if true, prepend older messages instead of replacing
+  //  opts.otherUserId — for "view older" button
+  //  opts.prepend — if true, prepend older messages instead of replacing
   // ============================================================
   async function renderThread(containerId, messages, viewerUserId, opts) {
     var container = document.getElementById(containerId);
@@ -342,7 +342,7 @@
 
     if (!messages || messages.length === 0) {
       if (!opts.prepend) {
-        container.innerHTML = '<div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">No messages yet â say hello!</div>';
+        container.innerHTML = '<div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">No messages yet — say hello!</div>';
       }
       return;
     }
@@ -365,17 +365,17 @@
       if (isMine) {
         html += '<div style="display:flex;gap:8px;align-items:flex-end;justify-content:flex-end">' +
           '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(msg.body) + '</div>' +
-          '<div class="msg-meta" style="text-align:right">You Â· ' + formatTime(msg.created_at) + '</div></div>' +
+          '<div class="msg-meta" style="text-align:right">You · ' + formatTime(msg.created_at) + '</div></div>' +
           ava + '</div>';
       } else {
         html += '<div style="display:flex;gap:8px;align-items:flex-end">' +
           ava + '<div><div class="msg-in">' + escHTML(msg.body) + '</div>' +
-          '<div class="msg-meta">' + escHTML(name) + ' Â· ' + formatTime(msg.created_at) + '</div></div></div>';
+          '<div class="msg-meta">' + escHTML(name) + ' · ' + formatTime(msg.created_at) + '</div></div></div>';
       }
     }
 
     if (opts.prepend) {
-      // Prepending older messages â insert before existing content
+      // Prepending older messages — insert before existing content
       var oldScroll = container.scrollHeight;
       var olderDiv = container.querySelector('.msg-older-loaded');
       if (olderDiv) {
@@ -411,7 +411,7 @@
         var btn = document.createElement('button');
         btn.className = 'msg-older-btn';
         btn.style.cssText = 'display:block;width:100%;text-align:center;padding:8px;font-size:0.76rem;color:var(--gold-deep);background:var(--warm);border:1px dashed var(--border);border-radius:8px;cursor:pointer;font-weight:600;margin-bottom:10px;transition:background 0.15s';
-        btn.textContent = 'ð View older messages';
+        btn.textContent = '📜 View older messages';
         btn.setAttribute('data-partner', opts.otherUserId);
         btn.setAttribute('data-container', containerId);
         btn.setAttribute('data-page', '1');
@@ -461,11 +461,11 @@
       .lt('created_at', sinceDate.toISOString());
 
     if (count && count > 0) {
-      btnEl.textContent = 'ð View even older messages';
+      btnEl.textContent = '📜 View even older messages';
       btnEl.disabled = false;
       btnEl.setAttribute('data-page', String(page + 1));
     } else {
-      btnEl.textContent = 'ð All messages loaded';
+      btnEl.textContent = '📜 All messages loaded';
       btnEl.style.opacity = '0.5';
       btnEl.style.cursor = 'default';
       btnEl.onclick = null;
@@ -499,7 +499,7 @@
     _clientMsgContacts = contacts;
 
     if (contacts.length === 1) {
-      // Only owner â simple thread, no tabs needed
+      // Only owner — simple thread, no tabs needed
       var messages = await loadConversation(ownerUserId, {});
       await renderThread('cMsgs', messages, user.id, { otherUserId: ownerUserId });
       await markAsRead(ownerUserId);
@@ -507,8 +507,8 @@
       return;
     }
 
-    // Multiple contacts â build tabbed UI
-    var html = '<div class="p-header"><h2>Messages ð¬</h2><p>Your private conversations.</p></div>';
+    // Multiple contacts — build tabbed UI
+    var html = '<div class="p-header"><h2>Messages 💬</h2><p>Your private conversations.</p></div>';
     html += '<div class="card">';
     html += '<div id="clientMsgTabs" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">';
     for (var t = 0; t < contacts.length; t++) {
@@ -518,7 +518,7 @@
     }
     html += '</div>';
     html += '<div class="msg-thread" id="cMsgs" style="max-height:350px"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading...</div></div>';
-    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="cMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.clientSend()"><button class="msg-send" onclick="HHP_Messaging.clientSend()">â¤</button></div>';
+    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="cMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.clientSend()"><button class="msg-send" onclick="HHP_Messaging.clientSend()">➤</button></div>';
     html += '</div>';
 
     panel.innerHTML = html;
@@ -566,7 +566,7 @@
       var ava = avatarHTML((myProfile && myProfile.full_name) || 'C', 32);
       var d = document.createElement('div');
       d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
-      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You Â· Just now</div></div>' + ava;
+      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + ava;
       threadEl.appendChild(d);
       threadEl.scrollTop = threadEl.scrollHeight;
     }
@@ -576,7 +576,7 @@
       var last = threadEl.lastElementChild;
       if (last) {
         var meta = last.querySelector('.msg-meta');
-        if (meta) meta.innerHTML = 'You Â· <span style="color:var(--rose)">Failed to send</span>';
+        if (meta) meta.innerHTML = 'You · <span style="color:var(--rose)">Failed to send</span>';
       }
     }
   }
@@ -607,7 +607,7 @@
     _staffMsgContacts = contacts;
 
     if (contacts.length === 1) {
-      // Only owner â simple thread, no tabs
+      // Only owner — simple thread, no tabs
       var threadEl = document.getElementById('sMsgs');
       if (!threadEl) return;
       var messages = await loadConversation(ownerUserId, {});
@@ -617,8 +617,8 @@
       return;
     }
 
-    // Multiple contacts â build tabbed UI
-    var html = '<div class="p-header"><h2>Messages ð¬</h2><p>Your private conversations.</p></div>';
+    // Multiple contacts — build tabbed UI
+    var html = '<div class="p-header"><h2>Messages 💬</h2><p>Your private conversations.</p></div>';
     html += '<div class="card">';
     html += '<div id="staffMsgTabs" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">';
     for (var t = 0; t < contacts.length; t++) {
@@ -628,7 +628,7 @@
     }
     html += '</div>';
     html += '<div class="msg-thread" id="sMsgs" style="max-height:350px"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading...</div></div>';
-    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="sMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.staffSend()"><button class="msg-send" onclick="HHP_Messaging.staffSend()">â¤</button></div>';
+    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="sMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.staffSend()"><button class="msg-send" onclick="HHP_Messaging.staffSend()">➤</button></div>';
     html += '</div>';
 
     panel.innerHTML = html;
@@ -677,7 +677,7 @@
       var ava = avatarHTML((myProfile && myProfile.full_name) || 'S', 32);
       var d = document.createElement('div');
       d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;justify-content:flex-end';
-      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You Â· Just now</div></div>' + ava;
+      d.innerHTML = '<div style="flex:1;text-align:right"><div class="msg-out">' + escHTML(body) + '</div><div class="msg-meta" style="text-align:right">You · Just now</div></div>' + ava;
       threadEl.appendChild(d);
       threadEl.scrollTop = threadEl.scrollHeight;
     }
@@ -687,13 +687,13 @@
       var last = threadEl.lastElementChild;
       if (last) {
         var meta = last.querySelector('.msg-meta');
-        if (meta) meta.innerHTML = 'You Â· <span style="color:var(--rose)">Failed to send</span>';
+        if (meta) meta.innerHTML = 'You · <span style="color:var(--rose)">Failed to send</span>';
       }
     }
   }
 
   // ============================================================
-  //  UI: Owner Messages (o-msgs) â full inbox, all conversations
+  //  UI: Owner Messages (o-msgs) — full inbox, all conversations
   // ============================================================
   async function loadOwnerInbox() {
     var sb = getSB(); if (!sb) return;
@@ -706,16 +706,16 @@
 
     if (convos.length === 0) {
       panel.innerHTML =
-        '<div class="p-header"><h2>All Messages ð¬</h2><p>Every client & staff conversation in one inbox.</p></div>' +
+        '<div class="p-header"><h2>All Messages 💬</h2><p>Every client & staff conversation in one inbox.</p></div>' +
         '<div class="card"><div style="padding:28px;text-align:center;color:var(--mid)">' +
-        '<div style="font-size:2rem;margin-bottom:10px">ð¬</div>' +
+        '<div style="font-size:2rem;margin-bottom:10px">💬</div>' +
         '<div style="font-weight:600;margin-bottom:6px">No messages yet</div>' +
         '<div style="font-size:0.84rem">Messages from clients and staff will appear here.</div>' +
         '</div></div>';
       return;
     }
 
-    var html = '<div class="p-header"><h2>All Messages ð¬</h2><p>Every client & staff conversation â private per person.</p></div>';
+    var html = '<div class="p-header"><h2>All Messages 💬</h2><p>Every client & staff conversation — private per person.</p></div>';
     html += '<div class="card" style="padding:0;overflow:hidden">';
     html += '<div id="ownerConvoList">';
 
@@ -747,11 +747,11 @@
     // Conversation detail view
     html += '<div id="ownerConvoView" style="display:none;padding:16px">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">' +
-      '<button onclick="HHP_Messaging.closeConvo()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:4px">â</button>' +
+      '<button onclick="HHP_Messaging.closeConvo()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:4px">←</button>' +
       '<div id="ownerConvoName" style="font-weight:700;font-size:0.95rem"></div>' +
       '</div>' +
       '<div class="msg-thread" id="ownerMsgs" style="max-height:400px"></div>' +
-      '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="ownerMsgIn" placeholder="Type a reply..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.sendFromOwner()"><button class="msg-send" onclick="HHP_Messaging.sendFromOwner()">â¤</button></div>' +
+      '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="ownerMsgIn" placeholder="Type a reply..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.sendFromOwner()"><button class="msg-send" onclick="HHP_Messaging.sendFromOwner()">➤</button></div>' +
       '</div>';
     html += '</div>';
 
@@ -1005,7 +1005,7 @@
     var d = document.createElement('div');
     d.style.cssText = 'display:flex;gap:8px;align-items:flex-end;opacity:0;transition:opacity 0.3s';
     d.innerHTML = ava + '<div><div class="msg-in">' + escHTML(msg.body) + '</div>' +
-      '<div class="msg-meta">' + escHTML(senderName) + ' Â· Just now</div></div>';
+      '<div class="msg-meta">' + escHTML(senderName) + ' · Just now</div></div>';
     threadEl.appendChild(d);
     // Animate in
     requestAnimationFrame(function() { d.style.opacity = '1'; });
@@ -1054,32 +1054,32 @@
 
           if (portal === 'owner') {
             if (_currentConvoPartnerId === msg.sender_id) {
-              // Owner has this convo open â append directly
+              // Owner has this convo open — append directly
               appendIncomingBubble('ownerMsgs', msg, name);
               await markAsRead(msg.sender_id);
               updateUnreadBadges();
             } else {
-              if (typeof toast === 'function') toast('ð¬ New message from ' + name);
+              if (typeof toast === 'function') toast('💬 New message from ' + name);
               toasted = true;
             }
             loadAlertMessages();
           } else if (portal === 'client') {
             var cPanel = document.getElementById('c-msgs');
             if (cPanel && cPanel.classList.contains('active')) {
-              // Client is viewing Messages â find which contact matches and append
+              // Client is viewing Messages — find which contact matches and append
               var contact = _clientMsgContacts[_activeClientTab];
               if (contact && contact.userId === msg.sender_id) {
                 appendIncomingBubble('cMsgs', msg, name);
                 await markAsRead(msg.sender_id);
                 updateUnreadBadges();
               } else {
-                // Different contact sent the message â reload to update tabs
+                // Different contact sent the message — reload to update tabs
                 loadClientMessages();
-                if (typeof toast === 'function') toast('ð¬ New message from ' + name);
+                if (typeof toast === 'function') toast('💬 New message from ' + name);
                 toasted = true;
               }
             } else {
-              if (typeof toast === 'function') toast('ð¬ New message from ' + name);
+              if (typeof toast === 'function') toast('💬 New message from ' + name);
               toasted = true;
             }
           } else if (portal === 'staff') {
@@ -1092,11 +1092,11 @@
                 updateUnreadBadges();
               } else {
                 loadStaffMessages();
-                if (typeof toast === 'function') toast('ð¬ New message from ' + name);
+                if (typeof toast === 'function') toast('💬 New message from ' + name);
                 toasted = true;
               }
             } else {
-              if (typeof toast === 'function') toast('ð¬ New message from ' + name);
+              if (typeof toast === 'function') toast('💬 New message from ' + name);
               toasted = true;
             }
           }
@@ -1123,7 +1123,7 @@
   }
 
   // ============================================================
-  //  Drop-in replacement for old sendMsg() â used by client input
+  //  Drop-in replacement for old sendMsg() — used by client input
   // ============================================================
   async function sendMsgReal(prefix) {
     // Both client and staff use their own tabbed send functions
