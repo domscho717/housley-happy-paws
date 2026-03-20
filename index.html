@@ -1117,6 +1117,13 @@ try {
     </div>
   </section>
 
+  <!-- DYNAMIC CLIENT REVIEWS (from database, owner-approved) -->
+  <section id="publicReviewsSection" style="padding:60px 24px;background:var(--warm,#faf6ee);display:none">
+    <div style="max-width:1120px;margin:0 auto">
+      <!-- Populated by loadPublicReviews() -->
+    </div>
+  </section>
+
   <!-- COMING SOON -->
   <section class="future-section" id="coming-soon">
     <div style="max-width:1120px;margin:0 auto">
@@ -1200,6 +1207,7 @@ try {
         <button class="sb-item" onclick="sTab('c','c-track')"><span class="sb-item-icon">🗺️</span>Live Tracking</button>
         <button class="sb-item" onclick="sTab('c','c-photos')"><span class="sb-item-icon">📸</span>Photo Gallery</button>
         <button class="sb-item" onclick="sTab('c','c-reports')"><span class="sb-item-icon">📋</span>Walk Reports</button>
+        <button class="sb-item" onclick="sTab('c','c-reviews')"><span class="sb-item-icon">⭐</span>My Reviews</button>
       </div>
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Account <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:300px">
@@ -1387,6 +1395,20 @@ try {
               <div style="font-size:0.84rem">Walk and visit reports will appear here after each service.</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- CLIENT REVIEWS -->
+      <div class="p-panel" id="c-reviews">
+        <div class="p-header"><h2>My Reviews ⭐</h2><p>Your feedback helps us grow! Leave a review after any visit.</p></div>
+        <div id="c-rv-list" style="display:flex;flex-direction:column;gap:12px">
+          <div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">⭐</div>Loading your reviews...</div>
+        </div>
+        <div class="card" style="margin-top:16px;border:2px dashed rgba(200,150,62,0.3);text-align:center;padding:20px">
+          <div style="font-size:1.5rem;margin-bottom:8px">⭐</div>
+          <div style="font-weight:700;margin-bottom:4px">Want to leave a review?</div>
+          <div style="font-size:0.82rem;color:var(--mid);margin-bottom:12px">Open any Walk Report and tap "Leave a Review" — or you'll be prompted automatically after each visit!</div>
+          <button class="btn btn-gold btn-sm" onclick="sTab('c','c-reports')">View My Reports</button>
         </div>
       </div>
 
@@ -1601,6 +1623,7 @@ try {
         <button class="sb-item" onclick="sTab('o','o-clients')"><span class="sb-item-icon">👥</span>All Clients</button>
         <button class="sb-item" onclick="sTab('o','o-sched')"><span class="sb-item-icon">📅</span>Master Schedule</button>
         <button class="sb-item" onclick="sTab('o','o-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
+        <button class="sb-item" onclick="sTab('o','o-reviews')"><span class="sb-item-icon">⭐</span>Reviews & Ratings</button>
         <button class="sb-item" onclick="sTab('o','o-staff')"><span class="sb-item-icon">🧑‍🤝‍🧑</span>Staff</button>
         <button class="sb-item" onclick="sTab('o','o-msgs')"><span class="sb-item-icon">💬</span>All Messages</button>
         <button class="sb-item" onclick="sTab('o','o-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
@@ -1746,6 +1769,47 @@ try {
           </div>
           <div class="form-group"><label class="form-lbl">Personal Note</label><textarea class="form-ta" id="ownerNote" style="min-height:110px" placeholder="AI will generate this — or write your own..."></textarea></div>
           <button class="submit-btn gold" id="rpt-submit-btn" onclick="submitServiceReport()">Send Report to Client</button>
+        </div>
+      </div>
+
+      <!-- REVIEWS & RATINGS PANEL -->
+      <div class="p-panel" id="o-reviews">
+        <div class="p-header"><h2>Reviews & Ratings ⭐</h2><p>Manage client reviews — approve to show on your website, respond, or feature your favorites.</p></div>
+
+        <!-- Stats bar -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
+          <div style="background:var(--gold-pale);border-radius:10px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700" id="rv-avgRating">—</div><div style="font-size:0.7rem;font-weight:600;color:var(--mid);text-transform:uppercase">Avg Rating</div></div>
+          <div style="background:var(--forest-pale);border-radius:10px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700" id="rv-totalReviews">0</div><div style="font-size:0.7rem;font-weight:600;color:var(--mid);text-transform:uppercase">Total</div></div>
+          <div style="background:#fef3c7;border-radius:10px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700" id="rv-pendingCount">0</div><div style="font-size:0.7rem;font-weight:600;color:var(--mid);text-transform:uppercase">Pending</div></div>
+          <div style="background:#e0f2fe;border-radius:10px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700" id="rv-publicCount">0</div><div style="font-size:0.7rem;font-weight:600;color:var(--mid);text-transform:uppercase">On Website</div></div>
+        </div>
+
+        <!-- Filter tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+          <button class="btn btn-sm rv-filter-btn active" onclick="filterReviews('all')" data-filter="all" style="font-size:0.76rem">All Reviews</button>
+          <button class="btn btn-outline btn-sm rv-filter-btn" onclick="filterReviews('pending')" data-filter="pending" style="font-size:0.76rem">⏳ Pending</button>
+          <button class="btn btn-outline btn-sm rv-filter-btn" onclick="filterReviews('approved')" data-filter="approved" style="font-size:0.76rem">✅ Approved</button>
+          <button class="btn btn-outline btn-sm rv-filter-btn" onclick="filterReviews('rejected')" data-filter="rejected" style="font-size:0.76rem">❌ Rejected</button>
+          <button class="btn btn-outline btn-sm rv-filter-btn" onclick="filterReviews('featured')" data-filter="featured" style="font-size:0.76rem">🌟 Featured</button>
+        </div>
+
+        <!-- Reviews list -->
+        <div id="rv-list" style="display:flex;flex-direction:column;gap:12px">
+          <div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">⭐</div>Loading reviews...</div>
+        </div>
+
+        <!-- Website display toggle -->
+        <div class="card" style="margin-top:20px;border:2px solid rgba(200,150,62,0.2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-weight:700;font-size:0.92rem;color:var(--ink)">🌐 Website Reviews Section</div>
+              <div style="font-size:0.78rem;color:var(--mid);margin-top:2px">Toggle whether approved reviews appear on your public website homepage</div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="rv-showOnSite" checked onchange="toggleReviewsOnWebsite()" style="width:18px;height:18px;accent-color:var(--forest)">
+              <span style="font-size:0.82rem;font-weight:600">Show on website</span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -2512,6 +2576,57 @@ try {
   </div>
 </div>
 
+
+<!-- Review Submission Modal (Client) -->
+<div class="overlay" id="reviewModal" style="display:none" onclick="if(event.target===this)closeModal('reviewModal')">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">⭐ How was your experience?</div>
+        <p style="font-size:0.82rem;color:var(--mid);margin-top:3px" id="rv-modal-subtitle">We'd love your feedback!</p>
+      </div>
+      <button class="modal-close" onclick="closeModal('reviewModal')">✕</button>
+    </div>
+    <div style="text-align:center;margin-bottom:16px">
+      <div id="rv-stars" style="display:flex;justify-content:center;gap:8px;margin-bottom:8px">
+        <span class="rv-star" data-val="1" onclick="setReviewStars(1)" style="font-size:2.2rem;cursor:pointer;transition:transform 0.15s">☆</span>
+        <span class="rv-star" data-val="2" onclick="setReviewStars(2)" style="font-size:2.2rem;cursor:pointer;transition:transform 0.15s">☆</span>
+        <span class="rv-star" data-val="3" onclick="setReviewStars(3)" style="font-size:2.2rem;cursor:pointer;transition:transform 0.15s">☆</span>
+        <span class="rv-star" data-val="4" onclick="setReviewStars(4)" style="font-size:2.2rem;cursor:pointer;transition:transform 0.15s">☆</span>
+        <span class="rv-star" data-val="5" onclick="setReviewStars(5)" style="font-size:2.2rem;cursor:pointer;transition:transform 0.15s">☆</span>
+      </div>
+      <div id="rv-stars-label" style="font-size:0.82rem;color:var(--mid);font-weight:600">Tap a star to rate</div>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-lbl">Your review (optional)</label>
+      <textarea class="form-ta" id="rv-text" placeholder="Tell us about your experience with Rachel and your pet's visit..." style="min-height:100px"></textarea>
+    </div>
+    <input type="hidden" id="rv-report-id">
+    <input type="hidden" id="rv-booking-id">
+    <input type="hidden" id="rv-service">
+    <input type="hidden" id="rv-pet-name">
+    <input type="hidden" id="rv-rating" value="0">
+    <button class="submit-btn gold" onclick="submitClientReview()" style="width:100%">Submit Review</button>
+    <div style="font-size:0.72rem;color:var(--mid);text-align:center;margin-top:8px">Your review may be featured on our website if approved.</div>
+  </div>
+</div>
+
+<!-- Owner Review Response Modal -->
+<div class="overlay" id="reviewResponseModal" style="display:none" onclick="if(event.target===this)closeModal('reviewResponseModal')">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <div class="modal-title">💬 Respond to Review</div>
+      <button class="modal-close" onclick="closeModal('reviewResponseModal')">✕</button>
+    </div>
+    <div id="rvr-preview" style="background:var(--warm);border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.84rem"></div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label class="form-lbl">Your Response</label>
+      <textarea class="form-ta" id="rvr-text" placeholder="Thank you for your kind words!..." style="min-height:80px"></textarea>
+    </div>
+    <input type="hidden" id="rvr-review-id">
+    <button class="submit-btn gold" onclick="submitOwnerResponse()" style="width:100%">Save Response</button>
+  </div>
+</div>
 
 <!-- Dog Boarding Interest -->
 <div class="overlay" id="boardingModal">
@@ -3759,7 +3874,7 @@ function openModal(id) {
 function closeModal(id) {
   const el = document.getElementById(id);
   if(!el) return;
-  if(el.classList.contains('modal-overlay')) { el.style.display='none'; }
+  if(el.classList.contains('modal-overlay') || el.classList.contains('overlay')) { el.style.display='none'; }
   else { el.classList.remove('open'); }
   if(id==='mgModal'){ const f=document.getElementById('mgForm'); const s=document.getElementById('mgSuccess'); if(f)f.style.display=''; if(s)s.style.display='none'; }
   // Always ensure body scroll is restored when closing any modal
@@ -7191,6 +7306,8 @@ async function submitServiceReport() {
     toast('📋 Report sent to client!');
     // Send email notification
     sendReportEmailNotification(clientId, service, reportDate);
+    // Send review request notification to client
+    _sendReviewRequest(clientId, data && data[0] ? data[0].id : null, service, petName);
     // Reset the form
     resetReportForm();
   } catch (e) {
@@ -7250,6 +7367,7 @@ async function submitStaffServiceReport() {
 
     toast('📋 Report sent to client!');
     sendReportEmailNotification(clientId, service, reportDate);
+    _sendReviewRequest(clientId, data && data[0] ? data[0].id : null, service, petName);
     resetStaffReportForm();
   } catch (e) {
     console.error('submitStaffServiceReport error:', e);
@@ -7450,7 +7568,8 @@ function openReportDetail(reportOrId) {
     photosHtml +
     '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
     '<div id="reportRouteMapContainer"></div>' +
-    '<div style="display:flex;gap:10px"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button></div>';
+    '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
+    '<button class="btn btn-gold btn-sm" onclick="openReviewFromReport(\'' + (report.id || '').replace(/'/g, "\\'") + '\',\'' + (report.booking_id || '').replace(/'/g, "\\'") + '\',\'' + (report.service || '').replace(/'/g, "\\'") + '\',\'' + (report.pet_name || '').replace(/'/g, "\\'") + '\')">⭐ Leave a Review</button></div>';
 
   // Show modal
   modal.style.display = 'flex';
@@ -7523,10 +7642,470 @@ async function _loadReportRouteMap(report) {
   }
 }
 
-// ── Initialize reports on page load ──
+// ═══════════════════════════════════════════════════════════
+//  REVIEWS & RATINGS SYSTEM
+// ═══════════════════════════════════════════════════════════
+
+var _rvCurrentFilter = 'all';
+var _rvCache = [];
+
+// ── Star rating labels ──
+var _rvStarLabels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Amazing!'];
+
+function setReviewStars(val) {
+  document.getElementById('rv-rating').value = val;
+  var stars = document.querySelectorAll('#rv-stars .rv-star');
+  stars.forEach(function(s) {
+    var sv = parseInt(s.getAttribute('data-val'));
+    s.textContent = sv <= val ? '★' : '☆';
+    s.style.color = sv <= val ? '#c8963e' : '#d4c5b0';
+    s.style.transform = sv === val ? 'scale(1.2)' : 'scale(1)';
+  });
+  document.getElementById('rv-stars-label').textContent = _rvStarLabels[val] || '';
+}
+
+function _rvStarsHTML(rating, size) {
+  size = size || '1rem';
+  var h = '';
+  for (var i = 1; i <= 5; i++) {
+    h += '<span style="color:' + (i <= rating ? '#c8963e' : '#d4c5b0') + ';font-size:' + size + '">' + (i <= rating ? '★' : '☆') + '</span>';
+  }
+  return h;
+}
+
+// ── Open review modal from report detail ──
+function openReviewFromReport(reportId, bookingId, service, petName) {
+  document.getElementById('rv-report-id').value = reportId || '';
+  document.getElementById('rv-booking-id').value = bookingId || '';
+  document.getElementById('rv-service').value = service || '';
+  document.getElementById('rv-pet-name').value = petName || '';
+  document.getElementById('rv-text').value = '';
+  document.getElementById('rv-rating').value = '0';
+  document.getElementById('rv-modal-subtitle').textContent = (petName ? petName + ' — ' : '') + (service || 'Your visit');
+  setReviewStars(0);
+  closeModal('reportModal');
+  var modal = document.getElementById('reviewModal');
+  if (modal) { modal.style.display = 'flex'; }
+}
+
+// ── Submit client review ──
+async function submitClientReview() {
+  var rating = parseInt(document.getElementById('rv-rating').value);
+  if (!rating || rating < 1) { toast('Please tap a star to rate your experience.'); return; }
+
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  var user = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? HHP_Auth.currentUser : null;
+  if (!sb || !user) { toast('Please sign in first.'); return; }
+
+  // Get client profile
+  var { data: profile } = await sb.from('profiles').select('id, full_name').eq('user_id', user.id).single();
+  if (!profile) { toast('Profile not found.'); return; }
+
+  var reviewText = document.getElementById('rv-text').value.trim();
+  var reportId = document.getElementById('rv-report-id').value || null;
+  var bookingId = document.getElementById('rv-booking-id').value || null;
+  var service = document.getElementById('rv-service').value || null;
+  var petName = document.getElementById('rv-pet-name').value || null;
+
+  // Check if already reviewed this report
+  if (reportId) {
+    var { data: existing } = await sb.from('reviews').select('id').eq('report_id', reportId).eq('client_user_id', user.id).limit(1);
+    if (existing && existing.length > 0) { toast('You already left a review for this visit!'); closeModal('reviewModal'); return; }
+  }
+
+  var { error } = await sb.from('reviews').insert({
+    client_id: profile.id,
+    client_user_id: user.id,
+    client_name: profile.full_name || 'Client',
+    report_id: reportId,
+    booking_id: bookingId,
+    service: service,
+    pet_name: petName,
+    rating: rating,
+    review_text: reviewText || null,
+    status: 'pending'
+  });
+
+  if (error) {
+    console.error('Review submit error:', error);
+    toast('Failed to submit review. Please try again.');
+    return;
+  }
+
+  closeModal('reviewModal');
+  toast('⭐ Thank you for your review! Rachel will see it soon.');
+}
+
+// ── Auto-prompt review after viewing a report ──
+function _maybePromptReview(report) {
+  if (!report || !report.id) return;
+  // Only prompt clients
+  var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+  if (role !== 'client') return;
+  // Check if they already reviewed
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  var user = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? HHP_Auth.currentUser : null;
+  if (!sb || !user) return;
+  sb.from('reviews').select('id').eq('report_id', report.id).eq('client_user_id', user.id).limit(1).then(function(res) {
+    if (res.data && res.data.length > 0) return; // Already reviewed
+    // Prompt after 1.5s
+    setTimeout(function() {
+      openReviewFromReport(report.id, report.booking_id, report.service, report.pet_name);
+    }, 1500);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  OWNER REVIEWS PANEL — load, filter, approve, reject, respond
+// ═══════════════════════════════════════════════════════════
+
+async function loadOwnerReviews() {
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (!sb) return;
+
+  var listEl = document.getElementById('rv-list');
+  if (!listEl) return;
+
+  try {
+    var { data: reviews, error } = await sb.from('reviews').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    _rvCache = reviews || [];
+
+    // Update stats
+    var total = _rvCache.length;
+    var pending = _rvCache.filter(function(r) { return r.status === 'pending'; }).length;
+    var approved = _rvCache.filter(function(r) { return r.status === 'approved'; }).length;
+    var featured = _rvCache.filter(function(r) { return r.featured; }).length;
+    var avgRating = total > 0 ? (_rvCache.reduce(function(s, r) { return s + r.rating; }, 0) / total).toFixed(1) : '—';
+
+    var el1 = document.getElementById('rv-avgRating'); if (el1) el1.textContent = avgRating + (total > 0 ? ' ⭐' : '');
+    var el2 = document.getElementById('rv-totalReviews'); if (el2) el2.textContent = total;
+    var el3 = document.getElementById('rv-pendingCount'); if (el3) el3.textContent = pending;
+    var el4 = document.getElementById('rv-publicCount'); if (el4) el4.textContent = approved;
+
+    renderReviewsList(_rvCurrentFilter);
+  } catch (e) {
+    console.error('Load reviews error:', e);
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Failed to load reviews.</div>';
+  }
+}
+
+function filterReviews(filter) {
+  _rvCurrentFilter = filter;
+  // Update button states
+  document.querySelectorAll('.rv-filter-btn').forEach(function(btn) {
+    if (btn.getAttribute('data-filter') === filter) {
+      btn.classList.remove('btn-outline');
+      btn.classList.add('active');
+    } else {
+      btn.classList.add('btn-outline');
+      btn.classList.remove('active');
+    }
+  });
+  renderReviewsList(filter);
+}
+
+function renderReviewsList(filter) {
+  var listEl = document.getElementById('rv-list');
+  if (!listEl) return;
+
+  var filtered = _rvCache;
+  if (filter === 'pending') filtered = _rvCache.filter(function(r) { return r.status === 'pending'; });
+  else if (filter === 'approved') filtered = _rvCache.filter(function(r) { return r.status === 'approved'; });
+  else if (filter === 'rejected') filtered = _rvCache.filter(function(r) { return r.status === 'rejected'; });
+  else if (filter === 'featured') filtered = _rvCache.filter(function(r) { return r.featured; });
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">⭐</div>No reviews ' + (filter !== 'all' ? 'with this filter' : 'yet') + '.</div>';
+    return;
+  }
+
+  var h = '';
+  filtered.forEach(function(r) {
+    var dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    var statusBadge = '';
+    if (r.status === 'pending') statusBadge = '<span style="background:#fef3c7;color:#92400e;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">PENDING</span>';
+    else if (r.status === 'approved') statusBadge = '<span style="background:var(--forest-pale);color:var(--forest);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">APPROVED</span>';
+    else if (r.status === 'rejected') statusBadge = '<span style="background:var(--rose-pale);color:var(--rose,#c25656);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">REJECTED</span>';
+    var featuredBadge = r.featured ? ' <span style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">🌟 FEATURED</span>' : '';
+
+    h += '<div class="card" style="padding:16px" data-review-id="' + r.id + '">';
+    // Header row
+    h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">';
+    h += '<div>';
+    h += '<div style="font-weight:700;font-size:0.92rem">' + (r.client_name || 'Client') + '</div>';
+    h += '<div style="font-size:0.76rem;color:var(--mid);margin-top:2px">' + (r.service || '') + (r.pet_name ? ' · ' + r.pet_name : '') + ' · ' + dateStr + '</div>';
+    h += '</div>';
+    h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">' + statusBadge + featuredBadge + '</div>';
+    h += '</div>';
+    // Stars
+    h += '<div style="margin-bottom:8px">' + _rvStarsHTML(r.rating, '1.1rem') + '</div>';
+    // Review text
+    if (r.review_text) {
+      h += '<div style="font-size:0.86rem;color:var(--ink);line-height:1.6;margin-bottom:10px;background:var(--warm);border-radius:8px;padding:10px 12px">"' + r.review_text + '"</div>';
+    }
+    // Owner response
+    if (r.owner_response) {
+      h += '<div style="font-size:0.82rem;color:var(--forest);margin-bottom:10px;padding-left:12px;border-left:3px solid var(--forest)"><strong>Your reply:</strong> ' + r.owner_response + '</div>';
+    }
+    // Action buttons
+    h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+    if (r.status === 'pending') {
+      h += '<button class="btn btn-gold btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="updateReviewStatus(\'' + r.id + '\',\'approved\')">✅ Approve</button>';
+      h += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="updateReviewStatus(\'' + r.id + '\',\'rejected\')">❌ Reject</button>';
+    } else if (r.status === 'approved') {
+      h += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="updateReviewStatus(\'' + r.id + '\',\'rejected\')">Remove from Site</button>';
+    } else {
+      h += '<button class="btn btn-gold btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="updateReviewStatus(\'' + r.id + '\',\'approved\')">✅ Approve</button>';
+    }
+    h += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="toggleFeatured(\'' + r.id + '\',' + (r.featured ? 'false' : 'true') + ')">' + (r.featured ? '🌟 Unfeature' : '🌟 Feature') + '</button>';
+    h += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="openOwnerResponse(\'' + r.id + '\')">💬 Respond</button>';
+    h += '</div>';
+    h += '</div>';
+  });
+  listEl.innerHTML = h;
+}
+
+// ── Approve / Reject ──
+async function updateReviewStatus(reviewId, newStatus) {
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (!sb) return;
+
+  var { error } = await sb.from('reviews').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', reviewId);
+  if (error) { toast('Failed to update review.'); return; }
+  toast(newStatus === 'approved' ? '✅ Review approved and live on your website!' : '❌ Review removed.');
+  // Update cache
+  _rvCache.forEach(function(r) { if (r.id === reviewId) r.status = newStatus; });
+  renderReviewsList(_rvCurrentFilter);
+  // Update stats
+  loadOwnerReviews();
+  // Refresh public reviews section
+  if (typeof loadPublicReviews === 'function') loadPublicReviews();
+}
+
+// ── Toggle featured ──
+async function toggleFeatured(reviewId, val) {
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (!sb) return;
+
+  var { error } = await sb.from('reviews').update({ featured: val, updated_at: new Date().toISOString() }).eq('id', reviewId);
+  if (error) { toast('Failed to update.'); return; }
+  toast(val ? '🌟 Review featured!' : 'Removed from featured.');
+  _rvCache.forEach(function(r) { if (r.id === reviewId) r.featured = val; });
+  renderReviewsList(_rvCurrentFilter);
+  if (typeof loadPublicReviews === 'function') loadPublicReviews();
+}
+
+// ── Owner response modal ──
+function openOwnerResponse(reviewId) {
+  var review = _rvCache.find(function(r) { return r.id === reviewId; });
+  if (!review) return;
+  document.getElementById('rvr-review-id').value = reviewId;
+  document.getElementById('rvr-text').value = review.owner_response || '';
+  document.getElementById('rvr-preview').innerHTML = '<strong>' + (review.client_name || 'Client') + '</strong> — ' + _rvStarsHTML(review.rating) + (review.review_text ? '<div style="margin-top:6px;font-style:italic">"' + review.review_text + '"</div>' : '');
+  var modal = document.getElementById('reviewResponseModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+async function submitOwnerResponse() {
+  var reviewId = document.getElementById('rvr-review-id').value;
+  var text = document.getElementById('rvr-text').value.trim();
+  if (!reviewId) return;
+
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (!sb) return;
+
+  var { error } = await sb.from('reviews').update({ owner_response: text || null, updated_at: new Date().toISOString() }).eq('id', reviewId);
+  if (error) { toast('Failed to save response.'); return; }
+  toast('💬 Response saved!');
+  _rvCache.forEach(function(r) { if (r.id === reviewId) r.owner_response = text || null; });
+  closeModal('reviewResponseModal');
+  renderReviewsList(_rvCurrentFilter);
+  if (typeof loadPublicReviews === 'function') loadPublicReviews();
+}
+
+// ── Toggle reviews visibility on website ──
+function toggleReviewsOnWebsite() {
+  var checked = document.getElementById('rv-showOnSite').checked;
+  var section = document.getElementById('publicReviewsSection');
+  if (section) section.style.display = checked ? '' : 'none';
+  // Save preference
+  try { localStorage.setItem('hhp_showReviews', checked ? '1' : '0'); } catch(e) {}
+}
+
+// ── Load client's own reviews (My Reviews panel) ──
+async function loadClientReviewsList() {
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  var user = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? HHP_Auth.currentUser : null;
+  if (!sb || !user) return;
+
+  var listEl = document.getElementById('c-rv-list');
+  if (!listEl) return;
+
+  try {
+    var { data: reviews } = await sb.from('reviews').select('*').eq('client_user_id', user.id).order('created_at', { ascending: false });
+
+    if (!reviews || reviews.length === 0) {
+      listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">⭐</div><div style="font-weight:600;margin-bottom:6px">No reviews yet</div><div style="font-size:0.84rem">After each visit, you can leave a review from your Walk Reports.</div></div>';
+      return;
+    }
+
+    var h = '';
+    reviews.forEach(function(r) {
+      var dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+      var statusLabel = '';
+      if (r.status === 'pending') statusLabel = '<span style="background:#fef3c7;color:#92400e;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">Pending Review</span>';
+      else if (r.status === 'approved') statusLabel = '<span style="background:var(--forest-pale);color:var(--forest);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">✅ Published</span>';
+
+      h += '<div class="card" style="padding:16px">';
+      h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">';
+      h += '<div style="font-weight:600;font-size:0.88rem">' + (r.service || 'Visit') + (r.pet_name ? ' · ' + r.pet_name : '') + '</div>';
+      h += statusLabel;
+      h += '</div>';
+      h += '<div style="margin-bottom:6px">' + _rvStarsHTML(r.rating) + ' <span style="font-size:0.78rem;color:var(--mid);margin-left:4px">' + dateStr + '</span></div>';
+      if (r.review_text) h += '<div style="font-size:0.86rem;color:var(--ink);line-height:1.6;font-style:italic">"' + r.review_text + '"</div>';
+      if (r.owner_response) h += '<div style="margin-top:8px;padding:8px 10px;background:var(--forest-pale);border-radius:8px;font-size:0.78rem;color:var(--forest)"><strong>Rachel:</strong> ' + r.owner_response + '</div>';
+      h += '</div>';
+    });
+    listEl.innerHTML = h;
+  } catch (e) {
+    console.warn('Load client reviews error:', e);
+  }
+}
+
+// ── Send review request notification to client after report ──
+async function _sendReviewRequest(clientProfileId, reportId, service, petName) {
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (!sb || !clientProfileId) return;
+
+  try {
+    // Get client's user_id from profile id
+    var { data: clientProfile } = await sb.from('profiles').select('user_id').eq('id', clientProfileId).single();
+    if (!clientProfile || !clientProfile.user_id) return;
+
+    // Send an in-app notification asking for a review
+    await sb.from('notifications').insert({
+      user_id: clientProfile.user_id,
+      title: '⭐ How was your visit?',
+      body: 'Your ' + (service || 'service') + ' report' + (petName ? ' for ' + petName : '') + ' is ready! We\'d love to hear your feedback.',
+      type: 'review_request',
+      read: false
+    });
+  } catch (e) {
+    console.warn('Review request notification error:', e);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PUBLIC REVIEWS SECTION — visible on homepage
+// ═══════════════════════════════════════════════════════════
+
+async function loadPublicReviews() {
+  var section = document.getElementById('publicReviewsSection');
+  if (!section) return;
+
+  // Check owner preference
+  try { var pref = localStorage.getItem('hhp_showReviews'); if (pref === '0') { section.style.display = 'none'; return; } } catch(e) {}
+
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  if (!sb) return;
+
+  try {
+    var { data: reviews } = await sb.from('reviews').select('client_name, rating, review_text, service, pet_name, owner_response, created_at, featured')
+      .eq('status', 'approved').order('featured', { ascending: false }).order('created_at', { ascending: false }).limit(12);
+
+    if (!reviews || reviews.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = '';
+
+    // Calculate aggregate rating
+    var total = reviews.length;
+    var avg = (reviews.reduce(function(s, r) { return s + r.rating; }, 0) / total).toFixed(1);
+
+    var headerH = '<div style="text-align:center;margin-bottom:28px">' +
+      '<h2 style="font-family:\'Cormorant Garamond\',serif;font-size:2rem;font-weight:700;color:var(--ink);margin-bottom:6px">What Our Clients Say</h2>' +
+      '<div style="display:flex;align-items:center;justify-content:center;gap:8px">' +
+      '<div style="font-size:1.4rem;font-weight:700;color:var(--gold,#c8963e)">' + avg + '</div>' +
+      '<div>' + _rvStarsHTML(Math.round(parseFloat(avg)), '1.2rem') + '</div>' +
+      '<div style="font-size:0.82rem;color:var(--mid)">(' + total + ' review' + (total !== 1 ? 's' : '') + ')</div>' +
+      '</div></div>';
+
+    var cardsH = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">';
+    reviews.forEach(function(r) {
+      var dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '';
+      cardsH += '<div style="background:white;border-radius:12px;padding:20px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(30,20,9,0.04);position:relative' + (r.featured ? ';border-color:rgba(200,150,62,0.4)' : '') + '">';
+      if (r.featured) cardsH += '<div style="position:absolute;top:10px;right:10px;font-size:0.65rem;font-weight:700;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;padding:2px 8px;border-radius:20px">🌟 FEATURED</div>';
+      cardsH += '<div style="margin-bottom:8px">' + _rvStarsHTML(r.rating) + '</div>';
+      if (r.review_text) cardsH += '<div style="font-size:0.88rem;color:var(--ink);line-height:1.6;margin-bottom:10px;font-style:italic">"' + r.review_text + '"</div>';
+      cardsH += '<div style="font-size:0.78rem;color:var(--mid);font-weight:600">' + (r.client_name || 'Happy Client') + (r.pet_name ? ' & ' + r.pet_name : '') + '</div>';
+      cardsH += '<div style="font-size:0.72rem;color:var(--mid)">' + (r.service || '') + ' · ' + dateStr + '</div>';
+      if (r.owner_response) {
+        cardsH += '<div style="margin-top:10px;padding:8px 10px;background:var(--forest-pale);border-radius:8px;font-size:0.78rem;color:var(--forest)"><strong>Rachel:</strong> ' + r.owner_response + '</div>';
+      }
+      cardsH += '</div>';
+    });
+    cardsH += '</div>';
+
+    section.innerHTML = headerH + cardsH;
+
+    // ── SEO: Inject JSON-LD structured data for reviews ──
+    _injectReviewSchema(reviews, avg, total);
+
+  } catch (e) {
+    console.warn('Load public reviews error:', e);
+  }
+}
+
+// ── SEO JSON-LD schema for reviews (Google rich snippets) ──
+function _injectReviewSchema(reviews, avgRating, totalCount) {
+  // Remove old schema if exists
+  var old = document.getElementById('hhp-review-schema');
+  if (old) old.remove();
+
+  var reviewItems = reviews.slice(0, 10).map(function(r) {
+    return {
+      '@type': 'Review',
+      'reviewRating': { '@type': 'Rating', 'ratingValue': r.rating, 'bestRating': 5 },
+      'author': { '@type': 'Person', 'name': r.client_name || 'Happy Client' },
+      'reviewBody': r.review_text || '',
+      'datePublished': r.created_at ? r.created_at.split('T')[0] : ''
+    };
+  });
+
+  var schema = {
+    '@context': 'https://schema.org',
+    '@type': 'LocalBusiness',
+    'name': 'Housley Happy Paws',
+    'description': 'Professional pet care in Lancaster, PA — dog walks, drop-in visits, cat care, house sitting.',
+    'url': 'https://www.housleyhappypaws.com',
+    'address': { '@type': 'PostalAddress', 'addressLocality': 'Lancaster', 'addressRegion': 'PA' },
+    'aggregateRating': {
+      '@type': 'AggregateRating',
+      'ratingValue': avgRating,
+      'reviewCount': totalCount,
+      'bestRating': 5,
+      'worstRating': 1
+    },
+    'review': reviewItems
+  };
+
+  var script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.id = 'hhp-review-schema';
+  script.textContent = JSON.stringify(schema);
+  document.head.appendChild(script);
+}
+
+// ── Initialize reports & reviews on page load ──
 document.addEventListener('DOMContentLoaded', function() {
   initReportDate();
   toggleReportDistance();
+
+  // Load public reviews for homepage (runs for all visitors)
+  setTimeout(function() { if (typeof loadPublicReviews === 'function') loadPublicReviews(); }, 1000);
 
   // Watch for panel switches to load data
   var origSTab = window.sTab;
@@ -7538,6 +8117,8 @@ document.addEventListener('DOMContentLoaded', function() {
         initReportDate();
         populateReportClients();
       }
+      if (panelId === 'o-reviews') loadOwnerReviews();
+      if (panelId === 'c-reviews') loadClientReviewsList();
     };
   }
 });
