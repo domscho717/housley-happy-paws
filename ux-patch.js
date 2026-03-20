@@ -58,17 +58,14 @@
   function fixViewport() {
     var viewport = document.querySelector('meta[name="viewport"]');
     if (viewport) {
-      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
     } else {
       viewport = document.createElement('meta');
       viewport.setAttribute('name', 'viewport');
-      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
+      viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
       document.head.appendChild(viewport);
     }
 
-    var html = document.documentElement;
-    html.style.overscrollBehavior = 'none';
-    document.body.style.overscrollBehavior = 'none';
   }
 
   // ─────────────────────────────────────────────
@@ -212,9 +209,8 @@
       'html, body {' +
         'overflow-x: hidden !important;' +
         'max-width: 100vw !important;' +
-        '-webkit-overflow-scrolling: touch !important;' +
       '}' +
-      'html { scroll-behavior: auto !important; }' +
+      'html { scroll-behavior: auto !important; overflow-y: scroll !important; }' +
       '*, *::before, *::after { max-width: 100vw; }' +
       '.nav, .hero, section, footer, .portal-wrap, .portal-main,' +
       '#pg-public, #pg-client, #pg-staff, #pg-owner {' +

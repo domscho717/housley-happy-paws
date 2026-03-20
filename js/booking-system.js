@@ -62,11 +62,9 @@
     var css = document.createElement('style');
     css.id = 'hhp-scroll-fix';
     css.textContent = [
-      'html, body { overscroll-behavior: none !important; scroll-behavior: auto !important; -webkit-overflow-scrolling: auto !important; }',
-      'html { overflow-y: scroll !important; overflow-x: hidden !important; }',
-      'body { overflow-y: auto !important; overflow-x: hidden !important; }',
-      '#pg-public, #pg-client, #pg-staff, #pg-owner { overflow: visible !important; -webkit-overflow-scrolling: auto !important; }',
-      '* { scroll-snap-type: none !important; scroll-snap-align: unset !important; -webkit-overflow-scrolling: auto !important; }',
+      'html { overflow-y: scroll !important; overflow-x: hidden !important; scroll-behavior: auto !important; }',
+      'body { overflow-y: auto !important; overflow-x: hidden !important; scroll-behavior: auto !important; }',
+      '#pg-public, #pg-client, #pg-staff, #pg-owner { overflow: visible !important; }',
       '.reviews-track { scroll-snap-type: x mandatory !important; scroll-behavior: auto !important; }',
     ].join('\n');
     document.head.appendChild(css);
@@ -79,20 +77,13 @@
 
     // After page loads, remove duplicate scroll listeners
     function cleanupScrollListeners() {
-      // Clone and replace html/body to remove all event listeners from ux-patch duplicates
-      // Instead, just ensure scroll works by removing any blocking styles
-      document.documentElement.style.overscrollBehavior = 'none';
+      // Ensure scroll works by removing any blocking inline styles
       document.documentElement.style.scrollBehavior = 'auto';
-      document.documentElement.style.webkitOverflowScrolling = 'auto';
-      document.body.style.overscrollBehavior = 'none';
-      document.body.style.webkitOverflowScrolling = 'auto';
-
       // Remove any inline overflow styles that block scrolling
       var pgPublic = document.getElementById('pg-public');
       if (pgPublic) {
         pgPublic.style.overflow = 'visible';
         pgPublic.style.overflowY = 'visible';
-        pgPublic.style.webkitOverflowScrolling = 'auto';
       }
     }
 

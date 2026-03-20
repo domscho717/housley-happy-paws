@@ -39,8 +39,8 @@ try{var v=sessionStorage.getItem('hhp_last_view');if(!v||v==='public'){var s=doc
   --shadow-lg: 0 12px 48px rgba(30,20,9,0.11);
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:auto;overscroll-behavior:none;-webkit-overflow-scrolling:auto}
-body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:auto}
+html{scroll-behavior:auto;overflow-y:scroll}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden}
 .page{display:none;min-height:100vh}
 .page.active{display:block}
 /* Hide everything until auth settles — prevents any flash of wrong view */
