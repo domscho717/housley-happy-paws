@@ -905,9 +905,12 @@
       var html = '<div style="padding:16px 18px 10px">';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
       html += '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.25rem;font-weight:700;color:var(--ink)">🔔 Alerts & Messages</div>';
+      html += '<div style="display:flex;align-items:center;gap:8px">';
       if (totalAlerts > 0) {
         html += '<div style="background:var(--rose);color:white;padding:2px 10px;border-radius:12px;font-size:0.75rem;font-weight:700">' + totalAlerts + ' new</div>';
       }
+      html += '<button onclick="if(window.HHP_Messaging)window.HHP_Messaging.loadAlertMessages()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.78rem;color:var(--mid);transition:all 0.2s" onmouseover="this.style.borderColor=\'var(--gold)\';this.style.color=\'var(--gold-deep)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--mid)\'">↻ Refresh</button>';
+      html += '</div>';
       html += '</div>';
 
       // Summary badges
