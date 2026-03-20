@@ -975,7 +975,7 @@ try {
           <button type="button" class="stripe-pay-btn" style="display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;font-family:inherit;transition:opacity 0.2s;" onclick="if(typeof openBookingModal==='function')openBookingModal('Dog Walking')" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Request Dog Walking</button>
         </div>
         <div class="service-card fadeup">
-          <div class="sc-icon">🏠</div>
+          <div class="sc-icon">🚪</div>
           <div class="sc-name">Drop-In Visit</div>
           <div class="sc-price">$25 <span>/ 30 min</span></div>
           <div class="sc-price" style="font-size:1.15rem;margin-top:-2px">$45 <span>/ 1 hour</span></div>
@@ -2441,7 +2441,7 @@ try {
 <!-- Booking -->
 <div class="overlay" id="bookModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">Request a Booking 📅</div><button class="modal-close" onclick="closeModal('bookModal')">✕</button></div>
-  <div class="form-group"><label class="form-lbl">Service</label><select class="form-sel"><option>🦮 Dog Walk (30 min) — $25</option><option>🦮 Dog Walk (1 hour) — $45</option><option>🏠 Drop-In Visit (30 min) — $25</option><option>🏠 Drop-In Visit (1 hour) — $45</option><option>🐱 Cat Care (30 min) — $20</option><option>🐱 Cat Care (1 hour) — $35</option><option>🏡 House Sitting (Dog) — $125/night</option><option>🏡 House Sitting (Cat) — $80/night</option></select></div>
+  <div class="form-group"><label class="form-lbl">Service</label><select class="form-sel"><option>🦮 Dog Walk (30 min) — $25</option><option>🦮 Dog Walk (1 hour) — $45</option><option>🚪 Drop-In Visit (30 min) — $25</option><option>🚪 Drop-In Visit (1 hour) — $45</option><option>🐱 Cat Care (30 min) — $20</option><option>🐱 Cat Care (1 hour) — $35</option><option>🏡 House Sitting (Dog) — $125/night</option><option>🏡 House Sitting (Cat) — $80/night</option></select></div>
   <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Date</label><input class="form-in" type="date"></div><div><label class="form-lbl">Preferred Time</label><select class="form-in"><option value="">Select time...</option><option value="05:00">5:00 AM</option><option value="05:30">5:30 AM</option><option value="06:00">6:00 AM</option><option value="06:30">6:30 AM</option><option value="07:00">7:00 AM</option><option value="07:30">7:30 AM</option><option value="08:00">8:00 AM</option><option value="08:30">8:30 AM</option><option value="09:00">9:00 AM</option><option value="09:30">9:30 AM</option><option value="10:00">10:00 AM</option><option value="10:30">10:30 AM</option><option value="11:00">11:00 AM</option><option value="11:30">11:30 AM</option><option value="12:00">12:00 PM</option><option value="12:30">12:30 PM</option><option value="13:00">1:00 PM</option><option value="13:30">1:30 PM</option><option value="14:00">2:00 PM</option><option value="14:30">2:30 PM</option><option value="15:00">3:00 PM</option><option value="15:30">3:30 PM</option><option value="16:00">4:00 PM</option><option value="16:30">4:30 PM</option><option value="17:00">5:00 PM</option><option value="17:30">5:30 PM</option><option value="18:00">6:00 PM</option><option value="18:30">6:30 PM</option><option value="19:00">7:00 PM</option><option value="19:30">7:30 PM</option><option value="20:00">8:00 PM</option><option value="20:30">8:30 PM</option><option value="21:00">9:00 PM</option><option value="21:30">9:30 PM</option><option value="22:00">10:00 PM</option><option value="22:30">10:30 PM</option></select></div></div>
   <div class="form-group"><label class="form-lbl">Pet(s)</label><input class="form-in" placeholder="Your pet's name"></div>
   <div class="form-group"><label class="form-lbl">Discount Code (optional)</label><input class="form-in" placeholder="HAPPYPAWS10"></div>
@@ -2738,7 +2738,7 @@ function switchView(view) {
       floatingBookMenu.innerHTML = [
         '<div style="padding:8px 16px 6px;font-size:0.72rem;font-weight:700;color:var(--mid,#8c6b4a);text-transform:uppercase;letter-spacing:0.5px">Quick Book</div>',
         '<button class="fab-svc-btn" onclick="floatingBookPick(\'Dog Walking\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🐕 Dog Walking</button>',
-        '<button class="fab-svc-btn" onclick="floatingBookPick(\'Drop-In Visit\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🏠 Drop-In Visit</button>',
+        '<button class="fab-svc-btn" onclick="floatingBookPick(\'Drop-In Visit\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🚪 Drop-In Visit</button>',
         '<button class="fab-svc-btn" onclick="floatingBookPick(\'Cat Care Visit\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🐱 Cat Care</button>',
         '<button class="fab-svc-btn" onclick="floatingBookPick(\'House Sitting\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🏡 House Sitting</button>',
         '<div style="border-top:1px solid #eee;margin:4px 0"></div>',
@@ -5126,7 +5126,7 @@ function openPricingEditor(){ sTab('o','o-content'); setTimeout(()=>showContentS
 // ============================================================
 const pricingData=[
   {key:'walk30',label:'🦮 Dog Walk (30 min)',price:'$25'},{key:'walk60',label:'🦮 Dog Walk (1 hour)',price:'$45'},
-  {key:'dropin30',label:'🏠 Drop-In Visit (30 min)',price:'$25'},{key:'dropin60',label:'🏠 Drop-In Visit (1 hour)',price:'$45'},
+  {key:'dropin30',label:'🚪 Drop-In Visit (30 min)',price:'$25'},{key:'dropin60',label:'🚪 Drop-In Visit (1 hour)',price:'$45'},
   {key:'cat30',label:'🐱 Cat Care (30 min)',price:'$20'},{key:'cat60',label:'🐱 Cat Care (1 hour)',price:'$35'},
   {key:'boarding',label:'🌙 Dog Boarding (per night)',price:'$55'},{key:'boarding24',label:'🌙 Dog Boarding (24hr)',price:'$75'},
   {key:'daycare_half',label:'☀️ Day Care (half day)',price:'$40'},{key:'daycare_full',label:'☀️ Day Care (full day)',price:'$65'},
@@ -5151,7 +5151,7 @@ function savePricing() {
 // ============================================================
 const serviceDescs=[
   {key:'desc_walk',label:'🦮 Dog Walking',text:"I come to your home and get your pup ready for a nice, long walk! Every walk is GPS tracked with a detailed report card sent to you afterward. Water bowls will also be refreshed upon returning!"},
-  {key:'desc_dropin',label:'🏠 Drop-In Visit',text:"I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! I also can address any special needs or requests, such as medication, etc.!"},
+  {key:'desc_dropin',label:'🚪 Drop-In Visit',text:"I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! I also can address any special needs or requests, such as medication, etc.!"},
   {key:'desc_boarding',label:'🌙 Dog Boarding',text:"Your dog stays with Rachel in a warm, loving home environment. Included walks, play sessions, and daily photo updates so you always know how they're doing."},
   {key:'desc_cat',label:'🐱 Cat Care Visit',text:"Cats deserve great care too! I visit your cat at home, drop ins can include feeding, litter box cleaning, fresh water, and playtime. I also can address any special needs or requests, such as medication, etc.!"},
   {key:'desc_housesit',label:'🏡 House Sitting',text:"Going away? I stay at your home and care for your pets in their own environment — keeping their routine, giving medication if needed, and sending regular updates and photos so you have complete peace of mind while you're gone!"},
@@ -6392,7 +6392,7 @@ async function loadStaffSchedule() {
       return;
     }
 
-    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
     bookings.forEach(function(b) {
       var icon = svcIcons[b.service] || '🐾';
       var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -6456,7 +6456,7 @@ async function loadStaffJobs() {
 
     card.innerHTML = '<div class="card-title" style="margin-bottom:14px">' + requests.length + ' Pending Request' + (requests.length !== 1 ? 's' : '') + '</div>';
 
-    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
     requests.forEach(function(r) {
       var icon = svcIcons[r.service] || '🐾';
       var dateStr = r.preferred_date ? new Date(r.preferred_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
@@ -6653,7 +6653,7 @@ async function loadLiveTracking() {
       header.textContent = "📅 Today's Scheduled Visits";
       card.appendChild(header);
 
-      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
+      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
       todayJobs.forEach(function(b) {
         var icon = svcIcons[b.service] || '🐾';
         var row = document.createElement('div');
@@ -7454,7 +7454,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var { data: upcoming } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
               .eq('client_id', userId).gte('date', today).order('date', { ascending: true }).limit(4);
             if (upcoming && upcoming.length > 0) {
-              var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+              var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
               var h = '';
               upcoming.forEach(function(b) {
                 var icon = svcIcons[b.service] || '🐾';
@@ -7691,7 +7691,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var { data: recentJobs } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
           .eq('staff_id', userId).in('status', ['completed', 'confirmed']).order('date', { ascending: false }).limit(8);
         if (recentJobs && recentJobs.length > 0) {
-          var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+          var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
           var rh = '';
           recentJobs.forEach(function(b) {
             var icon = svcIcons[b.service] || '🐾';
