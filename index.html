@@ -418,7 +418,12 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   background:#16100A;padding:28px 16px;
   position:sticky;top:72px;height:calc(100vh - 72px);
   overflow-y:auto;display:flex;flex-direction:column;
+  scrollbar-width:thin;scrollbar-color:rgba(200,150,62,0.4) transparent;
 }
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-track{background:transparent}
+.sidebar::-webkit-scrollbar-thumb{background:rgba(200,150,62,0.4);border-radius:3px}
+.sidebar::-webkit-scrollbar-thumb:hover{background:rgba(200,150,62,0.65)}
 .sidebar-user{
   background:rgba(200,150,62,0.12);border-radius:10px;
   padding:14px;margin-bottom:24px;display:flex;align-items:center;gap:10px;
@@ -2033,7 +2038,6 @@ try {
               <button class="content-sec-btn" onclick="showContentSection('about',this)">👩 About</button>
               <button class="content-sec-btn" onclick="showContentSection('pricing',this)">💰 Pricing</button>
               <button class="content-sec-btn" onclick="showContentSection('services',this)">🐾 Services</button>
-              <button class="content-sec-btn" onclick="showContentSection('reviews',this)">⭐ Reviews</button>
               <button class="content-sec-btn" onclick="showContentSection('footer',this)">📄 Footer / Contact</button>
             </div>
           </div>
@@ -2097,18 +2101,6 @@ try {
             </div>
 
             <!-- Reviews -->
-            <div id="ce-reviews" class="content-edit-panel" style="display:none">
-              <div class="card">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-                  <div class="card-title">⭐ Reviews</div>
-                  <button class="btn btn-forest btn-sm" onclick="aiQuick('Write 3 warm, realistic-sounding 5-star reviews for a pet care business in Lancaster PA called Housley Happy Paws, owned by Rachel Housley. Mix dog and cat owners.')">✨ Generate Reviews</button>
-                </div>
-                <div id="reviewEditorRows" style="display:flex;flex-direction:column;gap:14px"></div>
-                <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="addReviewRow()">+ Add Review</button>
-                <button class="submit-btn" style="margin-top:14px" onclick="saveReviews()">💾 Save Reviews</button>
-              </div>
-            </div>
-
             <!-- Footer -->
             <div id="ce-footer" class="content-edit-panel" style="display:none">
               <div class="card">
@@ -5378,7 +5370,6 @@ function showContentSection(name, btn) {
   if(btn) btn.classList.add('active');
   if(name==='pricing') buildPricingEditor();
   if(name==='services') buildServiceEditor();
-  if(name==='reviews') buildReviewEditor();
 }
 function saveContentSection(section) {
   const updates = {};
