@@ -1581,15 +1581,17 @@
 
       if (!pets || pets.length === 0) {
         container.innerHTML = [
-          '<div style="background:#fff8ec;border:1px solid #e0d5c5;border-radius:10px;padding:14px;text-align:center">',
+          '<div style="background:#fff8ec;border:1px solid #e0d5c5;border-radius:10px;padding:14px;text-align:center;margin-bottom:10px">',
           '  <div style="font-size:1.3rem;margin-bottom:6px">🐾</div>',
           '  <div style="font-size:0.88rem;color:#6b5c4d;margin-bottom:8px">No pet profiles yet</div>',
           '  <a href="#" onclick="event.preventDefault();closeBookingModal();if(typeof switchView===\'function\')switchView(\'client\');sTab(\'c\',\'c-pets\')" ',
           '     style="color:#c8963e;font-weight:600;font-size:0.85rem;text-decoration:underline">',
           '     Add your first pet →</a>',
           '</div>',
+          '<div style="font-size:0.82rem;color:#8c6b4a;margin-bottom:6px">Or describe your pet(s) below to continue booking:</div>',
         ].join('\n');
-        // Account required — no guest fallback needed
+        // Show guest pet fields as fallback so user can still book
+        if (guestArea) guestArea.style.display = 'block';
         return;
       }
 
