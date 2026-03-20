@@ -1659,8 +1659,8 @@ try {
               <button class="btn btn-gold btn-sm" onclick="toast('📢 Notification feature coming soon — clients currently receive auto-notifications for bookings.')">Notify All</button>
             </div>
           </div>
-          <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">
-            No appointments scheduled today. Use the calendar to add jobs.
+          <div id="ownerTodayScheduleList" style="display:flex;flex-direction:column;gap:8px">
+            <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading today's schedule...</div>
           </div>
           <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
             <div style="font-size:0.8rem;color:var(--mid);display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span>Auto-notifications ON — clients receive start & end alerts automatically</div>
@@ -2881,7 +2881,7 @@ function sTab(portal, panelId) {
   if (panelId === 's-jobs' && typeof loadStaffJobs === 'function') loadStaffJobs();
   if (panelId === 's-earn' && typeof loadStaffEarnings === 'function') loadStaffEarnings();
   // Client panels
-  if (panelId === 'c-track' && typeof loadLiveTracking === 'function') loadLiveTracking();
+  if (panelId === 'c-track') { if (typeof HHP_Tracking !== 'undefined') HHP_Tracking.loadClientLiveTracking(); else if (typeof loadLiveTracking === 'function') loadLiveTracking(); }
   // Gallery re-render when switching to photo panels
   if (panelId === 'c-photos' && window.HHP_Gallery) HHP_Gallery.render('client');
   if (panelId === 'o-photos') {
@@ -2904,6 +2904,7 @@ function sTab(portal, panelId) {
   if (panelId === 'o-overview') {
     if (window.HHP_Messaging && typeof window.HHP_Messaging.loadAlertMessages === 'function') window.HHP_Messaging.loadAlertMessages();
     if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
+    if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
   }
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
@@ -6544,22 +6545,32 @@ async function loadStaffSchedule() {
       return;
     }
 
+    // Check for active walk to show Start/End buttons
+    var activeWalk = null;
+    if (typeof HHP_Tracking !== 'undefined') {
+      var awRes = await sb.from('walks').select('*').eq('walker_id', window.HHP_Auth.currentUser.id).eq('status', 'in_progress').limit(1);
+      activeWalk = (awRes.data && awRes.data[0]) || null;
+    }
+
     var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
     bookings.forEach(function(b) {
       var icon = svcIcons[b.service] || '🐾';
       var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
       var statusColor = b.status === 'confirmed' ? 'var(--forest,#3d5a47)' : 'var(--gold,#c8963e)';
+      var walkBtn = (typeof HHP_Tracking !== 'undefined') ? HHP_Tracking.buildWalkButton(b, activeWalk) : '';
       var row = document.createElement('div');
-      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px;margin-bottom:8px;';
-      row.innerHTML = '<div style="display:flex;align-items:center;gap:10px">' +
+      row.style.cssText = 'padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px;margin-bottom:8px;';
+      row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
         '<div style="font-size:1.3rem">' + icon + '</div>' +
         '<div><div style="font-weight:600;font-size:0.88rem">' + (b.service || 'Service') + '</div>' +
         '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div>' +
         (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>' : '') +
         '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px">' +
         '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>' +
         (b.status === 'confirmed' ? '<button class="cancel-btn" style="font-size:0.74rem;padding:4px 10px" onclick="openCancelModal(\'' + (b.id || '').replace(/'/g, "\\'") + '\',\'' + (b.service || '').replace(/'/g, "\\'") + '\',\'' + b.date + '\',\'' + (b.pet_names || '').replace(/'/g, "\\'") + '\',false,\'staff\')">Cancel</button>' : '') +
-        '</div>';
+        '</div></div>' + walkBtn;
       card.appendChild(row);
     });
   } catch (e) {
@@ -7438,11 +7449,78 @@ function openReportDetail(reportOrId) {
     '</div>' +
     photosHtml +
     '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
+    '<div id="reportRouteMapContainer"></div>' +
     '<div style="display:flex;gap:10px"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button></div>';
 
   // Show modal
   modal.style.display = 'flex';
   modal.classList.add('active');
+
+  // Load walk route map for dog walk reports
+  if (typeof HHP_Tracking !== 'undefined' && report.service && (report.service.toLowerCase().indexOf('walk') > -1)) {
+    _loadReportRouteMap(report);
+  }
+}
+
+// ── Load route map for a completed walk report ──
+async function _loadReportRouteMap(report) {
+  var container = document.getElementById('reportRouteMapContainer');
+  if (!container) return;
+
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (!sb) return;
+
+  try {
+    // Try to find a completed walk matching this report
+    var walkData = null;
+    if (report.booking_id) {
+      var { data: walkByBooking } = await sb.from('walks').select('id, route_summary, status')
+        .eq('booking_id', report.booking_id).eq('status', 'completed').limit(1);
+      if (walkByBooking && walkByBooking.length > 0) walkData = walkByBooking[0];
+    }
+
+    // If not found by booking_id, try by client + date
+    if (!walkData && report.client_id && report.report_date) {
+      var { data: walkByDate } = await sb.from('walks').select('id, route_summary, status')
+        .eq('client_id', report.client_id).eq('status', 'completed')
+        .gte('start_time', report.report_date + 'T00:00:00')
+        .lt('start_time', report.report_date + 'T23:59:59')
+        .limit(1);
+      if (walkByDate && walkByDate.length > 0) walkData = walkByDate[0];
+    }
+
+    if (walkData && walkData.route_summary && walkData.route_summary.length > 0) {
+      var pts = walkData.route_summary;
+      var mapDivId = 'report-route-map-' + walkData.id;
+      container.innerHTML = '<div style="margin-top:16px">' +
+        '<div style="font-weight:700;font-size:0.88rem;margin-bottom:8px">🗺️ Walk Route</div>' +
+        '<div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--border)">' +
+        '<div id="' + mapDivId + '" style="height:250px;background:#e8e0d0"></div>' +
+        '</div>' +
+        '<div style="font-size:0.75rem;color:var(--mid);margin-top:6px">' + pts.length + ' GPS points recorded during this walk</div>' +
+        '</div>';
+      // Initialize Leaflet map after DOM insertion
+      setTimeout(function() {
+        var mapEl = document.getElementById(mapDivId);
+        if (!mapEl || typeof L === 'undefined') return;
+        var latlngs = pts.map(function(p) { return [p.lat, p.lng]; });
+        var map = L.map(mapEl, { scrollWheelZoom: false, dragging: true, zoomControl: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        if (latlngs.length > 1) {
+          var polyline = L.polyline(latlngs, { color: '#3d5a47', weight: 4, opacity: 0.85 }).addTo(map);
+          map.fitBounds(polyline.getBounds().pad(0.15));
+        } else {
+          map.setView(latlngs[0], 16);
+        }
+        // Start marker (gold)
+        L.circleMarker(latlngs[0], { radius: 7, color: '#3d5a47', fillColor: '#c8963e', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup('Start');
+        // End marker (green)
+        L.circleMarker(latlngs[latlngs.length - 1], { radius: 8, color: '#22c55e', fillColor: '#22c55e', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup('End');
+      }, 300);
+    }
+  } catch (e) {
+    console.warn('Route map load error:', e);
+  }
 }
 
 // ── Initialize reports on page load ──
@@ -7542,6 +7620,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('navLogoutBtn').style.display = 'inline-flex';
         // Load dashboard stats on initial page load
         if (typeof loadDashboardStats === 'function') loadDashboardStats();
+        if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
       }
       // Signal auth is ready — all waiting modules fire immediately
       _fireAuthReady();
@@ -7824,6 +7903,81 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  // ---- OWNER TODAY'S SCHEDULE WITH START/END WALK BUTTONS ----
+  async function loadOwnerTodaySchedule() {
+    var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+    if (!sb) return;
+
+    var listEl = document.getElementById('ownerTodayScheduleList');
+    if (!listEl) return;
+
+    var dateLabel = document.getElementById('todayDateLabel');
+    var todayDate = new Date();
+    var todayStr = todayDate.toISOString().split('T')[0];
+    if (dateLabel) dateLabel.textContent = todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+    try {
+      // Fetch today's bookings (all clients, owner sees everything)
+      var { data: bookings, error } = await sb.from('bookings').select('*')
+        .eq('date', todayStr).in('status', ['confirmed', 'pending'])
+        .order('time_slot', { ascending: true });
+
+      if (error) { console.warn('Owner today schedule error:', error); }
+      bookings = bookings || [];
+
+      if (bookings.length === 0) {
+        listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments scheduled today. Use the calendar to add jobs.</div>';
+        return;
+      }
+
+      // Check for active walk (owner's own walks)
+      var activeWalk = null;
+      var user = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser : null;
+      if (typeof HHP_Tracking !== 'undefined' && user) {
+        var awRes = await sb.from('walks').select('*').eq('walker_id', user.id).eq('status', 'in_progress').limit(1);
+        activeWalk = (awRes.data && awRes.data[0]) || null;
+      }
+
+      // Fetch client names for display
+      var clientIds = [];
+      bookings.forEach(function(b) { if (b.client_id && clientIds.indexOf(b.client_id) === -1) clientIds.push(b.client_id); });
+      var clientNames = {};
+      if (clientIds.length > 0) {
+        var { data: clientProfiles } = await sb.from('profiles').select('user_id, full_name').in('user_id', clientIds);
+        if (clientProfiles) clientProfiles.forEach(function(p) { clientNames[p.user_id] = p.full_name || 'Client'; });
+      }
+
+      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+      var h = '';
+      bookings.forEach(function(b) {
+        var icon = svcIcons[b.service] || '🐾';
+        var statusColor = b.status === 'confirmed' ? 'var(--forest,#3d5a47)' : 'var(--gold,#c8963e)';
+        var clientName = clientNames[b.client_id] || 'Client';
+        var walkBtn = (typeof HHP_Tracking !== 'undefined') ? HHP_Tracking.buildWalkButton(b, activeWalk) : '';
+
+        h += '<div style="padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px">';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center">';
+        h += '<div style="display:flex;align-items:center;gap:10px">';
+        h += '<div style="font-size:1.3rem">' + icon + '</div>';
+        h += '<div><div style="font-weight:600;font-size:0.88rem">' + (b.service || 'Service') + '</div>';
+        h += '<div style="font-size:0.78rem;color:var(--mid)">' + (b.time_slot || 'No time set') + ' · ' + clientName + '</div>';
+        if (b.pet_names) h += '<div style="font-size:0.72rem;color:var(--mid)">🐾 ' + b.pet_names + '</div>';
+        if (b.address) h += '<div style="font-size:0.72rem;color:var(--mid)">📍 ' + b.address + '</div>';
+        h += '</div></div>';
+        h += '<div style="display:flex;align-items:center;gap:6px">';
+        h += '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>';
+        h += '</div></div>';
+        h += walkBtn;
+        h += '</div>';
+      });
+      listEl.innerHTML = h;
+
+    } catch (e) {
+      console.warn('Owner today schedule error:', e);
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments scheduled today.</div>';
+    }
+  }
+
   // ---- STAFF EARNINGS LOADER ----
   async function loadStaffEarnings() {
     var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
@@ -7893,5 +8047,8 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
   <script src="/js/avatar-system.js" defer></script>
-  <script src="/js/availability.js" defer></script></body>
+  <script src="/js/availability.js" defer></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="/js/live-tracking.js" defer></script></body>
 </html>
