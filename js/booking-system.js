@@ -524,7 +524,7 @@
       '      <label class="brm-label">Select Your Date(s) *</label>',
       '      <div id="brm-selected-chips" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px"></div>',
       '      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">',
-      '        <input type="date" id="brm-add-date-input" class="brm-input" style="flex:1" min="' + new Date().toISOString().split('T')[0] + '">',
+      '        <input type="date" id="brm-add-date-input" class="brm-input" style="flex:1" min="' + new Date().toISOString().split('T')[0] + '" value="">',
       '      </div>',
       '      <div id="brm-dates-list" style="display:flex;flex-direction:column;gap:8px"></div>',
       '      <div id="brm-no-dates-msg" style="text-align:center;color:#a08a6e;font-size:0.82rem;padding:12px;background:#f9f6f0;border:1px dashed #e0d5c5;border-radius:8px">Tap a date above to add it to your booking</div>',
@@ -620,12 +620,12 @@
       }
     }, 300);
 
-    // Set min date to today
+    // Set min date to today (prevents booking in the past, but no auto-fill)
+    var today = new Date().toISOString().split('T')[0];
     var dateInput = document.getElementById('brm-date');
-    if (dateInput) {
-      var today = new Date().toISOString().split('T')[0];
-      dateInput.setAttribute('min', today);
-    }
+    if (dateInput) { dateInput.setAttribute('min', today); dateInput.value = ''; }
+    var endDateInput = document.getElementById('brm-enddate');
+    if (endDateInput) { endDateInput.setAttribute('min', today); endDateInput.value = ''; }
 
     // Resolve full service name from group dropdown + duration dropdown
     window._resolveBookingServiceName = resolveServiceName;
@@ -1039,10 +1039,8 @@
       var monthDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
       // Build the recurring options HTML for this card
+      // No default end date — let the client choose their own
       var todayStr = new Date().toISOString().split('T')[0];
-      var fourWeeks = new Date();
-      fourWeeks.setDate(fourWeeks.getDate() + 28);
-      var fourWeeksStr = fourWeeks.toISOString().split('T')[0];
 
       var card = document.createElement('div');
       card.id = 'brm-dc-' + idx;
@@ -1075,7 +1073,7 @@
               '</div>' +
               '<div style="flex:1;min-width:110px" id="brm-dc-end-wrap-' + idx + '">' +
                 '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Until</label>' +
-                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="' + fourWeeksStr + '" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:5px 8px;font-size:0.8rem">' +
+                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:5px 8px;font-size:0.8rem">' +
               '</div>' +
             '</div>' +
             '<label style="display:flex;align-items:center;gap:5px;margin-top:6px;font-size:0.78rem;color:#6b5c4d;cursor:pointer">' +
@@ -1507,7 +1505,12 @@
       var datesListEl = document.getElementById('brm-dates-list');
       if (datesListEl) datesListEl.innerHTML = '';
       var addDateInput = document.getElementById('brm-add-date-input');
-      if (addDateInput) addDateInput.value = '';
+      if (addDateInput) { addDateInput.value = ''; addDateInput.defaultValue = ''; }
+      // Also reset House Sitting date range inputs
+      var hsDateEl = document.getElementById('brm-date');
+      var hsEndEl = document.getElementById('brm-enddate');
+      if (hsDateEl) { hsDateEl.value = ''; hsDateEl.defaultValue = ''; }
+      if (hsEndEl) { hsEndEl.value = ''; hsEndEl.defaultValue = ''; }
       // Show the helper message and clear chips
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = '';
