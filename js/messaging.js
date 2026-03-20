@@ -832,22 +832,25 @@
   async function loadAlertMessages() {
     var card = document.getElementById('hhpAlertsCard');
     if (!card) return;
-    if (!supabase || !currentUserId) {
+    var sb = getSB();
+    var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+    var userId = user ? user.id : null;
+    if (!sb || !userId) {
       card.innerHTML = '<div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Sign in to see alerts</div>';
       return;
     }
     try {
       // ── 1. Unread Messages (up to 5) ──
-      var { data: unread } = await supabase
+      var { data: unread } = await sb
         .from('messages')
         .select('id, sender_id, content, created_at, conversation_id, sender_name')
-        .eq('receiver_id', currentUserId)
+        .eq('receiver_id', userId)
         .eq('read', false)
         .order('created_at', { ascending: false })
         .limit(5);
 
       // ── 2. Pending Booking Requests (up to 5) ──
-      var { data: pendingBookings } = await supabase
+      var { data: pendingBookings } = await sb
         .from('booking_requests')
         .select('id, service, preferred_date, status, client_id, created_at')
         .eq('status', 'pending')
@@ -857,7 +860,7 @@
       // ── 3. New Client Sign-ups (last 7 days, up to 3) ──
       var sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      var { data: newClients } = await supabase
+      var { data: newClients } = await sb
         .from('profiles')
         .select('id, full_name, created_at')
         .eq('role', 'client')
@@ -866,7 +869,7 @@
         .limit(3);
 
       // ── 4. Recent Cancellations (last 7 days, up to 3) ──
-      var { data: cancellations } = await supabase
+      var { data: cancellations } = await sb
         .from('booking_requests')
         .select('id, service, preferred_date, status, client_id, cancelled_at, created_at')
         .eq('status', 'cancelled')
