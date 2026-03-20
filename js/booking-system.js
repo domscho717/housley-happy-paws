@@ -1070,14 +1070,14 @@
             '<div style="display:flex;flex-direction:column;gap:8px">' +
               '<div>' +
                 '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Frequency</label>' +
-                '<select id="brm-dc-freq-' + idx + '" class="brm-input" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:8px 10px;font-size:0.85rem;width:100%;box-sizing:border-box">' +
+                '<select id="brm-dc-freq-' + idx + '" class="brm-input" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:6px 10px;font-size:0.85rem;width:100%;box-sizing:border-box;height:38px;border:1px solid #d4c5b0;border-radius:6px;background:#fff;color:#4a3728">' +
                   '<option value="weekly">Every week</option>' +
                   '<option value="biweekly">Every other week</option>' +
                 '</select>' +
               '</div>' +
               '<div id="brm-dc-end-wrap-' + idx + '">' +
                 '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Until</label>' +
-                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:8px 10px;font-size:0.85rem;width:100%;box-sizing:border-box">' +
+                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:6px 10px;font-size:0.85rem;width:100%;box-sizing:border-box;height:38px;-webkit-appearance:none;appearance:none;border:1px solid #d4c5b0;border-radius:6px;background:#fff;color:#4a3728">' +
               '</div>' +
               '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#6b5c4d;cursor:pointer">' +
                 '<input type="checkbox" id="brm-dc-ongoing-' + idx + '" onchange="window._brmToggleOngoing(' + idx + ')" style="accent-color:#c8963e;width:16px;height:16px"> Until stopped (no end date)' +
