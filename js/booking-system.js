@@ -549,30 +549,12 @@
       '      </div>',
       '    </div>',
       '',
-      '    <label class="brm-label">Select Your Pet(s) *</label>',
+      '    <label class="brm-label">Select Your Pet(s) <span style="color:#c25656;font-weight:700">*</span></label>',
       '    <div id="brm-pet-checkboxes" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">',
       '      <div style="color:#8c6b4a;font-size:0.84rem">Loading your pets...</div>',
       '    </div>',
-      '    <!-- Fallback for guests -->',
-      '    <div id="brm-pets-guest" style="display:none">',
-      '      <label class="brm-label">Pet Name(s) *</label>',
-      '      <input type="text" id="brm-pets" class="brm-input" placeholder="e.g., Moose, Cookie">',
-      '      <label class="brm-label">Pet(s) *</label>',
-      '      <select id="brm-petcombo" class="brm-input">',
-      '        <option value="">Choose...</option>',
-      '        <option value="1dog">1 Dog</option>',
-      '        <option value="1cat">1 Cat</option>',
-      '        <option value="2dogs">2 Dogs</option>',
-      '        <option value="2cats">2 Cats</option>',
-      '        <option value="1dog1cat">1 Dog &amp; 1 Cat</option>',
-      '        <option value="3plus">3 or More+</option>',
-      '      </select>',
-      '      <div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px">',
-      '        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer">',
-      '          <input type="checkbox" id="brm-puppy-guest" onchange="document.getElementById(\'brm-puppy\').value=this.checked?\'true\':\'\';if(window._brmUpdatePrice)window._brmUpdatePrice()"> Puppy (under 1 year)',
-      '        </label>',
-      '      </div>',
-      '    </div>',
+      '    <input type="hidden" id="brm-pets" value="">',
+      '    <input type="hidden" id="brm-petcombo" value="">',
       '    <input type="hidden" id="brm-pettype" value="dog">',
       '    <input type="hidden" id="brm-numpets" value="1">',
       '    <input type="hidden" id="brm-pets-selected-ids" value="">',
@@ -1731,7 +1713,6 @@
   // ── LOAD PET CHECKBOXES INTO BOOKING MODAL ──
   window._loadBookingPets = async function(userId) {
     var container = document.getElementById('brm-pet-checkboxes');
-    var guestArea = document.getElementById('brm-pets-guest');
     if (!container) return;
 
     container.innerHTML = '<div style="color:#8c6b4a;font-size:0.84rem">Loading your pets...</div>';
@@ -1750,22 +1731,17 @@
 
       if (!pets || pets.length === 0) {
         container.innerHTML = [
-          '<div style="background:#fff8ec;border:1px solid #e0d5c5;border-radius:10px;padding:14px;text-align:center;margin-bottom:10px">',
-          '  <div style="font-size:1.3rem;margin-bottom:6px">🐾</div>',
-          '  <div style="font-size:0.88rem;color:#6b5c4d;margin-bottom:8px">No pet profiles yet</div>',
+          '<div style="background:#fff8ec;border:1px solid #e0d5c5;border-radius:10px;padding:16px;text-align:center">',
+          '  <div style="font-size:1.5rem;margin-bottom:8px">🐾</div>',
+          '  <div style="font-weight:600;font-size:0.9rem;color:#6b5c4d;margin-bottom:6px">Pet profile required to book</div>',
+          '  <div style="font-size:0.82rem;color:#8c6b4a;margin-bottom:12px">Please create a pet profile first so Rachel has all the details she needs.</div>',
           '  <a href="#" onclick="event.preventDefault();closeBookingModal();if(typeof switchView===\'function\')switchView(\'client\');sTab(\'c\',\'c-pets\')" ',
-          '     style="color:#c8963e;font-weight:600;font-size:0.85rem;text-decoration:underline">',
-          '     Add your first pet →</a>',
+          '     class="brm-submit" style="display:inline-block;text-decoration:none;font-size:0.85rem;padding:8px 20px">',
+          '     + Create Pet Profile</a>',
           '</div>',
-          '<div style="font-size:0.82rem;color:#8c6b4a;margin-bottom:6px">Or describe your pet(s) below to continue booking:</div>',
         ].join('\n');
-        // Show guest pet fields as fallback so user can still book
-        if (guestArea) guestArea.style.display = 'block';
         return;
       }
-
-      // Hide guest area (no longer used)
-      if (guestArea) guestArea.style.display = 'none';
 
       // Store pets data for later use
       window._bookingPetsData = pets;
@@ -2055,10 +2031,8 @@
       if (errEl) errEl.textContent = 'Please select a time for your first date.';
       return;
     }
-    if (isLoggedInWithPets) {
-      // pets text was auto-filled by _brmUpdatePetSelection, good to go
-    } else if (!pets || !petCombo) {
-      if (errEl) errEl.textContent = 'Please select your pet(s) or fill in pet details.';
+    if (!selectedPetIds) {
+      if (errEl) errEl.textContent = 'Please select at least one pet from your pet profiles to continue booking.';
       return;
     }
     // House Sitting requires end date
