@@ -1170,7 +1170,7 @@ try {
     <div class="footer-grid">
       <div>
         <div class="footer-logo">Housley <span>Happy</span> Paws</div>
-        <div class="footer-desc">Professional, personal pet care in Lancaster, PA. Dog walks, cat visits, boarding, day care, and more — all with Rachel's full heart.</div>
+        <div class="footer-desc">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits, cat care, house sitting, and more — all with Rachel's full heart.</div>
         <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap">
           <div style="background:var(--gold);color:white;padding:8px 18px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="window.open('https://www.instagram.com/housleyhappypaws','_blank')">📸 Instagram</div>
           <div style="background:var(--gold);color:white;padding:8px 18px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="window.open('https://www.facebook.com/share/1ANwxfH7Tk/?mibextid=wwXIfr','_blank')">📘 Facebook</div>
@@ -2014,6 +2014,10 @@ try {
                 <div class="form-row" style="margin-bottom:14px">
                   <div><label class="form-lbl">Instagram URL</label><input class="form-in ce-field" data-field="instagram" value="https://www.instagram.com/housleyhappypaws"></div>
                   <div><label class="form-lbl">Facebook URL</label><input class="form-in ce-field" data-field="facebook" value="https://www.facebook.com/share/1ANwxfH7Tk/?mibextid=wwXIfr"></div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px">
+                  <label class="form-lbl">Footer Description</label>
+                  <textarea class="form-ta ce-field" data-field="footerDesc" style="min-height:80px">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits, cat care, house sitting, and more — all with Rachel's full heart.</textarea>
                 </div>
                 <button class="submit-btn" onclick="saveFooter()">💾 Save Contact Info</button>
               </div>
@@ -4922,6 +4926,7 @@ function applySavedData() {
   if(d.aboutH) { const h = document.querySelector('.about-section .section-title'); if(h) h.textContent = d.aboutH; }
 
   // Footer / Contact
+  if(d.footerDesc) { const fd = document.querySelector('.footer-desc'); if(fd) fd.textContent = d.footerDesc; }
   if(d.phone) { document.querySelectorAll('a[href^="tel:"]').forEach(el => { el.href = 'tel:' + d.phone.replace(/[^0-9+]/g,''); el.textContent = d.phone; }); }
   if(d.email) { document.querySelectorAll('a[href^="mailto:"]').forEach(el => { el.href = 'mailto:' + d.email; el.textContent = d.email; }); }
 
