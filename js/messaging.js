@@ -1163,7 +1163,13 @@
     staffSend: staffSend,
     updateBadges: updateUnreadBadges,
     getUnreadCount: getUnreadCount,
-    loadOlderChunk: _loadOlderChunk
+    loadOlderChunk: _loadOlderChunk,
+    cleanup: function() {
+      if (_realtimeChannel) {
+        _realtimeChannel.unsubscribe();
+        _realtimeChannel = null;
+      }
+    }
   };
 
   // Auto-init — wait for auth to be ready (no arbitrary delays)

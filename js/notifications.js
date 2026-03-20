@@ -415,12 +415,14 @@
   }
 
   // ── Subscribe to realtime announcements ─────────────────────
+  var _announcementsChannel = null;
+
   function subscribeToAnnouncements() {
     var sb = getSB();
-    if (!sb) return;
+    if (!sb || _announcementsChannel) return;
 
     try {
-      sb.channel('announcements-realtime')
+      _announcementsChannel = sb.channel('announcements-realtime')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'announcements' }, function(payload) {
           _announcements.unshift(payload.new);
           updateBadge();
@@ -514,6 +516,12 @@
       updateBadge();
       buildPromoStrip();
       if (_drawerOpen) renderDrawer();
+    },
+    cleanup: function() {
+      if (_announcementsChannel) {
+        _announcementsChannel.unsubscribe();
+        _announcementsChannel = null;
+      }
     }
   };
 

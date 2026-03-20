@@ -238,6 +238,9 @@ const HHP_Auth = window.HHP_Auth = {
 
     // ── Logout ──
     async logout() {
+        // Clean up realtime subscriptions before signing out
+        if (window.HHP_Messaging && window.HHP_Messaging.cleanup) window.HHP_Messaging.cleanup();
+        if (window.HHP_Notif && window.HHP_Notif.cleanup) window.HHP_Notif.cleanup();
         await this.supabase.auth.signOut();
         this.currentUser = null;
         this.currentRole = null;

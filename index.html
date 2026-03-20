@@ -2509,21 +2509,21 @@ try {
 <div class="overlay" id="cancelBookingModal" style="display:none" onclick="if(event.target===this)closeModal('cancelBookingModal')">
   <div class="modal" style="max-width:520px">
     <div class="modal-head">
-      <div class="modal-title">Cancel Booking ð´</div>
-      <button class="modal-close" onclick="closeModal('cancelBookingModal')">â</button>
+      <div class="modal-title">Cancel Booking 🔴</div>
+      <button class="modal-close" onclick="closeModal('cancelBookingModal')">✕</button>
     </div>
 
     <!-- Booking Details -->
     <div style="background:var(--warm);border-radius:10px;padding:14px 16px;margin-bottom:16px;border-left:4px solid var(--mid)">
       <div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">Booking Details</div>
       <div style="font-weight:600;color:var(--ink)" id="cancelModal_service">Dog Walk</div>
-      <div style="font-size:0.85rem;color:var(--mid)" id="cancelModal_date">Date Â· Time</div>
+      <div style="font-size:0.85rem;color:var(--mid)" id="cancelModal_date">Date · Time</div>
       <div style="font-size:0.85rem;color:var(--mid)" id="cancelModal_client">Client Name</div>
     </div>
 
     <!-- Cancel Type Warning -->
     <div id="cancelModal_warning" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:16px;border-left:4px solid #ffc107">
-      <div style="font-size:0.72rem;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">â ï¸ Late Cancellation Fee</div>
+      <div style="font-size:0.72rem;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">⚠️ Late Cancellation Fee</div>
       <div style="font-size:0.84rem;color:#856404;line-height:1.4">You're canceling within 2 days of the booking. Payment will still be processed according to the cancellation policy.</div>
     </div>
 
@@ -3518,8 +3518,12 @@ async function loadCalendarBookings(year, month) {
     var { data: bookings, error } = await query;
     if (error || !bookings) return;
 
-    // Also load payments to determine paid/unpaid
-    var { data: payments } = await sb.from('payments').select('stripe_session_id,client_email,service,amount,notes,paid_at');
+    // Also load payments to determine paid/unpaid (filtered by role)
+    var paymentsQuery = sb.from('payments').select('stripe_session_id,client_email,service,amount,notes,paid_at');
+    if (role === 'client') {
+      paymentsQuery = paymentsQuery.eq('client_email', user.email);
+    }
+    var { data: payments } = await paymentsQuery;
 
     // Build a set of "paid" booking IDs or email+service combos
     var paidSet = new Set();
@@ -3852,7 +3856,7 @@ async function loadClientAppts(filter, tabBtn) {
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
   }
 }
-// ââ CANCELLATION SYSTEM ââ
+// ── CANCELLATION SYSTEM ──
 // Store cancel data globally while modal is open
 var _cancelData = {
   bookingRequestId: null,
@@ -3866,7 +3870,7 @@ var _cancelData = {
 function getCancelType(bookingDate) {
   // Returns 'free' or 'late' based on policy:
   // Free cancel = before midnight, 2 days before booking (ET timezone)
-  // e.g., Wednesday booking â must cancel by Monday 11:59 PM ET
+  // e.g., Wednesday booking → must cancel by Monday 11:59 PM ET
   var booking = new Date(bookingDate + 'T00:00:00');
   var cutoff = new Date(booking);
   cutoff.setDate(cutoff.getDate() - 2); // 2 days before
@@ -3941,7 +3945,7 @@ async function confirmCancelBooking() {
 
     var result = await response.json();
     if (result.success) {
-      toast('â Booking canceled successfully ð¾');
+      toast('✅ Booking canceled successfully 🐾');
       closeModal('cancelBookingModal');
       // Refresh the relevant portal view
       if (_cancelData.canceledBy === 'client') {
@@ -3960,11 +3964,11 @@ async function confirmCancelBooking() {
         }
       }
     } else {
-      toast('â Cancellation failed: ' + (result.error || 'Unknown error'));
+      toast('❌ Cancellation failed: ' + (result.error || 'Unknown error'));
     }
   } catch (error) {
     console.error('Cancel booking error:', error);
-    toast('â Error canceling booking: ' + error.message);
+    toast('❌ Error canceling booking: ' + error.message);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Confirm Cancellation';

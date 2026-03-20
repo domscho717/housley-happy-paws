@@ -1,5 +1,5 @@
 // ============================================================
-// Housley Happy Paws â Gallery & Slideshow System (gallery.js)
+// Housley Happy Paws — Gallery & Slideshow System (gallery.js)
 // 1. About Rachel fade slideshow
 // 2. Hero horizontal slide carousel
 // 3. Role-based photo gallery (Cloudinary + Supabase)
@@ -10,7 +10,7 @@
 (function() {
   'use strict';
 
-  // ââ Utility âââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Utility ───────────────────────────────────────────────────
   function onReady(fn) {
     if (document.readyState !== 'loading') setTimeout(fn, 400);
     else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 400); });
@@ -18,23 +18,23 @@
 
   // Placeholder images (warm-toned pet care themed gradients + emoji)
   var PLACEHOLDER_ABOUT = [
-    { bg: 'linear-gradient(135deg,#fdf7ee,#f5e6cc)', emoji: 'ðâð¦º', label: 'Rachel with pups' },
-    { bg: 'linear-gradient(135deg,#f0e8d8,#e8d5b5)', emoji: 'ð±', label: 'Cat cuddles' },
-    { bg: 'linear-gradient(135deg,#e8f0e4,#d1e0c9)', emoji: 'ð¾', label: 'Happy walks' },
-    { bg: 'linear-gradient(135deg,#fce8e0,#f5d0c0)', emoji: 'ð¦®', label: 'Dog walking' },
-    { bg: 'linear-gradient(135deg,#f5f0e0,#e8dcc0)', emoji: 'ð¡', label: 'House visits' }
+    { bg: 'linear-gradient(135deg,#fdf7ee,#f5e6cc)', emoji: '🐕‍🦺', label: 'Rachel with pups' },
+    { bg: 'linear-gradient(135deg,#f0e8d8,#e8d5b5)', emoji: '🐱', label: 'Cat cuddles' },
+    { bg: 'linear-gradient(135deg,#e8f0e4,#d1e0c9)', emoji: '🐾', label: 'Happy walks' },
+    { bg: 'linear-gradient(135deg,#fce8e0,#f5d0c0)', emoji: '🦮', label: 'Dog walking' },
+    { bg: 'linear-gradient(135deg,#f5f0e0,#e8dcc0)', emoji: '🏡', label: 'House visits' }
   ];
 
   var PLACEHOLDER_HERO = [
-    { bg: 'linear-gradient(135deg,#fdf7ee,#f5e6cc)', emoji: 'ðâð¦º' },
-    { bg: 'linear-gradient(135deg,#e8f0e4,#d1e0c9)', emoji: 'ð±' },
-    { bg: 'linear-gradient(135deg,#fce8e0,#f5d0c0)', emoji: 'ð¶' },
-    { bg: 'linear-gradient(135deg,#f5f0e0,#e8dcc0)', emoji: 'ð¾' }
+    { bg: 'linear-gradient(135deg,#fdf7ee,#f5e6cc)', emoji: '🐕‍🦺' },
+    { bg: 'linear-gradient(135deg,#e8f0e4,#d1e0c9)', emoji: '🐱' },
+    { bg: 'linear-gradient(135deg,#fce8e0,#f5d0c0)', emoji: '🐶' },
+    { bg: 'linear-gradient(135deg,#f5f0e0,#e8dcc0)', emoji: '🐾' }
   ];
 
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-  // 1. ABOUT RACHEL â FADE SLIDESHOW
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ═══════════════════════════════════════════════════════════════
+  // 1. ABOUT RACHEL — FADE SLIDESHOW
+  // ═══════════════════════════════════════════════════════════════
   function buildAboutSlideshow() {
     var aboutPhotos = document.querySelector('.about-photos');
     if (!aboutPhotos) return;
@@ -115,9 +115,9 @@
     setInterval(function() { goToAboutSlide(currentSlide + 1); }, 5000);
   }
 
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-  // 2. HERO â HORIZONTAL SLIDE CAROUSEL
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ═══════════════════════════════════════════════════════════════
+  // 2. HERO — HORIZONTAL SLIDE CAROUSEL
+  // ═══════════════════════════════════════════════════════════════
   function buildHeroCarousel() {
     var heroCol = document.querySelector('.hero-photo-col');
     if (!heroCol) return;
@@ -243,9 +243,9 @@
     }, { passive: true });
   }
 
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ═══════════════════════════════════════════════════════════════
   // 3. ROLE-BASED PHOTO GALLERY (Cloudinary + Supabase)
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ═══════════════════════════════════════════════════════════════
 
   var CLOUD_NAME = 'dg1p1zjgv';
   var UPLOAD_PRESET = 'hhp_unsigned';
@@ -258,7 +258,7 @@
     return 'https://res.cloudinary.com/' + CLOUD_NAME + '/image/upload/c_fill,w_' + w + ',q_auto,f_auto/' + publicId;
   }
 
-  // ââ Load gallery photos based on role âââââââââââââââââââââââââââ
+  // ── Load gallery photos based on role ───────────────────────────
   async function loadGalleryPhotos(role) {
     var auth = window.HHP_Auth;
     if (!auth || !auth.supabase || !auth.currentUser) return [];
@@ -273,7 +273,7 @@
     } else if (role === 'staff') {
       query = query.eq('uploaded_by', auth.currentUser.id);
     }
-    // owner gets all â no filter
+    // owner gets all — no filter
 
     try {
       var result = await query;
@@ -288,10 +288,10 @@
     }
   }
 
-  // ââ Upload a gallery photo ââââââââââââââââââââââââââââââââââââ
+  // ── Upload a gallery photo ────────────────────────────────────
   function openGalleryUpload(clientId, clientName) {
     if (typeof cloudinary === 'undefined') {
-      if (typeof toast === 'function') toast('Photo upload not available â please refresh.');
+      if (typeof toast === 'function') toast('Photo upload not available — please refresh.');
       return;
     }
 
@@ -347,7 +347,7 @@
         console.error('Save gallery photo error:', res.error);
         if (typeof toast === 'function') toast('Error saving photo.');
       } else {
-        if (typeof toast === 'function') toast('ð¸ Photo added to gallery!');
+        if (typeof toast === 'function') toast('📸 Photo added to gallery!');
         // Refresh the gallery display
         var role = auth.currentRole || 'client';
         renderGallery(role);
@@ -357,7 +357,7 @@
     }
   }
 
-  // ââ Render gallery for a specific role âââââââââââââââââââââââââ
+  // ── Render gallery for a specific role ─────────────────────────
   async function renderGallery(role) {
     var containerId = role === 'owner' ? 'o-photos' : role === 'staff' ? 'hhp-staff-gallery' : 'c-photos';
     var container = document.getElementById(containerId);
@@ -382,7 +382,7 @@
     if (role === 'owner' || role === 'staff') {
       header.innerHTML = '<div style="display:flex;align-items:center;gap:8px;">' +
         '<span style="font-size:0.85rem;color:var(--mid,#8c6b4a);">' + photos.length + ' photos</span></div>' +
-        '<button onclick="window._hhpGalleryUpload()" style="background:var(--gold,#c8963e);color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.85rem;font-family:inherit;">ð¸ Upload Photos</button>';
+        '<button onclick="window._hhpGalleryUpload()" style="background:var(--gold,#c8963e);color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.85rem;font-family:inherit;">📸 Upload Photos</button>';
     } else {
       header.innerHTML = '<span style="font-size:0.85rem;color:var(--mid,#8c6b4a);">' + photos.length + ' photos in your gallery</span>';
     }
@@ -412,7 +412,7 @@
 
     grid.innerHTML = '';
 
-    // Immersive hero banner (slow-changing background) â Feature 4
+    // Immersive hero banner (slow-changing background) — Feature 4
     if (photos.length >= 2) {
       var banner = document.createElement('div');
       banner.className = 'hhp-gallery-immersive';
@@ -465,7 +465,7 @@
       dateLabel.style.cssText = 'position:absolute;bottom:0;left:0;right:0;padding:6px 10px;background:linear-gradient(transparent,rgba(30,20,9,0.6));color:white;font-size:0.7rem;font-weight:500;';
       var d = new Date(photo.created_at);
       dateLabel.textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      if (photo.client_name && role !== 'client') dateLabel.textContent += ' Â· ' + photo.client_name;
+      if (photo.client_name && role !== 'client') dateLabel.textContent += ' · ' + photo.client_name;
       card.appendChild(dateLabel);
 
       // Click to view full size
@@ -484,7 +484,7 @@
     }
   }
 
-  // ââ Lightbox ââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Lightbox ──────────────────────────────────────────────────
   function openLightbox(photo, allPhotos) {
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
@@ -506,7 +506,7 @@
     caption.style.cssText = 'position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:white;font-size:0.85rem;text-align:center;opacity:0.8;';
     var d = new Date(photo.created_at);
     caption.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-    if (photo.client_name) caption.textContent += ' â ' + photo.client_name;
+    if (photo.client_name) caption.textContent += ' — ' + photo.client_name;
     overlay.appendChild(caption);
 
     // Keyboard close
@@ -516,7 +516,7 @@
     document.body.appendChild(overlay);
   }
 
-  // ââ Upload handler (exposed globally for onclick) ââââââââââââââ
+  // ── Upload handler (exposed globally for onclick) ──────────────
   window._hhpGalleryUpload = function() {
     var auth = window.HHP_Auth;
     if (!auth || !auth.currentUser) return;
@@ -529,7 +529,7 @@
         openGalleryUpload(clientId, clientName);
       });
     } else {
-      // Staff uploads â associate with self for now, can tag client later
+      // Staff uploads — associate with self for now, can tag client later
       openGalleryUpload(null, 'Untagged');
     }
   };
@@ -545,7 +545,7 @@
     var modal = document.createElement('div');
     modal.style.cssText = 'background:var(--cream,#fdf7ee);border-radius:16px;padding:28px;max-width:380px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,0.2);';
     modal.innerHTML = '<h3 style="margin:0 0 16px;font-size:1.1rem;color:var(--dark,#1e1409);">Upload Photos For...</h3>' +
-      '<button class="hhp-cp-btn" data-id="" data-name="General / Business" style="width:100%;padding:12px;margin-bottom:8px;border:1px solid var(--border,#e0d5c5);border-radius:10px;background:white;cursor:pointer;text-align:left;font-size:0.9rem;font-family:inherit;">ð General / Business Photos</button>' +
+      '<button class="hhp-cp-btn" data-id="" data-name="General / Business" style="width:100%;padding:12px;margin-bottom:8px;border:1px solid var(--border,#e0d5c5);border-radius:10px;background:white;cursor:pointer;text-align:left;font-size:0.9rem;font-family:inherit;">📁 General / Business Photos</button>' +
       '<div id="hhpClientList" style="max-height:200px;overflow-y:auto;"><div style="text-align:center;padding:16px;color:var(--mid);font-size:0.82rem;">Loading clients...</div></div>' +
       '<button style="margin-top:12px;width:100%;padding:10px;border:none;background:var(--mid,#8c6b4a);color:white;border-radius:8px;cursor:pointer;font-family:inherit;" onclick="this.closest(\'div[style]\').remove()">Cancel</button>';
     overlay.appendChild(modal);
@@ -569,7 +569,7 @@
       res.data.forEach(function(client) {
         var btn = document.createElement('button');
         btn.style.cssText = 'width:100%;padding:12px;margin-bottom:6px;border:1px solid var(--border,#e0d5c5);border-radius:10px;background:white;cursor:pointer;text-align:left;font-size:0.9rem;font-family:inherit;';
-        btn.textContent = 'ð¾ ' + (client.full_name || client.email.split('@')[0]);
+        btn.textContent = '🐾 ' + (client.full_name || client.email.split('@')[0]);
         btn.addEventListener('click', function() {
           document.body.removeChild(overlay);
           callback(client.id, client.full_name || client.email.split('@')[0]);
@@ -579,9 +579,9 @@
     });
   }
 
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ═══════════════════════════════════════════════════════════════
   // 5. STAFF GALLERY SECTION
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ═══════════════════════════════════════════════════════════════
   function addStaffGallery() {
     var staffPortal = document.getElementById('pg-staff');
     if (!staffPortal) return;
@@ -603,7 +603,7 @@
           var galleryLink = document.createElement('a');
           galleryLink.className = 'menu-item';
           galleryLink.dataset.page = 'hhp-staff-gallery';
-          galleryLink.innerHTML = 'ð¸ Photo Gallery';
+          galleryLink.innerHTML = '📸 Photo Gallery';
           galleryLink.style.cssText = 'cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:8px;color:var(--dark,#1e1409);text-decoration:none;font-size:0.9rem;transition:background 0.2s;';
           galleryLink.addEventListener('click', function() {
             // Show gallery section, hide others
@@ -626,7 +626,7 @@
     var gallerySection = document.createElement('div');
     gallerySection.id = 'hhp-staff-gallery';
     gallerySection.style.display = 'none';
-    gallerySection.innerHTML = '<div class="p-header"><h2>Photo Gallery ð¸</h2><p>Photos you\'ve captured during visits.</p></div>';
+    gallerySection.innerHTML = '<div class="p-header"><h2>Photo Gallery 📸</h2><p>Photos you\'ve captured during visits.</p></div>';
 
     // Add it after the last s- section
     var mainContent = portalWrap.querySelector('.p-main');
@@ -637,15 +637,15 @@
     }
   }
 
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ═══════════════════════════════════════════════════════════════
   // INIT
-  // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ═══════════════════════════════════════════════════════════════
   onReady(function() {
     // Slideshows (public pages)
     buildAboutSlideshow();
     buildHeroCarousel();
 
-    // Gallery (portal pages) â render on auth state
+    // Gallery (portal pages) — render on auth state
     addStaffGallery();
 
     var auth = window.HHP_Auth;
@@ -667,7 +667,7 @@
       });
     }
 
-    console.log('ð¼ï¸ HHP Gallery & Slideshows initialized');
+    console.log('🖼️ HHP Gallery & Slideshows initialized');
   });
 
   // Public API
