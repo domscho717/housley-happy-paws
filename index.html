@@ -2323,8 +2323,16 @@ try {
       <!-- ═══════════════ ACTIVITY LOG ═══════════════ -->
       <div class="p-panel" id="o-activity">
         <div class="p-header">
-          <h2>📜 Business Activity Summary</h2>
-          <p>Complete business overview — revenue, bookings, clients, reports, messages, and all key events in one place.</p>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+            <div>
+              <h2>📜 Business Activity Summary</h2>
+              <p>Complete business overview — revenue, bookings, clients, reports, messages, and all key events in one place.</p>
+            </div>
+            <div style="display:flex;gap:8px;flex-shrink:0">
+              <button class="btn btn-outline btn-sm" onclick="saveActivityLog()" style="font-size:0.78rem">📄 Save Report</button>
+              <button class="btn btn-gold btn-sm" onclick="sendActivityLog()" style="font-size:0.78rem">📧 Email Report</button>
+            </div>
+          </div>
         </div>
         <!-- Filters -->
         <div class="card" style="margin-bottom:14px">
@@ -3042,6 +3050,43 @@ async function loadActivityLog() {
     }
   }
 
+  // Load payments
+  var paymentCount = 0, totalRevenue = 0;
+  if (type === 'all' || type === 'payments') {
+    var { data: payments } = await sb.from('payments')
+      .select('*')
+      .gte('paid_at', startISO)
+      .lt('paid_at', endISO)
+      .order('paid_at', { ascending: false })
+      .limit(200);
+
+    if (payments) {
+      paymentCount = payments.length;
+      for (var pi = 0; pi < payments.length; pi++) {
+        totalRevenue += (payments[pi].amount || 0);
+        allEntries.push({ type: 'payment', date: payments[pi].paid_at || payments[pi].created_at, payment: payments[pi] });
+      }
+    }
+  }
+
+  // Load service reports
+  var reportCount = 0;
+  if (type === 'all' || type === 'reports') {
+    var { data: reports } = await sb.from('service_reports')
+      .select('*')
+      .gte('created_at', startISO)
+      .lt('created_at', endISO)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (reports) {
+      reportCount = reports.length;
+      for (var ri = 0; ri < reports.length; ri++) {
+        allEntries.push({ type: 'report', date: reports[ri].created_at, report: reports[ri] });
+      }
+    }
+  }
+
   // Sort by date descending
   allEntries.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
 
@@ -3052,8 +3097,10 @@ async function loadActivityLog() {
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">' + allEntries.length + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Total Events</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + msgCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Messages</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">' + bookingCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Bookings</div></div>' +
-      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2980b9">' + signupCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Sign‑ups</div></div>' +
-      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Cancellations</div></div>';
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2980b9">' + signupCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Sign\u2011ups</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Cancellations</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">$' + (totalRevenue / 100).toFixed(0) + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Revenue</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + reportCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Reports</div></div>';
   }
 
   if (allEntries.length === 0) {
@@ -3061,8 +3108,12 @@ async function loadActivityLog() {
     return;
   }
 
+  // Store entries globally so onclick handlers can access them
+  window._actLogEntries = allEntries;
+
   var html = '';
   var lastDay = '';
+  var rowStyle = 'display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;cursor:pointer;transition:background 0.15s';
   for (var e = 0; e < allEntries.length; e++) {
     var entry = allEntries[e];
     var entryDate = new Date(entry.date);
@@ -3074,41 +3125,56 @@ async function loadActivityLog() {
     }
 
     var timeStr = entryDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    var clickAttr = ' onclick="showActivityDetail(' + e + ')" onmouseover="this.style.background=\'var(--warm)\'" onmouseout="this.style.background=\'\'"';
 
     if (entry.type === 'messages') {
-      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem">' +
-        '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">💬</div>' +
+      html += '<div style="' + rowStyle + '"' + clickAttr + '>' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">\uD83D\uDCAC</div>' +
         '<div style="flex:1"><span style="font-weight:600">' + entry.count + ' message' + (entry.count > 1 ? 's' : '') + '</span> <span style="color:var(--mid)">exchanged</span>' +
         '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px" data-sender="' + entry.sender + '" data-recipient="' + entry.recipient + '" class="act-msg-pair"></div></div>' +
-        '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div></div>';
+        '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
     } else if (entry.type === 'booking') {
       var bk = entry.booking;
       var svc = bk.service_type || bk.service || 'Appointment';
       var client = bk.client_name || bk.pet_name || 'Client';
       var bkDate = bk.date ? new Date(bk.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;background:rgba(39,174,96,0.04)">' +
-        '<div style="width:32px;height:32px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">📅</div>' +
-        '<div style="flex:1"><span style="font-weight:600">New Booking</span> — <span>' + _escH(svc) + '</span>' +
-        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(client) + (bkDate ? ' · ' + bkDate : '') + '</div></div>' +
-        '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div></div>';
+      html += '<div style="' + rowStyle + ';background:rgba(39,174,96,0.04)"' + clickAttr + '>' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">\uD83D\uDCC5</div>' +
+        '<div style="flex:1"><span style="font-weight:600">New Booking</span> \u2014 <span>' + _escH(svc) + '</span>' +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(client) + (bkDate ? ' \u00B7 ' + bkDate : '') + '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
     } else if (entry.type === 'signup') {
       var p = entry.profile;
       var name = p.full_name || p.email || 'New Client';
-      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;background:rgba(41,128,185,0.04)">' +
-        '<div style="width:32px;height:32px;border-radius:50%;background:#e3f2fd;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">🎉</div>' +
-        '<div style="flex:1"><span style="font-weight:600">New Sign‑up</span>' +
+      html += '<div style="' + rowStyle + ';background:rgba(41,128,185,0.04)"' + clickAttr + '>' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:#e3f2fd;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">\uD83C\uDF89</div>' +
+        '<div style="flex:1"><span style="font-weight:600">New Sign\u2011up</span>' +
         '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(name) + '</div></div>' +
-        '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div></div>';
+        '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
     } else if (entry.type === 'cancellation') {
       var bk2 = entry.booking;
       var clientName = bk2.client_name || bk2.pet_name || 'Client';
       var svcType = bk2.service_type || bk2.service || 'Service';
       var reason = bk2.cancellation_reason || bk2.cancel_reason || 'No reason given';
-      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.84rem;background:rgba(220,53,69,0.04)">' +
-        '<div style="width:32px;height:32px;border-radius:50%;background:var(--rose-pale,#ffe0e3);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">❌</div>' +
-        '<div style="flex:1"><span style="font-weight:600">Cancellation</span> — <span>' + _escH(svcType) + '</span>' +
-        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(clientName) + (reason !== 'No reason given' ? ' · "' + _escH(reason) + '"' : '') + '</div></div>' +
-        '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div></div>';
+      html += '<div style="' + rowStyle + ';background:rgba(220,53,69,0.04)"' + clickAttr + '>' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:var(--rose-pale,#ffe0e3);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">\u274C</div>' +
+        '<div style="flex:1"><span style="font-weight:600">Cancellation</span> \u2014 <span>' + _escH(svcType) + '</span>' +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(clientName) + (reason !== 'No reason given' ? ' \u00B7 \u201C' + _escH(reason) + '\u201D' : '') + '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
+    } else if (entry.type === 'payment') {
+      var pay = entry.payment;
+      html += '<div style="' + rowStyle + ';background:rgba(39,174,96,0.04)"' + clickAttr + '>' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">\uD83D\uDCB3</div>' +
+        '<div style="flex:1"><span style="font-weight:600">Payment</span> \u2014 $' + ((pay.amount || 0)/100).toFixed(2) +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(pay.client_email || 'Client') + '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
+    } else if (entry.type === 'report') {
+      var rpt = entry.report;
+      html += '<div style="' + rowStyle + ';background:rgba(200,150,62,0.04)"' + clickAttr + '>' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">\uD83D\uDCCB</div>' +
+        '<div style="flex:1"><span style="font-weight:600">Service Report</span> \u2014 ' + _escH(rpt.service || 'Service') +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(rpt.note || '').substring(0, 60) + '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
     }
   }
   entriesEl.innerHTML = html;
@@ -3116,7 +3182,322 @@ async function loadActivityLog() {
   _resolveActivityNames();
 }
 
+// ---- ACTIVITY DETAIL MODAL ----
+async function showActivityDetail(index) {
+  var entries = window._actLogEntries;
+  if (!entries || !entries[index]) return;
+  var entry = entries[index];
+
+  // Remove any existing detail modal
+  var existing = document.getElementById('actDetailModal');
+  if (existing) existing.remove();
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var entryDate = new Date(entry.date);
+  var fullDate = entryDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  var timeStr = entryDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  var title = '', icon = '', bgColor = '', content = '';
+
+  if (entry.type === 'messages') {
+    title = 'Message Exchange';
+    icon = '\uD83D\uDCAC';
+    bgColor = 'var(--gold-pale)';
+    // Resolve names
+    var sName = 'Unknown', rName = 'Unknown';
+    if (sb) {
+      if (window._actProfileCache && window._actProfileCache[entry.sender]) sName = window._actProfileCache[entry.sender].full_name || sName;
+      else { var r1 = await sb.from('profiles').select('full_name').eq('user_id', entry.sender).single(); if (r1.data) sName = r1.data.full_name; }
+      if (window._actProfileCache && window._actProfileCache[entry.recipient]) rName = window._actProfileCache[entry.recipient].full_name || rName;
+      else { var r2 = await sb.from('profiles').select('full_name').eq('user_id', entry.recipient).single(); if (r2.data) rName = r2.data.full_name; }
+    }
+    // Fetch actual messages for this conversation on this day
+    var msgHtml = '';
+    if (sb) {
+      var dayStart = new Date(entryDate); dayStart.setHours(0,0,0,0);
+      var dayEnd = new Date(entryDate); dayEnd.setHours(23,59,59,999);
+      var { data: convMsgs } = await sb.from('messages').select('sender_id, content, created_at')
+        .or('and(sender_id.eq.' + entry.sender + ',recipient_id.eq.' + entry.recipient + '),and(sender_id.eq.' + entry.recipient + ',recipient_id.eq.' + entry.sender + ')')
+        .gte('created_at', dayStart.toISOString()).lte('created_at', dayEnd.toISOString())
+        .order('created_at', { ascending: true }).limit(50);
+      if (convMsgs && convMsgs.length > 0) {
+        msgHtml = '<div style="max-height:300px;overflow-y:auto;margin-top:12px;padding:12px;background:var(--warm);border-radius:10px">';
+        convMsgs.forEach(function(m) {
+          var isSender = m.sender_id === entry.sender;
+          var who = isSender ? sName : rName;
+          var t = new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          msgHtml += '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-weight:600;font-size:0.82rem;color:var(--forest)">' + _escH(who) + '</span><span style="font-size:0.7rem;color:var(--mid)">' + t + '</span></div>';
+          msgHtml += '<div style="font-size:0.84rem;color:var(--ink);padding:8px 10px;background:white;border-radius:8px">' + _escH(m.content || '') + '</div></div>';
+        });
+        msgHtml += '</div>';
+      }
+    }
+    content =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>From:</strong> ' + _escH(sName) + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>To:</strong> ' + _escH(rName) + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Messages:</strong> ' + entry.count + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Date:</strong> ' + entry.day + '</div>' +
+      '</div>' +
+      (msgHtml || '<div style="padding:12px;background:var(--warm);border-radius:8px;color:var(--mid);font-size:0.88rem">Message content not available.</div>');
+
+  } else if (entry.type === 'booking') {
+    title = 'Booking Details';
+    icon = '\uD83D\uDCC5';
+    bgColor = '#e8f5e9';
+    var bk = entry.booking;
+    var svcIcons = {'Dog Walking':'\uD83D\uDC15','Drop-In Visit':'\uD83C\uDFE0','Cat Care Visit':'\uD83D\uDC31','House Sitting':'\uD83C\uDFE1','Dog Boarding':'\uD83C\uDF19','Doggy Day Care':'\u2600\uFE0F'};
+    var bkIcon = svcIcons[bk.service] || '\uD83D\uDC3E';
+    var bkDateFull = bk.date ? new Date(bk.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
+    var statusColor = bk.status === 'confirmed' ? 'var(--forest)' : bk.status === 'cancelled' ? 'var(--rose,#dc3545)' : 'var(--gold)';
+    // Try to resolve client name
+    var bkClientName = bk.client_name || '';
+    if (!bkClientName && bk.client_id && sb) {
+      var cRes = await sb.from('profiles').select('full_name, id').eq('user_id', bk.client_id).single();
+      if (cRes.data) { bkClientName = cRes.data.full_name; bk._profileId = cRes.data.id; }
+    }
+    content =
+      '<div style="text-align:center;margin-bottom:16px"><span style="font-size:2.5rem">' + bkIcon + '</span></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(bk.service || bk.service_type || 'Appointment') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Status:</strong> <span style="color:' + statusColor + ';font-weight:700;text-transform:uppercase">' + _escH(bk.status || 'pending') + '</span></div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Date:</strong> ' + bkDateFull + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Time:</strong> ' + _escH(bk.time_slot || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(bkClientName || 'Unknown') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pets:</strong> ' + _escH(bk.pet_names || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Booked:</strong> ' + fullDate + ' at ' + timeStr + '</div>' +
+      '</div>' +
+      (bk._profileId ? '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + bk._profileId + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Client Profile</button>' : '');
+
+  } else if (entry.type === 'signup') {
+    title = 'New Client Sign-up';
+    icon = '\uD83C\uDF89';
+    bgColor = '#e3f2fd';
+    var prof = entry.profile;
+    var joinedDate = prof.created_at ? new Date(prof.created_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
+    content =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Name:</strong> ' + _escH(prof.full_name || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Email:</strong> ' + _escH(prof.email || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Phone:</strong> ' + _escH(prof.phone || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Customer #:</strong> ' + _escH(prof.customer_number || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Signed Up:</strong> ' + joinedDate + ' at ' + timeStr + '</div>' +
+      '</div>' +
+      '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + prof.id + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Full Client Profile</button>';
+
+  } else if (entry.type === 'cancellation') {
+    title = 'Cancellation Details';
+    icon = '\u274C';
+    bgColor = 'var(--rose-pale,#ffe0e3)';
+    var cb = entry.booking;
+    var cancelDate = (cb.cancelled_at || cb.updated_at) ? new Date(cb.cancelled_at || cb.updated_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
+    var origDate = cb.date ? new Date(cb.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '\u2014';
+    // Resolve client
+    var cancelClientName = cb.client_name || '';
+    if (!cancelClientName && cb.client_id && sb) {
+      var ccRes = await sb.from('profiles').select('full_name, id').eq('user_id', cb.client_id).single();
+      if (ccRes.data) { cancelClientName = ccRes.data.full_name; cb._profileId = ccRes.data.id; }
+    }
+    content =
+      '<div style="padding:14px;background:#fff3cd;border-radius:10px;margin-bottom:16px;border-left:3px solid #dc3545;font-size:0.88rem">' +
+        '<strong>Reason:</strong> ' + _escH(cb.cancellation_reason || cb.cancel_reason || 'No reason provided') +
+      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(cb.service || cb.service_type || 'Service') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(cancelClientName || 'Unknown') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Original Date:</strong> ' + origDate + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Time Slot:</strong> ' + _escH(cb.time_slot || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pets:</strong> ' + _escH(cb.pet_names || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Cancelled:</strong> ' + cancelDate + '</div>' +
+      '</div>' +
+      (cb._profileId ? '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + cb._profileId + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Client Profile</button>' : '');
+
+  } else if (entry.type === 'payment') {
+    title = 'Payment Details';
+    icon = '\uD83D\uDCB3';
+    bgColor = '#e8f5e9';
+    var pay = entry.payment;
+    content =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Amount:</strong> <span style="color:var(--forest);font-weight:700;font-size:1.1rem">$' + ((pay.amount || 0)/100).toFixed(2) + '</span></div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(pay.client_email || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(pay.service || pay.description || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Date:</strong> ' + fullDate + '</div>' +
+        (pay.notes ? '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Notes:</strong> ' + _escH(pay.notes) + '</div>' : '') +
+      '</div>';
+
+  } else if (entry.type === 'report') {
+    title = 'Service Report';
+    icon = '\uD83D\uDCCB';
+    bgColor = 'var(--gold-pale)';
+    var rpt = entry.report;
+    content =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(rpt.service || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Duration:</strong> ' + _escH(rpt.duration || '\u2014') + '</div>' +
+        (rpt.distance ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Distance:</strong> ' + _escH(rpt.distance) + '</div>' : '') +
+        (rpt.mood ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Mood:</strong> ' + _escH(rpt.mood) + '</div>' : '') +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Date:</strong> ' + fullDate + '</div>' +
+        (rpt.media_count ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Media:</strong> ' + rpt.media_count + ' file(s)</div>' : '') +
+      '</div>' +
+      (rpt.note ? '<div style="padding:14px;background:var(--warm);border-radius:10px;font-size:0.88rem;line-height:1.6;border-left:3px solid var(--gold)"><strong>Note:</strong><br>' + _escH(rpt.note) + '</div>' : '');
+  }
+
+  // Build modal
+  var modal = document.createElement('div');
+  modal.id = 'actDetailModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick = function(ev) { if (ev.target === modal) modal.remove(); };
+  modal.innerHTML =
+    '<div style="background:white;border-radius:16px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;padding:28px;position:relative">' +
+      '<button onclick="document.getElementById(\'actDetailModal\').remove()" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--mid)">&times;</button>' +
+      '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">' +
+        '<div style="width:44px;height:44px;border-radius:12px;background:' + bgColor + ';display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">' + icon + '</div>' +
+        '<div><h3 style="margin:0;font-size:1.1rem;color:var(--forest)">' + title + '</h3>' +
+        '<div style="font-size:0.78rem;color:var(--mid)">' + fullDate + ' at ' + timeStr + '</div></div>' +
+      '</div>' +
+      content +
+    '</div>';
+  document.body.appendChild(modal);
+}
+
 function _escH(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+// ---- ACTIVITY LOG: SAVE & SEND ----
+function _buildActivityText() {
+  var entries = window._actLogEntries || [];
+  if (entries.length === 0) return null;
+
+  var monthSel = document.getElementById('actLogMonth');
+  var yearSel = document.getElementById('actLogYear');
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var monthName = monthSel ? months[parseInt(monthSel.value)] : '';
+  var year = yearSel ? yearSel.value : '';
+  var title = 'Housley Happy Paws \u2014 Activity Report: ' + monthName + ' ' + year;
+
+  var lines = [title, '='.repeat(title.length), ''];
+
+  // Stats summary
+  var stats = { messages: 0, bookings: 0, signups: 0, cancellations: 0, payments: 0, reports: 0, revenue: 0 };
+  entries.forEach(function(e) {
+    if (e.type === 'messages') stats.messages += e.count;
+    else if (e.type === 'booking') stats.bookings++;
+    else if (e.type === 'signup') stats.signups++;
+    else if (e.type === 'cancellation') stats.cancellations++;
+    else if (e.type === 'payment') { stats.payments++; stats.revenue += (e.payment.amount || 0); }
+    else if (e.type === 'report') stats.reports++;
+  });
+
+  lines.push('SUMMARY');
+  lines.push('Total Events: ' + entries.length);
+  lines.push('Messages: ' + stats.messages + ' | Bookings: ' + stats.bookings + ' | Sign-ups: ' + stats.signups);
+  lines.push('Cancellations: ' + stats.cancellations + ' | Payments: ' + stats.payments + ' ($' + (stats.revenue/100).toFixed(2) + ') | Reports: ' + stats.reports);
+  lines.push('');
+  lines.push('-'.repeat(60));
+  lines.push('');
+
+  var lastDay = '';
+  entries.forEach(function(entry) {
+    var d = new Date(entry.date);
+    var dayLabel = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    var time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    if (dayLabel !== lastDay) {
+      lines.push('\n' + dayLabel.toUpperCase());
+      lines.push('-'.repeat(30));
+      lastDay = dayLabel;
+    }
+
+    if (entry.type === 'messages') {
+      lines.push('[' + time + '] \uD83D\uDCAC ' + entry.count + ' messages exchanged');
+    } else if (entry.type === 'booking') {
+      var bk = entry.booking;
+      lines.push('[' + time + '] \uD83D\uDCC5 New Booking \u2014 ' + (bk.service || 'Service') + ' | ' + (bk.client_name || 'Client') + (bk.date ? ' | ' + bk.date : ''));
+    } else if (entry.type === 'signup') {
+      lines.push('[' + time + '] \uD83C\uDF89 New Sign-up \u2014 ' + (entry.profile.full_name || entry.profile.email || 'Client'));
+    } else if (entry.type === 'cancellation') {
+      var cb = entry.booking;
+      lines.push('[' + time + '] \u274C Cancellation \u2014 ' + (cb.service || 'Service') + ' | ' + (cb.client_name || 'Client') + (cb.cancellation_reason ? ' | Reason: ' + cb.cancellation_reason : ''));
+    } else if (entry.type === 'payment') {
+      var pay = entry.payment;
+      lines.push('[' + time + '] \uD83D\uDCB3 Payment \u2014 $' + ((pay.amount || 0)/100).toFixed(2) + ' | ' + (pay.client_email || 'Client'));
+    } else if (entry.type === 'report') {
+      var rpt = entry.report;
+      lines.push('[' + time + '] \uD83D\uDCCB Service Report \u2014 ' + (rpt.service || 'Service'));
+    }
+  });
+
+  lines.push('\n' + '-'.repeat(60));
+  lines.push('Generated: ' + new Date().toLocaleString());
+  lines.push('Housley Happy Paws \u2014 Lancaster, PA');
+
+  return { title: title, monthName: monthName, year: year, text: lines.join('\n') };
+}
+
+function saveActivityLog() {
+  var report = _buildActivityText();
+  if (!report) { toast('No activity data to save. Load a month first.'); return; }
+
+  var blob = new Blob([report.text], { type: 'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'HHP-Activity-' + report.monthName + '-' + report.year + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('\u2705 Activity report saved!');
+}
+
+function sendActivityLog() {
+  var report = _buildActivityText();
+  if (!report) { toast('No activity data to send. Load a month first.'); return; }
+
+  // Show email modal
+  var existing = document.getElementById('actSendModal');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'actSendModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick = function(ev) { if (ev.target === modal) modal.remove(); };
+  modal.innerHTML =
+    '<div style="background:white;border-radius:16px;max-width:500px;width:100%;padding:28px;position:relative">' +
+      '<button onclick="document.getElementById(\'actSendModal\').remove()" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer">&times;</button>' +
+      '<h3 style="margin:0 0 16px;color:var(--forest)">\uD83D\uDCE7 Email Activity Report</h3>' +
+      '<div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Send To</label><input class="form-in" id="actSendEmail" type="email" placeholder="email@example.com" value="' + ((window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser.email : '') + '"></div>' +
+      '<div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Subject</label><input class="form-in" id="actSendSubject" value="' + report.title.replace(/"/g, '&quot;') + '"></div>' +
+      '<div class="form-group" style="margin-bottom:16px"><label class="form-lbl">Add a Note (optional)</label><textarea class="form-ta" id="actSendNote" rows="3" placeholder="Any additional notes..."></textarea></div>' +
+      '<div style="background:var(--warm);border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.78rem;color:var(--mid);max-height:120px;overflow-y:auto;white-space:pre-wrap;font-family:monospace">' + _escH(report.text.substring(0, 500)) + '...</div>' +
+      '<button onclick="_doSendActivity()" class="btn btn-gold" style="width:100%;justify-content:center">\uD83D\uDCE8 Send Report</button>' +
+    '</div>';
+  document.body.appendChild(modal);
+}
+
+async function _doSendActivity() {
+  var email = document.getElementById('actSendEmail')?.value?.trim();
+  var subject = document.getElementById('actSendSubject')?.value?.trim();
+  var note = document.getElementById('actSendNote')?.value?.trim();
+  if (!email) { toast('Please enter an email address.'); return; }
+
+  var report = _buildActivityText();
+  if (!report) { toast('No report data.'); return; }
+
+  var body = '';
+  if (note) body = note + '\n\n---\n\n';
+  body += report.text;
+
+  // Use mailto as a simple send mechanism
+  var mailtoUrl = 'mailto:' + encodeURIComponent(email) +
+    '?subject=' + encodeURIComponent(subject || report.title) +
+    '&body=' + encodeURIComponent(body);
+
+  window.open(mailtoUrl, '_blank');
+
+  document.getElementById('actSendModal')?.remove();
+  toast('\u2705 Email client opened with report!');
+}
 
 async function _resolveActivityNames() {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
