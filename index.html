@@ -3254,11 +3254,28 @@ async function showActivityDetail(index) {
     if (sb) {
       var dayStart = new Date(entryDate); dayStart.setHours(0,0,0,0);
       var dayEnd = new Date(entryDate); dayEnd.setHours(23,59,59,999);
-      var { data: convMsgs } = await sb.from('messages').select('sender_id, content, created_at')
-        .or('and(sender_id.eq.' + entry.sender + ',recipient_id.eq.' + entry.recipient + '),and(sender_id.eq.' + entry.recipient + ',recipient_id.eq.' + entry.sender + ')')
-        .gte('created_at', dayStart.toISOString()).lte('created_at', dayEnd.toISOString())
+      var dayStartISO = dayStart.toISOString();
+      var dayEndISO = dayEnd.toISOString();
+      console.log('[ActivityDetail] Fetching messages between', entry.sender, 'and', entry.recipient, 'from', dayStartISO, 'to', dayEndISO);
+
+      // Fetch both directions separately then merge (complex .or filter was failing silently)
+      var msgDir1 = await sb.from('messages').select('sender_id, content, created_at')
+        .eq('sender_id', entry.sender).eq('recipient_id', entry.recipient)
+        .gte('created_at', dayStartISO).lte('created_at', dayEndISO)
         .order('created_at', { ascending: true }).limit(100);
-      if (convMsgs && convMsgs.length > 0) {
+      var msgDir2 = await sb.from('messages').select('sender_id, content, created_at')
+        .eq('sender_id', entry.recipient).eq('recipient_id', entry.sender)
+        .gte('created_at', dayStartISO).lte('created_at', dayEndISO)
+        .order('created_at', { ascending: true }).limit(100);
+
+      if (msgDir1.error) console.warn('[ActivityDetail] msgDir1 error:', msgDir1.error);
+      if (msgDir2.error) console.warn('[ActivityDetail] msgDir2 error:', msgDir2.error);
+
+      var convMsgs = (msgDir1.data || []).concat(msgDir2.data || []);
+      convMsgs.sort(function(a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+      console.log('[ActivityDetail] Found', convMsgs.length, 'messages total');
+
+      if (convMsgs.length > 0) {
         msgHtml = '<h4 style="margin:16px 0 10px;font-size:0.88rem;color:var(--forest)">Full Conversation (' + convMsgs.length + ' messages)</h4>';
         msgHtml += '<div style="max-height:400px;overflow-y:auto;padding:12px;background:var(--warm);border-radius:10px">';
         convMsgs.forEach(function(m) {
@@ -3274,6 +3291,8 @@ async function showActivityDetail(index) {
           msgHtml += '</div>';
         });
         msgHtml += '</div>';
+      } else {
+        console.log('[ActivityDetail] No messages found for this conversation pair on this day');
       }
     }
     content =
