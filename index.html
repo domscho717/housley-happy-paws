@@ -1424,6 +1424,7 @@ try {
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">My Work <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:300px">
         <button class="sb-item active" onclick="sTab('s','s-sched')"><span class="sb-item-icon">📅</span>My Schedule</button>
+        <button class="sb-item" onclick="sTab('s','s-clients')"><span class="sb-item-icon">👥</span>My Clients</button>
         <button class="sb-item" onclick="sTab('s','s-jobs')"><span class="sb-item-icon">🦮</span>Job Queue</button>
         <button class="sb-item" onclick="sTab('s','s-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
         <button class="sb-item" onclick="sTab('s','s-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
@@ -1447,6 +1448,19 @@ try {
         <div class="card">
           <div class="card-title" style="margin-bottom:16px">This Week's Jobs</div>
           <div id="staffDashJobs" style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
+        </div>
+      </div>
+
+      <div class="p-panel" id="s-clients">
+        <div class="p-header"><h2>My Clients 👥</h2><p>Clients assigned to you by Rachel.</p></div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <span class="card-title" id="sc-count">0 Clients</span>
+            <input type="text" id="sc-search" placeholder="Search clients..." oninput="filterStaffClients()" style="padding:6px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.82rem;width:180px">
+          </div>
+          <div id="sc-list" style="display:flex;flex-direction:column;gap:10px">
+            <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading clients...</div>
+          </div>
         </div>
       </div>
 
@@ -2798,6 +2812,7 @@ function sTab(portal, panelId) {
   if (panelId === 'o-activity' && typeof initActivityLog === 'function') initActivityLog();
   // Staff panels — load real data
   if (panelId === 's-sched' && typeof loadStaffSchedule === 'function') loadStaffSchedule();
+  if (panelId === 's-clients' && typeof loadStaffClients === 'function') loadStaffClients();
   if (panelId === 's-jobs' && typeof loadStaffJobs === 'function') loadStaffJobs();
   if (panelId === 's-earn' && typeof loadStaffEarnings === 'function') loadStaffEarnings();
   // Client panels
@@ -5411,7 +5426,7 @@ function renderClientCard(c) {
 
   var joinDate = c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
-  return '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--border);border-radius:10px;gap:12px;flex-wrap:wrap;background:white">' +
+  return '<div onclick="if(typeof showClientProfile===\'function\')showClientProfile(\'' + c.id + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--border);border-radius:10px;gap:12px;flex-wrap:wrap;background:white;cursor:pointer;transition:box-shadow 0.2s,border-color 0.2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(30,20,9,0.1)\';this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'var(--border)\'">' +
     '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">' +
       '<div style="width:40px;height:40px;border-radius:50%;background:var(--forest-pale);display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:var(--forest)">' +
         (c.full_name ? c.full_name.charAt(0).toUpperCase() : '?') +
@@ -5426,6 +5441,7 @@ function renderClientCard(c) {
       cardBadge +
       (c.customer_number ? '<span style="font-size:0.72rem;color:var(--mid)">#' + c.customer_number + '</span>' : '') +
       (joinDate ? '<span style="font-size:0.72rem;color:var(--mid)">Joined ' + joinDate + '</span>' : '') +
+      '<span style="font-size:0.72rem;color:var(--gold);font-weight:600">View Profile →</span>' +
     '</div>' +
   '</div>';
 }
@@ -5575,6 +5591,113 @@ async function submitInterest(service) {
   var emojiMap = { pawbus: '🚌', boarding: '🌙', daycare: '☀️', wedding: '💍' };
   var emoji = emojiMap[service] || '🎉';
   toast(emoji + ' Added to interest list! Rachel will reach out soon.');
+}
+
+// ── Staff: My Clients Panel (s-clients) — shows only assigned clients ──
+var _staffClientsData = [];
+
+async function loadStaffClients() {
+  var listEl = document.getElementById('sc-list');
+  var countEl = document.getElementById('sc-count');
+  if (!listEl) return;
+
+  listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading your clients...</div>';
+
+  try {
+    var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    if (!sb || !window.HHP_Auth.currentUser) {
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Please sign in to view clients.</div>';
+      return;
+    }
+
+    // Get staff's profile ID
+    var profileRes = await sb.from('profiles').select('id').eq('user_id', window.HHP_Auth.currentUser.id).single();
+    if (!profileRes.data) {
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Staff profile not found.</div>';
+      return;
+    }
+    var staffProfileId = profileRes.data.id;
+
+    // Get assigned client profile IDs from staff_assignments
+    var assignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
+    var assignedClientIds = (assignRes.data || []).map(function(a) { return a.client_id; });
+
+    if (assignedClientIds.length === 0) {
+      listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">👥</div><div style="font-weight:600;margin-bottom:6px">No clients assigned yet</div><div style="font-size:0.84rem">Rachel will assign clients to you as bookings come in.</div></div>';
+      if (countEl) countEl.textContent = '0 Clients';
+      return;
+    }
+
+    // Fetch full profiles for assigned clients
+    var clientsRes = await sb.from('profiles').select('id, user_id, full_name, email, phone, role, stripe_customer_id, customer_number, created_at')
+      .in('id', assignedClientIds).order('full_name', { ascending: true });
+    var clients = clientsRes.data || [];
+
+    // Fetch pets for those clients
+    var clientUserIds = clients.map(function(c) { return c.user_id; });
+    var petsResult = await sb.from('pets').select('owner_id, name, species');
+    var petsByOwner = {};
+    if (petsResult.data) {
+      petsResult.data.forEach(function(p) {
+        if (clientUserIds.indexOf(p.owner_id) !== -1) {
+          if (!petsByOwner[p.owner_id]) petsByOwner[p.owner_id] = [];
+          petsByOwner[p.owner_id].push(p);
+        }
+      });
+    }
+
+    // Attach pets to clients
+    clients.forEach(function(c) {
+      c._pets = petsByOwner[c.user_id] || [];
+      c._isActive = true; // all assigned clients are considered active
+    });
+
+    _staffClientsData = clients;
+    if (countEl) countEl.textContent = clients.length + ' Client' + (clients.length !== 1 ? 's' : '') + ' Assigned';
+
+    if (clients.length === 0) {
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No clients found.</div>';
+      return;
+    }
+
+    var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+    html += clients.map(function(c) { return renderClientCard(c); }).join('');
+    html += '</div>';
+    listEl.innerHTML = html;
+  } catch (err) {
+    console.error('[Staff Clients] Load error:', err);
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Could not load clients. Check console.</div>';
+  }
+}
+
+function filterStaffClients() {
+  var q = (document.getElementById('sc-search')?.value || '').toLowerCase().trim();
+  var listEl = document.getElementById('sc-list');
+  var countEl = document.getElementById('sc-count');
+  if (!listEl) return;
+
+  var source = _staffClientsData;
+  if (q) {
+    source = source.filter(function(c) {
+      var searchable = ((c.full_name || '') + ' ' + (c.email || '') + ' ' + (c.phone || '') + ' ' + (c.customer_number || '')).toLowerCase();
+      if (c._pets && c._pets.length > 0) {
+        searchable += ' ' + c._pets.map(function(p) { return (p.name || '') + ' ' + (p.species || ''); }).join(' ').toLowerCase();
+      }
+      return searchable.indexOf(q) !== -1;
+    });
+  }
+
+  if (countEl) countEl.textContent = (q ? source.length + ' of ' + _staffClientsData.length : source.length) + ' Client' + (source.length !== 1 ? 's' : '');
+
+  if (source.length === 0) {
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">' + (q ? 'No clients match your search.' : 'No clients assigned.') + '</div>';
+    return;
+  }
+
+  var html = '<div style="display:flex;flex-direction:column;gap:8px">';
+  html += source.map(function(c) { return renderClientCard(c); }).join('');
+  html += '</div>';
+  listEl.innerHTML = html;
 }
 
 // ── Staff Schedule Panel (s-sched) — load bookings assigned to staff ──
@@ -6739,55 +6862,82 @@ document.addEventListener('DOMContentLoaded', function() {
 
       } else if (role === 'staff') {
         // STAFF DASHBOARD STATS
-        // This Week — count bookings for this staff member this week
+        // Resolve staff's assigned client IDs via staff_assignments
         const now = new Date();
         const startOfWeek = new Date(now);
         startOfWeek.setDate(now.getDate() - now.getDay());
         startOfWeek.setHours(0, 0, 0, 0);
-        const { count: thisWeek } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId).gte('date', startOfWeek.toISOString());
-        const el1 = document.getElementById('stat-staffThisWeek');
-        if (el1) el1.textContent = thisWeek || '0';
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        // All Time — count all bookings for this staff member
-        const { count: allTime } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId);
+        // Get staff profile ID
+        var staffProfRes = await sb.from('profiles').select('id').eq('user_id', userId).single();
+        var staffProfileId = staffProfRes.data ? staffProfRes.data.id : null;
+
+        // Get assigned client profile IDs → user IDs
+        var staffClientUserIds = [];
+        if (staffProfileId) {
+          var staffAssignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
+          var staffAssignedIds = (staffAssignRes.data || []).map(function(a) { return a.client_id; });
+          if (staffAssignedIds.length > 0) {
+            var staffClientProfs = await sb.from('profiles').select('user_id').in('id', staffAssignedIds);
+            staffClientUserIds = (staffClientProfs.data || []).map(function(p) { return p.user_id; });
+          }
+        }
+
+        // Fetch all bookings for assigned clients
+        var staffAllBookings = [];
+        if (staffClientUserIds.length > 0) {
+          var staffBkRes = await sb.from('bookings').select('service, date, time_slot, status, pet_names, client_id')
+            .in('client_id', staffClientUserIds).in('status', ['confirmed', 'pending', 'completed'])
+            .order('date', { ascending: true });
+          staffAllBookings = staffBkRes.data || [];
+        }
+
+        var weekStr = startOfWeek.toISOString().split('T')[0];
+        var endOfWeek = new Date(startOfWeek); endOfWeek.setDate(endOfWeek.getDate() + 7);
+        var endWeekStr = endOfWeek.toISOString().split('T')[0];
+        var monthStr = startOfMonth.toISOString().split('T')[0];
+
+        var thisWeekCount = staffAllBookings.filter(function(b) { return b.date >= weekStr && b.date < endWeekStr; }).length;
+        var allTimeCount = staffAllBookings.length;
+        var monthCount = staffAllBookings.filter(function(b) { return b.date >= monthStr; }).length;
+
+        const el1 = document.getElementById('stat-staffThisWeek');
+        if (el1) el1.textContent = thisWeekCount || '0';
+
         const el2 = document.getElementById('stat-staffAllTime');
-        if (el2) el2.textContent = allTime || '0';
+        if (el2) el2.textContent = allTimeCount || '0';
 
         // Reports Sent — count of service reports by this staff member
         const { count: staffReports } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('author_id', userId);
         const el3 = document.getElementById('stat-staffYourRating');
         if (el3) el3.textContent = (staffReports || 0) + ' sent';
 
-        // This Month — count bookings assigned to this staff this month
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const { count: monthJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId).gte('date', startOfMonth.toISOString());
         const el4 = document.getElementById('stat-staffThisMonth');
-        if (el4) el4.textContent = (monthJobs || 0) + ' jobs';
+        if (el4) el4.textContent = (monthCount || 0) + ' jobs';
 
         // ── This Week's Jobs (staff dash card) ──
         var jobsEl = document.getElementById('staffDashJobs');
         if (jobsEl) {
           try {
-            var { data: weekJobs } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
-              .eq('staff_id', userId).gte('date', startOfWeek.toISOString()).lt('date', new Date(startOfWeek.getTime() + 7*86400000).toISOString())
-              .order('date', { ascending: true }).limit(6);
-            if (weekJobs && weekJobs.length > 0) {
-              var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🏠','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+            var weekJobs = staffAllBookings.filter(function(b) { return b.date >= weekStr && b.date < endWeekStr; }).slice(0, 6);
+            if (weekJobs.length > 0) {
+              var svcIcons = {'Dog Walking':'\uD83D\uDC15','Drop-In Visit':'\uD83C\uDFE0','Cat Care Visit':'\uD83D\uDC31','House Sitting':'\uD83C\uDFE1','Dog Boarding':'\uD83C\uDF19','Doggy Day Care':'\u2600\uFE0F'};
               var jh = '';
               weekJobs.forEach(function(b) {
-                var icon = svcIcons[b.service] || '🐾';
+                var icon = svcIcons[b.service] || '\uD83D\uDC3E';
                 var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                 jh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px">';
                 jh += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">' + icon + '</span>';
                 jh += '<div><div style="font-weight:600;font-size:0.84rem">' + (b.service || 'Service') + '</div>';
-                jh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div>';
+                jh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' \u00B7 ' + b.time_slot : '') + '</div>';
                 if (b.pet_names) jh += '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>';
                 jh += '</div></div>';
                 jh += '<div style="font-size:0.72rem;font-weight:600;color:var(--forest);text-transform:uppercase">' + (b.status || 'scheduled') + '</div></div>';
               });
               jobsEl.innerHTML = jh;
             } else {
-              jobsEl.innerHTML = 'No jobs scheduled this week.';
+              jobsEl.innerHTML = '<div style="padding:14px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:8px">\uD83D\uDCC5</div>No jobs scheduled this week.</div>';
             }
           } catch(e) { jobsEl.innerHTML = 'No jobs scheduled yet.'; }
         }
