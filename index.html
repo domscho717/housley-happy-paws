@@ -3231,15 +3231,25 @@ async function showActivityDetail(index) {
     title = 'Message Exchange';
     icon = '\uD83D\uDCAC';
     bgColor = 'var(--gold-pale)';
-    // Resolve names
-    var sName = 'Unknown', rName = 'Unknown';
+    // Resolve full profiles for sender & recipient
+    var sProf = null, rProf = null, sName = 'Unknown', rName = 'Unknown';
     if (sb) {
-      if (window._actProfileCache && window._actProfileCache[entry.sender]) sName = window._actProfileCache[entry.sender].full_name || sName;
-      else { var r1 = await sb.from('profiles').select('full_name').eq('user_id', entry.sender).single(); if (r1.data) sName = r1.data.full_name; }
-      if (window._actProfileCache && window._actProfileCache[entry.recipient]) rName = window._actProfileCache[entry.recipient].full_name || rName;
-      else { var r2 = await sb.from('profiles').select('full_name').eq('user_id', entry.recipient).single(); if (r2.data) rName = r2.data.full_name; }
+      if (window._actProfileCache && window._actProfileCache[entry.sender]) {
+        sProf = window._actProfileCache[entry.sender];
+        sName = sProf.full_name || sName;
+      } else {
+        var r1 = await sb.from('profiles').select('*').eq('user_id', entry.sender).single();
+        if (r1.data) { sProf = r1.data; sName = sProf.full_name || sName; }
+      }
+      if (window._actProfileCache && window._actProfileCache[entry.recipient]) {
+        rProf = window._actProfileCache[entry.recipient];
+        rName = rProf.full_name || rName;
+      } else {
+        var r2 = await sb.from('profiles').select('*').eq('user_id', entry.recipient).single();
+        if (r2.data) { rProf = r2.data; rName = rProf.full_name || rName; }
+      }
     }
-    // Fetch actual messages for this conversation on this day
+    // Fetch ALL messages for this conversation on this day
     var msgHtml = '';
     if (sb) {
       var dayStart = new Date(entryDate); dayStart.setHours(0,0,0,0);
@@ -3247,25 +3257,33 @@ async function showActivityDetail(index) {
       var { data: convMsgs } = await sb.from('messages').select('sender_id, content, created_at')
         .or('and(sender_id.eq.' + entry.sender + ',recipient_id.eq.' + entry.recipient + '),and(sender_id.eq.' + entry.recipient + ',recipient_id.eq.' + entry.sender + ')')
         .gte('created_at', dayStart.toISOString()).lte('created_at', dayEnd.toISOString())
-        .order('created_at', { ascending: true }).limit(50);
+        .order('created_at', { ascending: true }).limit(100);
       if (convMsgs && convMsgs.length > 0) {
-        msgHtml = '<div style="max-height:300px;overflow-y:auto;margin-top:12px;padding:12px;background:var(--warm);border-radius:10px">';
+        msgHtml = '<h4 style="margin:16px 0 10px;font-size:0.88rem;color:var(--forest)">Full Conversation (' + convMsgs.length + ' messages)</h4>';
+        msgHtml += '<div style="max-height:400px;overflow-y:auto;padding:12px;background:var(--warm);border-radius:10px">';
         convMsgs.forEach(function(m) {
           var isSender = m.sender_id === entry.sender;
           var who = isSender ? sName : rName;
+          var align = isSender ? 'flex-end' : 'flex-start';
+          var bubbleBg = isSender ? 'var(--forest)' : 'white';
+          var bubbleColor = isSender ? 'white' : 'var(--ink)';
           var t = new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-          msgHtml += '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-weight:600;font-size:0.82rem;color:var(--forest)">' + _escH(who) + '</span><span style="font-size:0.7rem;color:var(--mid)">' + t + '</span></div>';
-          msgHtml += '<div style="font-size:0.84rem;color:var(--ink);padding:8px 10px;background:white;border-radius:8px">' + _escH(m.content || '') + '</div></div>';
+          msgHtml += '<div style="display:flex;flex-direction:column;align-items:' + align + ';margin-bottom:10px">';
+          msgHtml += '<span style="font-weight:600;font-size:0.72rem;color:var(--mid);margin-bottom:2px">' + _escH(who) + ' \u00B7 ' + t + '</span>';
+          msgHtml += '<div style="font-size:0.84rem;color:' + bubbleColor + ';padding:8px 12px;background:' + bubbleBg + ';border-radius:12px;max-width:85%;word-wrap:break-word">' + _escH(m.content || '') + '</div>';
+          msgHtml += '</div>';
         });
         msgHtml += '</div>';
       }
     }
     content =
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px">' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>From:</strong> ' + _escH(sName) + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>To:</strong> ' + _escH(rName) + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Messages:</strong> ' + entry.count + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Date:</strong> ' + entry.day + '</div>' +
+        (sProf ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Sender Role:</strong> ' + _escH(sProf.role || '\u2014') + '</div>' : '') +
+        (rProf ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Recipient Role:</strong> ' + _escH(rProf.role || '\u2014') + '</div>' : '') +
       '</div>' +
       (msgHtml || '<div style="padding:12px;background:var(--warm);border-radius:8px;color:var(--mid);font-size:0.88rem">Message content not available.</div>');
 
@@ -3278,11 +3296,12 @@ async function showActivityDetail(index) {
     var bkIcon = svcIcons[bk.service] || '\uD83D\uDC3E';
     var bkDateFull = bk.date ? new Date(bk.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
     var statusColor = bk.status === 'confirmed' ? 'var(--forest)' : bk.status === 'cancelled' ? 'var(--rose,#dc3545)' : 'var(--gold)';
-    // Try to resolve client name
+    // Resolve client full profile
     var bkClientName = bk.client_name || '';
-    if (!bkClientName && bk.client_id && sb) {
-      var cRes = await sb.from('profiles').select('full_name, id').eq('user_id', bk.client_id).single();
-      if (cRes.data) { bkClientName = cRes.data.full_name; bk._profileId = cRes.data.id; }
+    var bkClientProfile = null;
+    if (bk.client_id && sb) {
+      var cRes = await sb.from('profiles').select('*').eq('user_id', bk.client_id).single();
+      if (cRes.data) { bkClientProfile = cRes.data; bkClientName = cRes.data.full_name || bkClientName; bk._profileId = cRes.data.id; }
     }
     content =
       '<div style="text-align:center;margin-bottom:16px"><span style="font-size:2.5rem">' + bkIcon + '</span></div>' +
@@ -3293,6 +3312,10 @@ async function showActivityDetail(index) {
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Time:</strong> ' + _escH(bk.time_slot || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(bkClientName || 'Unknown') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pets:</strong> ' + _escH(bk.pet_names || '\u2014') + '</div>' +
+        (bkClientProfile ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client Phone:</strong> ' + _escH(bkClientProfile.phone || '\u2014') + '</div>' : '') +
+        (bkClientProfile ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client Email:</strong> ' + _escH(bkClientProfile.email || '\u2014') + '</div>' : '') +
+        (bk.address ? '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Address:</strong> ' + _escH(bk.address) + '</div>' : (bkClientProfile && bkClientProfile.address ? '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Client Address:</strong> ' + _escH(bkClientProfile.address) + '</div>' : '')) +
+        (bk.notes ? '<div style="padding:12px;background:var(--warm);border-radius:8px;grid-column:1/-1;border-left:3px solid var(--gold)"><strong>Booking Notes:</strong> ' + _escH(bk.notes) + '</div>' : '') +
         '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Booked:</strong> ' + fullDate + ' at ' + timeStr + '</div>' +
       '</div>' +
       (bk._profileId ? '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + bk._profileId + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Client Profile</button>' : '');
@@ -3301,17 +3324,49 @@ async function showActivityDetail(index) {
     title = 'New Client Sign-up';
     icon = '\uD83C\uDF89';
     bgColor = '#e3f2fd';
+    // Fetch the FULL latest profile data (the entry.profile may be stale)
     var prof = entry.profile;
+    if (sb && prof.user_id) {
+      var freshProf = await sb.from('profiles').select('*').eq('user_id', prof.user_id).single();
+      if (freshProf.data) prof = freshProf.data;
+    } else if (sb && prof.id) {
+      var freshProf2 = await sb.from('profiles').select('*').eq('id', prof.id).single();
+      if (freshProf2.data) prof = freshProf2.data;
+    }
     var joinedDate = prof.created_at ? new Date(prof.created_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
+    var joinedTime = prof.created_at ? new Date(prof.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+    // Also fetch their pets to show if they added any
+    var signupPets = [];
+    if (sb) {
+      var uid = prof.user_id || prof.id;
+      var { data: spData } = await sb.from('pets').select('name, species, breed').eq('owner_id', uid);
+      if (spData) signupPets = spData;
+    }
     content =
+      '<div style="text-align:center;margin-bottom:16px"><div style="width:60px;height:60px;border-radius:50%;background:var(--forest-pale);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:var(--forest);margin:0 auto">' + (prof.full_name ? prof.full_name.charAt(0).toUpperCase() : '?') + '</div></div>' +
+      '<h4 style="text-align:center;margin:0 0 16px;color:var(--forest)">' + _escH(prof.full_name || 'New Client') + '</h4>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Name:</strong> ' + _escH(prof.full_name || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Full Name:</strong> ' + _escH(prof.full_name || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Email:</strong> ' + _escH(prof.email || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Phone:</strong> ' + _escH(prof.phone || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Customer #:</strong> ' + _escH(prof.customer_number || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Signed Up:</strong> ' + joinedDate + ' at ' + timeStr + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Address:</strong> ' + _escH(prof.address || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Role:</strong> ' + _escH(prof.role || 'client') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Emergency Contact:</strong> ' + _escH(prof.emergency_contact || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Emergency Phone:</strong> ' + _escH(prof.emergency_phone || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Stripe Customer:</strong> ' + (prof.stripe_customer_id ? '\u2705 Connected' : '\u274C Not connected') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Signed Up:</strong> ' + joinedDate + (joinedTime ? ' at ' + joinedTime : '') + '</div>' +
+        (prof.notes ? '<div style="padding:12px;background:var(--warm);border-radius:8px;grid-column:1/-1;border-left:3px solid var(--gold)"><strong>Notes:</strong> ' + _escH(prof.notes) + '</div>' : '') +
       '</div>' +
-      '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + prof.id + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Full Client Profile</button>';
+      (signupPets.length > 0 ?
+        '<h4 style="margin:16px 0 10px;font-size:0.88rem;color:var(--forest)">\uD83D\uDC3E Pets Added (' + signupPets.length + ')</h4>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">' +
+        signupPets.map(function(sp) {
+          var spIcon = (sp.species || '').toLowerCase() === 'cat' ? '\uD83D\uDC31' : '\uD83D\uDC36';
+          return '<div style="padding:8px 14px;background:var(--cream);border-radius:8px;font-size:0.84rem">' + spIcon + ' <strong>' + _escH(sp.name) + '</strong>' + (sp.breed ? ' \u00B7 ' + _escH(sp.breed) : '') + '</div>';
+        }).join('') +
+        '</div>' : '<div style="padding:10px;background:var(--warm);border-radius:8px;font-size:0.84rem;color:var(--mid);margin-bottom:16px">\uD83D\uDC3E No pets added yet</div>') +
+      '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + (prof.id || '') + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Full Client Profile</button>';
 
   } else if (entry.type === 'cancellation') {
     title = 'Cancellation Details';
@@ -3320,23 +3375,27 @@ async function showActivityDetail(index) {
     var cb = entry.booking;
     var cancelDate = (cb.cancelled_at || cb.updated_at) ? new Date(cb.cancelled_at || cb.updated_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
     var origDate = cb.date ? new Date(cb.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '\u2014';
-    // Resolve client
+    // Resolve client full profile
     var cancelClientName = cb.client_name || '';
-    if (!cancelClientName && cb.client_id && sb) {
-      var ccRes = await sb.from('profiles').select('full_name, id').eq('user_id', cb.client_id).single();
-      if (ccRes.data) { cancelClientName = ccRes.data.full_name; cb._profileId = ccRes.data.id; }
+    var cancelClientProfile = null;
+    if (cb.client_id && sb) {
+      var ccRes = await sb.from('profiles').select('*').eq('user_id', cb.client_id).single();
+      if (ccRes.data) { cancelClientProfile = ccRes.data; cancelClientName = ccRes.data.full_name || cancelClientName; cb._profileId = ccRes.data.id; }
     }
     content =
       '<div style="padding:14px;background:#fff3cd;border-radius:10px;margin-bottom:16px;border-left:3px solid #dc3545;font-size:0.88rem">' +
-        '<strong>Reason:</strong> ' + _escH(cb.cancellation_reason || cb.cancel_reason || 'No reason provided') +
+        '<strong>Cancellation Reason:</strong><br>' + _escH(cb.cancellation_reason || cb.cancel_reason || 'No reason provided') +
       '</div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(cb.service || cb.service_type || 'Service') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(cancelClientName || 'Unknown') + '</div>' +
+        (cancelClientProfile ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client Phone:</strong> ' + _escH(cancelClientProfile.phone || '\u2014') + '</div>' : '') +
+        (cancelClientProfile ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client Email:</strong> ' + _escH(cancelClientProfile.email || '\u2014') + '</div>' : '') +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Original Date:</strong> ' + origDate + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Time Slot:</strong> ' + _escH(cb.time_slot || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pets:</strong> ' + _escH(cb.pet_names || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Cancelled:</strong> ' + cancelDate + '</div>' +
+        (cb.notes ? '<div style="padding:12px;background:var(--warm);border-radius:8px;grid-column:1/-1;border-left:3px solid var(--gold)"><strong>Original Booking Notes:</strong> ' + _escH(cb.notes) + '</div>' : '') +
       '</div>' +
       (cb._profileId ? '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + cb._profileId + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Client Profile</button>' : '');
 
@@ -3345,30 +3404,58 @@ async function showActivityDetail(index) {
     icon = '\uD83D\uDCB3';
     bgColor = '#e8f5e9';
     var pay = entry.payment;
+    // Try to resolve client profile from payment
+    var payClientName = pay.client_name || '';
+    var payClientProfile = null;
+    if (sb && pay.client_id) {
+      var payRes = await sb.from('profiles').select('*').eq('user_id', pay.client_id).single();
+      if (payRes.data) { payClientProfile = payRes.data; payClientName = payRes.data.full_name || payClientName; }
+    }
     content =
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Amount:</strong> <span style="color:var(--forest);font-weight:700;font-size:1.1rem">$' + ((pay.amount || 0)/100).toFixed(2) + '</span></div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(pay.client_email || '\u2014') + '</div>' +
+      '<div style="text-align:center;margin-bottom:16px"><div style="font-size:2rem;font-weight:700;color:var(--forest)">$' + ((pay.amount || 0)/100).toFixed(2) + '</div><div style="font-size:0.78rem;color:var(--mid)">Payment Received</div></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Amount:</strong> <span style="color:var(--forest);font-weight:700">$' + ((pay.amount || 0)/100).toFixed(2) + '</span></div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Status:</strong> <span style="color:var(--forest);font-weight:600">' + _escH(pay.status || 'paid') + '</span></div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(payClientName || pay.client_email || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Email:</strong> ' + _escH(pay.client_email || (payClientProfile ? payClientProfile.email : '') || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(pay.service || pay.description || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Date:</strong> ' + fullDate + '</div>' +
-        (pay.notes ? '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Notes:</strong> ' + _escH(pay.notes) + '</div>' : '') +
-      '</div>';
+        (pay.stripe_payment_id ? '<div style="padding:12px;background:var(--cream);border-radius:8px;grid-column:1/-1"><strong>Stripe ID:</strong> ' + _escH(pay.stripe_payment_id) + '</div>' : '') +
+        (pay.notes ? '<div style="padding:12px;background:var(--warm);border-radius:8px;grid-column:1/-1;border-left:3px solid var(--gold)"><strong>Notes:</strong> ' + _escH(pay.notes) + '</div>' : '') +
+      '</div>' +
+      (payClientProfile ? '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + payClientProfile.id + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Client Profile</button>' : '');
 
   } else if (entry.type === 'report') {
     title = 'Service Report';
     icon = '\uD83D\uDCCB';
     bgColor = 'var(--gold-pale)';
     var rpt = entry.report;
+    // Try to resolve who the report is about
+    var rptClientName = '';
+    var rptClientProfile = null;
+    if (sb && rpt.client_id) {
+      var rptRes = await sb.from('profiles').select('full_name, id, email, phone').eq('user_id', rpt.client_id).single();
+      if (rptRes.data) { rptClientProfile = rptRes.data; rptClientName = rptRes.data.full_name; }
+    }
+    var rptStaffName = '';
+    if (sb && rpt.staff_id) {
+      var rptSRes = await sb.from('profiles').select('full_name').eq('user_id', rpt.staff_id).single();
+      if (rptSRes.data) rptStaffName = rptSRes.data.full_name;
+    }
     content =
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(rpt.service || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Duration:</strong> ' + _escH(rpt.duration || '\u2014') + '</div>' +
+        (rptClientName ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(rptClientName) + '</div>' : '') +
+        (rptStaffName ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Staff:</strong> ' + _escH(rptStaffName) + '</div>' : '') +
         (rpt.distance ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Distance:</strong> ' + _escH(rpt.distance) + '</div>' : '') +
-        (rpt.mood ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Mood:</strong> ' + _escH(rpt.mood) + '</div>' : '') +
+        (rpt.mood ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pet Mood:</strong> ' + _escH(rpt.mood) + '</div>' : '') +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Date:</strong> ' + fullDate + '</div>' +
         (rpt.media_count ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Media:</strong> ' + rpt.media_count + ' file(s)</div>' : '') +
+        (rpt.pet_names ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pets:</strong> ' + _escH(rpt.pet_names) + '</div>' : '') +
       '</div>' +
-      (rpt.note ? '<div style="padding:14px;background:var(--warm);border-radius:10px;font-size:0.88rem;line-height:1.6;border-left:3px solid var(--gold)"><strong>Note:</strong><br>' + _escH(rpt.note) + '</div>' : '');
+      (rpt.note ? '<div style="padding:14px;background:var(--warm);border-radius:10px;font-size:0.88rem;line-height:1.6;border-left:3px solid var(--gold);margin-bottom:16px"><strong>Report Notes:</strong><br>' + _escH(rpt.note) + '</div>' : '') +
+      (rptClientProfile ? '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + rptClientProfile.id + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Client Profile</button>' : '');
   }
 
   if (!content) {
