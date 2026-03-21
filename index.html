@@ -3072,11 +3072,6 @@ function sTab(portal, panelId) {
     });
   }
 }
-function getIcon(id) {
-  const map = {'c-pets':'🐾','c-dash':'🏠','c-appts':'📅','c-track':'🗺️','c-photos':'📸','c-reports':'📋','c-msgs':'💬','c-notifs':'🔔','c-cal':'📆','c-bill':'💳','s-sched':'📅','s-jobs':'🦮','s-reports':'📋','s-msgs':'💬','s-earn':'💰','s-cal':'📆','s-avail':'🗓️','o-overview':'📊','o-clients':'👥','o-sched':'📅','o-reports':'📋','o-staff':'🧑‍🤝‍🧑','o-msgs':'💬','o-cal':'📆','o-avail':'🗓️','o-auto':'🤖','o-studio':'✨','o-content':'✏️','o-photos':'🖼️','o-payments':'💳','o-deals':'🏷️','o-sendInvoice':'🧾','o-linkpage':'🔗','o-activity':'📜'};
-  return map[id]||'';
-}
-
 // ---- ACTIVITY LOG ----
 var _actLogInited = false;
 function initActivityLog() {
@@ -3426,7 +3421,7 @@ async function showActivityDetail(index) {
   var entries = window._actLogEntries;
   if (!entries || !entries[index]) { console.warn('[ActivityDetail] No entry at index', index); return; }
   var entry = entries[index];
-  console.log('[ActivityDetail] Opening detail for entry type:', entry.type, 'index:', index, entry);
+  // Detail opened for entry
 
   // Remove any existing detail modal
   var existing = document.getElementById('actDetailModal');
@@ -3469,7 +3464,7 @@ async function showActivityDetail(index) {
       var dayEnd = new Date(entryDate); dayEnd.setHours(23,59,59,999);
       var dayStartISO = dayStart.toISOString();
       var dayEndISO = dayEnd.toISOString();
-      console.log('[ActivityDetail] Fetching messages between', entry.sender, 'and', entry.recipient, 'from', dayStartISO, 'to', dayEndISO);
+      // Fetching conversation messages
 
       // Fetch both directions separately then merge (complex .or filter was failing silently)
       var msgDir1 = await sb.from('messages').select('sender_id, content, created_at')
@@ -3486,7 +3481,7 @@ async function showActivityDetail(index) {
 
       var convMsgs = (msgDir1.data || []).concat(msgDir2.data || []);
       convMsgs.sort(function(a, b) { return new Date(a.created_at) - new Date(b.created_at); });
-      console.log('[ActivityDetail] Found', convMsgs.length, 'messages total');
+      // Messages loaded
 
       if (convMsgs.length > 0) {
         msgHtml = '<h4 style="margin:16px 0 10px;font-size:0.88rem;color:var(--forest)">Full Conversation (' + convMsgs.length + ' messages)</h4>';
@@ -3505,7 +3500,7 @@ async function showActivityDetail(index) {
         });
         msgHtml += '</div>';
       } else {
-        console.log('[ActivityDetail] No messages found for this conversation pair on this day');
+        // No messages found for this day
       }
     }
     content =
@@ -6298,7 +6293,7 @@ async function loadOwnerClients() {
 
     var clients = clientsResult.data || [];
     var bookings = bookingsResult.data || [];
-    console.log('[All Clients] Loaded ' + clients.length + ' client(s), ' + bookings.length + ' booking(s)');
+    // Clients loaded
 
     // Build set of client IDs who have confirmed bookings
     var activeClientIds = {};
@@ -8398,7 +8393,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Signal auth is ready — all waiting modules fire immediately
       _fireAuthReady();
     } else {
-      console.log('Supabase auth not configured. Portals are ungated (dev mode).');
+      // Auth not configured — dev mode
       _fireAuthReady();
     }
   });
