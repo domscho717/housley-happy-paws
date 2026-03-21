@@ -715,6 +715,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .sidebar{position:relative;top:0;height:auto}
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .form-row{grid-template-columns:1fr}
+  input[type="date"].form-in{-webkit-appearance:none;font-size:0.85rem;min-height:38px;max-width:100%;box-sizing:border-box}
   footer{padding:48px 20px 24px}
   .footer-grid{grid-template-columns:1fr;gap:28px}
 
@@ -1250,16 +1251,16 @@ try {
                 <div class="form-group"><label class="form-lbl">Species *</label><select class="form-sel" id="pet-species" onchange="calcPetAge();resetBreedOnSpeciesChange()"><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
               </div>
               <div class="form-row">
-                <div class="form-group"><label class="form-lbl">Breed</label>
+                <div class="form-group"><label class="form-lbl">Breed <span style="color:#c0392b">*</span></label>
                   <div id="breed-search-wrap" style="position:relative">
                     <input class="form-in" id="pet-breed" placeholder="Start typing to search breeds..." autocomplete="off" onfocus="openBreedDropdown()" oninput="filterBreeds()">
                     <div id="breed-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #d4c5b0;border-top:none;border-radius:0 0 8px 8px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
                   </div>
                 </div>
-                <div class="form-group"><label class="form-lbl">Sex</label><select class="form-sel" id="pet-sex"><option value="">Select...</option><option value="male">Male</option><option value="female">Female</option></select></div>
+                <div class="form-group"><label class="form-lbl">Sex <span style="color:#c0392b">*</span></label><select class="form-sel" id="pet-sex"><option value="">Select...</option><option value="male">Male</option><option value="female">Female</option></select></div>
               </div>
               <div class="form-row">
-                <div class="form-group"><label class="form-lbl">Birthday / Age</label><input class="form-in" type="date" id="pet-birthday" onchange="calcPetAge()"></div>
+                <div class="form-group"><label class="form-lbl">Birthday <span style="color:#c0392b">*</span></label><input class="form-in" type="date" id="pet-birthday" onchange="calcPetAge()" style="max-width:100%;font-size:0.85rem"></div>
                 <div class="form-group"><label class="form-lbl">Weight (lbs)</label><input class="form-in" type="number" id="pet-weight" placeholder="e.g. 65"></div>
               </div>
               <div id="pet-age-display" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:12px 16px;margin-bottom:14px;text-align:center">
@@ -1269,7 +1270,7 @@ try {
                   <div><div style="font-size:0.72rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px" id="pet-age-label">Dog Years</div><div id="pet-age-animal" style="font-weight:700;font-size:1.1rem;color:var(--gold-deep)">🐾</div></div>
                 </div>
               </div>
-              <div class="form-group"><label class="form-lbl">Size</label><select class="form-sel" id="pet-size"><option value="">Select...</option><option value="small">Small (under 25 lbs)</option><option value="medium">Medium (25–50 lbs)</option><option value="large">Large (50–100 lbs)</option><option value="giant">Giant (100+ lbs)</option></select></div>
+              <div class="form-group"><label class="form-lbl">Size <span style="color:#c0392b">*</span></label><select class="form-sel" id="pet-size"><option value="">Select...</option><option value="small">Small (under 25 lbs)</option><option value="medium">Medium (25–50 lbs)</option><option value="large">Large (50–100 lbs)</option><option value="giant">Giant (100+ lbs)</option></select></div>
               <div class="form-group"><label class="form-lbl">Pet Photo</label>
                 <div style="display:flex;align-items:center;gap:12px">
                   <div id="pet-photo-preview" style="width:80px;height:80px;border-radius:12px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.5rem;background:var(--warm)" onclick="document.getElementById('pet-photo-input').click()">📷</div>
@@ -1284,7 +1285,7 @@ try {
 
             <!-- Section 2: Health & Safety -->
             <div style="margin-bottom:20px">
-              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Health & Safety</div>
+              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Health & Safety <span style="color:#c0392b;font-weight:400;font-size:0.78rem">* (check all that apply)</span></div>
               <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
                 <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-spayed"> Spayed / Neutered</label>
                 <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-microchipped"> Microchipped</label>
@@ -1296,7 +1297,7 @@ try {
 
             <!-- Section 3: Temperament -->
             <div style="margin-bottom:20px">
-              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Temperament</div>
+              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Temperament <span style="color:#c0392b;font-weight:400;font-size:0.78rem">* (check all that apply)</span></div>
               <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px">
                 <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-fdogs" checked> Friendly with Dogs</label>
                 <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer"><input type="checkbox" id="pet-fcats" checked> Friendly with Cats</label>
@@ -1312,12 +1313,12 @@ try {
             <div style="margin-bottom:20px">
               <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Care & Vet Info</div>
               <div class="form-row">
-                <div class="form-group"><label class="form-lbl">Vet Name</label><input class="form-in" id="pet-vet" placeholder="e.g. Lancaster Animal Hospital"></div>
-                <div class="form-group"><label class="form-lbl">Vet Phone</label><input class="form-in" id="pet-vetphone" placeholder="(717) 555-0123"></div>
+                <div class="form-group"><label class="form-lbl">Vet Name <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-vet" placeholder="e.g. Lancaster Animal Hospital"></div>
+                <div class="form-group"><label class="form-lbl">Vet Phone <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-vetphone" placeholder="(717) 555-0123"></div>
               </div>
-              <div class="form-group"><label class="form-lbl">Medications</label><input class="form-in" id="pet-meds" placeholder="e.g. Apoquel 16mg daily, Heartgard monthly"></div>
-              <div class="form-group"><label class="form-lbl">Allergies</label><input class="form-in" id="pet-allergies" placeholder="e.g. Chicken, certain grasses"></div>
-              <div class="form-group"><label class="form-lbl">Special Needs</label><input class="form-in" id="pet-special" placeholder="e.g. Needs help with stairs, deaf in one ear"></div>
+              <div class="form-group"><label class="form-lbl">Medications <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-meds" placeholder="e.g. Apoquel 16mg daily, Heartgard monthly (write 'None' if none)"></div>
+              <div class="form-group"><label class="form-lbl">Allergies <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-allergies" placeholder="e.g. Chicken, certain grasses (write 'None' if none)"></div>
+              <div class="form-group"><label class="form-lbl">Special Needs <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-special" placeholder="e.g. Needs help with stairs (write 'None' if none)"></div>
               <div class="form-group"><label class="form-lbl">Feeding Instructions</label><textarea class="form-ta" id="pet-feeding" style="min-height:60px" placeholder="e.g. 1 cup kibble morning & evening, wet food topper at dinner..."></textarea></div>
               <div class="form-group"><label class="form-lbl">Additional Notes</label><textarea class="form-ta" id="pet-notes" style="min-height:60px" placeholder="Anything else Rachel should know..."></textarea></div>
             </div>
@@ -6128,6 +6129,40 @@ async function uploadPetPhoto() {
 async function savePet() {
   var name = document.getElementById('pet-name').value.trim();
   if (!name) { toast('Please enter your pet\'s name.'); return; }
+
+  // Validate mandatory fields
+  var missing = [];
+  if (!document.getElementById('pet-breed').value.trim()) missing.push('Breed');
+  if (!document.getElementById('pet-sex').value) missing.push('Sex');
+  if (!document.getElementById('pet-birthday').value) missing.push('Birthday');
+  if (!document.getElementById('pet-size').value) missing.push('Size');
+  if (!document.getElementById('pet-vet').value.trim()) missing.push('Vet Name');
+  if (!document.getElementById('pet-vetphone').value.trim()) missing.push('Vet Phone');
+  if (!document.getElementById('pet-meds').value.trim()) missing.push('Medications');
+  if (!document.getElementById('pet-allergies').value.trim()) missing.push('Allergies');
+  if (!document.getElementById('pet-special').value.trim()) missing.push('Special Needs');
+
+  // Health & Safety — at least acknowledge each checkbox (section is mandatory)
+  var healthChecks = ['pet-spayed','pet-microchipped','pet-housetrained','pet-vaccinated','pet-fleaprev'];
+  var anyHealthChecked = healthChecks.some(function(id) { return document.getElementById(id).checked; });
+  if (!anyHealthChecked) missing.push('Health & Safety (check at least one or all that apply)');
+
+  // Temperament — energy level always has a value, but friendliness checkboxes matter
+  var tempChecks = ['pet-fdogs','pet-fcats','pet-fkids'];
+  var anyTempChecked = tempChecks.some(function(id) { return document.getElementById(id).checked; });
+  if (!anyTempChecked) missing.push('Temperament (check at least one or all that apply)');
+
+  if (missing.length > 0) {
+    toast('Please fill in: ' + missing.slice(0, 3).join(', ') + (missing.length > 3 ? ' and ' + (missing.length - 3) + ' more' : ''));
+    // Scroll to first empty required field
+    var firstField = !document.getElementById('pet-breed').value.trim() ? 'pet-breed' :
+      !document.getElementById('pet-sex').value ? 'pet-sex' :
+      !document.getElementById('pet-birthday').value ? 'pet-birthday' :
+      !document.getElementById('pet-size').value ? 'pet-size' : null;
+    if (firstField) document.getElementById(firstField).focus();
+    return;
+  }
+
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) { toast('Please sign in first.'); return; }
@@ -6145,11 +6180,11 @@ async function savePet() {
     owner_id: user.id,
     name: name,
     species: document.getElementById('pet-species').value,
-    breed: document.getElementById('pet-breed').value.trim() || null,
-    sex: document.getElementById('pet-sex').value || null,
-    birthday: document.getElementById('pet-birthday').value || null,
+    breed: document.getElementById('pet-breed').value.trim(),
+    sex: document.getElementById('pet-sex').value,
+    birthday: document.getElementById('pet-birthday').value,
     weight: document.getElementById('pet-weight').value ? parseFloat(document.getElementById('pet-weight').value) : null,
-    size: document.getElementById('pet-size').value || null,
+    size: document.getElementById('pet-size').value,
     spayed_neutered: document.getElementById('pet-spayed').checked,
     microchipped: document.getElementById('pet-microchipped').checked,
     house_trained: document.getElementById('pet-housetrained').checked,
@@ -6160,11 +6195,11 @@ async function savePet() {
     friendly_children: document.getElementById('pet-fkids').checked,
     energy_level: document.getElementById('pet-energy').value,
     behavioral_notes: document.getElementById('pet-behavior').value.trim() || null,
-    vet_name: document.getElementById('pet-vet').value.trim() || null,
-    vet_phone: document.getElementById('pet-vetphone').value.trim() || null,
-    medications: document.getElementById('pet-meds').value.trim() || null,
-    allergies: document.getElementById('pet-allergies').value.trim() || null,
-    special_needs: document.getElementById('pet-special').value.trim() || null,
+    vet_name: document.getElementById('pet-vet').value.trim(),
+    vet_phone: document.getElementById('pet-vetphone').value.trim(),
+    medications: document.getElementById('pet-meds').value.trim(),
+    allergies: document.getElementById('pet-allergies').value.trim(),
+    special_needs: document.getElementById('pet-special').value.trim(),
     feeding_instructions: document.getElementById('pet-feeding').value.trim() || null,
     notes: document.getElementById('pet-notes').value.trim() || null,
     updated_at: new Date().toISOString()
