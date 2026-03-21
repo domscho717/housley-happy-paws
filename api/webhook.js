@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
 
       // Save payment record to Supabase
       try {
-        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
         await supabase.from('payments').insert({
           stripe_session_id: session.id,
           client_email: session.customer_email || '',
@@ -83,7 +83,7 @@ module.exports = async function handler(req, res) {
       });
 
       try {
-        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
 
         // 1. Record the payment
         await supabase.from('payments').insert({
@@ -98,9 +98,28 @@ module.exports = async function handler(req, res) {
           paid_at: new Date().toISOString(),
         });
 
-        // 2. If this invoice was sent from the owner portal and has a service date, create a booking
+        // 2. Transfer funds to connected account with 15% platform fee
+        const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+        if (connectedAccountId && invoice.amount_paid > 0 && invoice.charge) {
+          const amountCents = invoice.amount_paid;
+          const feeCents = Math.round(amountCents * 0.15);
+          const transferCents = amountCents - feeCents;
+          try {
+            await stripe.transfers.create({
+              amount: transferCents,
+              currency: 'usd',
+              destination: connectedAccountId,
+              source_transaction: invoice.charge,
+              description: `Invoice ${invoice.number || invoice.id} — ${meta.service || 'Pet Care'}`,
+            });
+            console.log('Fee transfer completed:', { total: amountCents, fee: feeCents, transferred: transferCents });
+          } catch (transferErr) {
+            console.error('Fee transfer failed (non-blocking):', transferErr.message);
+          }
+        }
+
+        // 3. If this invoice was sent from the owner portal and has a service date, create a booking
         if (meta.source === 'owner_invoice' && meta.serviceDate) {
-          // Look up client_id from profiles by email
           let clientId = null;
           if (invoice.customer_email) {
             const { data: profile } = await supabase
