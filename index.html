@@ -1918,8 +1918,8 @@ try {
 
       <div class="p-panel" id="o-auto">
         <div class="p-header"><h2>Auto-Reply Setup 🤖</h2><p>Set what new clients and inquiries hear from you instantly.</p></div>
-        <div class="card" style="margin-bottom:16px"><div class="card-title" style="margin-bottom:6px">Meet & Greet Auto-Reply</div><p style="font-size:0.83rem;color:var(--mid);margin-bottom:16px">Sent instantly when someone requests a meet & greet.</p><div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="ar-meetgreet" style="min-height:110px">Hi [Name]! 🐾 I'm so excited to meet [Pet Name]! I'm available any day — just let me know what works best for you and we'll make it happen! Feel free to text me anytime. I can't wait to meet your fur baby! — Rachel 🐶🐱</textarea></div><div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Send After</label><select class="form-sel"><option>Instantly</option><option>5 minutes</option><option>1 hour</option></select></div><div><label class="form-lbl">Active Hours</label><select class="form-sel"><option>Always on</option></select></div></div><button class="btn btn-gold btn-sm" onclick="saveAutoReply('meetgreet')" style="width:100%;justify-content:center">✅ Save Auto-Reply</button></div>
-        <div class="card"><div class="card-title" style="margin-bottom:6px">General Inquiry Auto-Reply</div><p style="font-size:0.83rem;color:var(--mid);margin-bottom:16px">Sent when someone submits the contact form.</p><div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="ar-general">Thanks for reaching out to Housley Happy Paws! 🐾 I'll personally reply within 24 hours. If it's urgent, feel free to text or call me directly. Talk soon! — Rachel</textarea></div><button class="btn btn-ink btn-sm" onclick="saveAutoReply('general')" style="width:100%;justify-content:center">Save</button></div>
+        <div class="card" style="margin-bottom:16px"><div class="card-title" style="margin-bottom:6px">Meet & Greet Auto-Reply</div><p style="font-size:0.83rem;color:var(--mid);margin-bottom:10px">Sent instantly when someone requests a meet & greet.</p><div style="background:var(--gold-pale);border-radius:6px;padding:8px 12px;font-size:0.78rem;color:var(--brown);margin-bottom:12px"><strong>Placeholders:</strong> Use <code style="background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:3px">[Name]</code> for the client's name and <code style="background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:3px">[Pet Name]</code> for their pet — these auto-fill when sent!</div><div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="ar-meetgreet" style="min-height:110px">Hi [Name]! 🐾 I'm so excited to meet [Pet Name]! I'm available any day — just let me know what works best for you and we'll make it happen! Feel free to text me anytime. I can't wait to meet your fur baby! — Rachel 🐶🐱</textarea></div><div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Send After</label><select class="form-sel"><option>Instantly</option><option>5 minutes</option><option>1 hour</option></select></div><div><label class="form-lbl">Active Hours</label><select class="form-sel"><option>Always on</option></select></div></div><button class="btn btn-gold btn-sm" onclick="saveAutoReply('meetgreet')" style="width:100%;justify-content:center">✅ Save Auto-Reply</button></div>
+        <div class="card"><div class="card-title" style="margin-bottom:6px">General Inquiry Auto-Reply</div><p style="font-size:0.83rem;color:var(--mid);margin-bottom:10px">Sent when someone submits the contact form.</p><div style="background:var(--gold-pale);border-radius:6px;padding:8px 12px;font-size:0.78rem;color:var(--brown);margin-bottom:12px"><strong>Placeholder:</strong> Use <code style="background:rgba(0,0,0,0.06);padding:1px 5px;border-radius:3px">[Name]</code> for the client's name — it auto-fills when sent!</div><div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="ar-general">Thanks for reaching out, [Name]! 🐾 I'll personally reply within 24 hours. If it's urgent, feel free to text or call me directly. Talk soon! — Rachel</textarea></div><button class="btn btn-ink btn-sm" onclick="saveAutoReply('general')" style="width:100%;justify-content:center">✅ Save Auto-Reply</button></div>
       </div>
 
       <!-- ========== AI OWNER STUDIO ========== -->
@@ -2525,11 +2525,12 @@ try {
 <!-- Contact -->
 <div class="overlay" id="contactModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">Send Rachel a Message 💬</div><button class="modal-close" onclick="closeModal('contactModal')">✕</button></div>
-  <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll get an instant "Got your message!" reply, and Rachel personally responds within 24 hours.</div></div>
-  <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" placeholder="Your name"></div>
-  <div class="form-group"><label class="form-lbl">Best Way to Reach You</label><input class="form-in" placeholder="Email or phone number"></div>
-  <div class="form-group"><label class="form-lbl">Your Question</label><textarea class="form-ta" placeholder="Hi Rachel! I was wondering..."></textarea></div>
-  <button class="submit-btn" onclick="closeModal('contactModal');toast('✅ Message sent! Rachel will reply soon 🐾')">Send Message</button></div>
+  <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll get an instant confirmation reply, and Rachel personally responds within 24 hours.</div></div>
+  <div class="form-group"><label class="form-lbl">Your Name *</label><input class="form-in" id="contact-name" placeholder="Your name"></div>
+  <div class="form-group"><label class="form-lbl">Best Way to Reach You *</label><input class="form-in" id="contact-reach" placeholder="Email or phone number"></div>
+  <div class="form-group"><label class="form-lbl">Your Question *</label><textarea class="form-ta" id="contact-question" placeholder="Hi Rachel! I was wondering..."></textarea></div>
+  <div id="contact-error" style="display:none;color:#c44;font-size:0.82rem;margin-bottom:8px"></div>
+  <button class="submit-btn" onclick="submitContact()">Send Message</button></div>
 </div>
 
 <!-- Booking -->
@@ -4216,11 +4217,84 @@ async function submitMG() {
       });
     } catch(e) { console.warn('MG notification failed:', e); }
 
+    // Send auto-reply to client with placeholders filled in
+    _sendAutoReply('meetgreet', user.id, { name: name, petName: petNames });
+
     document.getElementById('mgForm').style.display = 'none';
     document.getElementById('mgSuccess').style.display = 'block';
   } catch(err) {
     console.error('MG submit error:', err);
     if (errEl) { errEl.textContent = 'Error: ' + (err.message || 'Something went wrong.'); errEl.style.display = 'block'; }
+  }
+}
+
+// ── Contact Form Submit with auto-reply ──
+async function submitContact() {
+  var errEl = document.getElementById('contact-error');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+  var cName = (document.getElementById('contact-name').value || '').trim();
+  var cReach = (document.getElementById('contact-reach').value || '').trim();
+  var cQuestion = (document.getElementById('contact-question').value || '').trim();
+
+  // Validate
+  var missing = [];
+  if (!cName) missing.push('Name');
+  if (!cReach) missing.push('Contact info');
+  if (!cQuestion) missing.push('Question');
+  if (missing.length) {
+    if (errEl) { errEl.textContent = 'Please fill in: ' + missing.join(', '); errEl.style.display = 'block'; }
+    return;
+  }
+
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+
+  try {
+    // Save the contact submission to booking_requests as a general inquiry
+    if (sb) {
+      await sb.from('booking_requests').insert({
+        service: 'General Inquiry',
+        contact_name: cName,
+        contact_email: cReach,
+        special_notes: cQuestion,
+        client_id: user ? user.id : null,
+        status: 'pending'
+      });
+    }
+
+    // Send notification to Rachel (owner)
+    if (sb) {
+      var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+      if (ownerProf && ownerProf.user_id) {
+        await sb.from('notifications').insert({
+          user_id: ownerProf.user_id,
+          title: '💬 New Contact Message',
+          body: cName + ': ' + cQuestion.substring(0, 150) + (cQuestion.length > 150 ? '...' : ''),
+          type: 'contact_inquiry',
+          read: false
+        });
+        // Also send as in-app message to owner
+        if (user) {
+          await sb.from('messages').insert({ sender_id: user.id, recipient_id: ownerProf.user_id, body: '💬 Contact Form:\n' + cQuestion });
+        }
+      }
+    }
+
+    // Send general auto-reply to client (if logged in)
+    if (user) {
+      _sendAutoReply('general', user.id, { name: cName });
+    }
+
+    // Clear form and show success
+    document.getElementById('contact-name').value = '';
+    document.getElementById('contact-reach').value = '';
+    document.getElementById('contact-question').value = '';
+    closeModal('contactModal');
+    toast('✅ Message sent! Rachel will reply within 24 hours 🐾');
+  } catch (err) {
+    console.error('Contact submit error:', err);
+    if (errEl) { errEl.textContent = 'Something went wrong. Please try again.'; errEl.style.display = 'block'; }
   }
 }
 
@@ -6856,6 +6930,56 @@ async function saveAutoReply(type) {
   if (!el) return;
   var ok = await _saveSiteContent('autoreply_' + type, { message: el.value, updated_at: new Date().toISOString() });
   if (ok) toast('✅ Auto-reply saved!');
+}
+
+// ── Send auto-reply to client with placeholder replacement ──
+async function _sendAutoReply(type, recipientUserId, replacements) {
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  if (!sb || !recipientUserId) return;
+
+  try {
+    // Load saved template (or fall back to the textarea default)
+    var saved = await _loadSiteContent('autoreply_' + type);
+    var template = '';
+    if (saved && saved.message) {
+      template = saved.message;
+    } else {
+      var el = document.getElementById('ar-' + type);
+      if (el) template = el.value;
+    }
+    if (!template.trim()) return;
+
+    // Replace placeholders with actual values
+    var msg = template;
+    if (replacements) {
+      if (replacements.name) msg = msg.replace(/\[Name\]/g, replacements.name);
+      if (replacements.petName) msg = msg.replace(/\[Pet Name\]/g, replacements.petName);
+    }
+    // Clean up any remaining unreplaced placeholders
+    msg = msg.replace(/\[Name\]/g, 'there');
+    msg = msg.replace(/\[Pet Name\]/g, 'your pet');
+
+    // Get owner's user_id as the sender
+    var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+    var senderId = ownerProf ? ownerProf.user_id : null;
+
+    // Send as in-app message
+    if (senderId) {
+      await sb.from('messages').insert({ sender_id: senderId, recipient_id: recipientUserId, body: msg });
+    }
+
+    // Also send as notification
+    var notifTitle = type === 'meetgreet' ? '🐾 Meet & Greet Confirmation' : '🐾 Thanks for reaching out!';
+    await sb.from('notifications').insert({
+      user_id: recipientUserId,
+      title: notifTitle,
+      body: msg.substring(0, 200) + (msg.length > 200 ? '...' : ''),
+      type: 'auto_reply',
+      read: false
+    });
+  } catch (e) {
+    console.warn('Auto-reply send error:', e);
+  }
 }
 
 async function savePaymentLinks() {
