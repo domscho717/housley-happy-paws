@@ -1703,7 +1703,7 @@ try {
       <div class="p-panel" id="o-reports">
         <div class="p-header"><h2>Create Service Report 📋</h2><p>Send a detailed report card to any client after a completed service.</p></div>
         <div class="card" style="max-width:680px">
-          <div style="background:var(--forest-pale);border-radius:10px;padding:16px;margin-bottom:20px;border-left:3px solid var(--forest)"><div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest);margin-bottom:6px">🤖 AI Note Assistant</div><div style="font-size:0.84rem;color:var(--ink)">Answer 3 questions and get a personalized note drafted instantly.</div></div>
+          <div style="background:var(--forest-pale);border-radius:10px;padding:16px;margin-bottom:20px;border-left:3px solid var(--forest)"><div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest);margin-bottom:6px">📝 Quick Note Builder</div><div style="font-size:0.84rem;color:var(--ink)">Pick a scenario, fill in a few details, and your personalized note is ready to send.</div></div>
 
           <!-- Client & Service -->
           <div class="form-row" style="margin-bottom:16px">
@@ -1742,15 +1742,21 @@ try {
             <div style="font-size:0.72rem;color:var(--mid);margin-top:6px">Supports photos (JPG, PNG) and videos (MP4, MOV) up to 50MB each</div>
           </div>
 
-          <!-- AI Note Generator -->
+          <!-- Custom Note Builder -->
           <div style="background:var(--gold-pale);border-radius:10px;padding:20px;margin-bottom:16px;border:1px solid rgba(200,150,62,0.2)">
-            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:14px">🤖 AI Note — 3 Quick Questions</div>
-            <div class="form-group"><label class="form-lbl">1. Dog or cat?</label><select class="form-sel" id="oAiQ1"><option value="">Select...</option><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
-            <div class="form-group"><label class="form-lbl">2. Pet name(s)</label><input class="form-in" id="oAiQ2" placeholder="e.g. Buddy"></div>
-            <div class="form-group"><label class="form-lbl">3. Anything out of the ordinary?</label><select class="form-sel" id="oAiQ3"><option value="all_good">Everything went great!</option><option value="new_friend">Made a new friend</option><option value="shy">A little shy today</option><option value="extra_energy">Lots of extra energy</option><option value="potty">Potty break took extra time</option><option value="other">Other</option></select></div>
-            <button class="btn btn-forest btn-sm" onclick="generateOwnerNote()" style="width:100%;justify-content:center">✨ Generate Note with AI</button>
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:14px">📝 Note Builder</div>
+            <div class="form-group"><label class="form-lbl">Scenario</label><select class="form-sel" id="oNoteScenario"><option value="great">Everything went great</option><option value="custom">Write my own</option></select></div>
+            <div id="oNoteFields">
+              <div class="form-group"><label class="form-lbl">Pet Name(s)</label><input class="form-in" id="oNotePet" placeholder="e.g. Buddy"></div>
+              <div class="form-row" style="margin-bottom:12px">
+                <div style="flex:1"><label class="form-lbl">Pronouns</label><select class="form-sel" id="oNotePronoun"><option value="he">He / Him / His</option><option value="she">She / Her / Her</option><option value="they">They / Them / Their</option></select></div>
+                <div style="flex:1"><label class="form-lbl">Potty</label><select class="form-sel" id="oNotePotty"><option value="pee">Pee</option><option value="poo">Poo</option><option value="both">Both pee and poo</option></select></div>
+              </div>
+            </div>
+            <div id="oNotePreview" style="background:white;border-radius:8px;padding:14px;margin-bottom:14px;font-size:0.84rem;color:var(--ink);line-height:1.6;border:1px solid var(--border);display:none"></div>
+            <button class="btn btn-forest btn-sm" onclick="buildOwnerNote()" style="width:100%;justify-content:center">📝 Generate Note</button>
           </div>
-          <div class="form-group"><label class="form-lbl">Personal Note</label><textarea class="form-ta" id="ownerNote" style="min-height:110px" placeholder="AI will generate this — or write your own..."></textarea></div>
+          <div class="form-group"><label class="form-lbl">Personal Note</label><textarea class="form-ta" id="ownerNote" style="min-height:110px" placeholder="Pick a scenario above and hit Generate — or write your own..."></textarea></div>
           <button class="submit-btn gold" id="rpt-submit-btn" onclick="submitServiceReport()">Send Report to Client</button>
         </div>
       </div>
@@ -4325,7 +4331,69 @@ function sendInviteEmail() {
 
 // ---- AI NOTE GENERATOR ----
 function generateNote() { buildNote('aiQ1','aiQ2','aiQ3','reportNote'); }
-function generateOwnerNote() { buildNote('oAiQ1','oAiQ2','oAiQ3','ownerNote'); }
+function generateOwnerNote() { buildOwnerNote(); }
+
+// ---- OWNER CUSTOM NOTE BUILDER ----
+(function() {
+  // Show/hide template fields based on scenario
+  var scenarioSel = document.getElementById('oNoteScenario');
+  if (scenarioSel) {
+    scenarioSel.addEventListener('change', function() {
+      var fields = document.getElementById('oNoteFields');
+      var preview = document.getElementById('oNotePreview');
+      if (this.value === 'custom') {
+        if (fields) fields.style.display = 'none';
+        if (preview) preview.style.display = 'none';
+        document.getElementById('ownerNote').value = '';
+        document.getElementById('ownerNote').placeholder = 'Write your own note here...';
+      } else {
+        if (fields) fields.style.display = '';
+        document.getElementById('ownerNote').placeholder = 'Pick a scenario above and hit Generate — or write your own...';
+      }
+    });
+  }
+})();
+
+function buildOwnerNote() {
+  var scenario = document.getElementById('oNoteScenario')?.value;
+  if (scenario === 'custom') { document.getElementById('ownerNote')?.focus(); return; }
+
+  var petName = document.getElementById('oNotePet')?.value?.trim();
+  if (!petName) { toast('Please enter the pet name first!'); return; }
+
+  var pronounKey = document.getElementById('oNotePronoun')?.value || 'she';
+  var pottyVal = document.getElementById('oNotePotty')?.value || 'pee';
+
+  // Pronoun maps
+  var pronouns = {
+    he:   { sub: 'he',   obj: 'him',  pos: 'his',  pie: 'pie' },
+    she:  { sub: 'she',  obj: 'her',  pos: 'her',  pie: 'pie' },
+    they: { sub: 'they', obj: 'them', pos: 'their', pie: 'pies' }
+  };
+  var p = pronouns[pronounKey] || pronouns.she;
+
+  // Potty text
+  var pottyText = { pee: 'pee', poo: 'poo', both: 'both pee and poo' };
+  var potty = pottyText[pottyVal] || 'pee';
+
+  // Scenario templates — add new ones here
+  var templates = {
+    great: 'Everything went great, ' + petName + ' and I had a great visit today! ' +
+      p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' enjoyed lots of fresh air and sniffs, ' +
+      p.sub + ' also went ' + potty + '. Once we got back inside, ' + petName +
+      ' enjoyed a snack along with a drink. I refreshed ' + p.pos + ' water and gave ' +
+      p.obj + ' tons of pets on my way out. Such a cutie ' + p.pie + '!!'
+  };
+
+  var note = templates[scenario] || '';
+  if (note) {
+    document.getElementById('ownerNote').value = note;
+    // Show preview
+    var preview = document.getElementById('oNotePreview');
+    if (preview) { preview.textContent = note; preview.style.display = ''; }
+    toast('📝 Note ready! Feel free to edit it.');
+  }
+}
 function buildNote(q1id,q2id,q3id,noteId) {
   const type = document.getElementById(q1id)?.value;
   const name = document.getElementById(q2id)?.value?.trim() || 'your pet';
@@ -4507,11 +4575,10 @@ function buildCalendar(containerId, year, month) {
   const today = new Date();
 
   var isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
-  let html = `<div class="cal-header"><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${year},${month},-1)">←</button><span class="cal-month">${names[month]} ${year}</span><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${year},${month},1)">→</button>`;
+  let html = `<div class="cal-header"><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${year},${month},-1)">←</button><span class="cal-month">${names[month]} ${year}</span><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${year},${month},1)">→</button></div>`;
   if (!isCurrentMonth) {
-    html += `<button class="cal-nav-btn" onclick="changeMonth('${containerId}',${today.getFullYear()},${today.getMonth()},0)" style="margin-left:8px;font-size:0.72rem;padding:4px 10px;background:var(--gold-pale);border-color:var(--gold);color:var(--ink);font-weight:600" title="Back to today">Today</button>`;
+    html += `<div style="text-align:center;margin-top:6px"><button class="cal-nav-btn" onclick="changeMonth('${containerId}',${today.getFullYear()},${today.getMonth()},0)" style="font-size:0.72rem;padding:4px 14px;background:var(--gold-pale);border-color:var(--gold);color:var(--ink);font-weight:600" title="Back to today">Today</button></div>`;
   }
-  html += '</div>';
   html += '<div class="cal-grid">';
   days.forEach(d => html += `<div class="cal-dow">${d}</div>`);
   for(let i=0;i<firstDay;i++) html += '<div class="cal-day empty"></div>';
