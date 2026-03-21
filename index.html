@@ -2828,45 +2828,214 @@ const aboutSS = {
   startAuto() { clearInterval(this.timer); if (this.slides.length > 1) this.timer = setInterval(() => this.goTo(this.current + 1), 5000); }
 };
 
-// ---- ABOUT PHOTO GRID (Owner Portal) ----
+// ---- ABOUT PHOTO GRID (Owner Portal) with drag-to-reorder ----
 var _aboutSlotCount = 0;
+var _dragSrcSlot = null;
+
 function initAboutPhotoGrid() {
   const grid = document.getElementById('aboutPhotoGrid');
   if (!grid) return;
-  // Count existing about photos
   const existing = Object.keys(HHP_Photos.photos).filter(k => k.startsWith('about')).sort();
-  _aboutSlotCount = Math.max(existing.length, 3); // minimum 3 slots
+  _aboutSlotCount = Math.max(existing.length, 3);
   grid.innerHTML = '';
   for (let i = 1; i <= _aboutSlotCount; i++) {
     _addAboutSlotEl(grid, i);
   }
-  // Wire up uploads
   if (HHP_Photos.wireUploadSlots) HHP_Photos.wireUploadSlots();
-  // Restore previews for existing photos
   existing.forEach(slotId => {
     if (HHP_Photos.photos[slotId]) HHP_Photos.updateSlotPreview(slotId, HHP_Photos.photos[slotId]);
   });
+  // Add reorder hint if photos exist
+  if (existing.length > 1) {
+    var hint = document.getElementById('aboutReorderHint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'aboutReorderHint';
+      hint.style.cssText = 'font-size:0.72rem;color:var(--mid);text-align:center;margin-top:-4px;margin-bottom:8px';
+      hint.textContent = '↕ Hold and drag photos to reorder the slideshow';
+      grid.parentNode.insertBefore(hint, grid.nextSibling);
+    }
+  }
 }
+
 function _addAboutSlotEl(grid, num) {
   const slotId = 'about' + num;
   const inputId = 'aboutPhoto' + num;
+
+  // Wrapper for drag (wraps the slot + its input)
+  const wrap = document.createElement('div');
+  wrap.className = 'about-drag-wrap';
+  wrap.draggable = true;
+  wrap.dataset.aboutIdx = num;
+  wrap.style.cssText = 'cursor:grab;position:relative;touch-action:none';
+
+  // Order badge
+  const badge = document.createElement('div');
+  badge.className = 'about-order-badge';
+  badge.style.cssText = 'position:absolute;top:4px;left:4px;background:var(--forest);color:white;width:20px;height:20px;border-radius:50%;font-size:0.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;z-index:2;pointer-events:none';
+  badge.textContent = num;
+  wrap.appendChild(badge);
+
   const div = document.createElement('div');
   div.className = 'photo-upload-slot';
   div.setAttribute('onclick', "triggerUpload('" + inputId + "')");
   div.innerHTML = '<div style="font-size:1.8rem">\uD83D\uDCF7</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Photo ' + num + '</div>';
-  grid.appendChild(div);
-  // Add hidden input
+  wrap.appendChild(div);
+
   const inp = document.createElement('input');
   inp.type = 'file'; inp.id = inputId; inp.accept = 'image/*'; inp.style.display = 'none';
   inp.setAttribute('onchange', "previewPhoto(this,'aboutSlot" + num + "','" + slotId + "')");
-  grid.appendChild(inp);
+  wrap.appendChild(inp);
+
+  // Drag events
+  wrap.addEventListener('dragstart', _aboutDragStart);
+  wrap.addEventListener('dragover', _aboutDragOver);
+  wrap.addEventListener('drop', _aboutDrop);
+  wrap.addEventListener('dragend', _aboutDragEnd);
+
+  // Touch drag support for mobile
+  wrap.addEventListener('touchstart', _aboutTouchStart, { passive: false });
+  wrap.addEventListener('touchmove', _aboutTouchMove, { passive: false });
+  wrap.addEventListener('touchend', _aboutTouchEnd);
+
+  grid.appendChild(wrap);
 }
+
+// ── Drag & Drop handlers ──
+function _aboutDragStart(e) {
+  _dragSrcSlot = this;
+  this.style.opacity = '0.4';
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', this.dataset.aboutIdx);
+}
+function _aboutDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  this.style.outline = '2px solid var(--gold)';
+  this.style.outlineOffset = '-2px';
+}
+function _aboutDrop(e) {
+  e.preventDefault();
+  this.style.outline = '';
+  if (_dragSrcSlot === this) return;
+  var fromIdx = parseInt(_dragSrcSlot.dataset.aboutIdx);
+  var toIdx = parseInt(this.dataset.aboutIdx);
+  _swapAboutPhotos(fromIdx, toIdx);
+}
+function _aboutDragEnd(e) {
+  this.style.opacity = '';
+  document.querySelectorAll('.about-drag-wrap').forEach(w => { w.style.outline = ''; });
+}
+
+// ── Touch drag for mobile ──
+var _touchDragEl = null;
+var _touchStartY = 0;
+var _touchStartX = 0;
+var _touchHoldTimer = null;
+var _touchDragging = false;
+
+function _aboutTouchStart(e) {
+  _touchStartX = e.touches[0].clientX;
+  _touchStartY = e.touches[0].clientY;
+  _touchDragEl = this;
+  _touchDragging = false;
+  // Long press to start drag (350ms)
+  _touchHoldTimer = setTimeout(function() {
+    _touchDragging = true;
+    _touchDragEl.style.opacity = '0.5';
+    _touchDragEl.style.transform = 'scale(1.05)';
+    _touchDragEl.style.zIndex = '50';
+  }, 350);
+}
+function _aboutTouchMove(e) {
+  if (!_touchDragging) {
+    var dx = Math.abs(e.touches[0].clientX - _touchStartX);
+    var dy = Math.abs(e.touches[0].clientY - _touchStartY);
+    if (dx > 10 || dy > 10) { clearTimeout(_touchHoldTimer); return; }
+    e.preventDefault();
+    return;
+  }
+  e.preventDefault();
+  // Highlight drop target
+  var touch = e.touches[0];
+  var target = document.elementFromPoint(touch.clientX, touch.clientY);
+  var wrap = target ? target.closest('.about-drag-wrap') : null;
+  document.querySelectorAll('.about-drag-wrap').forEach(w => { w.style.outline = ''; });
+  if (wrap && wrap !== _touchDragEl) {
+    wrap.style.outline = '2px solid var(--gold)';
+    wrap.style.outlineOffset = '-2px';
+  }
+}
+function _aboutTouchEnd(e) {
+  clearTimeout(_touchHoldTimer);
+  if (!_touchDragging) return;
+  _touchDragging = false;
+  if (_touchDragEl) {
+    _touchDragEl.style.opacity = '';
+    _touchDragEl.style.transform = '';
+    _touchDragEl.style.zIndex = '';
+  }
+  document.querySelectorAll('.about-drag-wrap').forEach(w => { w.style.outline = ''; });
+  // Find drop target
+  var touch = e.changedTouches[0];
+  var target = document.elementFromPoint(touch.clientX, touch.clientY);
+  var wrap = target ? target.closest('.about-drag-wrap') : null;
+  if (wrap && wrap !== _touchDragEl) {
+    var fromIdx = parseInt(_touchDragEl.dataset.aboutIdx);
+    var toIdx = parseInt(wrap.dataset.aboutIdx);
+    _swapAboutPhotos(fromIdx, toIdx);
+  }
+}
+
+// ── Swap two about photos (DB + UI) ──
+async function _swapAboutPhotos(fromIdx, toIdx) {
+  var fromSlot = 'about' + fromIdx;
+  var toSlot = 'about' + toIdx;
+  var fromPhoto = HHP_Photos.photos[fromSlot] || null;
+  var toPhoto = HHP_Photos.photos[toSlot] || null;
+
+  // Swap in local state
+  HHP_Photos.photos[fromSlot] = toPhoto;
+  HHP_Photos.photos[toSlot] = fromPhoto;
+
+  // Swap in Supabase
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (sb) {
+    // Use temp slot to avoid unique constraint conflicts
+    var tempSlot = '_swap_temp_' + Date.now();
+    try {
+      if (fromPhoto) await sb.from('site_photos').update({ slot_id: tempSlot }).eq('slot_id', fromSlot);
+      if (toPhoto) await sb.from('site_photos').update({ slot_id: fromSlot }).eq('slot_id', toSlot);
+      if (fromPhoto) await sb.from('site_photos').update({ slot_id: toSlot }).eq('slot_id', tempSlot);
+    } catch (err) {
+      console.error('Swap photos DB error:', err);
+    }
+  }
+
+  // Re-render the grid
+  initAboutPhotoGrid();
+  toast('📸 Photo order updated!');
+
+  // Refresh the slideshow on the public page
+  if (typeof _refreshAboutSlideshow === 'function') _refreshAboutSlideshow();
+}
+
+// Refresh the about slideshow after reorder
+function _refreshAboutSlideshow() {
+  var photos = Object.keys(HHP_Photos.photos)
+    .filter(k => k.startsWith('about'))
+    .sort()
+    .map(k => HHP_Photos.photos[k])
+    .filter(Boolean)
+    .map(p => HHP_Photos._previewUrl ? HHP_Photos._previewUrl(p, 1200) : (p.url || p.thumbnail));
+  if (photos.length > 0) aboutSS.init(photos);
+}
+
 function addAboutPhotoSlot() {
   const grid = document.getElementById('aboutPhotoGrid');
   if (!grid) return;
   _aboutSlotCount++;
   _addAboutSlotEl(grid, _aboutSlotCount);
-  // Wire the new slot
   if (HHP_Photos.wireSlot) HHP_Photos.wireSlot('aboutPhoto' + _aboutSlotCount, 'about' + _aboutSlotCount);
   toast('\uD83D\uDCF7 Slot ' + _aboutSlotCount + ' added — click to upload!');
 }
