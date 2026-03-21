@@ -1504,6 +1504,7 @@ try {
             <div style="font-size:0.84rem;color:var(--ink);line-height:1.5">Answer 3 quick questions below and the AI will draft your personal note for this visit automatically.</div>
           </div>
 
+          <input type="hidden" id="srpt-booking-id" value="">
           <!-- Client & Service -->
           <div class="form-row" style="margin-bottom:16px">
             <div><label class="form-lbl">Client</label><select class="form-sel" id="srpt-client"><option value="">Select client...</option></select></div>
@@ -1512,7 +1513,7 @@ try {
 
           <!-- Date & Duration -->
           <div class="form-row" style="margin-bottom:16px;align-items:end">
-            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="srpt-date" type="date" style="width:100%;box-sizing:border-box"></div>
+            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="srpt-date" type="date" style="width:100%;box-sizing:border-box;-webkit-appearance:none;font-size:0.85rem;min-height:38px"></div>
             <div style="flex:1"><label class="form-lbl">Duration</label><select class="form-sel" id="srpt-duration"><option value="30 min">30 Minutes</option><option value="1 hour">1 Hour</option></select></div>
           </div>
 
@@ -1706,6 +1707,7 @@ try {
         <div class="card" style="max-width:680px">
           <div style="background:var(--forest-pale);border-radius:10px;padding:16px;margin-bottom:20px;border-left:3px solid var(--forest)"><div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest);margin-bottom:6px">📝 Quick Note Builder</div><div style="font-size:0.84rem;color:var(--ink)">Pick a scenario, fill in a few details, and your personalized note is ready to send.</div></div>
 
+          <input type="hidden" id="rpt-booking-id" value="">
           <!-- Client & Service -->
           <div class="form-row" style="margin-bottom:16px">
             <div><label class="form-lbl">Client</label><select class="form-sel" id="rpt-client"><option value="">Select client...</option></select></div>
@@ -1714,7 +1716,7 @@ try {
 
           <!-- Date & Duration dropdown -->
           <div class="form-row" style="margin-bottom:16px;align-items:end">
-            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="rpt-date" type="date" style="width:100%;box-sizing:border-box"></div>
+            <div style="flex:1"><label class="form-lbl">Date</label><input class="form-sel" id="rpt-date" type="date" style="width:100%;box-sizing:border-box;-webkit-appearance:none;font-size:0.85rem;min-height:38px"></div>
             <div style="flex:1"><label class="form-lbl">Duration</label><select class="form-sel" id="rpt-duration"><option value="30 min">30 Minutes</option><option value="1 hour">1 Hour</option></select></div>
           </div>
 
@@ -1748,11 +1750,8 @@ try {
             <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:14px">📝 Note Builder</div>
             <div class="form-group"><label class="form-lbl">Scenario</label><select class="form-sel" id="oNoteScenario"><option value="great">Everything went great</option><option value="custom">Write my own</option></select></div>
             <div id="oNoteFields">
-              <div class="form-group"><label class="form-lbl">Pet Name(s)</label><input class="form-in" id="oNotePet" placeholder="e.g. Buddy"></div>
-              <div class="form-row" style="margin-bottom:12px">
-                <div style="flex:1"><label class="form-lbl">Pronouns</label><select class="form-sel" id="oNotePronoun"><option value="he">He / Him / His</option><option value="she">She / Her / Her</option><option value="they">They / Them / Their</option></select></div>
-                <div style="flex:1"><label class="form-lbl">Potty</label><select class="form-sel" id="oNotePotty"><option value="pee">Pee</option><option value="poo">Poo</option><option value="both">Both pee and poo</option></select></div>
-              </div>
+              <div id="oNotePetRows"></div>
+              <button type="button" class="btn btn-outline btn-sm" onclick="addOwnerNotePetRow()" style="margin-bottom:14px;font-size:0.78rem">+ Add Pet</button>
             </div>
             <div id="oNotePreview" style="background:white;border-radius:8px;padding:14px;margin-bottom:14px;font-size:0.84rem;color:var(--ink);line-height:1.6;border:1px solid var(--border);display:none"></div>
             <button class="btn btn-forest btn-sm" onclick="buildOwnerNote()" style="width:100%;justify-content:center">📝 Generate Note</button>
@@ -4350,15 +4349,53 @@ function generateOwnerNote() { buildOwnerNote(); }
   }
 })();
 
+// ── Owner Note Builder: per-pet rows with pee/poo checkboxes ──
+var _oNotePetCount = 0;
+
+function addOwnerNotePetRow(petName, pronounKey) {
+  var container = document.getElementById('oNotePetRows');
+  if (!container) return;
+  var idx = _oNotePetCount++;
+  var div = document.createElement('div');
+  div.id = 'oNotePetRow-' + idx;
+  div.style.cssText = 'background:white;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border)';
+  div.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+      '<span style="font-weight:600;font-size:0.82rem;color:var(--ink)">Pet ' + (idx + 1) + '</span>' +
+      (idx > 0 ? '<button type="button" onclick="this.closest(\'[id^=oNotePetRow]\').remove()" style="background:none;border:none;color:var(--mid);cursor:pointer;font-size:0.78rem">✕ Remove</button>' : '') +
+    '</div>' +
+    '<div class="form-group" style="margin-bottom:8px"><label class="form-lbl">Name</label><input class="form-in oNote-petName" placeholder="e.g. Buddy" value="' + (petName || '') + '"></div>' +
+    '<div class="form-row" style="margin-bottom:8px">' +
+      '<div style="flex:1"><label class="form-lbl">Pronouns</label><select class="form-sel oNote-pronoun"><option value="he"' + (pronounKey === 'he' ? ' selected' : '') + '>He / Him</option><option value="she"' + (!pronounKey || pronounKey === 'she' ? ' selected' : '') + '>She / Her</option><option value="they"' + (pronounKey === 'they' ? ' selected' : '') + '>They / Them</option></select></div>' +
+      '<div style="flex:1"><label class="form-lbl">Potty</label><div style="display:flex;gap:12px;padding-top:4px">' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="oNote-pee" checked> Pee</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="oNote-poo"> Poo</label>' +
+      '</div></div>' +
+    '</div>';
+  container.appendChild(div);
+}
+
+function _getNotePetData() {
+  var rows = document.querySelectorAll('[id^="oNotePetRow-"]');
+  var pets = [];
+  rows.forEach(function(row) {
+    var name = row.querySelector('.oNote-petName')?.value?.trim();
+    if (!name) return;
+    var pronounKey = row.querySelector('.oNote-pronoun')?.value || 'she';
+    var pee = row.querySelector('.oNote-pee')?.checked;
+    var poo = row.querySelector('.oNote-poo')?.checked;
+    var potty = (pee && poo) ? 'both' : pee ? 'pee' : poo ? 'poo' : 'none';
+    pets.push({ name: name, pronounKey: pronounKey, potty: potty });
+  });
+  return pets;
+}
+
 function buildOwnerNote() {
   var scenario = document.getElementById('oNoteScenario')?.value;
   if (scenario === 'custom') { document.getElementById('ownerNote')?.focus(); return; }
 
-  var petName = document.getElementById('oNotePet')?.value?.trim();
-  if (!petName) { toast('Please enter the pet name first!'); return; }
-
-  var pronounKey = document.getElementById('oNotePronoun')?.value || 'she';
-  var pottyVal = document.getElementById('oNotePotty')?.value || 'pee';
+  var pets = _getNotePetData();
+  if (pets.length === 0) { toast('Please enter at least one pet name!'); return; }
 
   // Pronoun maps
   var pronouns = {
@@ -4366,29 +4403,164 @@ function buildOwnerNote() {
     she:  { sub: 'she',  obj: 'her',  pos: 'her',  pie: 'pie' },
     they: { sub: 'they', obj: 'them', pos: 'their', pie: 'pies' }
   };
-  var p = pronouns[pronounKey] || pronouns.she;
+  var pottyText = { pee: 'pee', poo: 'poo', both: 'both pee and poo', none: '' };
 
-  // Potty text
-  var pottyText = { pee: 'pee', poo: 'poo', both: 'both pee and poo' };
-  var potty = pottyText[pottyVal] || 'pee';
+  if (scenario === 'great') {
+    var note = '';
+    if (pets.length === 1) {
+      // Single pet — original template
+      var pet = pets[0];
+      var p = pronouns[pet.pronounKey] || pronouns.she;
+      var potty = pottyText[pet.potty] || 'pee';
+      note = 'Everything went great, ' + pet.name + ' and I had a great visit today! ' +
+        p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' enjoyed lots of fresh air and sniffs, ' +
+        p.sub + ' also went ' + potty + '. Once we got back inside, ' + pet.name +
+        ' enjoyed a snack along with a drink. I refreshed ' + p.pos + ' water and gave ' +
+        p.obj + ' tons of pets on my way out. Such a cutie ' + p.pie + '!!';
+    } else {
+      // Multi-pet — combined note
+      var allNames = pets.map(function(pe) { return pe.name; });
+      var nameList = allNames.length === 2 ? allNames.join(' and ') : allNames.slice(0, -1).join(', ') + ', and ' + allNames[allNames.length - 1];
+      note = 'Everything went great, ' + nameList + ' and I had a wonderful visit today! ';
 
-  // Scenario templates — add new ones here
-  var templates = {
-    great: 'Everything went great, ' + petName + ' and I had a great visit today! ' +
-      p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' enjoyed lots of fresh air and sniffs, ' +
-      p.sub + ' also went ' + potty + '. Once we got back inside, ' + petName +
-      ' enjoyed a snack along with a drink. I refreshed ' + p.pos + ' water and gave ' +
-      p.obj + ' tons of pets on my way out. Such a cutie ' + p.pie + '!!'
-  };
+      // Per-pet potty details
+      var pottyParts = [];
+      pets.forEach(function(pet) {
+        var p = pronouns[pet.pronounKey] || pronouns.she;
+        if (pet.potty && pet.potty !== 'none') {
+          pottyParts.push(pet.name + ' went ' + (pottyText[pet.potty] || 'pee'));
+        }
+      });
+      if (pottyParts.length > 0) {
+        note += pottyParts.join(', and ') + '. ';
+      }
 
-  var note = templates[scenario] || '';
-  if (note) {
+      note += 'Once we got back inside, everyone enjoyed a snack along with a drink. I refreshed their water and gave them all tons of pets on my way out. Such cutie pies!!';
+    }
+
     document.getElementById('ownerNote').value = note;
-    // Show preview
     var preview = document.getElementById('oNotePreview');
     if (preview) { preview.textContent = note; preview.style.display = ''; }
     toast('📝 Note ready! Feel free to edit it.');
   }
+}
+
+// ── Auto-open report from End Service button ──
+async function openReportFromService(data) {
+  if (!data) return;
+
+  // Determine if this is owner or staff
+  var role = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser.user_metadata?.role : null;
+  var isOwner = role === 'owner';
+
+  // Switch to the report panel
+  if (isOwner) {
+    if (typeof sTab === 'function') sTab('o', 'o-reports');
+  } else {
+    if (typeof sTab === 'function') sTab('s', 's-reports');
+  }
+
+  // Small delay for panel to render
+  await new Promise(function(r) { setTimeout(r, 300); });
+
+  // Prefixes: owner = 'rpt-', staff = 'srpt-'
+  var pre = isOwner ? 'rpt-' : 'srpt-';
+
+  // Set booking ID
+  var bkIdEl = document.getElementById(pre + 'booking-id');
+  if (bkIdEl) bkIdEl.value = data.bookingId || '';
+
+  // Set client
+  var clientSel = document.getElementById(pre + 'client');
+  if (clientSel && data.clientId) {
+    // If the option exists, select it
+    var found = false;
+    for (var i = 0; i < clientSel.options.length; i++) {
+      if (clientSel.options[i].value === data.clientId) {
+        clientSel.selectedIndex = i;
+        found = true;
+        break;
+      }
+    }
+    if (!found) clientSel.value = data.clientId;
+  }
+
+  // Set service
+  var svcSel = document.getElementById(pre + 'service');
+  if (svcSel && data.service) {
+    for (var j = 0; j < svcSel.options.length; j++) {
+      if (svcSel.options[j].value === data.service) {
+        svcSel.selectedIndex = j;
+        break;
+      }
+    }
+    if (typeof toggleReportDistance === 'function' && isOwner) toggleReportDistance();
+    if (typeof toggleStaffReportDistance === 'function' && !isOwner) toggleStaffReportDistance();
+  }
+
+  // Set date to today
+  var dateEl = document.getElementById(pre + 'date');
+  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+
+  // Calculate duration from start/end times
+  if (data.startTime && data.endTime) {
+    var startMs = new Date(data.startTime).getTime();
+    var endMs = new Date(data.endTime).getTime();
+    var durMin = Math.round((endMs - startMs) / 60000);
+    var durSel = document.getElementById(pre + 'duration');
+    if (durSel) {
+      durSel.value = durMin > 45 ? '1 hour' : '30 min';
+    }
+
+    // Set arrival/departure times
+    var arrivalEl = document.getElementById(pre + 'arrival');
+    var departureEl = document.getElementById(pre + 'departure');
+    if (arrivalEl) arrivalEl.value = new Date(data.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (departureEl) departureEl.value = new Date(data.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  }
+
+  // Set distance if dog walk
+  if (data.distance) {
+    var distEl = document.getElementById(pre + 'distance');
+    if (distEl) distEl.value = data.distance;
+  }
+
+  // Pre-fill note builder with pet info (owner only)
+  if (isOwner && data.petNames) {
+    // Clear existing pet rows
+    var petRowsEl = document.getElementById('oNotePetRows');
+    if (petRowsEl) petRowsEl.innerHTML = '';
+    _oNotePetCount = 0;
+
+    // Fetch pet details from DB for sex/pronouns
+    var petNamesList = data.petNames.split(',').map(function(n) { return n.trim(); }).filter(Boolean);
+    var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    if (sb && data.clientId) {
+      var { data: petProfiles } = await sb.from('pets').select('name, sex').eq('owner_id', data.clientId);
+      var petSexMap = {};
+      if (petProfiles) petProfiles.forEach(function(pp) { petSexMap[pp.name.toLowerCase()] = pp.sex; });
+
+      petNamesList.forEach(function(pName) {
+        var sex = petSexMap[pName.toLowerCase()] || '';
+        var pronoun = sex === 'male' ? 'he' : sex === 'female' ? 'she' : 'they';
+        addOwnerNotePetRow(pName, pronoun);
+      });
+    } else {
+      petNamesList.forEach(function(pName) { addOwnerNotePetRow(pName); });
+    }
+  }
+
+  // Pre-fill staff note builder pet name
+  if (!isOwner && data.petNames) {
+    var aiQ2 = document.getElementById('aiQ2');
+    if (aiQ2) aiQ2.value = data.petNames;
+  }
+
+  // Scroll to the report form
+  var panel = document.getElementById(isOwner ? 'o-reports' : 's-reports');
+  if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  toast('📋 Report pre-filled from your completed service. Review and send!');
 }
 function buildNote(q1id,q2id,q3id,noteId) {
   const type = document.getElementById(q1id)?.value;
@@ -7250,7 +7422,7 @@ async function populateReportClients() {
   try {
     var { data, error } = await HHP_Auth.supabase
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, user_id, full_name, email')
       .eq('role', 'client')
       .order('full_name');
     if (error) { console.error('Error loading clients:', error); return; }
@@ -7260,7 +7432,7 @@ async function populateReportClients() {
       sel.innerHTML = '<option value="">Select client...</option>';
       (data || []).forEach(function(c) {
         var opt = document.createElement('option');
-        opt.value = c.id;
+        opt.value = c.user_id || c.id;
         opt.textContent = c.full_name || c.email || 'Unnamed Client';
         sel.appendChild(opt);
       });
@@ -7271,7 +7443,7 @@ async function populateReportClients() {
       sSel.innerHTML = '<option value="">Select client...</option>';
       (data || []).forEach(function(c) {
         var opt = document.createElement('option');
-        opt.value = c.id;
+        opt.value = c.user_id || c.id;
         opt.textContent = c.full_name || c.email || 'Unnamed Client';
         sSel.appendChild(opt);
       });
@@ -7364,7 +7536,11 @@ async function submitServiceReport() {
   var departureTime = document.getElementById('rpt-departure')?.value || null;
   var distance = document.getElementById('rpt-distance')?.value?.trim();
   var mood = document.getElementById('rpt-mood')?.value;
-  var petName = document.getElementById('oAiQ2')?.value?.trim();
+  var bookingId = document.getElementById('rpt-booking-id')?.value || null;
+  // Get pet names from note builder rows
+  var petParts = [];
+  document.querySelectorAll('.oNote-petName').forEach(function(el) { if (el.value.trim()) petParts.push(el.value.trim()); });
+  var petName = petParts.join(', ') || null;
   var personalNote = document.getElementById('ownerNote')?.value?.trim();
 
   if (!clientId) { toast('Please select a client.'); return; }
@@ -7389,6 +7565,7 @@ async function submitServiceReport() {
       personal_note: personalNote,
       media: window._reportMedia || []
     };
+    if (bookingId) reportRow.booking_id = bookingId;
 
     var { data, error } = await HHP_Auth.supabase
       .from('service_reports')
@@ -7397,12 +7574,14 @@ async function submitServiceReport() {
 
     if (error) throw error;
 
+    // Mark the booking as completed if linked
+    if (bookingId) {
+      await HHP_Auth.supabase.from('bookings').update({ status: 'completed' }).eq('id', bookingId);
+    }
+
     toast('📋 Report sent to client!');
-    // Send email notification
     sendReportEmailNotification(clientId, service, reportDate);
-    // Send review request notification to client
     _sendReviewRequest(clientId, data && data[0] ? data[0].id : null, service, petName);
-    // Reset the form
     resetReportForm();
   } catch (e) {
     console.error('submitServiceReport error:', e);
@@ -7426,6 +7605,7 @@ async function submitStaffServiceReport() {
   var departureTime = document.getElementById('srpt-departure')?.value || null;
   var distance = document.getElementById('srpt-distance')?.value?.trim();
   var mood = document.getElementById('srpt-mood')?.value;
+  var bookingId = document.getElementById('srpt-booking-id')?.value || null;
   var petName = document.getElementById('aiQ2')?.value?.trim();
   var personalNote = document.getElementById('reportNote')?.value?.trim();
 
@@ -7451,6 +7631,7 @@ async function submitStaffServiceReport() {
       personal_note: personalNote,
       media: window._reportMedia || []
     };
+    if (bookingId) reportRow.booking_id = bookingId;
 
     var { data, error } = await HHP_Auth.supabase
       .from('service_reports')
@@ -7458,6 +7639,11 @@ async function submitStaffServiceReport() {
       .select();
 
     if (error) throw error;
+
+    // Mark the booking as completed if linked
+    if (bookingId) {
+      await HHP_Auth.supabase.from('bookings').update({ status: 'completed' }).eq('id', bookingId);
+    }
 
     toast('📋 Report sent to client!');
     sendReportEmailNotification(clientId, service, reportDate);
@@ -7506,12 +7692,19 @@ function resetReportForm() {
   if (rptDist) rptDist.value = '';
   var rptMood = document.getElementById('rpt-mood');
   if (rptMood) rptMood.selectedIndex = 0;
-  var oAiQ1 = document.getElementById('oAiQ1');
-  if (oAiQ1) oAiQ1.selectedIndex = 0;
-  var oAiQ2 = document.getElementById('oAiQ2');
-  if (oAiQ2) oAiQ2.value = '';
-  var oAiQ3 = document.getElementById('oAiQ3');
-  if (oAiQ3) oAiQ3.selectedIndex = 0;
+  var rptArrival = document.getElementById('rpt-arrival');
+  if (rptArrival) rptArrival.value = '';
+  var rptDeparture = document.getElementById('rpt-departure');
+  if (rptDeparture) rptDeparture.value = '';
+  var rptBookingId = document.getElementById('rpt-booking-id');
+  if (rptBookingId) rptBookingId.value = '';
+  // Reset note builder pet rows — add one empty row
+  var petRows = document.getElementById('oNotePetRows');
+  if (petRows) { petRows.innerHTML = ''; _oNotePetCount = 0; addOwnerNotePetRow(); }
+  var oNoteScenario = document.getElementById('oNoteScenario');
+  if (oNoteScenario) oNoteScenario.selectedIndex = 0;
+  var oNotePreview = document.getElementById('oNotePreview');
+  if (oNotePreview) { oNotePreview.textContent = ''; oNotePreview.style.display = 'none'; }
   var ownerNote = document.getElementById('ownerNote');
   if (ownerNote) ownerNote.value = '';
   window._reportMedia = [];
@@ -7528,6 +7721,9 @@ function resetStaffReportForm() {
   el = document.getElementById('srpt-duration'); if (el) el.selectedIndex = 0;
   el = document.getElementById('srpt-distance'); if (el) el.value = '';
   el = document.getElementById('srpt-mood'); if (el) el.selectedIndex = 0;
+  el = document.getElementById('srpt-arrival'); if (el) el.value = '';
+  el = document.getElementById('srpt-departure'); if (el) el.value = '';
+  el = document.getElementById('srpt-booking-id'); if (el) el.value = '';
   el = document.getElementById('aiQ1'); if (el) el.selectedIndex = 0;
   el = document.getElementById('aiQ2'); if (el) el.value = '';
   el = document.getElementById('aiQ3'); if (el) el.selectedIndex = 0;
@@ -7546,22 +7742,12 @@ async function loadClientReports() {
   var container = document.querySelector('#c-reports .card') || document.querySelector('#c-reports > div');
   if (!container) return;
 
-  // Get client's profile id
+  // Query reports by auth user_id
   try {
-    var { data: profile } = await HHP_Auth.supabase
-      .from('profiles')
-      .select('id')
-      .eq('user_id', HHP_Auth.currentUser.id)
-      .single();
-    if (!profile) {
-      container.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📋</div><div style="font-weight:600;margin-bottom:6px">No reports yet</div><div style="font-size:0.84rem">Walk and visit reports will appear here after each service.</div></div>';
-      return;
-    }
-
     var { data: reports, error } = await HHP_Auth.supabase
       .from('service_reports')
       .select('*')
-      .eq('client_id', profile.id)
+      .eq('client_id', HHP_Auth.currentUser.id)
       .order('report_date', { ascending: false });
 
     if (error) throw error;
@@ -8325,6 +8511,8 @@ function _injectReviewSchema(reviews, avgRating, totalCount) {
 document.addEventListener('DOMContentLoaded', function() {
   initReportDate();
   toggleReportDistance();
+  // Initialize note builder with one empty pet row
+  if (typeof addOwnerNotePetRow === 'function') addOwnerNotePetRow();
 
   // Load public reviews for homepage (runs for all visitors)
   setTimeout(function() { if (typeof loadPublicReviews === 'function') loadPublicReviews(); }, 1000);

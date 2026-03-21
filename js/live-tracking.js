@@ -18,14 +18,14 @@
   var _trackingPoints = [];
 
   // ============================================================
-  //  START WALK — called by owner or staff
+  //  START SERVICE — called by owner or staff for any visit-type service
   // ============================================================
   async function startWalk(bookingId, clientId, service, petName) {
     var sb = getSB();
     var user = getUser();
     if (!sb || !user) { toast('Please sign in first.'); return; }
 
-    // Check if there's already an active walk for this user
+    // Check if there's already an active service for this user
     var { data: existing } = await sb.from('walks')
       .select('id')
       .eq('walker_id', user.id)
@@ -33,11 +33,14 @@
       .limit(1);
 
     if (existing && existing.length > 0) {
-      toast('You already have a walk in progress. End it first.');
+      toast('You already have a service in progress. End it first.');
       return;
     }
 
-    // Create the walk record
+    var isDogWalk = (service || '').toLowerCase().indexOf('dog walk') !== -1 ||
+                    (service || '').toLowerCase().indexOf('walking') !== -1;
+
+    // Create the service record
     var { data: walk, error } = await sb.from('walks').insert({
       walker_id: user.id,
       client_id: clientId || null,
@@ -50,17 +53,21 @@
     }).select().single();
 
     if (error) {
-      console.error('Start walk error:', error);
-      toast('Failed to start walk: ' + (error.message || 'Unknown error'));
+      console.error('Start service error:', error);
+      toast('Failed to start service: ' + (error.message || 'Unknown error'));
       return;
     }
 
     _activeWalkId = walk.id;
     _trackingPoints = [];
-    toast('🚶 Walk started! GPS tracking is active.');
 
-    // Start GPS tracking
-    startGPSTracking(walk.id);
+    // Only start GPS tracking for dog walks
+    if (isDogWalk) {
+      toast('🚶 Walk started! GPS tracking is active.');
+      startGPSTracking(walk.id);
+    } else {
+      toast('✅ Service started! Client has been notified.');
+    }
 
     // Send notification to client
     if (clientId) {
@@ -73,56 +80,100 @@
   }
 
   // ============================================================
-  //  END WALK — called by owner or staff
+  //  END SERVICE — called by owner or staff
   // ============================================================
   async function endWalk(walkId) {
     var sb = getSB();
     if (!sb) return;
 
     walkId = walkId || _activeWalkId;
-    if (!walkId) { toast('No active walk to end.'); return; }
+    if (!walkId) { toast('No active service to end.'); return; }
 
     // Stop GPS tracking
     stopGPSTracking();
 
-    // Get all tracking points for route summary
-    var { data: points } = await sb.from('tracking_points')
-      .select('lat, lng, recorded_at')
-      .eq('walk_id', walkId)
-      .order('recorded_at', { ascending: true });
+    // Get the full walk record first (need booking_id, service, etc.)
+    var { data: walkData } = await sb.from('walks')
+      .select('*')
+      .eq('id', walkId)
+      .single();
 
-    var routeSummary = (points || []).map(function(p) {
-      return { lat: p.lat, lng: p.lng, t: p.recorded_at };
-    });
+    var isDogWalk = walkData && (walkData.service || '').toLowerCase().indexOf('dog walk') !== -1;
 
-    // Update walk record
+    // Get all tracking points for route summary (only relevant for walks)
+    var routeSummary = [];
+    if (isDogWalk) {
+      var { data: points } = await sb.from('tracking_points')
+        .select('lat, lng, recorded_at')
+        .eq('walk_id', walkId)
+        .order('recorded_at', { ascending: true });
+
+      routeSummary = (points || []).map(function(p) {
+        return { lat: p.lat, lng: p.lng, t: p.recorded_at };
+      });
+    }
+
+    // Update walk/service record
+    var endTime = new Date().toISOString();
     var { error } = await sb.from('walks').update({
       status: 'completed',
-      end_time: new Date().toISOString(),
+      end_time: endTime,
       route_summary: routeSummary
     }).eq('id', walkId);
 
     if (error) {
-      console.error('End walk error:', error);
-      toast('Failed to end walk.');
+      console.error('End service error:', error);
+      toast('Failed to end service.');
       return;
     }
 
-    // Get walk details for notification
-    var { data: walkData } = await sb.from('walks')
-      .select('client_id, pet_name, service')
-      .eq('id', walkId)
-      .single();
-
+    // Send notification to client
     if (walkData && walkData.client_id) {
       sendWalkNotification(walkData.client_id, 'completed', walkData.pet_name, walkData.service);
     }
 
     _activeWalkId = null;
     _trackingPoints = [];
-    toast('✅ Walk completed! Route saved.');
+    toast('✅ Service completed! Opening report...');
 
     refreshScheduleView();
+
+    // Auto-open and pre-fill the report form
+    if (walkData) {
+      var reportData = {
+        bookingId: walkData.booking_id,
+        clientId: walkData.client_id,
+        service: walkData.service,
+        petNames: walkData.pet_name,
+        startTime: walkData.start_time,
+        endTime: endTime,
+        walkId: walkId,
+        distance: isDogWalk ? _calcRouteDistance(routeSummary) : null
+      };
+      // Small delay to let the schedule refresh complete
+      setTimeout(function() {
+        if (typeof openReportFromService === 'function') {
+          openReportFromService(reportData);
+        }
+      }, 600);
+    }
+  }
+
+  // Calculate approximate route distance from GPS points (in miles)
+  function _calcRouteDistance(route) {
+    if (!route || route.length < 2) return '';
+    var totalMeters = 0;
+    for (var i = 1; i < route.length; i++) {
+      var R = 6371000; // Earth radius in meters
+      var dLat = (route[i].lat - route[i-1].lat) * Math.PI / 180;
+      var dLng = (route[i].lng - route[i-1].lng) * Math.PI / 180;
+      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(route[i-1].lat * Math.PI / 180) * Math.cos(route[i].lat * Math.PI / 180) *
+        Math.sin(dLng/2) * Math.sin(dLng/2);
+      totalMeters += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    var miles = totalMeters / 1609.34;
+    return miles >= 0.1 ? miles.toFixed(1) + ' mi' : '';
   }
 
   // ============================================================
@@ -249,43 +300,54 @@
 
   // ============================================================
   //  BUILD START/END BUTTON HTML — for schedule cards
+  //  Works for all visit-type services (walks, drop-ins, cat care)
+  //  Excluded: House Sitting, Dog Boarding, Doggy Day Care, Paw Bus
   // ============================================================
   function buildWalkButton(booking, activeWalk) {
     if (!booking) return '';
+
+    // Services that use manual reports (no Start/End button)
+    var svcLower = (booking.service || '').toLowerCase();
+    var isExcluded = svcLower.indexOf('house sitting') !== -1 ||
+                     svcLower.indexOf('boarding') !== -1 ||
+                     svcLower.indexOf('day care') !== -1 ||
+                     svcLower.indexOf('daycare') !== -1 ||
+                     svcLower.indexOf('paw bus') !== -1;
+    if (isExcluded) return '';
+
+    var isDogWalk = svcLower.indexOf('dog walk') !== -1 || svcLower.indexOf('walking') !== -1;
+    var serviceLabel = isDogWalk ? 'Walk' : 'Service';
 
     var isThisWalkActive = activeWalk && activeWalk.booking_id === booking.id;
     var anyWalkActive = !!activeWalk;
 
     if (isThisWalkActive) {
-      // Show End Walk button
       var elapsed = Math.floor((Date.now() - new Date(activeWalk.start_time).getTime()) / 60000);
       return '<div style="margin-top:8px">' +
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
           '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></div>' +
-          '<span style="font-size:0.78rem;font-weight:600;color:var(--forest)">In Progress · ' + elapsed + ' min</span>' +
+          '<span style="font-size:0.78rem;font-weight:600;color:var(--forest)">In Progress · ' + elapsed + ' min' + (isDogWalk ? ' · GPS Active' : '') + '</span>' +
         '</div>' +
         '<button onclick="HHP_Tracking.endWalk(\'' + activeWalk.id + '\')" ' +
           'style="background:var(--rose,#c25656);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;width:100%">' +
-          '⏹ End Walk</button></div>';
+          '⏹ End ' + serviceLabel + '</button></div>';
     }
 
-    // Only show Start for today's confirmed bookings (not house sitting)
     var today = new Date().toISOString().split('T')[0];
     var isToday = booking.date === today;
     var isConfirmed = booking.status === 'confirmed';
-    var isHS = (booking.service || '').toLowerCase().indexOf('house sitting') !== -1;
 
-    if (!isToday || !isConfirmed || isHS) return '';
+    if (!isToday || !isConfirmed) return '';
 
     if (anyWalkActive) {
-      return '<div style="margin-top:8px;font-size:0.76rem;color:var(--mid);font-style:italic">Another walk is in progress</div>';
+      return '<div style="margin-top:8px;font-size:0.76rem;color:var(--mid);font-style:italic">Another service is in progress</div>';
     }
 
     return '<div style="margin-top:8px">' +
       '<button onclick="HHP_Tracking.startWalk(\'' + (booking.id || '') + '\',\'' + (booking.client_id || '') + '\',\'' +
         (booking.service || 'Dog Walk').replace(/'/g, "\\'") + '\',\'' + (booking.pet_names || '').replace(/'/g, "\\'") + '\')" ' +
         'style="background:var(--forest,#3d5a47);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;width:100%">' +
-        '▶ Start Walk</button></div>';
+        '▶ Start ' + serviceLabel + '</button></div>';
   }
 
   // ============================================================
