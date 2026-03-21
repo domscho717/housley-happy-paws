@@ -22,8 +22,8 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing required fields: service, price' });
     }
 
-    // Create a Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    // Build checkout session params
+    const sessionParams = {
       payment_method_types: ['card'],
       mode: 'payment',
       customer_email: clientEmail || undefined,
@@ -36,9 +36,9 @@ module.exports = async function handler(req, res) {
               description: petNames
                 ? `Pet(s): ${petNames}${notes ? ' · ' + notes : ''}`
                 : notes || 'Pet care service',
-              images: [], // Add Cloudinary image URL later
+              images: [],
             },
-            unit_amount: Math.round(price * 100), // Stripe uses cents
+            unit_amount: Math.round(price * 100),
           },
           quantity: 1,
         },
@@ -51,7 +51,23 @@ module.exports = async function handler(req, res) {
       },
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://housleyhappypaws.com'}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://housleyhappypaws.com'}?payment=cancelled`,
-    });
+    };
+
+    // Apply 15% platform fee if connected account is configured
+    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    if (connectedAccountId) {
+      const totalCents = Math.round(price * 100);
+      const feeCents = Math.round(totalCents * 0.15);
+      sessionParams.payment_intent_data = {
+        application_fee_amount: feeCents,
+        transfer_data: {
+          destination: connectedAccountId,
+        },
+      };
+    }
+
+    // Create a Stripe Checkout Session
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     res.status(200).json({ url: session.url, sessionId: session.id });
   } catch (err) {

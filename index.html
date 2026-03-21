@@ -3333,7 +3333,7 @@ async function loadActivityLog() {
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">' + bookingCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Bookings</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2980b9">' + signupCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Sign\u2011ups</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Cancellations</div></div>' +
-      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">$' + (totalRevenue / 100).toFixed(0) + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Revenue</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">$' + (totalRevenue * 0.85 / 100).toFixed(0) + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Net Revenue</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + reportCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Reports</div></div>';
   }
 
@@ -3741,7 +3741,7 @@ function _buildActivityText() {
     else if (e.type === 'booking') stats.bookings++;
     else if (e.type === 'signup') stats.signups++;
     else if (e.type === 'cancellation') stats.cancellations++;
-    else if (e.type === 'payment') { stats.payments++; stats.revenue += (e.payment.amount || 0); }
+    else if (e.type === 'payment') { stats.payments++; stats.revenue += ((e.payment.amount || 0) * 0.85); }
     else if (e.type === 'report') stats.reports++;
   });
 
@@ -8651,7 +8651,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let weekRevenue = '—';
         if (paymentsWeek && paymentsWeek.length > 0) {
           const total = paymentsWeek.reduce((acc, p) => acc + (p.amount || 0), 0);
-          weekRevenue = '$' + total.toFixed(2);
+          weekRevenue = '$' + (total * 0.85).toFixed(2);
         }
         const el6 = document.getElementById('stat-weekRevenue');
         if (el6) el6.textContent = weekRevenue;

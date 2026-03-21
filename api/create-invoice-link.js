@@ -60,6 +60,19 @@ module.exports = async function handler(req, res) {
       description: `Housley Happy Paws — ${service}${petNames ? ' (Pets: ' + petNames + ')' : ''}`,
     });
 
+    // Apply 15% platform fee via transfer after payment if connected account configured
+    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    if (connectedAccountId) {
+      // Store fee info in metadata — webhook will handle the transfer on payment
+      await stripe.invoices.update(invoice.id, {
+        metadata: {
+          ...invoice.metadata,
+          platform_fee_pct: '15',
+          connected_account: connectedAccountId,
+        },
+      });
+    }
+
     // Finalize and send
     const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
     await stripe.invoices.sendInvoice(invoice.id);

@@ -41,8 +41,8 @@ module.exports = async function handler(req, res) {
 
     const paymentMethodId = methods.data[0].id;
 
-    // Create and confirm a PaymentIntent off-session with manual capture
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Build PaymentIntent params
+    const piParams = {
       amount: Math.round(amount * 100), // cents
       currency: 'usd',
       customer: profile.stripe_customer_id,
@@ -56,7 +56,19 @@ module.exports = async function handler(req, res) {
         client_name: profile.full_name || '',
         service: service || '',
       },
-    });
+    };
+
+    // Apply 15% platform fee if connected account is configured
+    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    if (connectedAccountId) {
+      const totalCents = Math.round(amount * 100);
+      const feeCents = Math.round(totalCents * 0.15);
+      piParams.application_fee_amount = feeCents;
+      piParams.transfer_data = { destination: connectedAccountId };
+    }
+
+    // Create and confirm a PaymentIntent off-session with manual capture
+    const paymentIntent = await stripe.paymentIntents.create(piParams);
 
     // Log payment to Supabase and store payment_intent_id on booking_request
     if (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded') {
