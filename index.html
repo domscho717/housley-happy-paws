@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Housley Happy Paws — Rachel Housley · Lancaster, PA</title>
 <!-- Critical: hide portal pages BEFORE anything else loads to prevent flash -->
 <style id="early-hide">
@@ -39,8 +39,8 @@ try{var v=sessionStorage.getItem('hhp_last_view');if(!v||v==='public'){var s=doc
   --shadow-lg: 0 12px 48px rgba(30,20,9,0.11);
 }
 *{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:auto;overflow-y:scroll}
-body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden}
+html{scroll-behavior:auto;overflow-y:scroll;overflow-x:hidden;width:100%;max-width:100vw}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;width:100%;max-width:100vw;-webkit-text-size-adjust:100%}
 .page{display:none;min-height:100vh}
 .page.active{display:block}
 /* Hide everything until auth settles — prevents any flash of wrong view */
@@ -2868,7 +2868,7 @@ function _addAboutSlotEl(grid, num) {
   wrap.className = 'about-drag-wrap';
   wrap.draggable = true;
   wrap.dataset.aboutIdx = num;
-  wrap.style.cssText = 'cursor:grab;position:relative;touch-action:none';
+  wrap.style.cssText = 'cursor:grab;position:relative';
 
   // Order badge
   const badge = document.createElement('div');
@@ -2895,9 +2895,9 @@ function _addAboutSlotEl(grid, num) {
   wrap.addEventListener('dragend', _aboutDragEnd);
 
   // Touch drag support for mobile
-  wrap.addEventListener('touchstart', _aboutTouchStart, { passive: false });
+  wrap.addEventListener('touchstart', _aboutTouchStart, { passive: true });
   wrap.addEventListener('touchmove', _aboutTouchMove, { passive: false });
-  wrap.addEventListener('touchend', _aboutTouchEnd);
+  wrap.addEventListener('touchend', _aboutTouchEnd, { passive: true });
 
   grid.appendChild(wrap);
 }
@@ -2941,20 +2941,23 @@ function _aboutTouchStart(e) {
   _touchDragEl = this;
   _touchDragging = false;
   // Long press to start drag (350ms)
+  var self = this;
   _touchHoldTimer = setTimeout(function() {
     _touchDragging = true;
-    _touchDragEl.style.opacity = '0.5';
-    _touchDragEl.style.transform = 'scale(1.05)';
-    _touchDragEl.style.zIndex = '50';
+    self.style.opacity = '0.5';
+    self.style.transform = 'scale(1.05)';
+    self.style.zIndex = '50';
+    // Only block scrolling during active drag
+    document.querySelectorAll('.about-drag-wrap').forEach(function(w) { w.style.touchAction = 'none'; });
   }, 350);
 }
 function _aboutTouchMove(e) {
   if (!_touchDragging) {
+    // If user moves finger before long-press completes, cancel drag and allow normal scroll
     var dx = Math.abs(e.touches[0].clientX - _touchStartX);
     var dy = Math.abs(e.touches[0].clientY - _touchStartY);
-    if (dx > 10 || dy > 10) { clearTimeout(_touchHoldTimer); return; }
-    e.preventDefault();
-    return;
+    if (dx > 10 || dy > 10) { clearTimeout(_touchHoldTimer); }
+    return; // Don't preventDefault — allow normal scrolling
   }
   e.preventDefault();
   // Highlight drop target
@@ -2969,6 +2972,8 @@ function _aboutTouchMove(e) {
 }
 function _aboutTouchEnd(e) {
   clearTimeout(_touchHoldTimer);
+  // Always restore touch-action so scrolling works again
+  document.querySelectorAll('.about-drag-wrap').forEach(function(w) { w.style.touchAction = ''; });
   if (!_touchDragging) return;
   _touchDragging = false;
   if (_touchDragEl) {
@@ -2986,6 +2991,7 @@ function _aboutTouchEnd(e) {
     var toIdx = parseInt(wrap.dataset.aboutIdx);
     _swapAboutPhotos(fromIdx, toIdx);
   }
+  _touchDragEl = null;
 }
 
 // ── Swap two about photos (DB + UI) ──
