@@ -933,7 +933,7 @@ try {
       <div class="fadeup">
         <div class="section-eyebrow">About Rachel</div>
         <h2 class="section-h">A Little Bit <em>About Me</em></h2>
-        <p class="section-p" style="margin-bottom:20px">Hi, I'm Rachel! 🐾 I've had animals in my life for as long as I can remember and am pursuing animal care full-time. I'm a proud Star Sitter on Rover with a 5.0 rating and over 102 five-star reviews — and I bring that same heart to every Housley Happy Paws visit. At home I have Moose (yellow lab), Cookie (chihuahua), three cats, and hermit crabs, so I truly understand how much your pets mean to you.</p>
+        <p class="section-p" style="margin-bottom:20px">Hi, I'm Rachel! 🐾 I've had animals in my life for as long as I can remember and am pursuing animal care full-time. I'm a proud Star Sitter on Rover with a 5.0 rating and <span id="bioReviewCount">48</span>+ five-star reviews — and I bring that same heart to every Housley Happy Paws visit. At home I have Moose (yellow lab), Cookie (chihuahua), three cats, and hermit crabs, so I truly understand how much your pets mean to you.</p>
         <p class="section-p" style="margin-bottom:28px">I'm based right here in Lancaster, PA, and I've had the privilege of caring for dogs and cats of all shapes, sizes, and personalities. Every single one has my full attention and a lot of love.</p>
         <p class="section-p" style="margin-bottom:32px;font-style:italic;font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--gold-deep)">"I treat your pets the way I'd want mine treated — like they're the most important thing in the room."</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -8584,16 +8584,8 @@ function saveExternalReviewStats() {
 }
 
 function _getExternalReviewStats() {
-  try {
-    var d = getSiteData();
-    var count = parseInt(d.extReviewCount);
-    var rating = parseFloat(d.extReviewRating);
-    if (isNaN(count)) count = 102;
-    if (isNaN(rating)) rating = 5.0;
-    return { count: count, rating: rating };
-  } catch(e) {
-    return { count: 102, rating: 5.0 };
-  }
+  // Dynamic — count comes from the database now, no hardcoded number
+  return { count: 0, rating: 5.0 };
 }
 
 // ── Load client's own reviews (My Reviews panel) ──
@@ -8750,6 +8742,10 @@ async function loadPublicReviews() {
     });
 
     track.innerHTML = cardsH;
+
+    // ── Update bio review count dynamically ──
+    var bioCount = document.getElementById('bioReviewCount');
+    if (bioCount) bioCount.textContent = displayTotal;
 
     // ── SEO: Inject JSON-LD structured data for reviews ──
     _injectReviewSchema(reviews, displayAvg, displayTotal);
