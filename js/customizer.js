@@ -689,18 +689,34 @@
   };
 
   _R._rwOwnerWeekStats=async function(sz){
-    if(sz==='half'){
-      // Small: 2x1 grid, only jobs + revenue
-      return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
-        '<div style="background:var(--gold-pale);border-radius:6px;padding:8px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.2rem;font-weight:700" id="stat-jobsThisWeek">—</div><div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">Jobs</div></div>'+
-        '<div style="background:var(--forest-pale);border-radius:6px;padding:8px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.2rem;font-weight:700" id="stat-weekRevenue">—</div><div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">Revenue</div></div></div>';
+    var sb=_getSB();
+    var jobs='—',rev='—',inq='—',rpts='—';
+    if(sb){
+      try{
+        var today=new Date();today.setHours(0,0,0,0);
+        var sow=new Date(today);sow.setDate(today.getDate()-today.getDay());
+        var eow=new Date(sow);eow.setDate(eow.getDate()+6);
+        var ws=sow.toISOString().split('T')[0],we=eow.toISOString().split('T')[0];
+        var{count:jc}=await sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('preferred_date',ws).lte('preferred_date',we).in('status',['accepted','confirmed','completed']);
+        jobs=jc||0;
+        var{data:pw}=await sb.from('payments').select('amount').gte('created_at',ws).lte('created_at',we+'T23:59:59');
+        if(pw&&pw.length){var t=pw.reduce(function(a,p){return a+(p.amount||0);},0);rev='$'+(t*0.85).toFixed(0);}else{rev='$0';}
+        var{count:ic}=await sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59');
+        inq=ic||0;
+        var{count:rc}=await sb.from('service_reports').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59');
+        rpts=(rc||0)+' 📋';
+      }catch(e){console.warn('Week stats:',e);}
     }
-    // Full: all 4 stats in 2x2 with bigger text
+    if(sz==='half'){
+      return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+        '<div style="background:var(--gold-pale);border-radius:6px;padding:8px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.2rem;font-weight:700" id="stat-jobsThisWeek">'+jobs+'</div><div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">Jobs</div></div>'+
+        '<div style="background:var(--forest-pale);border-radius:6px;padding:8px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.2rem;font-weight:700" id="stat-weekRevenue">'+rev+'</div><div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">Revenue</div></div></div>';
+    }
     return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
-      '<div style="background:var(--gold-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-jobsThisWeek">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Jobs This Week</div></div>'+
-      '<div style="background:var(--forest-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-weekRevenue">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Week Revenue</div></div>'+
-      '<div style="background:var(--rose-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-newInquiries">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">New Inquiries</div></div>'+
-      '<div style="background:#e0f2fe;border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-weekRating">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Week Rating</div></div></div>';
+      '<div style="background:var(--gold-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-jobsThisWeek">'+jobs+'</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Jobs This Week</div></div>'+
+      '<div style="background:var(--forest-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-weekRevenue">'+rev+'</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Week Revenue</div></div>'+
+      '<div style="background:var(--rose-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-newInquiries">'+inq+'</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">New Inquiries</div></div>'+
+      '<div style="background:#e0f2fe;border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-weekRating">'+rpts+'</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Reports</div></div></div>';
   };
 
   _R._rwOwnerRequests=async function(sz){

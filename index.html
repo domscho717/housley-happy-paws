@@ -5656,52 +5656,58 @@ async function showBookingDetail(bookingId, role, source) {
 
 // Start service from the detail drawer
 async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
-  // Fetch booking details for timer (client name, address)
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
-  var clientName = '', address = '';
-  if (sb && bookingId) {
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { toast('❌ Not logged in'); return; }
+
+  // Show loading state on button
+  var btn = event && event.target ? event.target.closest('button') : null;
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Starting...'; }
+
+  try {
+    // Fetch booking details for timer (client name, address)
+    var clientName = '', address = '';
     try {
       var { data: bkInfo } = await sb.from('booking_requests').select('contact_name, address').eq('id', bookingId).maybeSingle();
       if (bkInfo) { clientName = bkInfo.contact_name || ''; address = bkInfo.address || ''; }
     } catch(e) {}
-  }
 
-  if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.startWalk === 'function') {
+    var walk = null;
+
+    if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.startWalk === 'function') {
+      walk = await HHP_Tracking.startWalk(bookingId, clientId, service, petNames);
+    } else {
+      // Fallback: create a walk record directly
+      var startTime = new Date().toISOString();
+      var { data: walkData, error } = await sb.from('walks').insert({
+        booking_id: bookingId,
+        walker_id: user.id,
+        client_id: clientId || null,
+        service: service,
+        pet_names: petNames,
+        status: 'in_progress',
+        start_time: startTime
+      }).select().single();
+      if (error) throw error;
+      walk = walkData;
+      toast('▶ Service started!');
+    }
+
+    // Close drawer AFTER service successfully started
     closeBookingDetail();
-    var walk = await HHP_Tracking.startWalk(bookingId, clientId, service, petNames);
+
     // Start the live timer overlay
     if (walk && walk.id && typeof HHP_ServiceTimer !== 'undefined') {
-      HHP_ServiceTimer.startTimer(walk.id, service, walk.start_time, petNames, clientName, bookingId, address);
+      HHP_ServiceTimer.startTimer(walk.id, service, walk.start_time || new Date().toISOString(), petNames, clientName, bookingId, address);
     }
-    return;
-  }
-  // Fallback: create a walk record directly
-  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
-  if (!sb || !user) { toast('❌ Not logged in'); return; }
-  try {
-    var startTime = new Date().toISOString();
-    var { data: walkData, error } = await sb.from('walks').insert({
-      booking_id: bookingId,
-      walker_id: user.id,
-      client_id: clientId,
-      service: service,
-      pet_names: petNames,
-      status: 'in_progress',
-      start_time: startTime
-    }).select().single();
-    if (error) throw error;
-    toast('▶ Service started!');
-    closeBookingDetail();
-    // Start the live timer overlay
-    if (walkData && typeof HHP_ServiceTimer !== 'undefined') {
-      HHP_ServiceTimer.startTimer(walkData.id, service, startTime, petNames, clientName, bookingId, address);
-    }
+
     // Refresh schedules
     if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
     if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
   } catch (e) {
     console.error('Start service error:', e);
-    toast('❌ Failed to start service');
+    toast('❌ Failed to start: ' + (e.message || 'Unknown error'));
+    if (btn) { btn.disabled = false; btn.innerHTML = '▶ Start Service'; }
   }
 }
 
@@ -9615,21 +9621,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const el3 = document.getElementById('stat-avgRating');
         if (el3) el3.textContent = (totalReports || 0) + ' 📋';
 
-        // Today's Jobs — count bookings for today
+        // Today's Jobs — count accepted/confirmed booking_requests for today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const { count: todayJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).gte('date', today.toISOString()).lt('date', tomorrow.toISOString());
+        const todayStr2 = today.toISOString().split('T')[0];
+        const { count: todayJobs } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('preferred_date', todayStr2).in('status', ['accepted', 'confirmed', 'completed']);
         const el4 = document.getElementById('stat-todayJobs');
         if (el4) el4.textContent = todayJobs || '0';
 
-        // Jobs This Week
+        // Jobs This Week — count accepted/confirmed booking_requests this week
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay());
         const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(endOfWeek.getDate() + 7);
-        const { count: jobsWeek } = await sb.from('bookings').select('*', { count: 'exact', head: true }).gte('date', startOfWeek.toISOString()).lt('date', endOfWeek.toISOString());
+        endOfWeek.setDate(endOfWeek.getDate() + 6);
+        const weekStartStr = startOfWeek.toISOString().split('T')[0];
+        const weekEndStr = endOfWeek.toISOString().split('T')[0];
+        const { count: jobsWeek } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).gte('preferred_date', weekStartStr).lte('preferred_date', weekEndStr).in('status', ['accepted', 'confirmed', 'completed']);
         const el5 = document.getElementById('stat-jobsThisWeek');
         if (el5) el5.textContent = jobsWeek || '0';
 
@@ -9643,13 +9650,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const el6 = document.getElementById('stat-weekRevenue');
         if (el6) el6.textContent = weekRevenue;
 
-        // New Inquiries — count booking_requests this week
-        const { count: newInquiries } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).gte('created_at', startOfWeek.toISOString()).lt('created_at', endOfWeek.toISOString());
+        // New Inquiries — count booking_requests created this week
+        const { count: newInquiries } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).gte('created_at', weekStartStr).lte('created_at', weekEndStr + 'T23:59:59');
         const el7 = document.getElementById('stat-newInquiries');
         if (el7) el7.textContent = newInquiries || '0';
 
         // Week Reports — count of service reports sent this week
-        const { count: weekReports } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).gte('created_at', startOfWeek.toISOString()).lt('created_at', endOfWeek.toISOString());
+        const { count: weekReports } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).gte('created_at', weekStartStr).lte('created_at', weekEndStr + 'T23:59:59');
         const el8 = document.getElementById('stat-weekRating');
         if (el8) el8.textContent = (weekReports || 0) + ' 📋';
       }
