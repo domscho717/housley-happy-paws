@@ -375,11 +375,12 @@ details summary::-webkit-details-marker{display:none}
 .cal-dow{
   text-align:center;font-size:0.72rem;font-weight:700;letter-spacing:0.07em;
   text-transform:uppercase;color:var(--mid);padding:8px 0;
+  min-width:0;overflow:hidden;
 }
 .cal-day{
   min-height:72px;border-radius:8px;padding:8px;
   background:white;border:1px solid var(--border);cursor:pointer;
-  transition:all 0.15s;position:relative;
+  transition:all 0.15s;position:relative;min-width:0;overflow:hidden;
 }
 .cal-day:hover{border-color:var(--gold);box-shadow:var(--shadow)}
 .cal-day.empty{background:transparent;border-color:transparent;pointer-events:none}
@@ -759,6 +760,16 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .p-panel .card { padding: 16px !important; }
   .p-header h2 { font-size: 1.15rem !important; }
   .p-header p { font-size: 0.8rem !important; }
+
+  /* Calendar mobile fix: equal-width columns, no stretching */
+  .cal-grid { gap: 3px !important; }
+  .cal-dow { font-size: 0.6rem !important; padding: 6px 0 !important; letter-spacing: 0 !important; }
+  .cal-day { min-height: 52px !important; padding: 4px !important; }
+  .cal-day-num { font-size: 0.72rem !important; margin-bottom: 2px !important; }
+  .cal-event-dot { font-size: 0.55rem !important; }
+  .cal-section { padding: 60px 12px !important; }
+  .cal-month { font-size: 1.2rem !important; }
+  .portal-cal .cal-day { min-height: 48px !important; }
 }
 
 /* Collapsible sidebar nav */
@@ -4974,7 +4985,7 @@ async function loadCalendarBookings(year, month) {
 
       var statusTag = b.status === 'pending' ? ' ⏳' : '';
       // Only show paid/unpaid tags in portal calendars, not public
-      var paidTag = (role === 'owner' || role === 'client') ? (isPaid ? ' ✅' : (b.estimated_total > 0 ? ' 💰' : '')) : '';
+      var paidTag = (role === 'owner' || role === 'client') ? (isPaid ? ' ✅' : (b.estimated_total > 0 ? ' ❌' : '')) : '';
       var petName = (role !== 'public') && b.pet_names ? ' · ' + b.pet_names.split(',')[0].trim() : '';
 
       dates.forEach(function(dateKey) {
@@ -5034,7 +5045,7 @@ function buildCalendar(containerId, year, month) {
     if(ev?.type==='off' || isOwnerBlocked) cls += ' off';
     if(ev?.bookings && ev.bookings.length > 0 && ev.bookings.every(b => b.status === 'canceled')) cls += ' cal-canceled';
     html += `<div class="${cls}" onclick="showCalDetail('${key}','${ev?.label||''}',this)"><div class="cal-day-num">${d}</div>`;
-    if(holiday) html += `<div style="font-size:0.6rem;line-height:1.15;color:var(--gold-deep);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${holiday}</div>`;
+    if(holiday) html += `<div style="font-size:0.6rem;line-height:1.15;color:#7B1FA2;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${holiday}</div>`;
     if(isOwnerBlocked && !(ev?.type==='off')) html += '<div style="font-size:0.58rem;color:var(--rose);font-weight:700">Unavailable</div>';
     if(ev) html += `<div class="cal-event-dot">${ev.label}</div>`;
     html += '</div>';
@@ -5048,16 +5059,16 @@ function buildCalendar(containerId, year, month) {
 
   if (isPublic) {
     // Public homepage: only availability, closures, today
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div></div>`;
   } else if (isClient) {
     // Client portal: their bookings + closures
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">❌</span> Unpaid</div></div>`;
   } else if (isStaff) {
     // Staff portal: assigned jobs + closures
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div></div>`;
   } else {
     // Owner portal: full legend
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Blocked / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">💰</span> Unpaid</div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Blocked / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">❌</span> Unpaid</div></div>`;
   }
   html += `<div class="cal-detail" id="${containerId}-detail"></div>`;
   container.innerHTML = html;
@@ -5112,7 +5123,7 @@ function showCalDetail(key, label, el) {
   // Show holiday if applicable
   var holidayName = (typeof isHoliday === 'function') ? isHoliday(key) : null;
   if (holidayName) {
-    html += '<div style="font-size:0.88rem;color:var(--gold-deep);font-weight:600;margin-bottom:6px">🎉 ' + holidayName + '</div>';
+    html += '<div style="font-size:0.88rem;color:#7B1FA2;font-weight:600;margin-bottom:6px">🎉 ' + holidayName + '</div>';
   }
 
   // Show owner availability block
@@ -5170,7 +5181,7 @@ function showCalDetail(key, label, el) {
           if (b.estimated_total > 0 && (isOwner || isClient)) {
             var isPaid = ev._paid;
             paidBadge = isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">✅ Paid</span>' :
-                                 '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">💰 Unpaid</span>';
+                                 '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">❌ Unpaid</span>';
           }
 
           html += '<div style="background:var(--warm);border-radius:8px;padding:10px 12px;margin-bottom:6px">';
@@ -5280,7 +5291,7 @@ async function loadClientAppts(filter, tabBtn) {
 
       var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : '#e2e3e5';
       var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
-      var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">✅ Paid</span>' : '<span style="background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">💰 Unpaid</span>') : '';
+      var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">✅ Paid</span>' : '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">❌ Unpaid</span>') : '';
 
       var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
       var timeDisplay = b.preferred_time || '';
