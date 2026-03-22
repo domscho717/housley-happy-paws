@@ -53,9 +53,9 @@
     }).select().single();
 
     if (error) {
-      console.error('Start service error:', error);
-      toast('Failed to start service: ' + (error.message || 'Unknown error'));
-      return;
+      console.error('Start service error:', error, JSON.stringify(error));
+      toast('❌ Failed to start service: ' + (error.message || error.details || 'Unknown error'));
+      return null;
     }
 
     _activeWalkId = walk.id;

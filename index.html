@@ -5688,7 +5688,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
     if (!walk) {
       // Fallback: create a walk record directly
       var startTime = new Date().toISOString();
-      var { data: walkData, error } = await sb.from('walks').insert({
+      var insertPayload = {
         booking_id: bookingId || null,
         walker_id: user.id,
         client_id: clientId || null,
@@ -5696,8 +5696,13 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
         pet_name: petNames || null,
         status: 'in_progress',
         start_time: startTime
-      }).select().single();
-      if (error) throw error;
+      };
+      console.log('[Start Service] Fallback insert payload:', JSON.stringify(insertPayload));
+      var { data: walkData, error } = await sb.from('walks').insert(insertPayload).select().single();
+      if (error) {
+        console.error('[Start Service] Fallback insert error:', error, JSON.stringify(error));
+        throw new Error(error.message || error.details || 'Walk insert failed');
+      }
       walk = walkData;
       toast('▶ Service started!');
     }
