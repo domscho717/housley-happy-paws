@@ -2109,6 +2109,25 @@
       }
     }
 
+    // ── Payment method required for all paid services ──
+    var isFreeService = service.toLowerCase().indexOf('meet') !== -1 && service.toLowerCase().indexOf('greet') !== -1;
+    if (!isFreeService && window.HHP_Auth && window.HHP_Auth.currentUser) {
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Checking payment method...'; }
+      try {
+        var pmResp = await fetch('/api/get-payment-methods?profileId=' + encodeURIComponent(window.HHP_Auth.currentUser.id) + '&email=' + encodeURIComponent(window.HHP_Auth.currentUser.email));
+        var pmData = await pmResp.json();
+        if (!pmData.hasCard || !pmData.methods || pmData.methods.length === 0) {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Booking Request'; }
+          if (errEl) errEl.innerHTML = '💳 <strong>Payment method required.</strong> Please add a card on file before booking a paid service. ' +
+            '<a href="#" onclick="event.preventDefault();if(typeof addPaymentMethod===\'function\')addPaymentMethod();else{toast(\'Please add a card in your Payment tab first.\');}" style="color:var(--gold-deep);font-weight:600;text-decoration:underline;">Add Payment Method</a>';
+          return;
+        }
+      } catch (pmErr) {
+        console.warn('Payment method check failed:', pmErr);
+        // If check fails, allow booking to proceed (don't block on network error)
+      }
+    }
+
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending request...'; }
 
     try {
