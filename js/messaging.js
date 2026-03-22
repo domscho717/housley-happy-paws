@@ -33,6 +33,11 @@
     return null;
   }
 
+  // "View As Client" helper — returns the viewed client's user ID or null
+  function getViewAsClientId() {
+    return (window._viewingAsClient && window._viewingAsClient.userId) ? window._viewingAsClient.userId : null;
+  }
+
   // Detect which portal is active
   function getActivePortal() {
     var pages = ['pg-owner', 'pg-staff', 'pg-client'];
@@ -186,6 +191,27 @@
     return data || [];
   }
 
+  // Load conversation between a specific client userId and another userId (for View As mode)
+  async function loadConversationAs(otherUserId, clientUserId, opts) {
+    var sb = getSB();
+    if (!sb) return [];
+    opts = opts || {};
+    var limit = opts.limit || 200;
+    var since = opts.since || getArchiveStart();
+
+    var query = sb.from('messages')
+      .select('*')
+      .or('and(sender_id.eq.'+clientUserId+',recipient_id.eq.'+otherUserId+'),and(sender_id.eq.'+otherUserId+',recipient_id.eq.'+clientUserId+')')
+      .gte('created_at', since);
+
+    var { data, error } = await query
+      .order('created_at', { ascending: true })
+      .limit(limit);
+
+    if (error) { console.error('Load conversation-as error:', error); return []; }
+    return data || [];
+  }
+
   // Check if there are older messages before the current window
   async function hasOlderMessages(otherUserId) {
     var sb = getSB();
@@ -264,12 +290,21 @@
   }
 
   // For a client: get their assigned staff user_ids + names
-  async function getClientAssignedStaff() {
+  async function getClientAssignedStaff(overrideUserId) {
     var sb = getSB(); if (!sb) return [];
-    var profile = await getMyProfile(); if (!profile) return [];
+    var profileId = null;
+    if (overrideUserId && overrideUserId !== (getCurrentUser() || {}).id) {
+      // View As mode — look up the viewed client's profile
+      var res = await getProfileByUserId(overrideUserId);
+      profileId = res ? res.id : null;
+    } else {
+      var profile = await getMyProfile();
+      profileId = profile ? profile.id : null;
+    }
+    if (!profileId) return [];
     var { data } = await sb.from('staff_assignments')
       .select('staff_id, profiles!staff_assignments_staff_id_fkey(user_id, full_name)')
-      .eq('client_id', profile.id);
+      .eq('client_id', profileId);
     if (!data) return [];
     var staff = [];
     for (var i = 0; i < data.length; i++) {
@@ -491,21 +526,26 @@
     var panel = document.getElementById('c-msgs');
     if (!panel) return;
 
+    // ── View As Client override: load messages for the viewed client ──
+    var effectiveClientUserId = getViewAsClientId() || user.id;
+
     // Build contact list: always include owner, plus any assigned staff
     var contacts = [{ userId: ownerUserId, name: 'Rachel (Owner)', type: 'owner' }];
-    var assignedStaff = await getClientAssignedStaff();
+    var assignedStaff = await getClientAssignedStaff(effectiveClientUserId);
     for (var i = 0; i < assignedStaff.length; i++) {
-      // Put staff first since they're the primary contact
       contacts.unshift({ userId: assignedStaff[i].userId, name: assignedStaff[i].name, type: 'staff' });
     }
 
     _clientMsgContacts = contacts;
 
+    // Store the effective client ID for use in conversation loading and sending
+    window._msgViewAsClientId = getViewAsClientId();
+
     if (contacts.length === 1) {
       // Only owner — simple thread, no tabs needed
-      var messages = await loadConversation(ownerUserId, {});
-      await renderThread('cMsgs', messages, user.id, { otherUserId: ownerUserId });
-      await markAsRead(ownerUserId);
+      var messages = await loadConversationAs(ownerUserId, effectiveClientUserId, {});
+      await renderThread('cMsgs', messages, effectiveClientUserId, { otherUserId: ownerUserId });
+      if (!window._msgViewAsClientId) await markAsRead(ownerUserId);
       updateUnreadBadges();
       return;
     }
@@ -535,9 +575,10 @@
     if (!contact) return;
 
     var user = getCurrentUser();
-    var messages = await loadConversation(contact.userId, {});
-    await renderThread('cMsgs', messages, user.id, { otherUserId: contact.userId });
-    await markAsRead(contact.userId);
+    var effectiveId = getViewAsClientId() || user.id;
+    var messages = await loadConversationAs(contact.userId, effectiveId, {});
+    await renderThread('cMsgs', messages, effectiveId, { otherUserId: contact.userId });
+    if (!getViewAsClientId()) await markAsRead(contact.userId);
 
     var btns = document.querySelectorAll('#clientMsgTabs .admin-filter-btn');
     for (var b = 0; b < btns.length; b++) {

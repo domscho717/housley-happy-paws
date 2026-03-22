@@ -372,10 +372,11 @@
     if (!card) return;
 
     try {
-      // Find active walks for this client
+      // Find active walks for this client (supports View As mode)
+      var _trackClientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || user.id;
       var { data: activeWalks } = await sb.from('walks')
         .select('*')
-        .eq('client_id', user.id)
+        .eq('client_id', _trackClientId)
         .eq('status', 'in_progress')
         .order('start_time', { ascending: false });
 
@@ -385,7 +386,7 @@
       var today = new Date().toISOString().split('T')[0];
       var { data: todayBookings } = await sb.from('bookings')
         .select('*')
-        .eq('client_id', user.id)
+        .eq('client_id', _trackClientId)
         .eq('date', today)
         .eq('status', 'confirmed');
       var todayJobs = todayBookings || [];

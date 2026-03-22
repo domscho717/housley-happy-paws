@@ -4454,7 +4454,8 @@ function loadMGData() {
     return;
   }
 
-  sb.from('pets').select('*').eq('owner_id', user.id).order('name').then(function(result) {
+  var _petOwnerId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || user.id;
+  sb.from('pets').select('*').eq('owner_id', _petOwnerId).order('name').then(function(result) {
     var pets = result.data;
     var error = result.error;
     if (error || !pets || pets.length === 0) {
@@ -5195,9 +5196,19 @@ async function loadCalendarBookings(year, month) {
     // Build query based on role
     var query = sb.from('booking_requests').select('*');
 
-    if (role === 'client') {
+    // View As Client override for calendar
+    var _calRole = role;
+    var _calUserId = user.id;
+    var _calEmail = user.email;
+    if (window._viewingAsClient && window._viewingAsClient.userId && (role === 'owner' || role === 'staff')) {
+      _calRole = 'client';
+      _calUserId = window._viewingAsClient.userId;
+      // We'll skip email filter for payments in view-as mode
+    }
+
+    if (_calRole === 'client') {
       // Client sees only their bookings
-      query = query.eq('client_id', user.id);
+      query = query.eq('client_id', _calUserId);
     }
     // Owner and staff see all bookings
 
@@ -5209,8 +5220,8 @@ async function loadCalendarBookings(year, month) {
 
     // Also load payments to determine paid/unpaid (filtered by role)
     var paymentsQuery = sb.from('payments').select('stripe_session_id,client_email,service,amount,notes,paid_at');
-    if (role === 'client') {
-      paymentsQuery = paymentsQuery.eq('client_email', user.email);
+    if (_calRole === 'client' && _calEmail) {
+      paymentsQuery = paymentsQuery.eq('client_email', _calEmail);
     }
     var { data: payments } = await paymentsQuery;
 
@@ -8083,6 +8094,8 @@ async function deletePet(petId, petName) {
 // ── Mandatory Pet Profile After Signup ──
 function checkNeedsPetSetup() {
   if (!window.HHP_Auth || !window.HHP_Auth.currentUser) return;
+  // Skip pet setup check when viewing as another client
+  if (window._viewingAsClient) return;
   var user = window.HHP_Auth.currentUser;
   var profile = user.profile;
   if (!profile || profile.role !== 'client') return;
