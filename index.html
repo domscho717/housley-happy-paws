@@ -1696,8 +1696,26 @@ try {
       <div class="p-panel" id="o-sched">
         <div class="p-header"><h2>Master Schedule 📅</h2><p>All appointments — yours and your team's.</p></div>
         <div class="card">
-          <div style="display:flex;gap:14px;margin-bottom:16px"><span style="display:flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700"><span style="width:10px;height:10px;border-radius:2px;background:var(--gold);display:inline-block"></span>Rachel</span></div>
-          <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments scheduled yet. Add jobs from the calendar.</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="display:flex;gap:10px;align-items:center">
+              <button class="btn btn-outline btn-sm" onclick="_masterSchedPrev()" style="padding:4px 10px">◀</button>
+              <span id="masterSchedMonth" style="font-weight:700;font-size:1rem;min-width:160px;text-align:center">—</span>
+              <button class="btn btn-outline btn-sm" onclick="_masterSchedNext()" style="padding:4px 10px">▶</button>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-sm" onclick="_masterSchedToday()">Today</button>
+              <select id="masterSchedFilter" class="form-sel" style="font-size:0.78rem;padding:4px 8px" onchange="loadMasterSchedule()">
+                <option value="all">All Services</option>
+                <option value="Dog Walking">Dog Walking</option>
+                <option value="Drop-In Visit">Drop-In Visits</option>
+                <option value="Cat Care">Cat Care</option>
+                <option value="House Sitting">House Sitting</option>
+              </select>
+            </div>
+          </div>
+          <div id="masterSchedList" style="display:flex;flex-direction:column;gap:8px">
+            <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading schedule...</div>
+          </div>
         </div>
       </div>
 
@@ -3237,6 +3255,7 @@ function sTab(portal, panelId) {
     if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
     if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
   }
+  if (panelId === 'o-sched' && typeof loadMasterSchedule === 'function') loadMasterSchedule();
   // update sidebar active state by matching onclick attribute
   const sidebar = el ? el.closest('.portal-wrap') : null;
   const sb = sidebar ? sidebar.querySelector('.sidebar') : null;
@@ -9203,18 +9222,34 @@ document.addEventListener('DOMContentLoaded', function() {
     if (dateLabel) dateLabel.textContent = todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
     try {
-      // Fetch today's bookings (all clients, owner sees everything)
-      var { data: bookings, error } = await sb.from('bookings').select('*')
-        .eq('date', todayStr).in('status', ['confirmed', 'pending'])
-        .order('time_slot', { ascending: true });
+      // Query booking_requests with accepted status for today's scheduled date
+      var { data: bookings, error } = await sb.from('booking_requests').select('*')
+        .eq('scheduled_date', todayStr).eq('status', 'accepted')
+        .order('scheduled_time', { ascending: true });
 
       if (error) { console.warn('Owner today schedule error:', error); }
       bookings = bookings || [];
 
+      // Also check for multi-date bookings that include today
+      var { data: multiDate } = await sb.from('booking_requests').select('*')
+        .eq('status', 'accepted').not('booking_dates', 'is', null);
+      if (multiDate) {
+        multiDate.forEach(function(br) {
+          if (br.booking_dates && Array.isArray(br.booking_dates) && br.booking_dates.indexOf(todayStr) !== -1) {
+            var alreadyIn = bookings.some(function(b) { return b.id === br.id; });
+            if (!alreadyIn) bookings.push(br);
+          }
+        });
+      }
+
       if (bookings.length === 0) {
-        listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments scheduled today. Use the calendar to add jobs.</div>';
+        listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments scheduled today.</div>';
         return;
       }
+
+      // Update today's jobs stat
+      var jobsStat = document.getElementById('stat-todayJobs');
+      if (jobsStat) jobsStat.textContent = bookings.length;
 
       // Check for active walk (owner's own walks)
       var activeWalk = null;
@@ -9224,36 +9259,43 @@ document.addEventListener('DOMContentLoaded', function() {
         activeWalk = (awRes.data && awRes.data[0]) || null;
       }
 
-      // Fetch client names for display
-      var clientIds = [];
-      bookings.forEach(function(b) { if (b.client_id && clientIds.indexOf(b.client_id) === -1) clientIds.push(b.client_id); });
-      var clientNames = {};
-      if (clientIds.length > 0) {
-        var { data: clientProfiles } = await sb.from('profiles').select('user_id, full_name').in('user_id', clientIds);
-        if (clientProfiles) clientProfiles.forEach(function(p) { clientNames[p.user_id] = p.full_name || 'Client'; });
-      }
-
       var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+      function getIcon(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
+
       var h = '';
       bookings.forEach(function(b) {
-        var icon = svcIcons[b.service] || '🐾';
-        var statusColor = b.status === 'confirmed' ? 'var(--forest,#3d5a47)' : 'var(--gold,#c8963e)';
-        var clientName = clientNames[b.client_id] || 'Client';
-        var walkBtn = (typeof HHP_Tracking !== 'undefined') ? HHP_Tracking.buildWalkButton(b, activeWalk) : '';
+        var icon = getIcon(b.service);
+        var timeStr = b.scheduled_time || b.preferred_time || 'No time set';
+        // Format time nicely (e.g. "14:00" → "2:00 PM")
+        if (timeStr && timeStr.indexOf(':') !== -1) {
+          var parts = timeStr.split(':');
+          var hr = parseInt(parts[0]), mn = parts[1];
+          var ampm = hr >= 12 ? 'PM' : 'AM';
+          hr = hr > 12 ? hr - 12 : (hr === 0 ? 12 : hr);
+          timeStr = hr + ':' + mn + ' ' + ampm;
+        }
+        var clientName = b.contact_name || 'Client';
+
+        // Build walk button for dog walking services
+        var walkBtnHtml = '';
+        if (typeof HHP_Tracking !== 'undefined' && b.service && b.service.toLowerCase().indexOf('walk') !== -1) {
+          var fakeBooking = { id: b.id, service: b.service, client_id: b.client_id, pet_names: b.pet_names, date: b.scheduled_date, time_slot: b.scheduled_time };
+          walkBtnHtml = HHP_Tracking.buildWalkButton(fakeBooking, activeWalk);
+        }
 
         h += '<div style="padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px">';
         h += '<div style="display:flex;justify-content:space-between;align-items:center">';
         h += '<div style="display:flex;align-items:center;gap:10px">';
         h += '<div style="font-size:1.3rem">' + icon + '</div>';
         h += '<div><div style="font-weight:600;font-size:0.88rem">' + (b.service || 'Service') + '</div>';
-        h += '<div style="font-size:0.78rem;color:var(--mid)">' + (b.time_slot || 'No time set') + ' · ' + clientName + '</div>';
+        h += '<div style="font-size:0.78rem;color:var(--mid)">' + timeStr + ' · ' + clientName + '</div>';
         if (b.pet_names) h += '<div style="font-size:0.72rem;color:var(--mid)">🐾 ' + b.pet_names + '</div>';
         if (b.address) h += '<div style="font-size:0.72rem;color:var(--mid)">📍 ' + b.address + '</div>';
         h += '</div></div>';
         h += '<div style="display:flex;align-items:center;gap:6px">';
-        h += '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>';
+        h += '<span style="background:var(--forest,#3d5a47);color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">confirmed</span>';
         h += '</div></div>';
-        h += walkBtn;
+        h += walkBtnHtml;
         h += '</div>';
       });
       listEl.innerHTML = h;
@@ -9263,6 +9305,140 @@ document.addEventListener('DOMContentLoaded', function() {
       listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments scheduled today.</div>';
     }
   }
+
+  // ── MASTER SCHEDULE ──
+  var _masterSchedDate = new Date();
+  function _masterSchedPrev() { _masterSchedDate.setMonth(_masterSchedDate.getMonth() - 1); loadMasterSchedule(); }
+  function _masterSchedNext() { _masterSchedDate.setMonth(_masterSchedDate.getMonth() + 1); loadMasterSchedule(); }
+  function _masterSchedToday() { _masterSchedDate = new Date(); loadMasterSchedule(); }
+
+  async function loadMasterSchedule() {
+    var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+    if (!sb) return;
+
+    var listEl = document.getElementById('masterSchedList');
+    var monthLabel = document.getElementById('masterSchedMonth');
+    if (!listEl) return;
+
+    var y = _masterSchedDate.getFullYear(), m = _masterSchedDate.getMonth();
+    if (monthLabel) monthLabel.textContent = _masterSchedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    var startStr = y + '-' + String(m + 1).padStart(2, '0') + '-01';
+    var endDate = new Date(y, m + 1, 0);
+    var endStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(endDate.getDate()).padStart(2, '0');
+
+    var filter = (document.getElementById('masterSchedFilter') || {}).value || 'all';
+
+    try {
+      // Get all accepted booking_requests in this month range
+      var query = sb.from('booking_requests').select('*').eq('status', 'accepted')
+        .gte('scheduled_date', startStr).lte('scheduled_date', endStr)
+        .order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true });
+
+      if (filter !== 'all') query = query.ilike('service', '%' + filter + '%');
+
+      var { data: bookings, error } = await query;
+      if (error) console.warn('Master schedule error:', error);
+      bookings = bookings || [];
+
+      // Also include multi-date bookings that fall in this month
+      var { data: multiDate } = await sb.from('booking_requests').select('*')
+        .eq('status', 'accepted').not('booking_dates', 'is', null);
+      if (multiDate) {
+        multiDate.forEach(function(br) {
+          if (!br.booking_dates || !Array.isArray(br.booking_dates)) return;
+          br.booking_dates.forEach(function(bd) {
+            if (bd >= startStr && bd <= endStr) {
+              var alreadyIn = bookings.some(function(b) { return b.id === br.id && b.scheduled_date === bd; });
+              if (!alreadyIn) {
+                var copy = Object.assign({}, br);
+                copy._displayDate = bd;
+                bookings.push(copy);
+              }
+            }
+          });
+        });
+        // Re-sort after adding multi-date entries
+        bookings.sort(function(a, b) {
+          var dA = a._displayDate || a.scheduled_date || '';
+          var dB = b._displayDate || b.scheduled_date || '';
+          if (dA !== dB) return dA < dB ? -1 : 1;
+          return (a.scheduled_time || '') < (b.scheduled_time || '') ? -1 : 1;
+        });
+      }
+
+      if (bookings.length === 0) {
+        listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments this month.</div>';
+        return;
+      }
+
+      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+      function getIconMS(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
+
+      var h = '';
+      var lastDate = '';
+      var todayStr = new Date().toISOString().split('T')[0];
+      bookings.forEach(function(b) {
+        var bDate = b._displayDate || b.scheduled_date || '';
+        // Date header
+        if (bDate !== lastDate) {
+          var isToday = bDate === todayStr;
+          var dateObj = new Date(bDate + 'T12:00:00');
+          var dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          h += '<div style="margin-top:' + (lastDate ? '16px' : '0') + ';padding:6px 12px;background:' + (isToday ? 'var(--gold)' : 'var(--ink)') + ';color:white;border-radius:8px;font-size:0.78rem;font-weight:700">';
+          h += dayLabel + (isToday ? ' — TODAY' : '') + '</div>';
+          lastDate = bDate;
+        }
+
+        var icon = getIconMS(b.service);
+        var timeStr = b.scheduled_time || b.preferred_time || '';
+        if (timeStr && timeStr.indexOf(':') !== -1) {
+          var parts = timeStr.split(':');
+          var hr = parseInt(parts[0]), mn = parts[1];
+          var ampm = hr >= 12 ? 'PM' : 'AM';
+          hr = hr > 12 ? hr - 12 : (hr === 0 ? 12 : hr);
+          timeStr = hr + ':' + mn + ' ' + ampm;
+        }
+
+        h += '<div style="padding:10px 14px;background:var(--warm,#faf6ee);border-radius:8px;display:flex;align-items:center;gap:10px">';
+        h += '<div style="font-size:1.2rem">' + icon + '</div>';
+        h += '<div style="flex:1"><div style="font-weight:600;font-size:0.85rem">' + (b.service || 'Service') + '</div>';
+        h += '<div style="font-size:0.76rem;color:var(--mid)">' + (timeStr || 'No time') + ' · ' + (b.contact_name || 'Client') + '</div>';
+        if (b.pet_names) h += '<div style="font-size:0.72rem;color:var(--mid)">🐾 ' + b.pet_names + '</div>';
+        if (b.address) h += '<div style="font-size:0.72rem;color:var(--mid)">📍 ' + b.address + '</div>';
+        h += '</div>';
+        if (b.estimated_total) h += '<div style="font-weight:700;font-size:0.85rem;color:var(--forest)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+        h += '</div>';
+      });
+      listEl.innerHTML = h;
+
+    } catch (e) {
+      console.warn('Master schedule load error:', e);
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Could not load schedule.</div>';
+    }
+  }
+
+  // ── REALTIME: Auto-refresh schedules when booking_requests change ──
+  (function setupScheduleRealtime() {
+    var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+    if (!sb) {
+      // Retry after auth loads
+      setTimeout(setupScheduleRealtime, 2000);
+      return;
+    }
+    try {
+      sb.channel('schedule-updates')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, function(payload) {
+          // Auto-refresh both schedules when any booking_request changes
+          if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+          if (typeof loadMasterSchedule === 'function') {
+            var schedPanel = document.getElementById('o-sched');
+            if (schedPanel && schedPanel.classList.contains('active')) loadMasterSchedule();
+          }
+        })
+        .subscribe();
+    } catch (e) { console.warn('Schedule realtime setup error:', e); }
+  })();
 
   // ---- STAFF EARNINGS LOADER ----
   async function loadStaffEarnings() {
