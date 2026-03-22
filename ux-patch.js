@@ -1550,34 +1550,10 @@
     console.log('\uD83D\uDC3E HHP UX Patch v18 applied (auth-gated drawer, old nav removed, hamburger=public, drawer=portal, black text, 3-line icons)');
   });
 
-  // ── Stripe Payment Integration (v17) ──
+  // ── Stripe Payment Integration (v18 — dynamic checkout sessions) ──
   function wireStripeBooking() {
-    // Payment links map (test mode - switch to live links for production)
-    var STRIPE_LINKS = {
-      'walk30': 'https://buy.stripe.com/test_7sY5kDcu661Mgzx4Lx1kA00',
-      'walk60': 'https://buy.stripe.com/test_cNieVdbq2gGqbfdguf1kA01',
-      'dropin20': 'https://buy.stripe.com/test_cNi28rdya75Q3MLdi31kA02',
-      'dropin40': 'https://buy.stripe.com/test_fZu6oHdya9dYdnlem71kA03',
-      'cat20': 'https://buy.stripe.com/test_3cI6oH51Ebm6831guf1kA04',
-      'cat40': 'https://buy.stripe.com/test_aFaaEX8dQ75Q8315PB1kA05',
-      'housesit': 'https://buy.stripe.com/test_aFa9AT65I9dYbfd5PB1kA06',
-      'housesit_holiday': 'https://buy.stripe.com/test_cNifZhgKmbm65UT4Lx1kA07',
-      'housesit_puppy': 'https://buy.stripe.com/test_28E28r65Icqa6YX3Ht1kA08',
-      'housesit_cat': 'https://buy.stripe.com/test_6oUbJ13XA3TE2IH7XJ1kA09'
-    };
-
-    // Map booking modal select options to payment link keys
-    function getPayLinkFromSelect(val) {
-      val = (val || '').toLowerCase();
-      if (val.indexOf('walk') !== -1 && val.indexOf('30') !== -1) return STRIPE_LINKS.walk30;
-      if (val.indexOf('walk') !== -1 && val.indexOf('60') !== -1) return STRIPE_LINKS.walk60;
-      if (val.indexOf('drop') !== -1 && val.indexOf('20') !== -1) return STRIPE_LINKS.dropin20;
-      if (val.indexOf('drop') !== -1 && val.indexOf('40') !== -1) return STRIPE_LINKS.dropin40;
-      if (val.indexOf('cat') !== -1 && val.indexOf('20') !== -1) return STRIPE_LINKS.cat20;
-      if (val.indexOf('cat') !== -1 && val.indexOf('40') !== -1) return STRIPE_LINKS.cat40;
-      if (val.indexOf('board') !== -1 || val.indexOf('house') !== -1 || val.indexOf('sit') !== -1) return STRIPE_LINKS.housesit;
-      return STRIPE_LINKS.walk30; // fallback
-    }
+    // No more hardcoded payment links — checkout sessions are created dynamically
+    // via /api/create-checkout-session. Test↔live is just an env var swap.
 
     // Override old bookModal to redirect to the new booking request modal
     var bookModal = document.getElementById('bookModal');

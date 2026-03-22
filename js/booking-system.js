@@ -26,32 +26,80 @@
     return null;
   }
 
-  // ── Stripe payment links by service ──
-  var STRIPE_SERVICE_LINKS = {
-    'Dog Walking - 30 min':    'https://buy.stripe.com/test_7sY5kDcu661Mgzx4Lx1kA00',
-    'Dog Walking - 1 hour':    'https://buy.stripe.com/test_cNieVdbq2gGqbfdguf1kA01',
-    'Drop-In Visit - 30 min':  'https://buy.stripe.com/test_5kQ8wP0Loai21ED3Ht1kA0a',
-    'Drop-In Visit - 1 hour':  'https://buy.stripe.com/test_cNi7sLeCeai26YX5PB1kA0b',
-    'Cat Care Visit - 30 min': 'https://buy.stripe.com/test_14AeVd0Loai2gzx5PB1kA0c',
-    'Cat Care Visit - 1 hour': 'https://buy.stripe.com/test_eVqbJ1alY3TEbfdb9V1kA0d',
-    'House Sitting':           'https://buy.stripe.com/test_aFa9AT65I9dYbfd5PB1kA06',
+  // ── Service price map (cents) — used to create dynamic checkout sessions ──
+  // No more hardcoded payment links! Checkout sessions are created on-the-fly
+  // via /api/create-checkout-session, so test↔live is just an env var swap.
+  var SERVICE_PRICES = {
+    'Dog Walking - 30 min':          25.00,
+    'Dog Walking - 60 min':          45.00,
+    'Dog Walking - 1 hour':          45.00,
+    'Drop-In Visit - 20 min':        18.00,
+    'Drop-In Visit - 30 min':        25.00,
+    'Drop-In Visit - 40 min':        25.00,
+    'Drop-In Visit - 1 hour':        45.00,
+    'Cat Care Visit - 20 min':       18.00,
+    'Cat Care Visit - 30 min':       20.00,
+    'Cat Care Visit - 40 min':       30.00,
+    'Cat Care Visit - 1 hour':       35.00,
+    'House Sitting - Per Night':    125.00,
+    'House Sitting - Cat Care':      50.00,
+    'House Sitting - Puppy Rate':   140.00,
+    'House Sitting - Holiday Rate': 150.00,
+    'House Sitting':                125.00,
   };
 
-  function getStripePaymentLink(serviceName) {
-    if (!serviceName) return '';
+  function getServicePrice(serviceName) {
+    if (!serviceName) return 0;
     var svc = serviceName.toLowerCase();
-    // Try exact match first
-    for (var key in STRIPE_SERVICE_LINKS) {
-      if (svc === key.toLowerCase()) return STRIPE_SERVICE_LINKS[key];
+    // Exact match
+    for (var key in SERVICE_PRICES) {
+      if (svc === key.toLowerCase()) return SERVICE_PRICES[key];
     }
     // Fuzzy match
-    if (svc.indexOf('walk') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1)) return STRIPE_SERVICE_LINKS['Dog Walking - 1 hour'];
-    if (svc.indexOf('walk') !== -1) return STRIPE_SERVICE_LINKS['Dog Walking - 30 min'];
-    if (svc.indexOf('drop') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1 || svc.indexOf('40') !== -1)) return STRIPE_SERVICE_LINKS['Drop-In Visit - 1 hour'];
-    if (svc.indexOf('drop') !== -1) return STRIPE_SERVICE_LINKS['Drop-In Visit - 30 min'];
-    if (svc.indexOf('cat') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1 || svc.indexOf('40') !== -1)) return STRIPE_SERVICE_LINKS['Cat Care Visit - 1 hour'];
-    if (svc.indexOf('cat') !== -1) return STRIPE_SERVICE_LINKS['Cat Care Visit - 30 min'];
-    if (svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1) return STRIPE_SERVICE_LINKS['House Sitting'];
+    if (svc.indexOf('walk') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1)) return SERVICE_PRICES['Dog Walking - 1 hour'];
+    if (svc.indexOf('walk') !== -1) return SERVICE_PRICES['Dog Walking - 30 min'];
+    if (svc.indexOf('drop') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1 || svc.indexOf('40') !== -1)) return SERVICE_PRICES['Drop-In Visit - 1 hour'];
+    if (svc.indexOf('drop') !== -1 && svc.indexOf('40') !== -1) return SERVICE_PRICES['Drop-In Visit - 40 min'];
+    if (svc.indexOf('drop') !== -1) return SERVICE_PRICES['Drop-In Visit - 30 min'];
+    if (svc.indexOf('cat') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1)) return SERVICE_PRICES['Cat Care Visit - 1 hour'];
+    if (svc.indexOf('cat') !== -1 && svc.indexOf('40') !== -1) return SERVICE_PRICES['Cat Care Visit - 40 min'];
+    if (svc.indexOf('cat') !== -1) return SERVICE_PRICES['Cat Care Visit - 30 min'];
+    if (svc.indexOf('holiday') !== -1) return SERVICE_PRICES['House Sitting - Holiday Rate'];
+    if (svc.indexOf('puppy') !== -1) return SERVICE_PRICES['House Sitting - Puppy Rate'];
+    if ((svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1) && svc.indexOf('cat') !== -1) return SERVICE_PRICES['House Sitting - Cat Care'];
+    if (svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1) return SERVICE_PRICES['House Sitting'];
+    return 0;
+  }
+
+  // Creates a dynamic Stripe checkout session and returns the URL
+  async function createCheckoutForService(serviceName, clientEmail, clientName, petNames, notes) {
+    var price = getServicePrice(serviceName);
+    if (!price) return '';
+    try {
+      var resp = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service: serviceName,
+          price: price,
+          clientEmail: clientEmail || '',
+          clientName: clientName || '',
+          petNames: petNames || '',
+          notes: notes || '',
+        }),
+      });
+      var data = await resp.json();
+      return (data && data.url) ? data.url : '';
+    } catch (e) {
+      console.warn('Checkout session creation failed:', e);
+      return '';
+    }
+  }
+
+  // Backward-compatible sync wrapper — returns '' and logs warning
+  // Use createCheckoutForService() (async) instead wherever possible
+  function getStripePaymentLink(serviceName) {
+    console.warn('getStripePaymentLink is deprecated — use createCheckoutForService() instead');
     return '';
   }
 
@@ -2515,18 +2563,18 @@
                 autoCharged = true;
                 if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + ' automatically!');
               } else if (chargeData.error === 'no_card') {
-                // No saved card — fall back to payment link
-                paymentLink = getStripePaymentLink(req.service);
+                // No saved card — create a dynamic checkout session
+                paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '');
               } else if (chargeData.error === 'authentication_required') {
-                paymentLink = getStripePaymentLink(req.service);
+                paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '');
                 if (typeof toast === 'function') toast('Card requires authentication — payment link sent instead.');
               }
             } catch (chargeErr) {
-              console.warn('Auto-charge failed, falling back to payment link:', chargeErr);
-              paymentLink = getStripePaymentLink(req.service);
+              console.warn('Auto-charge failed, falling back to checkout session:', chargeErr);
+              paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '');
             }
           } else if (newStatus === 'accepted' && req.service) {
-            paymentLink = getStripePaymentLink(req.service);
+            paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '');
           }
 
           try {
