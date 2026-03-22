@@ -268,6 +268,8 @@ const HHP_Auth = window.HHP_Auth = {
         if (!this.isAuthenticated()) return false;
         if (this.currentRole === 'owner') return true;
         if (portal === 'public') return true;
+        // Staff can access client portal when viewing as a client
+        if (this.currentRole === 'staff' && portal === 'client' && window._viewingAsClient) return true;
         return this.currentRole === portal;
     },
 

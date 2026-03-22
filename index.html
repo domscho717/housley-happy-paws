@@ -3136,6 +3136,21 @@ function switchView(view) {
     }
   }
 
+  // ── "View As Client" intercept for owner/staff ──
+  if (view === 'client' && typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated()) {
+    var myRole = HHP_Auth.currentRole;
+    // If owner or staff clicks Client Portal AND we're not already in view-as mode, show picker
+    if ((myRole === 'owner' || myRole === 'staff') && !window._viewAsBypass) {
+      showClientPickerModal();
+      // Reset the dropdown to current view
+      var dd = document.getElementById('viewDropdown');
+      if (dd) dd.value = sessionStorage.getItem('hhp_last_view') || myRole;
+      return;
+    }
+    // Clear the bypass flag after use
+    window._viewAsBypass = false;
+  }
+
   var targetPage = document.getElementById('pg-'+view);
   // Add active to new page BEFORE removing from old to prevent flash
   if (targetPage) targetPage.classList.add('active');
@@ -3251,6 +3266,191 @@ function toggleSbGroup(btn) {
   }
 }
 function showPublic() { _userChosePublic = true; switchView('public'); }
+
+// ══════════════════════════════════════════════════════════════
+// ── VIEW AS CLIENT — lets owner/staff view any client's portal ──
+// ══════════════════════════════════════════════════════════════
+
+// Global state for "View As" mode
+window._viewingAsClient = null;  // { userId, fullName, profileId }
+window._viewAsBypass = false;
+
+// Helper: get the effective user ID for client portal queries
+// If viewing as a client, returns that client's user_id; otherwise returns current user's id
+function getEffectiveClientId() {
+  if (window._viewingAsClient && window._viewingAsClient.userId) {
+    return window._viewingAsClient.userId;
+  }
+  return (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser.id : null;
+}
+
+// Show the client picker modal
+async function showClientPickerModal() {
+  var old = document.getElementById('hhp-client-picker-modal');
+  if (old) old.remove();
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  var myRole = HHP_Auth.currentRole;
+  var clients = [];
+
+  try {
+    if (myRole === 'owner') {
+      // Owner sees ALL clients
+      var { data } = await sb.from('profiles').select('id, user_id, full_name, phone, pet_names, avatar_url').eq('role', 'client').order('full_name', { ascending: true });
+      clients = data || [];
+    } else if (myRole === 'staff') {
+      // Staff sees only their assigned clients
+      var user = HHP_Auth.currentUser;
+      var { data: myProfile } = await sb.from('profiles').select('id').eq('user_id', user.id).single();
+      if (myProfile) {
+        var { data: assignments } = await sb.from('staff_assignments').select('client_id').eq('staff_id', myProfile.id);
+        if (assignments && assignments.length > 0) {
+          var clientProfileIds = assignments.map(function(a) { return a.client_id; });
+          var { data } = await sb.from('profiles').select('id, user_id, full_name, phone, pet_names, avatar_url').in('id', clientProfileIds).order('full_name', { ascending: true });
+          clients = data || [];
+        }
+      }
+    }
+  } catch(e) {
+    console.warn('Client picker load error:', e);
+  }
+
+  var modal = document.createElement('div');
+  modal.id = 'hhp-client-picker-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+
+  var h = '<div style="background:white;width:100%;max-width:440px;max-height:80vh;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column">';
+
+  // Header
+  h += '<div style="padding:16px 20px;background:var(--forest,#3d5a47);color:white;flex-shrink:0">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between">';
+  h += '<div style="font-size:1rem;font-weight:700">👤 View Client Portal</div>';
+  h += '<button onclick="document.getElementById(\'hhp-client-picker-modal\').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;cursor:pointer;font-family:inherit">Close ✕</button>';
+  h += '</div>';
+  h += '<div style="font-size:0.78rem;opacity:0.8;margin-top:4px">Select a client to view their portal as if you were them</div>';
+  h += '</div>';
+
+  // Search bar
+  h += '<div style="padding:12px 20px;border-bottom:1px solid var(--border,#e8e0d4);flex-shrink:0">';
+  h += '<input type="text" id="clientPickerSearch" placeholder="Search clients..." oninput="filterClientPickerList()" style="width:100%;padding:10px 14px;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;outline:none" onfocus="this.style.borderColor=\'var(--gold,#c8963e)\'" onblur="this.style.borderColor=\'var(--border,#e8e0d4)\'">';
+  h += '</div>';
+
+  // Client list
+  h += '<div id="clientPickerList" style="overflow-y:auto;flex:1;padding:8px 12px">';
+  if (clients.length === 0) {
+    h += '<div style="padding:30px 20px;text-align:center;color:var(--mid)">';
+    h += '<div style="font-size:1.5rem;margin-bottom:8px">📭</div>';
+    h += '<div style="font-size:0.85rem">' + (myRole === 'staff' ? 'No clients assigned to you yet.' : 'No clients found.') + '</div>';
+    h += '</div>';
+  } else {
+    clients.forEach(function(c) {
+      var initials = (c.full_name || '?').split(' ').map(function(w) { return w[0]; }).join('').toUpperCase().substring(0, 2);
+      var pets = c.pet_names || '';
+      h += '<button data-client-name="' + (c.full_name || '').toLowerCase() + '" data-client-pets="' + pets.toLowerCase() + '" onclick="selectViewAsClient(\'' + c.user_id + '\',\'' + (c.full_name || '').replace(/'/g, "\\'") + '\',\'' + c.id + '\')" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border:none;background:none;cursor:pointer;border-radius:10px;transition:background 0.15s;font-family:inherit;text-align:left" onmouseenter="this.style.background=\'var(--warm,#fdf7ee)\'" onmouseleave="this.style.background=\'none\'">';
+      h += '<div style="width:40px;height:40px;border-radius:50%;background:var(--gold-pale,#fdf3e0);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.78rem;color:var(--gold-deep,#8c6b4a);flex-shrink:0">' + initials + '</div>';
+      h += '<div style="flex:1;min-width:0">';
+      h += '<div style="font-weight:600;font-size:0.88rem;color:var(--ink)">' + (c.full_name || 'Unknown') + '</div>';
+      if (pets) h += '<div style="font-size:0.75rem;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🐾 ' + pets + '</div>';
+      h += '</div>';
+      h += '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">View →</div>';
+      h += '</button>';
+    });
+  }
+  h += '</div></div>';
+
+  modal.innerHTML = h;
+  document.body.appendChild(modal);
+
+  // Focus search
+  setTimeout(function() {
+    var searchInput = document.getElementById('clientPickerSearch');
+    if (searchInput) searchInput.focus();
+  }, 100);
+}
+
+// Filter the client picker list
+function filterClientPickerList() {
+  var q = (document.getElementById('clientPickerSearch') || {}).value.toLowerCase().trim();
+  var items = document.querySelectorAll('#clientPickerList button[data-client-name]');
+  items.forEach(function(btn) {
+    var name = btn.getAttribute('data-client-name') || '';
+    var pets = btn.getAttribute('data-client-pets') || '';
+    btn.style.display = (!q || name.indexOf(q) !== -1 || pets.indexOf(q) !== -1) ? '' : 'none';
+  });
+}
+
+// When a client is selected from the picker
+function selectViewAsClient(userId, fullName, profileId) {
+  // Close the picker
+  var modal = document.getElementById('hhp-client-picker-modal');
+  if (modal) modal.remove();
+
+  // Set the viewing-as state
+  window._viewingAsClient = { userId: userId, fullName: fullName, profileId: profileId };
+
+  // Show the persistent "Viewing as" banner
+  showViewAsBanner(fullName);
+
+  // Bypass the intercept and actually navigate to client portal
+  window._viewAsBypass = true;
+  switchView('client');
+
+  // Refresh client portal data with the selected client's data
+  setTimeout(function() {
+    // Update client sidebar welcome name
+    var sbName = document.querySelector('#pg-client .sb-name');
+    if (sbName) sbName.textContent = fullName || 'Client';
+    var sbRole = document.querySelector('#pg-client .sb-role');
+    if (sbRole) sbRole.textContent = '👁 Viewing as Client';
+
+    // Load dashboard for the viewed client
+    if (typeof loadDashboardStats === 'function') loadDashboardStats();
+    if (typeof loadMyPets === 'function') loadMyPets();
+  }, 200);
+}
+
+// Show persistent banner at top of client portal
+function showViewAsBanner(clientName) {
+  var old = document.getElementById('hhp-view-as-banner');
+  if (old) old.remove();
+
+  var banner = document.createElement('div');
+  banner.id = 'hhp-view-as-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#c8963e,#a67c2e);color:white;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-family:inherit;box-shadow:0 2px 12px rgba(0,0,0,0.15)';
+  banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px">' +
+    '<div style="font-size:0.85rem">👁</div>' +
+    '<div><span style="font-weight:700;font-size:0.82rem">Viewing as: ' + (clientName || 'Client') + '</span>' +
+    '<span style="font-size:0.72rem;opacity:0.85;margin-left:8px">You\'re seeing their portal experience</span></div>' +
+    '</div>' +
+    '<button onclick="exitViewAsClient()" style="background:white;color:var(--gold-deep,#8c6b4a);border:none;border-radius:8px;padding:7px 16px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Exit View</button>';
+  document.body.appendChild(banner);
+
+  // Push page content down to account for the banner
+  document.body.style.paddingTop = '44px';
+}
+
+// Exit "View As" mode
+function exitViewAsClient() {
+  window._viewingAsClient = null;
+
+  // Remove banner
+  var banner = document.getElementById('hhp-view-as-banner');
+  if (banner) banner.remove();
+  document.body.style.paddingTop = '';
+
+  // Restore sidebar welcome text
+  var sbName = document.querySelector('#pg-client .sb-name');
+  if (sbName) sbName.textContent = 'Welcome!';
+  var sbRole = document.querySelector('#pg-client .sb-role');
+  if (sbRole) sbRole.textContent = 'Client Portal';
+
+  // Navigate back to owner/staff portal
+  var myRole = (HHP_Auth && HHP_Auth.currentRole) || 'owner';
+  switchView(myRole);
+}
 
 // View restore is now handled entirely by handleSession in auth-client.js
 // No IIFE needed — portals stay hidden (opacity:0) until auth settles
@@ -5387,7 +5587,8 @@ async function loadClientAppts(filter, tabBtn) {
   }
 
   try {
-    var query = sb.from('booking_requests').select('*').eq('client_id', user.id).order('preferred_date', { ascending: false });
+    var _cid = getEffectiveClientId() || user.id;
+    var query = sb.from('booking_requests').select('*').eq('client_id', _cid).order('preferred_date', { ascending: false });
     var today = new Date().toISOString().split('T')[0];
     if (filter === 'upcoming') query = query.gte('preferred_date', today).order('preferred_date', { ascending: true });
     else if (filter === 'past') query = query.lt('preferred_date', today);
@@ -5923,25 +6124,20 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<input type="file" id="lsp-media-input" accept="image/*,video/*" multiple style="display:none" onchange="handleLspMediaUpload(this)">';
   h += '📷 Add Photos/Videos</label></div>';
 
-  // AI Note Builder
-  h += '<div style="margin-bottom:12px;background:var(--forest-pale,#e8f0ea);border-radius:10px;padding:14px;border-left:3px solid var(--forest,#3d5a47)">';
-  h += '<div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest,#3d5a47);margin-bottom:8px">📝 Quick Note Builder</div>';
-  h += '<div style="display:flex;flex-direction:column;gap:8px">';
-  h += '<select id="lsp-ai-q1" style="' + fieldStyle + '"><option value="">Dog or Cat?</option><option value="dog">🐕 Dog</option><option value="cat">🐱 Cat</option></select>';
-  h += '<select id="lsp-ai-q3" style="' + fieldStyle + '">';
-  h += '<option value="">What happened?</option>';
-  h += '<option value="all_good">Everything went great!</option>';
-  h += '<option value="new_friend">Made a new friend</option>';
-  h += '<option value="shy">Was a little shy</option>';
-  h += '<option value="extra_energy">Had extra energy</option>';
-  h += '<option value="potty">Needed a potty break</option>';
-  h += '<option value="other">Other (I\'ll write my own)</option>';
-  h += '</select>';
-  h += '<button onclick="buildLspNote()" style="padding:8px 16px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:8px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit">✨ Generate Note</button>';
-  h += '</div></div>';
+  // Custom Note Builder (same as owner report form)
+  h += '<div style="margin-bottom:12px;background:var(--gold-pale,#fdf3e0);border-radius:10px;padding:16px;border:1px solid rgba(200,150,62,0.2)">';
+  h += '<div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold-deep,#8c6b4a);margin-bottom:12px">📝 Note Builder</div>';
+  h += '<div style="margin-bottom:10px"><div style="' + labelStyle + '">Scenario</div>';
+  h += '<select id="lsp-scenario" style="' + fieldStyle + '"><option value="great">Everything went great</option><option value="custom">Write my own</option></select></div>';
+  h += '<div id="lsp-note-fields">';
+  h += '<div id="lsp-pet-rows"></div>';
+  h += '<button type="button" onclick="addLspPetRow()" style="padding:6px 14px;background:var(--warm,#fdf7ee);border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:12px">+ Add Pet</button>';
+  h += '</div>';
+  h += '<button onclick="buildLspNote()" style="width:100%;padding:10px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:10px;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit">📝 Generate Note</button>';
+  h += '</div>';
 
-  h += '<div style="margin-bottom:16px"><div style="' + labelStyle + '">Note for Client</div>';
-  h += '<textarea id="lsp-notes" rows="4" placeholder="Use the builder above or write your own note..." style="' + fieldStyle + ';resize:vertical"></textarea></div>';
+  h += '<div style="margin-bottom:16px"><div style="' + labelStyle + '">Personal Note</div>';
+  h += '<textarea id="lsp-notes" rows="4" placeholder="Pick a scenario above and hit Generate — or write your own..." style="' + fieldStyle + ';resize:vertical"></textarea></div>';
 
   // End Service button
   h += '<button onclick="endServiceFromPanel()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">⏹ End Service & Send Report</button>';
@@ -5971,6 +6167,27 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   // Start updating the timer in the panel
   _lspTimerInterval = setInterval(updateLiveServiceTimer, 1000);
   updateLiveServiceTimer();
+
+  // ── Initialize custom Note Builder ──
+  _lspPetCount = 0; // reset pet row counter
+  // Auto-add first pet row with pet name from booking
+  addLspPetRow(petNames || '');
+
+  // Scenario change handler: hide pet fields when "Write my own"
+  var lspScenario = document.getElementById('lsp-scenario');
+  if (lspScenario) {
+    lspScenario.addEventListener('change', function() {
+      var fields = document.getElementById('lsp-note-fields');
+      var noteEl = document.getElementById('lsp-notes');
+      if (this.value === 'custom') {
+        if (fields) fields.style.display = 'none';
+        if (noteEl) { noteEl.value = ''; noteEl.placeholder = 'Write your own note here...'; }
+      } else {
+        if (fields) fields.style.display = '';
+        if (noteEl) noteEl.placeholder = 'Pick a scenario above and hit Generate — or write your own...';
+      }
+    });
+  }
 }
 
 // Handle media uploads for live service panel
@@ -6005,24 +6222,90 @@ function handleLspMediaUpload(input) {
   }
 }
 
-// AI Note Builder for live service panel
+// ── Custom Note Builder for live service panel (per-pet rows with pronouns & potty) ──
+var _lspPetCount = 0;
+
+function addLspPetRow(petName, pronounKey) {
+  var container = document.getElementById('lsp-pet-rows');
+  if (!container) return;
+  var idx = _lspPetCount++;
+  var div = document.createElement('div');
+  div.id = 'lspPetRow-' + idx;
+  div.style.cssText = 'background:white;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border,#e8e0d4)';
+  div.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+      '<span style="font-weight:600;font-size:0.82rem;color:var(--ink)">Pet ' + (idx + 1) + '</span>' +
+      (idx > 0 ? '<button type="button" onclick="this.closest(\'[id^=lspPetRow]\').remove()" style="background:none;border:none;color:var(--mid);cursor:pointer;font-size:0.78rem">✕ Remove</button>' : '') +
+    '</div>' +
+    '<div style="margin-bottom:8px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Name</div><input class="lsp-petName" placeholder="e.g. Buddy" value="' + (petName || '') + '" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:white"></div>' +
+    '<div style="display:flex;gap:12px;align-items:flex-start">' +
+      '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pronouns</div><select class="lsp-pronoun" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:white"><option value="he"' + (pronounKey === 'he' ? ' selected' : '') + '>He / Him</option><option value="she"' + (!pronounKey || pronounKey === 'she' ? ' selected' : '') + '>She / Her</option><option value="they"' + (pronounKey === 'they' ? ' selected' : '') + '>They / Them</option></select></div>' +
+      '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Potty</div><div style="display:flex;gap:12px;padding-top:6px">' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-pee" checked> Pee</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-poo"> Poo</label>' +
+      '</div></div>' +
+    '</div>';
+  container.appendChild(div);
+}
+
+function _getLspPetData() {
+  var rows = document.querySelectorAll('[id^="lspPetRow-"]');
+  var pets = [];
+  rows.forEach(function(row) {
+    var name = row.querySelector('.lsp-petName')?.value?.trim();
+    if (!name) return;
+    var pronounKey = row.querySelector('.lsp-pronoun')?.value || 'she';
+    var pee = row.querySelector('.lsp-pee')?.checked;
+    var poo = row.querySelector('.lsp-poo')?.checked;
+    var potty = (pee && poo) ? 'both' : pee ? 'pee' : poo ? 'poo' : 'none';
+    pets.push({ name: name, pronounKey: pronounKey, potty: potty });
+  });
+  return pets;
+}
+
 function buildLspNote() {
-  var type = (document.getElementById('lsp-ai-q1') || {}).value;
-  var petName = (document.getElementById('lsp-pets') || {}).value || 'your pet';
-  var situation = (document.getElementById('lsp-ai-q3') || {}).value;
-  if (!type) { toast('Please select dog or cat first!'); return; }
-  if (!situation) { toast('Please select what happened!'); return; }
-  var notes = {
-    all_good: petName + ' had such a wonderful visit today! Everything went smoothly from start to finish — ' + petName + ' was happy, well-behaved, and in great spirits the entire time. It\'s always such a joy to spend time with ' + petName + '. I can tell how well-loved ' + petName + ' is! 🐾',
-    new_friend: petName + ' had such a great time today — and made a brand new friend along the way! They hit it off right away and had the best time together. ' + petName + ' was happy, energetic, and just a total joy. What a wonderful ' + type + '! 🐾',
-    shy: petName + ' was a little reserved today, which is completely normal — some days are like that! We took it slow and by the end, ' + petName + ' was more relaxed and comfortable. These things just take time, and ' + petName + ' is doing wonderfully. 🐾',
-    extra_energy: petName + ' had SO much energy today — absolutely unstoppable! We made the most of it and had a great time. ' + petName + ' was playful, enthusiastic, and came home a happy and (slightly!) tired ' + type + '. The best kind of tired. 🐾',
-    potty: petName + ' did great today overall! We just took a little extra time for a potty break, which is totally fine. ' + petName + ' was happy and well-behaved the whole time. Always a pleasure to be with ' + petName + '! 🐾',
-    other: petName + ' had a lovely visit today. Overall a great time — ' + petName + ' is such a wonderful ' + type + ' and it\'s always a pleasure. 🐾'
+  var scenario = (document.getElementById('lsp-scenario') || {}).value;
+  if (scenario === 'custom') { document.getElementById('lsp-notes')?.focus(); return; }
+
+  var pets = _getLspPetData();
+  if (pets.length === 0) { toast('Please enter at least one pet name!'); return; }
+
+  var pronouns = {
+    he:   { sub: 'he',   obj: 'him',  pos: 'his',  pie: 'pie' },
+    she:  { sub: 'she',  obj: 'her',  pos: 'her',  pie: 'pie' },
+    they: { sub: 'they', obj: 'them', pos: 'their', pie: 'pies' }
   };
-  var noteEl = document.getElementById('lsp-notes');
-  if (noteEl) noteEl.value = notes[situation] || notes.all_good;
-  toast('✨ Note generated! Feel free to edit it.');
+  var pottyText = { pee: 'pee', poo: 'poo', both: 'both pee and poo', none: '' };
+
+  if (scenario === 'great') {
+    var note = '';
+    if (pets.length === 1) {
+      var pet = pets[0];
+      var p = pronouns[pet.pronounKey] || pronouns.she;
+      var potty = pottyText[pet.potty] || 'pee';
+      note = 'Everything went great, ' + pet.name + ' and I had a great visit today! ' +
+        p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' enjoyed lots of fresh air and sniffs, ' +
+        p.sub + ' also went ' + potty + '. Once we got back inside, ' + pet.name +
+        ' enjoyed a snack along with a drink. I refreshed ' + p.pos + ' water and gave ' +
+        p.obj + ' tons of pets on my way out. Such a cutie ' + p.pie + '!!';
+    } else {
+      var allNames = pets.map(function(pe) { return pe.name; });
+      var nameList = allNames.length === 2 ? allNames.join(' and ') : allNames.slice(0, -1).join(', ') + ', and ' + allNames[allNames.length - 1];
+      note = 'Everything went great, ' + nameList + ' and I had a wonderful visit today! ';
+      var pottyParts = [];
+      pets.forEach(function(pet) {
+        if (pet.potty && pet.potty !== 'none') {
+          pottyParts.push(pet.name + ' went ' + (pottyText[pet.potty] || 'pee'));
+        }
+      });
+      if (pottyParts.length > 0) { note += pottyParts.join(', and ') + '. '; }
+      note += 'Once we got back inside, everyone enjoyed a snack along with a drink. I refreshed their water and gave them all tons of pets on my way out. Such cutie pies!!';
+    }
+
+    var noteEl = document.getElementById('lsp-notes');
+    if (noteEl) noteEl.value = note;
+    toast('📝 Note ready! Feel free to edit it.');
+  }
 }
 
 var _lspTimerInterval = null;
@@ -6181,7 +6464,10 @@ async function endServiceFromPanel() {
     };
 
     var { error: rptErr } = await sb.from('service_reports').insert(reportData);
-    if (rptErr) console.warn('Report save error:', rptErr);
+    if (rptErr) {
+      console.warn('Report save error:', JSON.stringify(rptErr));
+      toast('⚠️ Report save issue: ' + (rptErr.message || JSON.stringify(rptErr)));
+    }
 
     // ── Send "Service Complete" notification + report summary to client ──
     var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
@@ -6210,13 +6496,30 @@ async function endServiceFromPanel() {
     // Update booking status to completed
     if (d.bookingId) {
       try {
-        await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
-      } catch(e) { console.warn('Booking status update error:', e); }
+        var { error: bkErr } = await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
+        if (bkErr) console.warn('Booking status update error:', JSON.stringify(bkErr));
+      } catch(e) { console.warn('Booking status update error:', JSON.stringify(e)); }
     }
 
-    // Close panel
+    // ── Show success confirmation inside the panel before closing ──
     var panel = document.getElementById('hhp-live-service-panel');
-    if (panel) panel.remove();
+    if (panel) {
+      var inner = panel.querySelector('div');
+      if (inner) {
+        inner.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:40px 20px;text-align:center">' +
+          '<div style="font-size:3rem;margin-bottom:16px">✅</div>' +
+          '<div style="font-size:1.2rem;font-weight:700;color:var(--forest,#3d5a47);margin-bottom:8px">Service Completed!</div>' +
+          '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:6px">Report saved & sent to client</div>' +
+          '<div style="font-size:0.78rem;color:var(--mid)">' + reportService + (reportPets ? ' for ' + reportPets : '') + ' — ' + durMin + ' min</div>' +
+          '<div style="margin-top:24px;font-size:0.75rem;color:var(--mid)">Closing in a moment...</div>' +
+          '</div>';
+      }
+      // Auto-close after 2.5 seconds
+      setTimeout(function() {
+        var p = document.getElementById('hhp-live-service-panel');
+        if (p) p.remove();
+      }, 2500);
+    }
     window._liveServiceData = null;
 
     toast('✅ Service completed & report sent!');
@@ -6226,8 +6529,8 @@ async function endServiceFromPanel() {
     if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
 
   } catch (e) {
-    console.error('End service error:', e);
-    toast('❌ Failed to end: ' + (e.message || 'Unknown error'));
+    console.error('End service error:', JSON.stringify(e));
+    toast('❌ Failed to end: ' + (e.message || JSON.stringify(e) || 'Unknown error'));
     if (endBtn) { endBtn.disabled = false; endBtn.innerHTML = '⏹ End Service & Send Report'; }
   }
 }
@@ -7516,7 +7819,8 @@ async function loadMyPets() {
   if (!sb || !user) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Sign in to manage your pets.</div>'; return; }
 
   try {
-    var { data, error } = await sb.from('pets').select('*').eq('owner_id', user.id).order('created_at', { ascending: true });
+    var _pid = getEffectiveClientId() || user.id;
+    var { data, error } = await sb.from('pets').select('*').eq('owner_id', _pid).order('created_at', { ascending: true });
     if (error) throw error;
     _myPets = data || [];
     if (countEl) countEl.textContent = _myPets.length + ' Pet' + (_myPets.length !== 1 ? 's' : '');
@@ -8584,7 +8888,7 @@ async function loadLiveTracking() {
     var today = new Date().toISOString().split('T')[0];
     var todayBookings = await sb.from('bookings')
       .select('*')
-      .eq('client_id', window.HHP_Auth.currentUser.id)
+      .eq('client_id', getEffectiveClientId() || window.HHP_Auth.currentUser.id)
       .eq('date', today)
       .eq('status', 'confirmed');
 
@@ -9178,7 +9482,7 @@ async function loadClientReports() {
     var { data: reports, error } = await HHP_Auth.supabase
       .from('service_reports')
       .select('*')
-      .eq('client_id', HHP_Auth.currentUser.id)
+      .eq('client_id', getEffectiveClientId() || HHP_Auth.currentUser.id)
       .order('report_date', { ascending: false });
 
     if (error) throw error;
@@ -10090,26 +10394,34 @@ document.addEventListener('DOMContentLoaded', function() {
         role = profile ? profile.role : null;
       }
 
-      if (role === 'client') {
-        // CLIENT DASHBOARD STATS
+      // ── VIEW AS CLIENT override: if owner/staff is viewing as a client, load client stats ──
+      var effectiveRole = role;
+      var effectiveUserId = userId;
+      if (window._viewingAsClient && window._viewingAsClient.userId) {
+        effectiveRole = 'client';
+        effectiveUserId = window._viewingAsClient.userId;
+      }
+
+      if (effectiveRole === 'client') {
+        // CLIENT DASHBOARD STATS (uses effectiveUserId for View As support)
         // Total Visits — count all bookings for this client
-        const { count: totalVisits } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('client_id', userId);
+        const { count: totalVisits } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId);
         const el = document.getElementById('stat-totalVisits');
         if (el) el.textContent = totalVisits || '0';
 
         // Walks Done — count bookings where service='Dog Walking' (or similar)
-        const { count: walksDone } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('client_id', userId).in('service', ['Dog Walking', 'Dog Walk']);
+        const { count: walksDone } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('service', ['Dog Walking', 'Dog Walk']);
         const el2 = document.getElementById('stat-walksDone');
         if (el2) el2.textContent = walksDone || '0';
 
         // Reports Received — count of service reports for this client
-        const { count: reportsReceived } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('client_id', userId);
+        const { count: reportsReceived } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId);
         const el3 = document.getElementById('stat-avgRatingGiven');
         if (el3) el3.textContent = (reportsReceived || 0);
 
         // Pets in Care — count pets owned by this client
         try {
-          const { count: petsCount } = await sb.from('pets').select('*', { count: 'exact', head: true }).eq('client_id', userId);
+          const { count: petsCount } = await sb.from('pets').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId);
           const el4 = document.getElementById('stat-petsInCare');
           if (el4) el4.textContent = petsCount || '0';
         } catch(e) {
@@ -10123,7 +10435,7 @@ document.addEventListener('DOMContentLoaded', function() {
           try {
             var today = new Date().toISOString().split('T')[0];
             var { data: upcoming } = await sb.from('bookings').select('id, service, date, time_slot, status, pet_names')
-              .eq('client_id', userId).gte('date', today).order('date', { ascending: true }).limit(4);
+              .eq('client_id', effectiveUserId).gte('date', today).order('date', { ascending: true }).limit(4);
             if (upcoming && upcoming.length > 0) {
               var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
               var h = '';
@@ -10148,7 +10460,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (notifEl) {
           try {
             var { data: notifs } = await sb.from('notifications').select('id, title, body, type, created_at, read')
-              .eq('user_id', userId).order('created_at', { ascending: false }).limit(5);
+              .eq('user_id', effectiveUserId).order('created_at', { ascending: false }).limit(5);
             if (notifs && notifs.length > 0) {
               var nh = '';
               notifs.forEach(function(n) {
