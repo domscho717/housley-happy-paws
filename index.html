@@ -5660,31 +5660,40 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) { toast('❌ Not logged in'); return; }
 
+  // Sanitize clientId — empty string should become null (UUID column)
+  if (!clientId || clientId === 'null' || clientId === 'undefined') clientId = null;
+
   // Show loading state on button
-  var btn = event && event.target ? event.target.closest('button') : null;
-  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Starting...'; }
+  try { var btn = document.querySelector('#bookingDetailContent button[onclick*="startServiceFromDrawer"]'); if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Starting...'; } } catch(e2) {}
 
   try {
-    // Fetch booking details for timer (client name, address)
-    var clientName = '', address = '';
+    // Fetch booking details for timer + notifications
+    var clientName = '', address = '', contactEmail = '';
     try {
-      var { data: bkInfo } = await sb.from('booking_requests').select('contact_name, address').eq('id', bookingId).maybeSingle();
-      if (bkInfo) { clientName = bkInfo.contact_name || ''; address = bkInfo.address || ''; }
+      var { data: bkInfo } = await sb.from('booking_requests').select('contact_name, address, contact_email, client_id').eq('id', bookingId).maybeSingle();
+      if (bkInfo) {
+        clientName = bkInfo.contact_name || '';
+        address = bkInfo.address || '';
+        contactEmail = bkInfo.contact_email || '';
+        if (!clientId && bkInfo.client_id) clientId = bkInfo.client_id;
+      }
     } catch(e) {}
 
     var walk = null;
 
     if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.startWalk === 'function') {
       walk = await HHP_Tracking.startWalk(bookingId, clientId, service, petNames);
-    } else {
+    }
+
+    if (!walk) {
       // Fallback: create a walk record directly
       var startTime = new Date().toISOString();
       var { data: walkData, error } = await sb.from('walks').insert({
-        booking_id: bookingId,
+        booking_id: bookingId || null,
         walker_id: user.id,
         client_id: clientId || null,
         service: service,
-        pet_names: petNames,
+        pet_name: petNames || null,
         status: 'in_progress',
         start_time: startTime
       }).select().single();
@@ -5693,7 +5702,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
       toast('▶ Service started!');
     }
 
-    // Close drawer AFTER service successfully started
+    // Close the booking detail drawer
     closeBookingDetail();
 
     // Start the live timer overlay
@@ -5701,40 +5710,309 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
       HHP_ServiceTimer.startTimer(walk.id, service, walk.start_time || new Date().toISOString(), petNames, clientName, bookingId, address);
     }
 
+    // ── Send "Service Started" notification to client ──
+    if (clientId) {
+      var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
+      var startMsg = '🟢 ' + staffName + ' has started ' + (petNames ? petNames + '\'s ' : 'your ') + service + '! You can track progress in your portal under Live Tracking.';
+      try {
+        await sb.from('messages').insert({ sender_id: user.id, recipient_id: clientId, body: startMsg });
+      } catch(e) { console.warn('Start notification error:', e); }
+    }
+
+    // ── Open the live service report panel ──
+    openLiveServicePanel(walk, service, petNames, clientName, bookingId, address);
+
     // Refresh schedules
     if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
     if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
   } catch (e) {
     console.error('Start service error:', e);
     toast('❌ Failed to start: ' + (e.message || 'Unknown error'));
-    if (btn) { btn.disabled = false; btn.innerHTML = '▶ Start Service'; }
+    try { var btn2 = document.querySelector('#bookingDetailContent button[onclick*="startServiceFromDrawer"]'); if (btn2) { btn2.disabled = false; btn2.innerHTML = '▶ Start Service'; } } catch(e3) {}
+  }
+}
+
+// ── LIVE SERVICE PANEL — ongoing report shown during active service ──
+function openLiveServicePanel(walk, service, petNames, clientName, bookingId, address) {
+  // Remove existing panel if any
+  var old = document.getElementById('hhp-live-service-panel');
+  if (old) old.remove();
+
+  var panel = document.createElement('div');
+  panel.id = 'hhp-live-service-panel';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;justify-content:center;';
+
+  var svcLower = (service || '').toLowerCase();
+  var isDogWalk = svcLower.indexOf('walk') !== -1;
+  var showDistance = isDogWalk;
+  var showRoute = isDogWalk;
+
+  var startTimeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  var dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  var h = '';
+  h += '<div style="background:white;width:100%;max-width:500px;max-height:92vh;border-radius:20px 20px 0 0;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);padding:0">';
+
+  // Header
+  h += '<div style="padding:16px 20px 12px;background:var(--forest,#3d5a47);color:white;border-radius:20px 20px 0 0">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<div style="font-size:1rem;font-weight:700">▶ Service In Progress</div>';
+  h += '<button onclick="minimizeLiveServicePanel()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit">Minimize ▼</button>';
+  h += '</div>';
+  h += '<div style="font-size:0.85rem;opacity:0.9">' + service + '</div>';
+  h += '<div style="font-size:0.78rem;opacity:0.7">Started at ' + startTimeStr + '</div>';
+  h += '</div>';
+
+  // Live timer area
+  h += '<div style="padding:16px 20px;background:var(--warm,#fdf7ee);border-bottom:1px solid var(--border,#e8e0d4)">';
+  h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">';
+  h += '<div style="width:12px;height:12px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></div>';
+  h += '<span style="font-size:0.85rem;font-weight:700;color:var(--forest,#3d5a47)" id="lsp-timer-label">Elapsed: 0:00</span>';
+  h += '</div>';
+  h += '<div id="lsp-timer-bar" style="height:6px;background:var(--border,#e8e0d4);border-radius:3px;overflow:hidden"><div id="lsp-timer-fill" style="height:100%;background:var(--gold,#c8963e);border-radius:3px;width:0%;transition:width 1s linear"></div></div>';
+  h += '</div>';
+
+  // Report fields (auto-filled)
+  h += '<div style="padding:16px 20px">';
+
+  // Date
+  h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Date</div>';
+  h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)">' + dateStr + '</div></div>';
+
+  // Client
+  if (clientName) {
+    h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Client</div>';
+    h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)">' + clientName + '</div></div>';
+  }
+
+  // Pets
+  if (petNames) {
+    h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pets</div>';
+    h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)">' + petNames + '</div></div>';
+  }
+
+  // Address
+  if (address) {
+    h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Location</div>';
+    h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)">' + address + '</div></div>';
+  }
+
+  // Arrival time
+  h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Arrival Time</div>';
+  h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)" id="lsp-arrival">' + startTimeStr + '</div></div>';
+
+  // Distance (dog walk only)
+  if (showDistance) {
+    h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Distance</div>';
+    h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)" id="lsp-distance">Tracking...</div></div>';
+  }
+
+  // Mood select
+  h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pet Mood</div>';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap" id="lsp-mood-btns">';
+  ['😊 Happy', '😴 Calm', '🥳 Excited', '😰 Anxious', '😋 Hungry'].forEach(function(m) {
+    var val = m.split(' ')[1];
+    h += '<button onclick="this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--warm,#fdf7ee)\';b.style.color=\'var(--ink)\';});this.style.background=\'var(--forest,#3d5a47)\';this.style.color=\'white\';document.getElementById(\'lsp-mood-val\').value=\'' + val + '\'" style="padding:6px 12px;border-radius:20px;border:1px solid var(--border,#e8e0d4);background:var(--warm,#fdf7ee);font-size:0.78rem;cursor:pointer;font-family:inherit">' + m + '</button>';
+  });
+  h += '</div><input type="hidden" id="lsp-mood-val" value=""></div>';
+
+  // Notes textarea
+  h += '<div style="margin-bottom:16px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Notes</div>';
+  h += '<textarea id="lsp-notes" rows="3" placeholder="How did the visit go? Any notes for the client..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.88rem;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea></div>';
+
+  // End Service button
+  h += '<button onclick="endServiceFromPanel()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">⏹ End Service & Send Report</button>';
+
+  h += '</div></div>';
+
+  panel.innerHTML = h;
+
+  // Click overlay to minimize (not close)
+  panel.addEventListener('click', function(e) { if (e.target === panel) minimizeLiveServicePanel(); });
+
+  document.body.appendChild(panel);
+
+  // Store walk data for end handler
+  window._liveServiceData = {
+    walkId: walk ? walk.id : null,
+    bookingId: bookingId,
+    clientId: clientId,
+    service: service,
+    petNames: petNames,
+    clientName: clientName,
+    address: address,
+    startTime: walk ? walk.start_time : new Date().toISOString()
+  };
+
+  // Start updating the timer in the panel
+  _lspTimerInterval = setInterval(updateLiveServiceTimer, 1000);
+  updateLiveServiceTimer();
+}
+
+var _lspTimerInterval = null;
+
+function updateLiveServiceTimer() {
+  var d = window._liveServiceData;
+  if (!d || !d.startTime) return;
+  var elapsed = Math.floor((Date.now() - new Date(d.startTime).getTime()) / 1000);
+  var min = Math.floor(elapsed / 60);
+  var sec = elapsed % 60;
+  var label = document.getElementById('lsp-timer-label');
+  if (label) label.textContent = 'Elapsed: ' + min + ':' + (sec < 10 ? '0' : '') + sec;
+
+  // Progress bar based on service duration
+  var durMin = (typeof HHP_ServiceTimer !== 'undefined') ? HHP_ServiceTimer.parseServiceDuration(d.service) : null;
+  var fill = document.getElementById('lsp-timer-fill');
+  if (fill && durMin) {
+    var pct = Math.min((elapsed / 60) / durMin * 100, 100);
+    fill.style.width = pct + '%';
+    fill.style.background = pct >= 100 ? 'var(--rose,#c25656)' : 'var(--gold,#c8963e)';
+  }
+
+  // Update distance if tracking
+  if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.getActiveWalkId && HHP_Tracking.getActiveWalkId()) {
+    var distEl = document.getElementById('lsp-distance');
+    if (distEl && window._trackingDistance) {
+      distEl.textContent = window._trackingDistance.toFixed(2) + ' mi';
+    }
+  }
+}
+
+function minimizeLiveServicePanel() {
+  var panel = document.getElementById('hhp-live-service-panel');
+  if (panel) panel.style.display = 'none';
+  // Timer overlay from service-timer.js is still visible
+}
+
+function reopenLiveServicePanel() {
+  var panel = document.getElementById('hhp-live-service-panel');
+  if (panel) panel.style.display = 'flex';
+}
+
+// ── END SERVICE from live panel — stop timer, fill report, send to client ──
+async function endServiceFromPanel() {
+  var d = window._liveServiceData;
+  if (!d || !d.walkId) { toast('❌ No active service'); return; }
+
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+
+  // Disable the button
+  var endBtn = document.querySelector('#hhp-live-service-panel button[onclick*="endServiceFromPanel"]');
+  if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '⏳ Ending...'; }
+
+  try {
+    var endTime = new Date().toISOString();
+
+    // End the walk in DB
+    await sb.from('walks').update({ status: 'completed', end_time: endTime }).eq('id', d.walkId);
+
+    // Stop GPS tracking
+    if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.getActiveWalkId && HHP_Tracking.getActiveWalkId() === d.walkId) {
+      // endWalk handles GPS stop + route summary — but we already updated, so just stop GPS
+      try { if (typeof HHP_Tracking._stopGPS === 'function') HHP_Tracking._stopGPS(); } catch(e) {}
+    }
+
+    // Stop the timer
+    if (typeof HHP_ServiceTimer !== 'undefined') HHP_ServiceTimer.stopTimer();
+    if (_lspTimerInterval) { clearInterval(_lspTimerInterval); _lspTimerInterval = null; }
+
+    // Calculate duration
+    var startMs = new Date(d.startTime).getTime();
+    var endMs = new Date(endTime).getTime();
+    var durMin = Math.round((endMs - startMs) / 60000);
+    var durLabel = durMin > 45 ? '1 hour' : '30 min';
+
+    var mood = document.getElementById('lsp-mood-val') ? document.getElementById('lsp-mood-val').value : '';
+    var notes = document.getElementById('lsp-notes') ? document.getElementById('lsp-notes').value.trim() : '';
+
+    // Build departure time
+    var departureStr = new Date(endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    var arrivalStr = new Date(d.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    // Save the service report
+    var reportData = {
+      client_id: d.clientId || null,
+      author_id: user.id,
+      service: d.service,
+      report_date: new Date().toISOString().split('T')[0],
+      duration: durLabel,
+      arrival_time: arrivalStr,
+      departure_time: departureStr,
+      mood: mood || null,
+      pet_name: d.petNames || null,
+      personal_note: notes || null,
+      booking_id: d.bookingId || null
+    };
+
+    var { error: rptErr } = await sb.from('service_reports').insert(reportData);
+    if (rptErr) console.warn('Report save error:', rptErr);
+
+    // ── Send "Service Complete" notification + report summary to client ──
+    if (d.clientId) {
+      var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
+      var endMsg = '✅ ' + staffName + ' has completed ' + (d.petNames ? d.petNames + '\'s ' : 'your ') + d.service + '!\n';
+      endMsg += '⏱ Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')';
+      if (mood) endMsg += '\n😊 Mood: ' + mood;
+      if (notes) endMsg += '\n📝 Notes: ' + notes;
+      endMsg += '\n\nYou can view the full report in your portal under Walk Reports.';
+
+      try {
+        await sb.from('messages').insert({ sender_id: user.id, recipient_id: d.clientId, body: endMsg });
+      } catch(e) { console.warn('End notification error:', e); }
+    }
+
+    // Update booking status to completed
+    if (d.bookingId) {
+      try {
+        await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
+      } catch(e) { console.warn('Booking status update error:', e); }
+    }
+
+    // Close panel
+    var panel = document.getElementById('hhp-live-service-panel');
+    if (panel) panel.remove();
+    window._liveServiceData = null;
+
+    toast('✅ Service completed & report sent!');
+
+    // Refresh schedules
+    if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+    if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
+
+  } catch (e) {
+    console.error('End service error:', e);
+    toast('❌ Failed to end: ' + (e.message || 'Unknown error'));
+    if (endBtn) { endBtn.disabled = false; endBtn.innerHTML = '⏹ End Service & Send Report'; }
   }
 }
 
 // Stop service from the detail drawer
 async function stopServiceFromDrawer(walkId) {
-  // Stop the timer overlay
-  if (typeof HHP_ServiceTimer !== 'undefined') HHP_ServiceTimer.stopTimer();
-  if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.endWalk === 'function') {
-    closeBookingDetail();
-    HHP_Tracking.endWalk(walkId);
-    return;
-  }
+  closeBookingDetail();
+  // If the live service panel already exists, just reopen it for the end flow
+  var lsp = document.getElementById('hhp-live-service-panel');
+  if (lsp) { lsp.style.display = 'flex'; return; }
+
+  // Otherwise, fetch the walk data and open a fresh panel for ending
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   if (!sb) { toast('❌ Not logged in'); return; }
   try {
-    var { error } = await sb.from('walks').update({
-      status: 'completed',
-      end_time: new Date().toISOString()
-    }).eq('id', walkId);
-    if (error) throw error;
-    toast('⏹ Service completed!');
-    closeBookingDetail();
-    if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
-    if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
+    var { data: walk } = await sb.from('walks').select('*').eq('id', walkId).single();
+    if (walk) {
+      var clientName = '', address = '';
+      if (walk.booking_id) {
+        try {
+          var { data: bk } = await sb.from('booking_requests').select('contact_name, address').eq('id', walk.booking_id).maybeSingle();
+          if (bk) { clientName = bk.contact_name || ''; address = bk.address || ''; }
+        } catch(e) {}
+      }
+      openLiveServicePanel(walk, walk.service, walk.pet_name, clientName, walk.booking_id, address);
+    }
   } catch (e) {
     console.error('Stop service error:', e);
-    toast('❌ Failed to stop service');
+    toast('❌ Failed to load service data');
   }
 }
 

@@ -113,9 +113,16 @@
     el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;background:var(--forest,#3d5a47);color:white;border-radius:18px;padding:16px 20px;min-width:240px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:inherit;transition:all 0.3s;cursor:pointer;user-select:none;';
     el.innerHTML = '<div id="hhp-timer-inner"></div>';
 
-    // Toggle expand/collapse on click
+    // Click timer to reopen the live service panel (if it exists but is hidden)
     el.addEventListener('click', function(e) {
       if (e.target.tagName === 'BUTTON') return;
+      if (typeof reopenLiveServicePanel === 'function') {
+        var panel = document.getElementById('hhp-live-service-panel');
+        if (panel && panel.style.display === 'none') {
+          reopenLiveServicePanel();
+          return;
+        }
+      }
       el.classList.toggle('hhp-timer-expanded');
       updateTimerDisplay();
     });
