@@ -2814,6 +2814,18 @@ try {
   </div>
 </div>
 
+<!-- BOOKING DETAIL DRAWER -->
+<div id="bookingDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;opacity:0;transition:opacity 0.25s" onclick="if(event.target===this)closeBookingDetail()">
+  <div id="bookingDetailDrawer" style="position:fixed;bottom:0;left:0;right:0;max-height:88vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;transform:translateY(100%);transition:transform 0.3s ease;overflow-y:auto;padding:0">
+    <!-- Drag handle -->
+    <div style="padding:10px 0 4px;text-align:center;cursor:grab" onclick="closeBookingDetail()">
+      <div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div>
+    </div>
+    <!-- Content populated by JS -->
+    <div id="bookingDetailContent" style="padding:4px 20px 28px"></div>
+  </div>
+</div>
+
 <script>
 // ---- ABOUT SLIDESHOW ----
 const aboutSS = {
@@ -5215,17 +5227,17 @@ function showCalDetail(key, label, el) {
                                  '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600;margin-left:4px">❌ Unpaid</span>';
           }
 
-          html += '<div style="background:var(--warm);border-radius:8px;padding:10px 12px;margin-bottom:6px">';
+          var detailRole = isOwner ? 'owner' : isClient ? 'client' : 'staff';
+          html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'' + detailRole + '\',\'booking_requests\')" style="cursor:pointer;background:var(--warm);border-radius:8px;padding:10px 12px;margin-bottom:6px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
           html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">';
           html += '<div style="font-weight:600;font-size:0.88rem">' + icon + ' ' + svc + '</div>';
           html += '<div>' + statusBadge + paidBadge + '</div>';
           html += '</div>';
           if (b.pet_names) html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:3px">Pets: ' + b.pet_names + '</div>';
-          // Client name: only show for owner and staff, not client (they know who they are)
           if (b.contact_name && (isOwner || parentId === 'sCalWrap')) html += '<div style="font-size:0.8rem;color:var(--mid)">Client: ' + b.contact_name + '</div>';
           if (b.preferred_time) html += '<div style="font-size:0.8rem;color:var(--mid)">Time: ' + fmt12h(b.preferred_time) + '</div>';
-          // Amount: show for owner and client
           if (b.estimated_total > 0 && (isOwner || isClient)) html += '<div style="font-size:0.8rem;color:var(--mid)">Amount: $' + Number(b.estimated_total).toFixed(2) + '</div>';
+          html += '<div style="font-size:0.72rem;color:var(--gold-deep);font-weight:600;margin-top:4px;text-align:right">View Full Details →</div>';
           html += '</div>';
         });
       } else {
@@ -5327,7 +5339,7 @@ async function loadClientAppts(filter, tabBtn) {
       var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
       var timeDisplay = fmt12h(b.preferred_time) || '';
 
-      html += '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : 'var(--mid)') + '">';
+      html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : 'var(--mid)') + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
       html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
       html += '<div style="flex:1;min-width:0">';
       html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + '</div>';
@@ -5341,9 +5353,7 @@ async function loadClientAppts(filter, tabBtn) {
         html += '<span class="cancel-badge">CANCELED</span>';
       }
       html += '</div>';
-      if (b.status === 'accepted') {
-        html += '<button class="cancel-btn" onclick="openCancelModal(\'' + b.id + '\',\'' + (b.service || '').replace(/'/g, "\\'") + '\',\'' + b.preferred_date + '\',\'' + (user.full_name || user.email).replace(/'/g, "\\'") + '\',false,\'client\')">Cancel</button>';
-      }
+      html += '<div style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">View Details →</div>';
       html += '<div style="display:flex;gap:4px;align-items:center">';
       html += paidBadge;
       if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
@@ -5356,6 +5366,298 @@ async function loadClientAppts(filter, tabBtn) {
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
   }
 }
+// ── BOOKING DETAIL DRAWER ──
+function openBookingDetail() {
+  var overlay = document.getElementById('bookingDetailOverlay');
+  var drawer = document.getElementById('bookingDetailDrawer');
+  if (!overlay || !drawer) return;
+  overlay.style.display = '';
+  requestAnimationFrame(function() {
+    overlay.style.opacity = '1';
+    drawer.style.transform = 'translateY(0)';
+  });
+}
+function closeBookingDetail() {
+  var overlay = document.getElementById('bookingDetailOverlay');
+  var drawer = document.getElementById('bookingDetailDrawer');
+  if (!overlay || !drawer) return;
+  overlay.style.opacity = '0';
+  drawer.style.transform = 'translateY(100%)';
+  setTimeout(function() { overlay.style.display = 'none'; }, 300);
+}
+
+// role: 'client', 'owner', or 'staff'
+// source: 'booking_requests' or 'bookings' (which table the ID is from)
+async function showBookingDetail(bookingId, role, source) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  var content = document.getElementById('bookingDetailContent');
+  if (!content) return;
+  content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--mid)"><div style="font-size:1.5rem;margin-bottom:8px">⏳</div>Loading...</div>';
+  openBookingDetail();
+
+  try {
+    var b = null;
+    var table = source || 'booking_requests';
+    var { data, error } = await sb.from(table).select('*').eq('id', bookingId).maybeSingle();
+    if (error) throw error;
+    b = data;
+    if (!b) { content.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)">Booking not found.</div>'; return; }
+
+    // Determine date and time fields based on source table
+    var dateVal = b.scheduled_date || b.preferred_date || b.date || '';
+    var timeVal = b.scheduled_time || b.preferred_time || b.time_slot || '';
+    var dateDisplay = dateVal ? new Date(dateVal + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD';
+    var timeDisplay = (typeof fmt12h === 'function') ? fmt12h(timeVal) : timeVal;
+    var svc = b.service || 'Pet Care';
+    var svcLower = svc.toLowerCase();
+
+    // Service icon
+    var icon = '📅';
+    if (svcLower.indexOf('walk') !== -1) icon = '🦮';
+    else if (svcLower.indexOf('drop') !== -1) icon = '🐾';
+    else if (svcLower.indexOf('cat') !== -1) icon = '🐱';
+    else if (svcLower.indexOf('house') !== -1) icon = '🏡';
+    else if (svcLower.indexOf('meet') !== -1) icon = '🤝';
+    else if (svcLower.indexOf('board') !== -1) icon = '🌙';
+    else if (svcLower.indexOf('day care') !== -1) icon = '☀️';
+
+    // Status badge
+    var statusColors = { pending: '#e0a800', accepted: '#28a745', confirmed: '#28a745', completed: '#17a2b8', canceled: '#dc3545', rejected: '#6c757d' };
+    var statusLabels = { pending: 'Pending', accepted: 'Confirmed', confirmed: 'Confirmed', completed: 'Completed', canceled: 'Canceled', rejected: 'Declined' };
+    var st = b.status || 'pending';
+    var stColor = statusColors[st] || '#6c757d';
+    var stLabel = statusLabels[st] || st;
+
+    // Check payment status (look in payments table)
+    var isPaid = false;
+    var paymentInfo = null;
+    try {
+      var email = b.contact_email || b.client_email || '';
+      if (email && dateVal) {
+        var { data: pays } = await sb.from('payments').select('*').eq('client_email', email).ilike('service', '%' + svc.split(' - ')[0] + '%').order('paid_at', { ascending: false }).limit(1);
+        if (pays && pays.length > 0) {
+          isPaid = true;
+          paymentInfo = pays[0];
+        }
+      }
+    } catch(pe) { console.warn('Payment check:', pe); }
+
+    // Build the HTML
+    var h = '';
+
+    // Header with icon and service name
+    h += '<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">';
+    h += '<div style="font-size:2.2rem">' + icon + '</div>';
+    h += '<div style="flex:1"><div style="font-size:1.15rem;font-weight:700;color:var(--ink)">' + svc + '</div>';
+    h += '<span style="display:inline-block;background:' + stColor + ';color:white;font-size:0.72rem;font-weight:700;padding:3px 12px;border-radius:50px;text-transform:uppercase;margin-top:4px">' + stLabel + '</span>';
+    h += '</div></div>';
+
+    // Payment badge (owner/staff only get the big verified/unverified badge)
+    if (role === 'owner' || role === 'staff') {
+      if (b.estimated_total > 0 || isPaid) {
+        if (isPaid) {
+          h += '<div style="background:#d4edda;border:1.5px solid #28a745;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
+          h += '<div style="font-size:1.4rem">✅</div>';
+          h += '<div><div style="font-weight:700;color:#155724;font-size:0.9rem">Payment Verified</div>';
+          h += '<div style="font-size:0.78rem;color:#155724">' + (paymentInfo ? '$' + Number(paymentInfo.amount / 100).toFixed(2) + ' paid' + (paymentInfo.paid_at ? ' on ' + new Date(paymentInfo.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') : 'Paid') + '</div>';
+          h += '</div></div>';
+        } else {
+          h += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
+          h += '<div style="font-size:1.4rem">❌</div>';
+          h += '<div><div style="font-weight:700;color:#c62828;font-size:0.9rem">Payment Not Received</div>';
+          if (b.estimated_total) h += '<div style="font-size:0.78rem;color:#c62828">$' + Number(b.estimated_total).toFixed(2) + ' outstanding</div>';
+          h += '</div></div>';
+        }
+      } else {
+        // Free service (e.g. Meet & Greet)
+        h += '<div style="background:#e8f4fd;border:1.5px solid #0288d1;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
+        h += '<div style="font-size:1.4rem">🆓</div>';
+        h += '<div><div style="font-weight:700;color:#01579b;font-size:0.9rem">Complimentary Service</div>';
+        h += '<div style="font-size:0.78rem;color:#01579b">No charge for this service</div></div></div>';
+      }
+    }
+
+    // Info rows
+    h += '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">';
+
+    // Date & Time
+    h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
+    h += '<div style="font-size:1.1rem">📅</div>';
+    h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Date & Time</div>';
+    h += '<div style="font-weight:600;color:var(--ink);font-size:0.9rem">' + dateDisplay + '</div>';
+    if (timeDisplay) h += '<div style="font-size:0.85rem;color:var(--mid)">' + timeDisplay + '</div>';
+    h += '</div></div>';
+
+    // End date for house sitting
+    if (b.end_date) {
+      var endDisplay = new Date(b.end_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
+      h += '<div style="font-size:1.1rem">🏁</div>';
+      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">End Date</div>';
+      h += '<div style="font-weight:600;color:var(--ink);font-size:0.9rem">' + endDisplay + '</div></div></div>';
+    }
+
+    // Pets
+    if (b.pet_names) {
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
+      h += '<div style="font-size:1.1rem">🐾</div>';
+      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Pets</div>';
+      h += '<div style="font-weight:600;color:var(--ink);font-size:0.9rem">' + b.pet_names + '</div></div></div>';
+    }
+
+    // Client name (owner/staff only)
+    if ((role === 'owner' || role === 'staff') && b.contact_name) {
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
+      h += '<div style="font-size:1.1rem">👤</div>';
+      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Client</div>';
+      h += '<div style="font-weight:600;color:var(--ink);font-size:0.9rem">' + b.contact_name + '</div>';
+      if (b.contact_email) h += '<div style="font-size:0.8rem;color:var(--mid)">' + b.contact_email + '</div>';
+      if (b.contact_phone) h += '<div style="font-size:0.8rem;color:var(--mid)">' + b.contact_phone + '</div>';
+      h += '</div></div>';
+    }
+
+    // Address (owner/staff only)
+    if ((role === 'owner' || role === 'staff') && b.address) {
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
+      h += '<div style="font-size:1.1rem">📍</div>';
+      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Address</div>';
+      h += '<div style="font-weight:600;color:var(--ink);font-size:0.9rem">' + b.address + '</div></div></div>';
+    }
+
+    // Special notes
+    if (b.special_notes) {
+      h += '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
+      h += '<div style="font-size:1.1rem">📝</div>';
+      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Notes</div>';
+      h += '<div style="font-size:0.88rem;color:var(--ink);font-style:italic">"' + b.special_notes + '"</div></div></div>';
+    }
+
+    // Amount (client sees this)
+    if (role === 'client' && b.estimated_total > 0) {
+      h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
+      h += '<div style="font-size:1.1rem">💲</div>';
+      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Amount</div>';
+      h += '<div style="font-weight:700;color:var(--ink);font-size:1rem">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+      h += '<div style="font-size:0.78rem;color:var(--mid)">' + (isPaid ? '✅ Paid' : '⏳ Payment pending') + '</div>';
+      h += '</div></div>';
+    }
+
+    h += '</div>'; // end info rows
+
+    // ── ACTION BUTTONS ──
+    var today = new Date().toISOString().split('T')[0];
+    var isToday = dateVal === today;
+    var isActive = (st === 'accepted' || st === 'confirmed');
+
+    // Start / Stop Service button (owner + staff, only for today's confirmed bookings)
+    if ((role === 'owner' || role === 'staff') && isToday && isActive) {
+      // Check if there's an active walk/service for this booking
+      var activeService = null;
+      try {
+        var { data: activeWalks } = await sb.from('walks').select('*').eq('booking_id', bookingId).eq('status', 'in_progress').limit(1);
+        if (activeWalks && activeWalks.length > 0) activeService = activeWalks[0];
+      } catch(we) { console.warn('Walk check:', we); }
+
+      h += '<div style="margin-bottom:12px">';
+      if (activeService) {
+        // Service is in progress — show Stop button
+        h += '<button onclick="stopServiceFromDrawer(\'' + activeService.id + '\')" style="width:100%;padding:14px;background:var(--rose,#c25656);color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">';
+        h += '⏹ End Service</button>';
+        h += '<div style="text-align:center;font-size:0.76rem;color:var(--mid);margin-top:6px">Service is currently in progress</div>';
+      } else {
+        // No active service — show Start button
+        h += '<button onclick="startServiceFromDrawer(\'' + bookingId + '\',\'' + (b.client_id || '').replace(/'/g, "\\'") + '\',\'' + svc.replace(/'/g, "\\'") + '\',\'' + (b.pet_names || '').replace(/'/g, "\\'") + '\')" style="width:100%;padding:14px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">';
+        h += '▶ Start Service</button>';
+      }
+      h += '</div>';
+    }
+
+    // Mark Complete button (owner/staff, for today's active bookings with no active walk)
+    if ((role === 'owner' || role === 'staff') && isActive && !isToday) {
+      // Future booking — no start/stop, but maybe useful later
+    }
+
+    // Cancel button (for active bookings that aren't completed)
+    if (isActive) {
+      var cancelRole = role;
+      var cancelName = (role === 'client') ? ((window.HHP_Auth && window.HHP_Auth.currentUser) ? (window.HHP_Auth.currentUser.full_name || window.HHP_Auth.currentUser.email) : 'Client') : (b.contact_name || 'Client');
+      h += '<button onclick="closeBookingDetail();openCancelModal(\'' + bookingId + '\',\'' + svc.replace(/'/g, "\\'") + '\',\'' + dateVal + '\',\'' + cancelName.replace(/'/g, "\\'") + '\',false,\'' + cancelRole + '\')" style="width:100%;padding:12px;background:transparent;color:var(--rose,#c25656);border:1.5px solid var(--rose,#c25656);border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit">';
+      h += 'Cancel Booking</button>';
+    }
+
+    // Completed / Canceled state
+    if (st === 'completed') {
+      h += '<div style="text-align:center;padding:14px;background:#e8f5e9;border-radius:10px;color:#2e7d32;font-weight:700;font-size:0.9rem">✅ Service Completed</div>';
+    } else if (st === 'canceled') {
+      h += '<div style="text-align:center;padding:14px;background:#fde8e8;border-radius:10px;color:#c62828;font-weight:700;font-size:0.9rem">🚫 This booking was canceled</div>';
+    }
+
+    content.innerHTML = h;
+  } catch (err) {
+    console.error('showBookingDetail error:', err);
+    content.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load booking details.</div>';
+  }
+}
+
+// Start service from the detail drawer
+async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
+  if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.startWalk === 'function') {
+    closeBookingDetail();
+    HHP_Tracking.startWalk(bookingId, clientId, service, petNames);
+    return;
+  }
+  // Fallback: create a walk record directly
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { toast('❌ Not logged in'); return; }
+  try {
+    var { error } = await sb.from('walks').insert({
+      booking_id: bookingId,
+      walker_id: user.id,
+      client_id: clientId,
+      service: service,
+      pet_names: petNames,
+      status: 'in_progress',
+      start_time: new Date().toISOString()
+    });
+    if (error) throw error;
+    toast('▶ Service started!');
+    closeBookingDetail();
+    // Refresh schedules
+    if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+    if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
+  } catch (e) {
+    console.error('Start service error:', e);
+    toast('❌ Failed to start service');
+  }
+}
+
+// Stop service from the detail drawer
+async function stopServiceFromDrawer(walkId) {
+  if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.endWalk === 'function') {
+    closeBookingDetail();
+    HHP_Tracking.endWalk(walkId);
+    return;
+  }
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { toast('❌ Not logged in'); return; }
+  try {
+    var { error } = await sb.from('walks').update({
+      status: 'completed',
+      end_time: new Date().toISOString()
+    }).eq('id', walkId);
+    if (error) throw error;
+    toast('⏹ Service completed!');
+    closeBookingDetail();
+    if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+    if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
+  } catch (e) {
+    console.error('Stop service error:', e);
+    toast('❌ Failed to stop service');
+  }
+}
+
 // ── CANCELLATION SYSTEM ──
 // Store cancel data globally while modal is open
 var _cancelData = {
@@ -5453,10 +5755,12 @@ async function confirmCancelBooking() {
           loadClientAppts('all');
         }
       } else if (_cancelData.canceledBy === 'owner') {
-        // Refresh owner booking admin
+        // Refresh owner booking admin + schedules
         if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.load === 'function') {
           window.HHP_BookingAdmin.load();
         }
+        if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+        if (typeof loadMasterSchedule === 'function') loadMasterSchedule();
       } else if (_cancelData.canceledBy === 'staff') {
         // Refresh staff bookings
         if (typeof loadStaffSchedule === 'function') {
@@ -7300,7 +7604,10 @@ async function loadStaffSchedule() {
       var statusColor = b.status === 'confirmed' ? 'var(--forest,#3d5a47)' : 'var(--gold,#c8963e)';
       var walkBtn = (typeof HHP_Tracking !== 'undefined') ? HHP_Tracking.buildWalkButton(b, activeWalk) : '';
       var row = document.createElement('div');
-      row.style.cssText = 'padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px;margin-bottom:8px;';
+      row.style.cssText = 'padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:box-shadow 0.15s';
+      row.onclick = (function(bid) { return function() { showBookingDetail(bid, 'staff', 'bookings'); }; })(b.id);
+      row.onmouseover = function() { this.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)'; };
+      row.onmouseout = function() { this.style.boxShadow = 'none'; };
       row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
         '<div style="font-size:1.3rem">' + icon + '</div>' +
@@ -7308,10 +7615,10 @@ async function loadStaffSchedule() {
         '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + fmt12h(b.time_slot) : '') + '</div>' +
         (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>' : '') +
         '</div></div>' +
-        '<div style="display:flex;align-items:center;gap:6px">' +
+        '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
         '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>' +
-        (b.status === 'confirmed' ? '<button class="cancel-btn" style="font-size:0.74rem;padding:4px 10px" onclick="openCancelModal(\'' + (b.id || '').replace(/'/g, "\\'") + '\',\'' + (b.service || '').replace(/'/g, "\\'") + '\',\'' + b.date + '\',\'' + (b.pet_names || '').replace(/'/g, "\\'") + '\',false,\'staff\')">Cancel</button>' : '') +
-        '</div></div>' + walkBtn;
+        '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Details →</div>' +
+        '</div></div>';
       card.appendChild(row);
     });
   } catch (e) {
@@ -7365,15 +7672,19 @@ async function loadStaffJobs() {
       var icon = svcIcons[r.service] || '🐾';
       var dateStr = r.preferred_date ? new Date(r.preferred_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
       var row = document.createElement('div');
-      row.style.cssText = 'padding:14px;background:linear-gradient(135deg,rgba(200,150,62,0.06),transparent);border-radius:10px;margin-bottom:8px;border:1px solid rgba(200,150,62,0.15)';
+      row.style.cssText = 'padding:14px;background:linear-gradient(135deg,rgba(200,150,62,0.06),transparent);border-radius:10px;margin-bottom:8px;border:1px solid rgba(200,150,62,0.15);cursor:pointer;transition:box-shadow 0.15s';
+      row.onclick = (function(rid) { return function(e) { if (e.target.tagName === 'BUTTON') return; showBookingDetail(rid, 'staff', 'booking_requests'); }; })(r.id);
+      row.onmouseover = function() { this.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)'; };
+      row.onmouseout = function() { this.style.boxShadow = 'none'; };
       row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
         '<div><div style="font-weight:700;font-size:0.9rem">' + icon + ' ' + (r.service || 'Service') + '</div>' +
         '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_name || 'Client') + ' · ' + dateStr + (r.preferred_time ? ' · ' + fmt12h(r.preferred_time) : '') + '</div>' +
         (r.pet_names ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px">Pets: ' + r.pet_names + '</div>' : '') +
         (r.special_notes ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px;font-style:italic">"' + r.special_notes.substring(0, 80) + '"</div>' : '') +
         '</div></div>' +
-        '<div style="display:flex;gap:8px;justify-content:flex-end">' +
-        '<button onclick="acceptJob(\'' + r.id + '\')" style="background:var(--forest,#3d5a47);color:white;border:none;padding:7px 16px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">Accept</button>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">' +
+        '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Details →</div>' +
+        '<button onclick="event.stopPropagation();acceptJob(\'' + r.id + '\')" style="background:var(--forest,#3d5a47);color:white;border:none;padding:7px 16px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">Accept</button>' +
         '</div>';
       card.appendChild(row);
     });
@@ -9049,7 +9360,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (upEl) {
           try {
             var today = new Date().toISOString().split('T')[0];
-            var { data: upcoming } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
+            var { data: upcoming } = await sb.from('bookings').select('id, service, date, time_slot, status, pet_names')
               .eq('client_id', userId).gte('date', today).order('date', { ascending: true }).limit(4);
             if (upcoming && upcoming.length > 0) {
               var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
@@ -9057,7 +9368,7 @@ document.addEventListener('DOMContentLoaded', function() {
               upcoming.forEach(function(b) {
                 var icon = svcIcons[b.service] || '🐾';
                 var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px">';
+                h += '<div onclick="showBookingDetail(\'' + (b.id || '') + '\',\'client\',\'bookings\')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.boxShadow=\'none\'">';
                 h += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">' + icon + '</span>';
                 h += '<div><div style="font-weight:600;font-size:0.84rem">' + (b.service || 'Service') + '</div>';
                 h += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + fmt12h(b.time_slot) : '') + '</div></div></div>';
@@ -9123,7 +9434,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Fetch all bookings for assigned clients
         var staffAllBookings = [];
         if (staffClientUserIds.length > 0) {
-          var staffBkRes = await sb.from('bookings').select('service, date, time_slot, status, pet_names, client_id')
+          var staffBkRes = await sb.from('bookings').select('id, service, date, time_slot, status, pet_names, client_id')
             .in('client_id', staffClientUserIds).in('status', ['confirmed', 'pending', 'completed'])
             .order('date', { ascending: true });
           staffAllBookings = staffBkRes.data || [];
@@ -9163,7 +9474,7 @@ document.addEventListener('DOMContentLoaded', function() {
               weekJobs.forEach(function(b) {
                 var icon = svcIcons[b.service] || '\uD83D\uDC3E';
                 var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                jh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px">';
+                jh += '<div onclick="showBookingDetail(\'' + (b.id || '') + '\',\'staff\',\'bookings\')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.boxShadow=\'none\'">';
                 jh += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">' + icon + '</span>';
                 jh += '<div><div style="font-weight:600;font-size:0.84rem">' + (b.service || 'Service') + '</div>';
                 jh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' \u00B7 ' + fmt12h(b.time_slot) : '') + '</div>';
@@ -9325,7 +9636,7 @@ document.addEventListener('DOMContentLoaded', function() {
           walkBtnHtml = HHP_Tracking.buildWalkButton(fakeBooking, activeWalk);
         }
 
-        h += '<div style="padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px">';
+        h += '<div onclick="showBookingDetail(\'' + b.id + '\',\'owner\',\'booking_requests\')" style="cursor:pointer;padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
         h += '<div style="display:flex;justify-content:space-between;align-items:center">';
         h += '<div style="display:flex;align-items:center;gap:10px">';
         h += '<div style="font-size:1.3rem">' + icon + '</div>';
@@ -9334,10 +9645,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (b.pet_names) h += '<div style="font-size:0.72rem;color:var(--mid)">🐾 ' + b.pet_names + '</div>';
         if (b.address) h += '<div style="font-size:0.72rem;color:var(--mid)">📍 ' + b.address + '</div>';
         h += '</div></div>';
-        h += '<div style="display:flex;align-items:center;gap:6px">';
+        h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
         h += '<span style="background:var(--forest,#3d5a47);color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">confirmed</span>';
+        h += '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Tap for details →</div>';
         h += '</div></div>';
-        h += walkBtnHtml;
         h += '</div>';
       });
       listEl.innerHTML = h;
@@ -9442,7 +9753,7 @@ document.addEventListener('DOMContentLoaded', function() {
           timeStr = hr + ':' + mn + ' ' + ampm;
         }
 
-        h += '<div style="padding:10px 14px;background:var(--warm,#faf6ee);border-radius:8px;display:flex;align-items:center;gap:10px">';
+        h += '<div onclick="showBookingDetail(\'' + b.id + '\',\'owner\',\'booking_requests\')" style="cursor:pointer;padding:10px 14px;background:var(--warm,#faf6ee);border-radius:8px;display:flex;align-items:center;gap:10px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
         h += '<div style="font-size:1.2rem">' + icon + '</div>';
         h += '<div style="flex:1"><div style="font-weight:600;font-size:0.85rem">' + (b.service || 'Service') + '</div>';
         h += '<div style="font-size:0.76rem;color:var(--mid)">' + (timeStr || 'No time') + ' · ' + (b.contact_name || 'Client') + '</div>';
@@ -9450,6 +9761,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (b.address) h += '<div style="font-size:0.72rem;color:var(--mid)">📍 ' + b.address + '</div>';
         h += '</div>';
         if (b.estimated_total) h += '<div style="font-weight:700;font-size:0.85rem;color:var(--forest)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+        h += '<div style="font-size:0.72rem;color:var(--gold-deep);font-weight:600;white-space:nowrap">Details →</div>';
         h += '</div>';
       });
       listEl.innerHTML = h;
