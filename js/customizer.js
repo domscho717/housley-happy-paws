@@ -66,11 +66,12 @@
   function _getSB() { return window.HHP_Auth && window.HHP_Auth.supabase; }
   function _getUser() { return window.HHP_Auth && window.HHP_Auth.currentUser; }
   function _getPortal() {
-    var u = _getUser();
-    if (!u) return null;
-    if (u.role === 'owner') return 'owner';
-    if (u.role === 'staff') return 'staff';
-    return 'client';
+    if (!window.HHP_Auth || !window.HHP_Auth.currentUser) return null;
+    var role = window.HHP_Auth.currentRole;
+    if (role === 'owner') return 'owner';
+    if (role === 'staff') return 'staff';
+    if (role === 'client') return 'client';
+    return null;
   }
 
   // ── LOAD PREFERENCES FROM SUPABASE ──
@@ -786,10 +787,11 @@
   // ══════════════════════════════════════
 
   async function init() {
-    await loadPrefs();
-
     var portal = _getPortal();
-    if (!portal) return;
+    if (!portal) { console.warn('Customizer: no portal detected'); return; }
+    console.log('Customizer: initializing for', portal);
+
+    await loadPrefs();
 
     // Apply saved sidebar order
     _applySidebarOrder(portal);
@@ -800,19 +802,25 @@
     // Inject widget area and render widgets
     _injectWidgetArea(portal);
     _renderWidgets(portal);
+    console.log('Customizer: ready');
   }
 
   // Auto-init after auth is ready (delayed to ensure DOM + auth are both loaded)
   var _initAttempts = 0;
+  var _initialized = false;
   function _tryInit() {
-    if (_getUser()) {
-      init();
-    } else if (_initAttempts < 20) {
+    // Wait until both currentUser AND currentRole are set
+    if (window.HHP_Auth && window.HHP_Auth.currentUser && window.HHP_Auth.currentRole) {
+      if (!_initialized) {
+        _initialized = true;
+        init();
+      }
+    } else if (_initAttempts < 30) {
       _initAttempts++;
-      setTimeout(_tryInit, 500);
+      setTimeout(_tryInit, 600);
     }
   }
-  setTimeout(_tryInit, 800);
+  setTimeout(_tryInit, 1000);
 
   // ── PUBLIC API ──
   window.HHP_Customizer = {
