@@ -1058,7 +1058,7 @@
 
     sidebarItems.forEach(function(sbItem) {
       var link = document.createElement('button');
-      link.className = 'hhp-drawer-item';
+      link.className = 'hhp-drawer-item hhp-drawer-portal-item';
       link.textContent = sbItem.textContent.trim();
       link.type = 'button';
       link.style.color = '#000';
@@ -1072,22 +1072,28 @@
         if (match) {
           var tabPortal = match[1];
           var tabPanel = match[2];
-          link.addEventListener('click', function() {
-            // Call sTab directly
+          link.setAttribute('data-panel', tabPanel);
+          link.addEventListener('click', function(e) {
+            // Block navigation if in edit mode
+            var editBtn = document.getElementById('mob-sb-edit-btn');
+            if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
             if (typeof sTab === 'function') {
               sTab(tabPortal, tabPanel);
             }
             closeDrawer();
           });
         } else {
-          // Fallback: try clicking the original element
-          link.addEventListener('click', function() {
+          link.addEventListener('click', function(e) {
+            var editBtn = document.getElementById('mob-sb-edit-btn');
+            if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
             sbItem.click();
             closeDrawer();
           });
         }
       } else {
-        link.addEventListener('click', function() {
+        link.addEventListener('click', function(e) {
+          var editBtn = document.getElementById('mob-sb-edit-btn');
+          if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
           sbItem.click();
           closeDrawer();
         });

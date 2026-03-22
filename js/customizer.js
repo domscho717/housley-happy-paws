@@ -930,59 +930,104 @@
     detail:_detail,
     closeDetail:_closeDetail,
     refresh:function(){var p=_getPortal();if(p)_renderWidgets(p).then(function(){_retrigger(p);});},
-    // Mobile drawer edit mode — allows reordering drawer items on mobile
+    // Mobile drawer edit mode — reorder portal sidebar items only
     _toggleSidebarEditMobile:function(portal,drawer){
       var btn=document.getElementById('mob-sb-edit-btn');
-      var items=drawer?drawer.querySelectorAll('.hhp-drawer-item'):[];
+      // ONLY target portal sidebar items, NOT Switch View buttons
+      var items=drawer?drawer.querySelectorAll('.hhp-drawer-portal-item'):[];
       if(!items.length)return;
       var isEditing=btn&&btn.getAttribute('data-editing')==='1';
+
       if(isEditing){
-        // SAVE: collect new order, persist, exit edit mode
-        if(btn){btn.setAttribute('data-editing','0');btn.textContent='✏️ Edit Order';btn.style.background='#f5f0e8';btn.style.color='#5c3d1e';}
-        // Read order from drawer items' data-panel attribute
+        // ── SAVE & EXIT ──
+        if(btn){btn.setAttribute('data-editing','0');btn.textContent='✏️ Edit Order';btn.style.background='#f5f0e8';btn.style.color='#5c3d1e';btn.style.borderColor='#d4c4ad';}
         var order=[];
-        if(drawer){drawer.querySelectorAll('.hhp-drawer-item[data-panel]').forEach(function(it){order.push(it.getAttribute('data-panel'));});}
+        if(drawer){drawer.querySelectorAll('.hhp-drawer-portal-item[data-panel]').forEach(function(it){order.push(it.getAttribute('data-panel'));});}
         if(order.length){
           if(!_prefs[portal])_prefs[portal]={sidebar_order:[],widgets:[],sizes:{}};
           _prefs[portal].sidebar_order=order;_savePrefs(portal);
-          // Also reorder the real desktop sidebar
           _applySidebarOrder(portal);
         }
-        // Remove drag handles and edit styling from items
-        items.forEach(function(it){var h=it.querySelector('.mob-drag-handle');if(h)h.remove();it.style.outline='';it.style.cursor='';if(it._mobDown){it.removeEventListener('pointerdown',it._mobDown);delete it._mobDown;}});
+        // Clean up edit styling
+        items.forEach(function(it){
+          var h=it.querySelector('.mob-drag-handle');if(h)h.remove();
+          it.style.outline='';it.style.cursor='';it.style.userSelect='';it.style.webkitUserSelect='';it.style.touchAction='';
+          if(it._mobDown){it.removeEventListener('pointerdown',it._mobDown);delete it._mobDown;}
+          // Re-enable click navigation
+          it.style.pointerEvents='';
+        });
+        // Remove the global move/end listeners if lingering
+        if(drawer._mobMoveHandler){document.removeEventListener('pointermove',drawer._mobMoveHandler);delete drawer._mobMoveHandler;}
+        if(drawer._mobEndHandler){document.removeEventListener('pointerup',drawer._mobEndHandler);delete drawer._mobEndHandler;}
         if(typeof toast==='function')toast('✓ Order saved');
       }else{
-        // ENTER EDIT MODE
-        if(btn){btn.setAttribute('data-editing','1');btn.textContent='💾 Save Order';btn.style.background='var(--gold,#c8963e)';btn.style.color='#fff';}
+        // ── ENTER EDIT MODE ──
+        if(btn){btn.setAttribute('data-editing','1');btn.textContent='💾 Save Order';btn.style.background='#c8963e';btn.style.color='#fff';btn.style.borderColor='#c8963e';}
+
+        // Shared drag state — only one item can be dragged at a time
+        var drag={active:false,el:null,ph:null,offsetY:0};
+
+        // Global move handler (shared)
+        function onMove(ev){
+          if(!drag.active||!drag.el)return;ev.preventDefault();
+          drag.el.style.top=(ev.clientY-drag.offsetY)+'px';
+          // Find drop position among portal items + placeholder
+          var targets=Array.from(drawer.querySelectorAll('.hhp-drawer-portal-item:not([style*="position:fixed"]):not([style*="position: fixed"]),.mob-drag-ph'));
+          for(var j=0;j<targets.length;j++){
+            if(targets[j]===drag.ph)continue;
+            var mid=targets[j].getBoundingClientRect().top+targets[j].offsetHeight/2;
+            if(ev.clientY<mid){targets[j].parentElement.insertBefore(drag.ph,targets[j]);return;}
+          }
+          // Past all items — append placeholder at end
+          var lastItem=targets[targets.length-1];
+          if(lastItem&&lastItem.parentElement)lastItem.parentElement.insertBefore(drag.ph,lastItem.nextSibling);
+        }
+
+        // Global end handler (shared)
+        function onEnd(){
+          if(!drag.active||!drag.el)return;
+          // Place the dragged item where the placeholder is
+          if(drag.ph&&drag.ph.parentElement){drag.ph.parentElement.insertBefore(drag.el,drag.ph);drag.ph.remove();}
+          // Reset inline drag styles
+          ['position','left','top','width','z-index','box-shadow','opacity','pointer-events','background','transform'].forEach(function(p2){drag.el.style.removeProperty(p2);});
+          drag.el.style.outline='1px dashed #d4c4ad';drag.el.style.cursor='grab';
+          drag.active=false;drag.el=null;drag.ph=null;
+        }
+
+        // Store handlers on drawer so we can clean up on save
+        drawer._mobMoveHandler=onMove;drawer._mobEndHandler=onEnd;
+        document.addEventListener('pointermove',onMove);
+        document.addEventListener('pointerup',onEnd);
+
         items.forEach(function(it){
-          // Add panel data attribute for order tracking
-          var txt=it.textContent.trim();
-          // Try to match to an sb-item in the actual sidebar
-          var pgId=portal==='client'?'pg-client':portal==='staff'?'pg-staff':'pg-owner';
-          var sidebar=document.querySelector('#'+pgId+' .sidebar');
-          if(sidebar){sidebar.querySelectorAll('.sb-item').forEach(function(sb){if(sb.textContent.trim()===txt){var m=(sb.getAttribute('onclick')||sb.getAttribute('data-orig-onclick')||'').match(/sTab\([^,]+,'([^']+)'\)/);if(m)it.setAttribute('data-panel',m[1]);}});}
-          // Add drag handle
-          if(!it.querySelector('.mob-drag-handle')){var h=document.createElement('span');h.className='mob-drag-handle';h.innerHTML='☰ ';h.style.cssText='color:#8c6b4a;margin-right:6px;font-size:0.9rem';it.insertBefore(h,it.firstChild);}
+          // Add drag handle icon
+          if(!it.querySelector('.mob-drag-handle')){
+            var h=document.createElement('span');h.className='mob-drag-handle';h.innerHTML='☰ ';
+            h.style.cssText='color:#8c6b4a;margin-right:8px;font-size:0.95rem;flex-shrink:0';
+            it.insertBefore(h,it.firstChild);
+          }
           it.style.outline='1px dashed #d4c4ad';it.style.cursor='grab';
-          // Drag listener
-          var _mobDrag={active:false,el:null,ph:null,offsetY:0};
-          it._mobDown=function(e){if(e.button!==0)return;e.preventDefault();e.stopPropagation();
-            _mobDrag.active=true;_mobDrag.el=it;
-            var r=it.getBoundingClientRect();_mobDrag.offsetY=e.clientY-r.top;
-            var ph=document.createElement('div');ph.className='mob-drag-ph';ph.style.cssText='height:'+r.height+'px;background:rgba(200,150,62,0.1);border:1.5px dashed rgba(200,150,62,0.4);border-radius:6px;margin:2px 0';
-            _mobDrag.ph=ph;it.parentElement.insertBefore(ph,it);
-            it.style.cssText+=';position:fixed;left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;z-index:10000;box-shadow:0 6px 24px rgba(0,0,0,0.3);opacity:0.92;pointer-events:none;background:#fff';
-            function onMove(ev){if(!_mobDrag.active)return;ev.preventDefault();it.style.top=(ev.clientY-_mobDrag.offsetY)+'px';
-              var sibs=Array.from(it.parentElement.querySelectorAll('.hhp-drawer-item:not([style*="position:fixed"]):not([style*="position: fixed"]),.mob-drag-ph'));
-              for(var j=0;j<sibs.length;j++){if(sibs[j]===_mobDrag.ph)continue;var mid=sibs[j].getBoundingClientRect().top+sibs[j].offsetHeight/2;if(ev.clientY<mid){it.parentElement.insertBefore(_mobDrag.ph,sibs[j]);return;}}
-              it.parentElement.appendChild(_mobDrag.ph);
-            }
-            function onEnd(){document.removeEventListener('pointermove',onMove);document.removeEventListener('pointerup',onEnd);if(!_mobDrag.active)return;
-              if(_mobDrag.ph&&_mobDrag.ph.parentElement){it.parentElement.insertBefore(it,_mobDrag.ph);_mobDrag.ph.remove();}
-              ['position','left','top','width','z-index','box-shadow','opacity','pointer-events','background'].forEach(function(p2){it.style.removeProperty(p2);});
-              it.style.outline='1px dashed #d4c4ad';it.style.cursor='grab';_mobDrag.active=false;
-            }
-            document.addEventListener('pointermove',onMove);document.addEventListener('pointerup',onEnd);
+          it.style.userSelect='none';it.style.webkitUserSelect='none';it.style.touchAction='none';
+
+          // Disable click navigation while editing (clicks shouldn't open panels)
+          it.style.pointerEvents='auto';
+
+          it._mobDown=function(e){
+            // Don't start a new drag if one is already active
+            if(drag.active)return;
+            e.preventDefault();e.stopPropagation();
+            drag.active=true;drag.el=it;
+            var r=it.getBoundingClientRect();drag.offsetY=e.clientY-r.top;
+            // Create placeholder
+            var ph=document.createElement('div');ph.className='mob-drag-ph';
+            ph.style.cssText='height:'+r.height+'px;background:rgba(200,150,62,0.1);border:1.5px dashed rgba(200,150,62,0.4);border-radius:8px;margin:2px 20px';
+            drag.ph=ph;it.parentElement.insertBefore(ph,it);
+            // Float the dragged item
+            it.style.position='fixed';it.style.left=r.left+'px';it.style.top=r.top+'px';
+            it.style.width=r.width+'px';it.style.zIndex='10000';
+            it.style.boxShadow='0 8px 28px rgba(0,0,0,0.25)';it.style.opacity='0.95';
+            it.style.background='#fff';it.style.transform='scale(1.02)';
+            it.style.pointerEvents='none';
           };
           it.addEventListener('pointerdown',it._mobDown);
         });
