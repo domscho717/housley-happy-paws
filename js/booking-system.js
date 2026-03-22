@@ -1212,7 +1212,7 @@
         html += '<div style="text-align:center;margin-bottom:6px"><button type="button" onclick="window._brmCalPickerMonth=new Date().getMonth();window._brmCalPickerYear=new Date().getFullYear();window._buildBrmCalPicker()" style="background:#fff8ec;border:1px solid #c8963e;border-radius:6px;padding:3px 12px;cursor:pointer;font-size:0.75rem;font-weight:600;color:#1e1409">Back to Today</button></div>';
       }
 
-      html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">';
+      html += '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;text-align:center">';
       dayLabels.forEach(function(dl) {
         html += '<div style="font-size:0.7rem;font-weight:700;color:#8c6b4a;padding:4px 0">' + dl + '</div>';
       });
