@@ -1,122 +1,161 @@
-/* Booking Status Notification API
- * Sends email to client when Rachel accepts/declines/modifies their booking request.
+/**
+ * Booking Status Notification API
+ * Sends email to client when Rachel accepts/declines/modifies their booking.
+ * Uses Resend for email delivery.
  */
 
+const { sendEmail, fmt12, SITE_URL } = require('./_email');
+
 module.exports = async function handler(req, res) {
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, name, service, status, scheduledDate, scheduledTime, adminNotes, paymentLink, estimatedTotal, priceBreakdown, autoCharged, recurrencePattern, dateDetails } = req.body || {};
+  const {
+    email, name, service, status,
+    scheduledDate, scheduledTime, adminNotes,
+    paymentLink, estimatedTotal, priceBreakdown,
+    autoCharged, recurrencePattern, dateDetails
+  } = req.body || {};
 
   if (!email || !name || !service || !status) {
     return res.status(400).json({ error: 'Missing required fields: email, name, service, status' });
   }
 
-  let subject, body;
+  let subject, bodyHTML;
+  const dateFmt = scheduledDate ? new Date(scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
+  const timeFmt = fmt12(scheduledTime) || '';
 
   if (status === 'accepted') {
-    subject = `Your ${service} booking is confirmed! - Housley Happy Paws`;
+    subject = `✅ Your ${service} booking is confirmed! — Housley Happy Paws`;
 
-    // Build invoice/price section
-    let invoiceSection = '';
+    // Build invoice section
+    let invoiceHTML = '';
     if (estimatedTotal && estimatedTotal > 0) {
       const breakdownLines = priceBreakdown
-        ? priceBreakdown.split(' | ').map(line => `  - ${line}`).join('\n')
-        : `  - ${service}`;
-      invoiceSection = [
-        `\n--- Invoice ---`,
-        breakdownLines,
-        `  ─────────────`,
-        `  Total: $${Number(estimatedTotal).toFixed(2)}`,
-        `--- End Invoice ---`,
-      ].join('\n');
+        ? priceBreakdown.split(' | ').map(line => `<div style="padding:4px 0;border-bottom:1px solid #e8e0d4">${line}</div>`).join('')
+        : `<div style="padding:4px 0">${service}</div>`;
+      invoiceHTML = `
+        <div style="background:#f5f0e8;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #e8e0d4">
+          <div style="font-weight:700;margin-bottom:8px">Invoice</div>
+          ${breakdownLines}
+          <div style="padding:8px 0 0;font-weight:700;font-size:1.05rem;border-top:2px solid #c8963e;margin-top:8px">Total: $${Number(estimatedTotal).toFixed(2)}</div>
+        </div>`;
     }
 
-    // Build recurring schedule section
-    let recurringSection = '';
+    // Build recurring section
+    let recurringHTML = '';
     if (recurrencePattern) {
-      const rp = typeof recurrencePattern === 'string' ? JSON.parse(recurrencePattern) : recurrencePattern;
-      if (rp.type === 'per_card' && rp.schedules) {
-        const lines = rp.schedules.map(s => {
-          const freqLabel = s.frequency === 'weekly' ? 'Every week' : 'Every other week';
-          const startFmt = new Date(s.start_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-          const endPart = s.ongoing ? 'until stopped' : (s.end_date ? `until ${new Date(s.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : '');
-          const timePart = s.time ? ` at ${s.time}` : '';
-          return `  • ${freqLabel} starting ${startFmt}${timePart} — ${endPart}`;
-        });
-        recurringSection = [
-          `\n📅 Recurring Schedule:`,
-          ...lines,
-          `\n💳 Billing: You will be automatically charged the day before each appointment.`,
-          `   Cancel anytime by contacting Rachel.`,
-        ].join('\n');
-      }
+      try {
+        const rp = typeof recurrencePattern === 'string' ? JSON.parse(recurrencePattern) : recurrencePattern;
+        if (rp.type === 'per_card' && rp.schedules) {
+          const lines = rp.schedules.map(s => {
+            const freqLabel = s.frequency === 'weekly' ? 'Every week' : 'Every other week';
+            const startFmt = new Date(s.start_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            const endPart = s.ongoing ? 'until stopped' : (s.end_date ? `until ${new Date(s.end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : '');
+            const timePart = s.time ? ` at ${fmt12(s.time)}` : '';
+            return `<div style="padding:4px 0">🔄 ${freqLabel} starting ${startFmt}${timePart} — ${endPart}</div>`;
+          }).join('');
+          recurringHTML = `
+            <div style="background:#eef4ef;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #c5d8c9">
+              <div style="font-weight:700;margin-bottom:8px">📅 Recurring Schedule</div>
+              ${lines}
+              <div style="margin-top:10px;font-size:0.85rem;color:#3d5a47">💳 You will be automatically charged 48 hours before each appointment. Cancel anytime by contacting Rachel.</div>
+            </div>`;
+        }
+      } catch (e) { /* ignore parse errors */ }
     }
 
     // Build multi-date section
-    let dateDetailsSection = '';
+    let dateDetailsHTML = '';
     if (dateDetails && Array.isArray(dateDetails) && dateDetails.length > 1) {
       const dateLines = dateDetails.map(dd => {
-        const dateFmt = new Date(dd.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const dFmt = new Date(dd.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
         const petNames = dd.pets && dd.pets.length > 0 ? dd.pets.map(p => p.name).join(', ') : '';
-        return `  • ${dateFmt}${dd.time ? ' at ' + dd.time : ''}${petNames ? ' — ' + petNames : ''}`;
-      });
-      dateDetailsSection = `\n📋 Your Appointments:\n${dateLines.join('\n')}`;
+        return `<div style="padding:4px 0">• ${dFmt}${dd.time ? ' at ' + fmt12(dd.time) : ''}${petNames ? ' — ' + petNames : ''}</div>`;
+      }).join('');
+      dateDetailsHTML = `
+        <div style="background:#fdf7ee;border-radius:10px;padding:16px;margin:16px 0">
+          <div style="font-weight:700;margin-bottom:8px">📋 Your Appointments</div>
+          ${dateLines}
+        </div>`;
     }
 
-    const paymentLine = autoCharged
-      ? `\n✅ Your card on file has been charged $${Number(estimatedTotal).toFixed(2)}.`
-      : paymentLink
-        ? `\nTo complete your booking, please submit payment here:\n${paymentLink}`
-        : recurringSection
-          ? '' // Recurring billing explained in recurringSection
-          : `\nPayment will be handled at the time of service.`;
+    // Payment line
+    let paymentHTML = '';
+    if (autoCharged) {
+      paymentHTML = `<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">✅ Your card on file has been charged $${Number(estimatedTotal).toFixed(2)}.</div>`;
+    } else if (paymentLink) {
+      paymentHTML = `
+        <div style="margin:16px 0">
+          <p>To complete your booking, please submit payment:</p>
+          <a href="${paymentLink}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">💳 Complete Payment →</a>
+        </div>`;
+    } else if (!recurringHTML) {
+      paymentHTML = `<p style="color:#8c6b4a">Payment will be handled at the time of service.</p>`;
+    }
 
-    body = [
-      `Hi ${name}!\n`,
-      `Great news! Rachel has confirmed your booking request.\n`,
-      `Service: ${service}`,
-      `Date: ${scheduledDate}`,
-      scheduledTime ? `Time: ${scheduledTime}` : '',
-      adminNotes ? `\nNote from Rachel: ${adminNotes}` : '',
-      dateDetailsSection,
-      recurringSection,
-      invoiceSection,
-      paymentLine,
-      `\nThank you for choosing Housley Happy Paws!`,
-      `Questions? Reply to this email or call 717-715-7595`,
-    ].filter(Boolean).join('\n');
+    bodyHTML = `
+      <p>Hi ${name}!</p>
+      <p>Great news! Rachel has <strong>confirmed</strong> your booking request. 🎉</p>
+
+      <div style="background:#eef4ef;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #3d5a47">
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${service}</div>
+        ${dateFmt ? `<div style="margin-bottom:4px">📅 ${dateFmt}</div>` : ''}
+        ${timeFmt ? `<div style="margin-bottom:4px">🕐 ${timeFmt}</div>` : ''}
+      </div>
+
+      ${adminNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-weight:700;margin-bottom:6px">Note from Rachel:</div><div style="font-style:italic;color:#5c3d1e">${adminNotes}</div></div>` : ''}
+      ${dateDetailsHTML}
+      ${recurringHTML}
+      ${invoiceHTML}
+      ${paymentHTML}
+
+      <div style="margin-top:20px">
+        <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View in Your Portal →</a>
+      </div>
+      <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Questions? Reply to this email or call 717-715-7595</p>
+    `;
+
   } else if (status === 'modified') {
-    subject = `Booking update: Rachel suggested a new time - Housley Happy Paws`;
-    body = [
-      `Hi ${name}!\n`,
-      `Rachel reviewed your ${service} request and suggested a different time:\n`,
-      `New Date: ${scheduledDate}`,
-      `New Time: ${scheduledTime}`,
-      adminNotes ? `\nRachel's note: ${adminNotes}` : '',
-      `\nPlease visit the website or reply to this email to confirm.`,
-      `https://www.housleyhappypaws.com`,
-    ].filter(Boolean).join('\n');
+    subject = `📝 Booking update: Rachel suggested a new time — Housley Happy Paws`;
+    bodyHTML = `
+      <p>Hi ${name}!</p>
+      <p>Rachel reviewed your <strong>${service}</strong> request and suggested a different time:</p>
+      <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c8963e">
+        ${dateFmt ? `<div style="margin-bottom:4px">📅 <strong>New Date:</strong> ${dateFmt}</div>` : ''}
+        ${timeFmt ? `<div style="margin-bottom:4px">🕐 <strong>New Time:</strong> ${timeFmt}</div>` : ''}
+      </div>
+      ${adminNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-weight:700;margin-bottom:6px">Rachel's note:</div><div style="font-style:italic;color:#5c3d1e">${adminNotes}</div></div>` : ''}
+      <p>Please visit the website or reply to this email to confirm.</p>
+      <div style="margin-top:16px"><a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">View in Portal →</a></div>
+    `;
+
   } else if (status === 'declined') {
-    subject = `Booking update - Housley Happy Paws`;
-    body = [
-      `Hi ${name}!\n`,
-      `Unfortunately, Rachel is unable to accommodate your ${service} request at this time.`,
-      adminNotes ? `\nNote: ${adminNotes}` : '',
-      `\nPlease feel free to request a different date/time!`,
-      `https://www.housleyhappypaws.com`,
-    ].filter(Boolean).join('\n');
+    subject = `Booking update — Housley Happy Paws`;
+    bodyHTML = `
+      <p>Hi ${name}!</p>
+      <p>Unfortunately, Rachel is unable to accommodate your <strong>${service}</strong> request at this time.</p>
+      ${adminNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-weight:700;margin-bottom:6px">Note from Rachel:</div><div style="font-style:italic;color:#5c3d1e">${adminNotes}</div></div>` : ''}
+      <p>Please feel free to request a different date or time!</p>
+      <div style="margin-top:16px"><a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">Book a New Time →</a></div>
+    `;
   }
 
-  console.log('Status notification to client:', subject);
-  console.log(body);
-
-  // TODO: Integrate with SendGrid/Resend for actual email delivery
+  const result = await sendEmail({
+    to: email,
+    subject,
+    title: status === 'accepted' ? 'Booking Confirmed!' : status === 'modified' ? 'Booking Update' : 'Booking Update',
+    bodyHTML,
+  });
 
   return res.status(200).json({
     success: true,
-    message: 'Status notification logged.',
+    emailSent: result.success,
+    emailId: result.id || null,
+    emailError: result.error || null,
+    message: result.success ? 'Status notification emailed to client.' : 'Notification logged (email not configured).',
     subject,
   });
 };

@@ -6572,6 +6572,41 @@ async function endServiceFromPanel() {
       try {
         await sb.from('messages').insert({ sender_id: user.id, recipient_id: d.clientId, body: endMsg });
       } catch(e) { console.warn('End notification error:', e); }
+
+      // ── Send service completed email to client ──
+      try {
+        // Look up client email from booking
+        var _clientEmail = '';
+        if (d.bookingId) {
+          var { data: _bkEmail } = await sb.from('booking_requests').select('contact_email').eq('id', d.bookingId).maybeSingle();
+          if (_bkEmail) _clientEmail = _bkEmail.contact_email;
+        }
+        if (!_clientEmail && d.clientId) {
+          var { data: _profEmail } = await sb.from('profiles').select('email').eq('user_id', d.clientId).maybeSingle();
+          if (_profEmail) _clientEmail = _profEmail.email;
+        }
+        if (_clientEmail) {
+          fetch('/api/service-completed-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientEmail: _clientEmail,
+              clientName: d.clientName || '',
+              service: reportService,
+              petNames: reportPets,
+              reportDate: reportDate,
+              duration: reportDuration,
+              arrivalTime: arrivalStr,
+              departureTime: departureStr,
+              distance: distanceVal || '',
+              mood: mood || '',
+              personalNote: notes || '',
+              staffName: staffName,
+              mediaCount: (d.mediaUrls || []).length
+            })
+          }).catch(function(e) { console.warn('Service completed email error:', e); });
+        }
+      } catch(e) { console.warn('Service email lookup error:', e); }
     }
 
     // ── Activity log: record service completion ──

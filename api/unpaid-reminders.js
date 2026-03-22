@@ -16,6 +16,7 @@
  */
 
 const { createClient } = require('@supabase/supabase-js');
+const { sendEmail, sendToRachel, fmt12, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -167,7 +168,7 @@ module.exports = async function handler(req, res) {
       const amount = booking.estimated_total ? '$' + Number(booking.estimated_total).toFixed(2) : 'amount due';
       const timePart = booking.preferred_time ? ' at ' + booking.preferred_time : '';
 
-      // ── Message to CLIENT ──
+      // ── Message + Email to CLIENT ──
       if (booking.client_id) {
         const clientMsg = `${urgency} Payment Reminder: Your ${booking.service} appointment is ${dayLabel}${timePart} and has not been paid yet (${amount}). Please complete payment as soon as possible so your appointment can proceed smoothly. You can pay through your portal under Billing, or contact Rachel if you need help.`;
 
@@ -179,6 +180,30 @@ module.exports = async function handler(req, res) {
           });
         } catch (e) {
           results.errors.push({ booking_id: booking.id, target: 'client', error: e.message });
+        }
+
+        // Send email to client
+        if (booking.contact_email) {
+          try {
+            await sendEmail({
+              to: booking.contact_email,
+              subject: `${urgency} Payment Reminder: ${booking.service} is ${dayLabel} — Housley Happy Paws`,
+              title: 'Payment Reminder',
+              bodyHTML: `
+                <p>Hi ${booking.contact_name || 'there'}!</p>
+                <p>Your <strong>${booking.service}</strong> appointment is <strong>${dayLabel}${timePart ? ' at ' + fmt12(booking.preferred_time) : ''}</strong> and has not been paid yet.</p>
+                <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c8963e">
+                  <div style="font-weight:700;font-size:1.1rem;margin-bottom:4px">Amount Due: ${amount}</div>
+                  ${booking.pet_names ? `<div>Pets: ${booking.pet_names}</div>` : ''}
+                </div>
+                <p>Please complete payment so your appointment can proceed smoothly.</p>
+                <div style="margin:16px 0"><a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">💳 Pay Now in Portal →</a></div>
+                <p style="font-size:0.85rem;color:#8c6b4a">Questions? Contact Rachel at 717-715-7595</p>
+              `
+            });
+          } catch (e) {
+            results.errors.push({ booking_id: booking.id, target: 'client-email', error: e.message });
+          }
         }
       }
 
