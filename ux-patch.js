@@ -1059,7 +1059,27 @@
     sidebarItems.forEach(function(sbItem) {
       var link = document.createElement('button');
       link.className = 'hhp-drawer-item hhp-drawer-portal-item';
-      link.textContent = sbItem.textContent.trim();
+      // Copy text but strip out any badge numbers — get only icon + label text
+      var iconEl = sbItem.querySelector('.sb-item-icon');
+      var badgeEl = sbItem.querySelector('.sb-badge');
+      var labelText = '';
+      sbItem.childNodes.forEach(function(node) {
+        if (node === badgeEl) return; // skip badge
+        if (node.nodeType === 3) labelText += node.textContent; // text node
+        else if (node.classList && node.classList.contains('sb-item-icon')) labelText += node.textContent;
+        else if (!node.classList || !node.classList.contains('sb-badge')) labelText += node.textContent;
+      });
+      link.textContent = labelText.trim();
+      // If the sidebar item has a badge, recreate it in the drawer
+      if (badgeEl) {
+        var drawerBadge = document.createElement('span');
+        drawerBadge.className = 'sb-badge';
+        drawerBadge.textContent = badgeEl.textContent;
+        drawerBadge.style.cssText = 'margin-left:auto;background:#C4756A;color:white;border-radius:50px;padding:3px 8px;font-size:0.68rem;font-weight:800;min-width:22px;text-align:center;box-shadow:0 2px 8px rgba(229,62,62,0.35)';
+        link.style.display = 'flex';
+        link.style.alignItems = 'center';
+        link.appendChild(drawerBadge);
+      }
       link.type = 'button';
       link.style.color = '#000';
       link.style.setProperty('-webkit-text-fill-color', '#000', 'important');

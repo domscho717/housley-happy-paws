@@ -778,6 +778,13 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .cal-section { padding: 60px 12px !important; }
   .cal-month { font-size: 1.2rem !important; }
   .portal-cal .cal-day { min-height: 48px !important; }
+
+  /* Live Service Panel: stack field rows on mobile */
+  .lsp-field-row { grid-template-columns: 1fr !important; gap: 8px !important; }
+  #hhp-live-service-panel input[type="date"],
+  #hhp-live-service-panel input[type="time"],
+  #hhp-live-service-panel select,
+  #hhp-live-service-panel input[type="text"] { font-size: 16px !important; min-height: 44px !important; }
 }
 
 /* Collapsible sidebar nav */
@@ -5300,7 +5307,7 @@ async function loadCalendarBookings(year, month) {
       else if (svc.indexOf('house') !== -1) icon = '🏡';
       else if (svc.indexOf('meet') !== -1) icon = '🤝';
 
-      var statusTag = b.status === 'pending' ? ' ⏳' : '';
+      var statusTag = b.status === 'pending' ? ' ⏳' : (b.status === 'completed' ? ' ✔️' : '');
       // Only show paid/unpaid tags in portal calendars, not public
       var paidTag = (role === 'owner' || role === 'client') ? (isPaid ? ' ✅' : (b.estimated_total > 0 ? ' ❌' : '')) : '';
       var petName = (role !== 'public') && b.pet_names ? ' · ' + b.pet_names.split(',')[0].trim() : '';
@@ -5396,13 +5403,13 @@ function buildCalendar(containerId, year, month) {
     html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:white;border:1px solid var(--border)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Some Times Booked</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">🎉 Holiday</span></div></div>`;
   } else if (isClient) {
     // Client portal: their bookings + closures
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">❌</span> Unpaid</div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">❌</span> Unpaid</div><div class="legend-item"><span style="font-size:0.8rem">✔️</span> Completed</div></div>`;
   } else if (isStaff) {
     // Staff portal: assigned jobs + closures
     html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div></div>`;
   } else {
     // Owner portal: full legend
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Blocked / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">❌</span> Unpaid</div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Scheduled</div><div class="legend-item"><div class="legend-dot" style="background:rgba(196,117,106,0.08);border:1px solid var(--rose-light);text-decoration:line-through;opacity:0.6"></div>Canceled</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Blocked / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">❌</span> Unpaid</div><div class="legend-item"><span style="font-size:0.8rem">✔️</span> Completed</div></div>`;
   }
   html += `<div class="cal-detail" id="${containerId}-detail"></div>`;
   container.innerHTML = html;
@@ -6012,7 +6019,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
     } catch(e) { console.warn('Activity log start error:', e); }
 
     // ── Open the live service report panel ──
-    openLiveServicePanel(walk, service, petNames, clientName, bookingId, address);
+    openLiveServicePanel(walk, service, petNames, clientName, bookingId, address, clientId);
 
     // Refresh schedules
     if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
@@ -6025,7 +6032,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
 }
 
 // ── LIVE SERVICE PANEL — ongoing report shown during active service ──
-function openLiveServicePanel(walk, service, petNames, clientName, bookingId, address) {
+function openLiveServicePanel(walk, service, petNames, clientName, bookingId, address, clientId) {
   // Remove existing panel if any
   var old = document.getElementById('hhp-live-service-panel');
   if (old) old.remove();
@@ -6075,8 +6082,8 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   // ── REPORT FIELDS (editable, auto-filled where possible) ──
   h += '<div style="padding:16px 20px">';
 
-  // Row: Date + Service (side by side)
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  // Row: Date + Service (stacked on mobile, side-by-side on desktop)
+  h += '<div class="lsp-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
   h += '<div><div style="' + labelStyle + '">Date</div>';
   h += '<input type="date" id="lsp-date" value="' + dateVal + '" style="' + fieldStyle + '"></div>';
   h += '<div><div style="' + labelStyle + '">Service</div>';
@@ -6087,14 +6094,14 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '</select></div></div>';
 
   // Row: Client + Pets
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  h += '<div class="lsp-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
   h += '<div><div style="' + labelStyle + '">Client</div>';
   h += '<input type="text" id="lsp-client" value="' + (clientName || '') + '" placeholder="Client name" style="' + fieldStyle + '"></div>';
   h += '<div><div style="' + labelStyle + '">Pet(s)</div>';
   h += '<input type="text" id="lsp-pets" value="' + (petNames || '') + '" placeholder="Pet names" style="' + fieldStyle + '"></div></div>';
 
   // Row: Arrival + Departure
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  h += '<div class="lsp-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
   h += '<div><div style="' + labelStyle + '">Arrival Time</div>';
   h += '<input type="time" id="lsp-arrival" value="' + arrivalVal + '" style="' + fieldStyle + '"></div>';
   h += '<div><div style="' + labelStyle + '">Departure Time</div>';
@@ -6102,7 +6109,7 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
 
   // Duration (full width if no distance)
   if (isDogWalk) {
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
+    h += '<div class="lsp-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
     h += '<div><div style="' + labelStyle + '">Duration</div>';
     h += '<select id="lsp-duration" style="' + fieldStyle + '">';
     h += '<option value="30 min"' + (svcLower.indexOf('30') !== -1 ? ' selected' : '') + '>30 Minutes</option>';
@@ -6409,6 +6416,15 @@ async function endServiceFromPanel() {
   if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '⏳ Saving & Sending...'; }
 
   try {
+    // ── Check for existing report to prevent duplicates ──
+    if (d.bookingId) {
+      var { data: existingReport } = await sb.from('service_reports').select('id').eq('booking_id', d.bookingId).maybeSingle();
+      if (existingReport) {
+        toast('⚠️ A report already exists for this booking.');
+        if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '✅ Report Already Submitted'; endBtn.style.background = '#999'; }
+        return;
+      }
+    }
     var endTime = new Date().toISOString();
 
     // ── Read values from editable report fields BEFORE any DOM changes ──
@@ -6519,32 +6535,37 @@ async function endServiceFromPanel() {
       } catch(e) { console.warn('Booking status update error:', JSON.stringify(e)); }
     }
 
-    // ── Show success confirmation inside the panel before closing ──
+    // ── Show success confirmation inside the panel ──
     var panel = document.getElementById('hhp-live-service-panel');
     if (panel) {
       var inner = panel.querySelector('div');
       if (inner) {
-        inner.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;padding:40px 20px;text-align:center">' +
-          '<div style="font-size:3rem;margin-bottom:16px">✅</div>' +
-          '<div style="font-size:1.2rem;font-weight:700;color:var(--forest,#3d5a47);margin-bottom:8px">Service Completed!</div>' +
-          '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:6px">Report saved & sent to client</div>' +
-          '<div style="font-size:0.78rem;color:var(--mid)">' + reportService + (reportPets ? ' for ' + reportPets : '') + ' — ' + durMin + ' min</div>' +
-          '<div style="margin-top:24px;font-size:0.75rem;color:var(--mid)">Closing in a moment...</div>' +
+        inner.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;padding:40px 20px;text-align:center">' +
+          '<div style="width:80px;height:80px;border-radius:50%;background:var(--forest,#3d5a47);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><span style="font-size:2.5rem">✅</span></div>' +
+          '<div style="font-size:1.4rem;font-weight:700;color:var(--forest,#3d5a47);margin-bottom:10px">Service Completed!</div>' +
+          '<div style="font-size:0.95rem;color:var(--ink);margin-bottom:6px;font-weight:600">Report saved & sent to client</div>' +
+          '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:4px">' + reportService + (reportPets ? ' for ' + reportPets : '') + '</div>' +
+          '<div style="font-size:0.85rem;color:var(--mid)">Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')</div>' +
+          (distanceVal ? '<div style="font-size:0.85rem;color:var(--mid)">Distance: ' + distanceVal + '</div>' : '') +
+          '<div style="margin-top:28px"><button onclick="var p=document.getElementById(\'hhp-live-service-panel\');if(p)p.remove();" style="padding:12px 32px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit">Done</button></div>' +
           '</div>';
       }
-      // Auto-close after 2.5 seconds
-      setTimeout(function() {
-        var p = document.getElementById('hhp-live-service-panel');
-        if (p) p.remove();
-      }, 2500);
+      // Also allow click overlay to close
+      panel.onclick = function(e) { if (e.target === panel) panel.remove(); };
     }
     window._liveServiceData = null;
 
     toast('✅ Service completed & report sent!');
 
-    // Refresh schedules
+    // Refresh schedules + calendar
     if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
     if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
+    if (typeof loadCalendarBookings === 'function') {
+      var _now = new Date();
+      loadCalendarBookings(_now.getFullYear(), _now.getMonth());
+    }
+    // Refresh client reports if viewing
+    if (typeof loadClientReports === 'function') loadClientReports();
 
   } catch (e) {
     console.error('End service error:', JSON.stringify(e));
@@ -6573,7 +6594,14 @@ async function stopServiceFromDrawer(walkId) {
           if (bk) { clientName = bk.contact_name || ''; address = bk.address || ''; }
         } catch(e) {}
       }
-      openLiveServicePanel(walk, walk.service, walk.pet_name, clientName, walk.booking_id, address);
+      var reopenClientId = walk.client_id || null;
+      if (!reopenClientId && walk.booking_id) {
+        try {
+          var { data: bk2 } = await sb.from('booking_requests').select('client_id').eq('id', walk.booking_id).maybeSingle();
+          if (bk2) reopenClientId = bk2.client_id;
+        } catch(e) {}
+      }
+      openLiveServicePanel(walk, walk.service, walk.pet_name, clientName, walk.booking_id, address, reopenClientId);
     }
   } catch (e) {
     console.error('Stop service error:', e);
@@ -9497,15 +9525,32 @@ async function loadClientReports() {
   var container = document.querySelector('#c-reports .card') || document.querySelector('#c-reports > div');
   if (!container) return;
 
-  // Query reports by auth user_id
+  // Query reports by auth user_id (also catch legacy reports via booking_id)
   try {
+    var _rptClientId = getEffectiveClientId() || HHP_Auth.currentUser.id;
     var { data: reports, error } = await HHP_Auth.supabase
       .from('service_reports')
       .select('*')
-      .eq('client_id', getEffectiveClientId() || HHP_Auth.currentUser.id)
+      .eq('client_id', _rptClientId)
       .order('report_date', { ascending: false });
 
     if (error) throw error;
+
+    // Also fetch reports that may have null client_id but belong to this client's bookings
+    if (!reports || reports.length === 0) {
+      try {
+        var { data: myBookings } = await HHP_Auth.supabase.from('booking_requests').select('id').eq('client_id', _rptClientId);
+        if (myBookings && myBookings.length > 0) {
+          var bookingIds = myBookings.map(function(b) { return b.id; });
+          var { data: legacyReports } = await HHP_Auth.supabase
+            .from('service_reports')
+            .select('*')
+            .in('booking_id', bookingIds)
+            .order('report_date', { ascending: false });
+          if (legacyReports && legacyReports.length > 0) reports = legacyReports;
+        }
+      } catch(e2) { console.warn('Legacy report lookup:', e2); }
+    }
 
     if (!reports || reports.length === 0) {
       container.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📋</div><div style="font-weight:600;margin-bottom:6px">No reports yet</div><div style="font-size:0.84rem">Walk and visit reports will appear here after each service.</div></div>';
