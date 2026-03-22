@@ -304,8 +304,7 @@
     }
     html += '</div>';
 
-    // CTA
-    html += '<button onclick="document.getElementById(\'services\')?.scrollIntoView({behavior:\'smooth\'})" style="background:var(--gold,#c8963e);color:white;border:none;padding:8px 18px;border-radius:8px;font-weight:700;font-size:0.8rem;cursor:pointer;white-space:nowrap;font-family:inherit">View Deals</button>';
+    // CTA removed — bell bubble already shows the deal info
 
     _promoStripEl.innerHTML = html;
   }
