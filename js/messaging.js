@@ -984,7 +984,7 @@
             html += '<div style="font-size:0.68rem;color:var(--mid);white-space:nowrap;margin-left:8px">' + timeAgo + '</div>';
             html += '</div></div>';
           } else if (alert.type === 'booking') {
-            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--forest-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof sTab===\'function\')sTab(\'owner\',\'o-overview\')">';
+            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--forest-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof showBookingDetail===\'function\'){showBookingDetail(\'' + d.id + '\',\'owner\',\'booking_requests\')}else if(typeof sTab===\'function\'){sTab(\'o\',\'o-bookings\')}">';
             html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
             html += '<div><div style="font-weight:600;font-size:0.84rem;color:var(--forest)">📅 New Booking Request</div>';
             html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px">' + (d.service || 'Service') + ' — ' + (d.preferred_date || '') + '</div></div>';
@@ -998,7 +998,7 @@
             html += '<div style="font-size:0.68rem;color:var(--mid);white-space:nowrap;margin-left:8px">' + timeAgo + '</div>';
             html += '</div></div>';
           } else if (alert.type === 'cancellation') {
-            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--rose-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof sTab===\'function\')sTab(\'owner\',\'o-activity\')">';
+            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--rose-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof showBookingDetail===\'function\'){showBookingDetail(\'' + d.id + '\',\'owner\',\'booking_requests\')}else if(typeof sTab===\'function\'){sTab(\'o\',\'o-activity\')}">';
             html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
             html += '<div><div style="font-weight:600;font-size:0.84rem;color:var(--rose)">❌ Booking Cancelled</div>';
             html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px">' + (d.service || 'Service') + ' — ' + (d.preferred_date || '') + '</div></div>';

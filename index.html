@@ -1439,7 +1439,14 @@ try {
 
       <!-- BILLING -->
       <div class="p-panel" id="c-bill">
-        <div class="p-header"><h2>Billing 💳</h2></div>
+        <div class="p-header"><h2>Billing 💳</h2><p>Manage your payment method, view upcoming charges, and payment history.</p></div>
+
+        <!-- Upcoming Charges -->
+        <div class="card" style="margin-bottom:18px">
+          <div class="card-title">Upcoming Charges</div>
+          <div id="clientUpcomingCharges" style="padding:14px;text-align:center;color:var(--mid);font-size:0.88rem">Loading upcoming charges...</div>
+        </div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
           <div class="card">
             <div class="card-title">Payment Method</div>
@@ -1447,8 +1454,8 @@ try {
             <div id="savedCardActions" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
               <button id="addCardBtn" class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="addPaymentMethod()">💳 Add Payment Method</button>
             </div>
-            <div style="font-size:0.75rem;color:var(--mid);margin-top:10px;text-align:center">Your card is saved securely through Stripe. When Rachel accepts your booking, payment is processed automatically.</div>
-            <div style="font-size:0.75rem;color:var(--mid);margin-top:14px;text-align:center">Have a promo code? Mention it in your booking notes and Rachel will apply it.</div>
+            <div style="font-size:0.75rem;color:var(--mid);margin-top:10px;text-align:center">Your card is saved securely through Stripe. Recurring services are auto-charged 48 hours before each visit.</div>
+            <div style="font-size:0.75rem;color:var(--mid);margin-top:8px;text-align:center;background:var(--gold-pale);padding:8px 12px;border-radius:8px"><strong>Cancellation policy:</strong> Cancel more than 48 hours before service for a full refund. Late cancellations within 48 hours are still charged.</div>
           </div>
           <div class="card"><div class="card-title">Payment History</div>
             <div id="clientPaymentHistory" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No payment history yet.</div>
@@ -3473,7 +3480,11 @@ function sTab(portal, panelId) {
   var pm = el ? el.closest('.portal-main') : null;
   if (pm) pm.scrollTop = 0;
   // Auto-load data when switching to specific panels
-  if (panelId === 'c-bill' && typeof loadSavedCard === 'function') loadSavedCard();
+  if (panelId === 'c-bill') {
+    if (typeof loadSavedCard === 'function') loadSavedCard();
+    if (typeof loadClientUpcomingCharges === 'function') loadClientUpcomingCharges();
+    if (typeof loadClientPayments === 'function') loadClientPayments();
+  }
   if (panelId === 'c-pets' && typeof loadMyPets === 'function') loadMyPets();
   if (panelId === 'o-clients' && typeof loadOwnerClients === 'function') loadOwnerClients();
   if ((panelId === 'c-cal' || panelId === 's-cal' || panelId === 'o-cal') && typeof loadCalendarBookings === 'function') {
@@ -5292,6 +5303,17 @@ async function loadCalendarBookings(year, month) {
         }
       }
 
+      // Handle recurring bookings — generate all recurring dates for this month
+      if (b.recurrence_pattern && b.status !== 'canceled') {
+        var cur = new Date(firstDay + 'T12:00:00');
+        var last = new Date(lastDay + 'T12:00:00');
+        while (cur <= last) {
+          var dk = cur.toISOString().split('T')[0];
+          if (isRecurringOnDate(b, dk) && dates.indexOf(dk) === -1) dates.push(dk);
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+
       // Determine paid status
       var isPaid = false;
       var shortId = b.id ? b.id.slice(0, 8) : '';
@@ -5650,10 +5672,23 @@ async function loadClientAppts(filter, tabBtn) {
       var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
       var timeDisplay = fmt12h(b.preferred_time) || '';
 
+      var isRecurring = !!b.recurrence_pattern;
+      var recurLabel = '';
+      if (isRecurring) {
+        try {
+          var rp = typeof b.recurrence_pattern === 'string' ? JSON.parse(b.recurrence_pattern) : b.recurrence_pattern;
+          if (rp.type === 'per_card' && rp.schedules && rp.schedules[0]) {
+            recurLabel = rp.schedules[0].frequency === 'biweekly' ? 'Every 2 weeks' : 'Weekly';
+          } else if (rp.frequency) {
+            recurLabel = rp.frequency === 'biweekly' ? 'Every 2 weeks' : 'Weekly';
+          }
+        } catch(e) {}
+      }
+
       html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : 'var(--mid)') + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
       html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
       html += '<div style="flex:1;min-width:0">';
-      html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + '</div>';
+      html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + (recurLabel ? ' <span style="font-size:0.72rem;color:var(--forest);font-weight:600">🔄 ' + recurLabel + '</span>' : '') + '</div>';
       html += '<div style="font-size:0.8rem;color:var(--mid)">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div>';
       if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid)">Pets: ' + b.pet_names + '</div>';
       html += '</div>';
@@ -5914,8 +5949,29 @@ async function showBookingDetail(bookingId, role, source) {
     if (isActive) {
       var cancelRole = role;
       var cancelName = (role === 'client') ? ((window.HHP_Auth && window.HHP_Auth.currentUser) ? (window.HHP_Auth.currentUser.full_name || window.HHP_Auth.currentUser.email) : 'Client') : (b.contact_name || 'Client');
+
+      // Client: Request Change button
+      if (role === 'client') {
+        h += '<button onclick="closeBookingDetail();requestBookingChange(\'' + bookingId + '\')" style="width:100%;padding:12px;background:var(--gold,#c8963e);color:white;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">';
+        h += '✏️ Request Change</button>';
+      }
+
       h += '<button onclick="closeBookingDetail();openCancelModal(\'' + bookingId + '\',\'' + svc.replace(/'/g, "\\'") + '\',\'' + dateVal + '\',\'' + cancelName.replace(/'/g, "\\'") + '\',false,\'' + cancelRole + '\')" style="width:100%;padding:12px;background:transparent;color:var(--rose,#c25656);border:1.5px solid var(--rose,#c25656);border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit">';
       h += 'Cancel Booking</button>';
+
+      // Cancellation policy notice (client only)
+      if (role === 'client' && isActive) {
+        var svcDate = b.scheduled_date || b.preferred_date;
+        var hoursUntil = svcDate ? Math.floor((new Date(svcDate + 'T00:00:00') - new Date()) / 3600000) : 999;
+        var isFreeCancel = hoursUntil >= 48;
+        h += '<div style="padding:12px 14px;background:' + (isFreeCancel ? '#f0fdf4' : '#fef2f2') + ';border-radius:10px;margin-top:10px;font-size:0.8rem;color:' + (isFreeCancel ? '#166534' : '#991b1b') + '">';
+        if (isFreeCancel) {
+          h += '<strong>Free cancellation available</strong> — Cancel before ' + new Date(new Date(svcDate + 'T00:00:00').getTime() - 48*3600000).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}) + ' at midnight for a full refund.';
+        } else {
+          h += '<strong>Late cancellation</strong> — Less than 48 hours before service. Canceling now will still result in the full charge per our cancellation policy.';
+        }
+        h += '</div>';
+      }
     }
 
     // Completed / Canceled state
@@ -6848,6 +6904,22 @@ async function confirmCancelBooking() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Confirm Cancellation';
+  }
+}
+
+// ── Request Booking Change (client sends message to owner) ──
+function requestBookingChange(bookingId) {
+  // Open messaging and pre-fill with change request
+  var msg = 'Hi Rachel! I would like to request a change to my booking (ID: ' + bookingId.slice(0, 8) + '). ';
+  // Switch to messages panel
+  var portal = window.HHP_Auth && window.HHP_Auth.currentRole;
+  if (portal === 'client') {
+    sTab('c', 'c-msgs');
+    // After a short delay, pre-fill the message input
+    setTimeout(function() {
+      var input = document.querySelector('#c-msgs textarea, #c-msgs input[type="text"]');
+      if (input) { input.value = msg; input.focus(); }
+    }, 500);
   }
 }
 
@@ -8679,6 +8751,21 @@ async function loadStaffSchedule() {
     var bookingsRes = await bookingsQuery;
     var bookings = bookingsRes.data || [];
 
+    // Also include recurring bookings for today
+    var todayStr = today.toISOString().split('T')[0];
+    if (typeof isRecurringOnDate === 'function') {
+      var { data: staffRecurring } = await sb.from('booking_requests').select('*')
+        .in('status', ['accepted', 'confirmed']).not('recurrence_pattern', 'is', null);
+      if (staffRecurring) {
+        staffRecurring.forEach(function(rb) {
+          if (isRecurringOnDate(rb, todayStr)) {
+            var alreadyIn = bookings.some(function(b) { return b.id === rb.id; });
+            if (!alreadyIn) bookings.push(rb);
+          }
+        });
+      }
+    }
+
     card.innerHTML = '<div class="card-title" style="margin-bottom:16px">This Week\'s Jobs</div>';
 
     if (bookings.length === 0) {
@@ -9147,6 +9234,74 @@ async function loadClientPayments() {
     }).join('');
   } catch (err) {
     container.innerHTML = '<div style="text-align:center;color:var(--rose);padding:18px;font-size:0.88rem">Could not load payments.</div>';
+  }
+}
+
+// ── Load Upcoming Charges for Client Billing ──
+async function loadClientUpcomingCharges() {
+  var container = document.getElementById('clientUpcomingCharges');
+  if (!container) return;
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { container.innerHTML = '<div style="text-align:center;color:var(--mid);padding:14px">Sign in to view upcoming charges.</div>'; return; }
+
+  try {
+    var _cid = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || user.id;
+    var { data: bookings } = await sb.from('booking_requests').select('*').eq('client_id', _cid).in('status', ['accepted', 'confirmed']);
+
+    if (!bookings || bookings.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--mid);padding:14px">No upcoming charges.</div>';
+      return;
+    }
+
+    // Collect upcoming dates (next 14 days) for all bookings
+    var upcoming = [];
+    var today = new Date();
+    for (var d = 0; d < 14; d++) {
+      var checkDate = new Date(today);
+      checkDate.setDate(today.getDate() + d);
+      var dateStr = checkDate.toISOString().split('T')[0];
+      bookings.forEach(function(b) {
+        var isScheduled = (b.scheduled_date === dateStr || b.preferred_date === dateStr);
+        var isMulti = b.booking_dates && Array.isArray(b.booking_dates) && b.booking_dates.indexOf(dateStr) !== -1;
+        var isRecur = typeof isRecurringOnDate === 'function' && isRecurringOnDate(b, dateStr);
+        if (isScheduled || isMulti || isRecur) {
+          upcoming.push({
+            date: dateStr,
+            service: b.service,
+            amount: b.estimated_total || 0,
+            petNames: b.pet_names || '',
+            bookingId: b.id,
+            isRecurring: !!b.recurrence_pattern
+          });
+        }
+      });
+    }
+
+    if (upcoming.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--mid);padding:14px">No upcoming charges in the next 2 weeks.</div>';
+      return;
+    }
+
+    var h = '<div style="display:flex;flex-direction:column;gap:8px">';
+    upcoming.forEach(function(u) {
+      var dateObj = new Date(u.date + 'T12:00:00');
+      var daysUntil = Math.ceil((dateObj - today) / 86400000);
+      var dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      var urgency = daysUntil <= 2 ? 'var(--gold-pale)' : 'var(--warm)';
+      var chargeNote = daysUntil <= 1 ? '<span style="color:var(--gold-deep);font-weight:600;font-size:0.72rem"> — Charging today</span>' : daysUntil <= 2 ? '<span style="color:var(--gold-deep);font-weight:600;font-size:0.72rem"> — Charging soon</span>' : '';
+
+      h += '<div onclick="showBookingDetail(\'' + u.bookingId + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:' + urgency + ';border-radius:8px;border:1px solid var(--border);transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.boxShadow=\'none\'">';
+      h += '<div><div style="font-weight:600;font-size:0.85rem">' + u.service + (u.isRecurring ? ' 🔄' : '') + '</div>';
+      h += '<div style="font-size:0.76rem;color:var(--mid)">' + dateLabel + (u.petNames ? ' · ' + u.petNames : '') + chargeNote + '</div></div>';
+      h += '<div style="font-weight:700;color:var(--ink);font-size:0.95rem">$' + Number(u.amount).toFixed(2) + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    container.innerHTML = h;
+  } catch(e) {
+    console.error('Load upcoming charges error:', e);
+    container.innerHTML = '<div style="text-align:center;color:var(--mid);padding:14px">Could not load upcoming charges.</div>';
   }
 }
 
@@ -10417,6 +10572,75 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
+  // ── Recurring date calculation (matches backend logic in recurring-invoices.js) ──
+  function isRecurringOnDate(booking, dateStr) {
+    if (!booking || !booking.recurrence_pattern) return false;
+    var pattern = typeof booking.recurrence_pattern === 'string' ? JSON.parse(booking.recurrence_pattern) : booking.recurrence_pattern;
+    if (!pattern) return false;
+
+    // Check if this date was individually canceled
+    if (booking.canceled_dates && Array.isArray(booking.canceled_dates) && booking.canceled_dates.indexOf(dateStr) !== -1) return false;
+
+    var target = new Date(dateStr + 'T12:00:00');
+
+    // Per-card format
+    if (pattern.type === 'per_card' && Array.isArray(pattern.schedules)) {
+      for (var i = 0; i < pattern.schedules.length; i++) {
+        var s = pattern.schedules[i];
+        if (!s.start_date) continue;
+        var start = new Date(s.start_date + 'T12:00:00');
+        if (target < start) continue;
+        if (!s.ongoing && s.end_date) {
+          var end = new Date(s.end_date + 'T23:59:59');
+          if (target > end) continue;
+        }
+        if (target.getDay() !== start.getDay()) continue;
+        var daysDiff = Math.round((target - start) / (24 * 60 * 60 * 1000));
+        var interval = s.frequency === 'biweekly' ? 14 : 7;
+        if (daysDiff % interval !== 0) continue;
+        return true; // Found a matching schedule
+      }
+      return false;
+    }
+
+    // Legacy format
+    if (pattern.days && Array.isArray(pattern.days)) {
+      var dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+      var targetDay = target.getDay();
+      var matchesDay = pattern.days.some(function(d) { return dayMap[d] === targetDay; });
+      if (!matchesDay) return false;
+      if (pattern.end_date) {
+        var endD = new Date(pattern.end_date + 'T23:59:59');
+        if (target > endD) return false;
+      }
+      if (pattern.frequency === 'biweekly') {
+        var startD = new Date((booking.preferred_date || booking.scheduled_date) + 'T12:00:00');
+        var weeksDiff = Math.round((target - startD) / (7 * 24 * 60 * 60 * 1000));
+        if (weeksDiff % 2 !== 0) return false;
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  // Get the time for a recurring booking on a specific date
+  function getRecurringTime(booking, dateStr) {
+    if (!booking || !booking.recurrence_pattern) return booking.scheduled_time || booking.preferred_time || '';
+    var pattern = typeof booking.recurrence_pattern === 'string' ? JSON.parse(booking.recurrence_pattern) : booking.recurrence_pattern;
+    if (pattern && pattern.type === 'per_card' && Array.isArray(pattern.schedules)) {
+      for (var i = 0; i < pattern.schedules.length; i++) {
+        var s = pattern.schedules[i];
+        if (!s.start_date) continue;
+        var target = new Date(dateStr + 'T12:00:00');
+        var start = new Date(s.start_date + 'T12:00:00');
+        if (target.getDay() === start.getDay() && s.time) return s.time;
+      }
+    }
+    if (pattern && pattern.time) return pattern.time;
+    return booking.scheduled_time || booking.preferred_time || '';
+  }
+
   // ---- TIME AGO HELPER ----
   function _dashTimeAgo(dateStr) {
     if (!dateStr) return '';
@@ -10732,6 +10956,18 @@ document.addEventListener('DOMContentLoaded', function() {
           if (br.booking_dates && Array.isArray(br.booking_dates) && br.booking_dates.indexOf(todayStr) !== -1) {
             var alreadyIn = bookings.some(function(b) { return b.id === br.id; });
             if (!alreadyIn) bookings.push(br);
+          }
+        });
+      }
+
+      // Also check for recurring bookings that fall on today
+      var { data: recurringBookings } = await sb.from('booking_requests').select('*')
+        .in('status', ['accepted', 'confirmed']).not('recurrence_pattern', 'is', null);
+      if (recurringBookings) {
+        recurringBookings.forEach(function(rb) {
+          if (isRecurringOnDate(rb, todayStr)) {
+            var alreadyIn = bookings.some(function(b) { return b.id === rb.id; });
+            if (!alreadyIn) bookings.push(rb);
           }
         });
       }
