@@ -860,6 +860,15 @@
       if (endCol) endCol.style.display = isHS ? '' : 'none';
       if (endInput) endInput.required = isHS;
       if (dateLabel) dateLabel.textContent = isHS ? 'Start Date *' : 'Preferred Date *';
+      // Block past dates on House Sitting date inputs
+      var todayISO = new Date().toISOString().split('T')[0];
+      var startInput = document.getElementById('brm-date');
+      if (startInput) startInput.setAttribute('min', todayISO);
+      if (endInput) endInput.setAttribute('min', todayISO);
+      // Also set end date min to start date if start date is selected
+      if (startInput && startInput.value) {
+        if (endInput) endInput.setAttribute('min', startInput.value);
+      }
       // For house sitting, change time label to check-in time
       if (timeCol) {
         var timeLabel = timeCol.querySelector('.brm-label');

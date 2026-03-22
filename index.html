@@ -7286,7 +7286,7 @@ async function loadStaffSchedule() {
         '<div style="display:flex;align-items:center;gap:10px">' +
         '<div style="font-size:1.3rem">' + icon + '</div>' +
         '<div><div style="font-weight:600;font-size:0.88rem">' + (b.service || 'Service') + '</div>' +
-        '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + fmt12h(b.time_slot) : '') + '</div>' +
         (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>' : '') +
         '</div></div>' +
         '<div style="display:flex;align-items:center;gap:6px">' +
@@ -7349,7 +7349,7 @@ async function loadStaffJobs() {
       row.style.cssText = 'padding:14px;background:linear-gradient(135deg,rgba(200,150,62,0.06),transparent);border-radius:10px;margin-bottom:8px;border:1px solid rgba(200,150,62,0.15)';
       row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">' +
         '<div><div style="font-weight:700;font-size:0.9rem">' + icon + ' ' + (r.service || 'Service') + '</div>' +
-        '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_name || 'Client') + ' · ' + dateStr + (r.preferred_time ? ' · ' + r.preferred_time : '') + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_name || 'Client') + ' · ' + dateStr + (r.preferred_time ? ' · ' + fmt12h(r.preferred_time) : '') + '</div>' +
         (r.pet_names ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px">Pets: ' + r.pet_names + '</div>' : '') +
         (r.special_notes ? '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px;font-style:italic">"' + r.special_notes.substring(0, 80) + '"</div>' : '') +
         '</div></div>' +
@@ -7545,7 +7545,7 @@ async function loadLiveTracking() {
         row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px;background:var(--warm,#faf6ee);border-radius:8px;margin-bottom:6px';
         row.innerHTML = '<div style="font-size:1.2rem">' + icon + '</div>' +
           '<div><div style="font-weight:600;font-size:0.85rem">' + (b.service || 'Service') + '</div>' +
-          '<div style="font-size:0.78rem;color:var(--mid)">' + (b.time_slot || 'Time TBD') + (b.pet_names ? ' · ' + b.pet_names : '') + '</div></div>';
+          '<div style="font-size:0.78rem;color:var(--mid)">' + (b.time_slot ? fmt12h(b.time_slot) : 'Time TBD') + (b.pet_names ? ' · ' + b.pet_names : '') + '</div></div>';
         card.appendChild(row);
       });
     }
@@ -9041,7 +9041,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px">';
                 h += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">' + icon + '</span>';
                 h += '<div><div style="font-weight:600;font-size:0.84rem">' + (b.service || 'Service') + '</div>';
-                h += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div></div></div>';
+                h += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + fmt12h(b.time_slot) : '') + '</div></div></div>';
                 h += '<div style="font-size:0.72rem;font-weight:600;color:var(--forest);text-transform:uppercase">' + (b.status || 'booked') + '</div></div>';
               });
               upEl.innerHTML = h;
@@ -9147,7 +9147,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 jh += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px">';
                 jh += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">' + icon + '</span>';
                 jh += '<div><div style="font-weight:600;font-size:0.84rem">' + (b.service || 'Service') + '</div>';
-                jh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' \u00B7 ' + b.time_slot : '') + '</div>';
+                jh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' \u00B7 ' + fmt12h(b.time_slot) : '') + '</div>';
                 if (b.pet_names) jh += '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>';
                 jh += '</div></div>';
                 jh += '<div style="font-size:0.72rem;font-weight:600;color:var(--forest);text-transform:uppercase">' + (b.status || 'scheduled') + '</div></div>';
@@ -9509,7 +9509,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             rh += '<div style="display:flex;justify-content:space-between;padding:12px;background:var(--warm);border-radius:8px;font-size:0.86rem">';
             rh += '<div><div style="font-weight:600">' + icon + ' ' + (b.service || 'Service') + '</div>';
-            rh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + b.time_slot : '') + '</div></div>';
+            rh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + fmt12h(b.time_slot) : '') + '</div></div>';
             rh += '<div style="font-weight:600;color:var(--forest);font-size:0.82rem;text-transform:uppercase">' + (b.status || '') + '</div></div>';
           });
           histEl.innerHTML = rh;
