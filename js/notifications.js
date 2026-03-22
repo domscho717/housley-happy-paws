@@ -130,6 +130,10 @@
       _bellEl.style.transform = 'scale(1.1)';
       _bellEl.innerHTML = '✕';
       _bellEl.appendChild(_badgeEl);
+      // Auto-mark all as read when drawer is opened
+      _announcements.forEach(function(a) { addDismissed(a.id); });
+      _activeDeals.forEach(function(d) { addDismissed(d.id); });
+      updateBadge();
       // Close on outside click
       setTimeout(function() {
         document.addEventListener('click', outsideClickHandler);
