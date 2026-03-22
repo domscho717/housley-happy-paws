@@ -10877,26 +10877,239 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ── REALTIME: Auto-refresh schedules when booking_requests change ──
-  (function setupScheduleRealtime() {
+  // ══════════════════════════════════════════════════════════════
+  // ── REALTIME ENGINE — Live updates across the entire site ──
+  // ══════════════════════════════════════════════════════════════
+  //
+  // One unified channel subscribes to all key tables.
+  // When any row changes, the relevant panels auto-refresh
+  // WITHOUT needing a page reload.
+  //
+  (function setupSiteRealtime() {
     var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
-    if (!sb) {
-      // Retry after auth loads
-      setTimeout(setupScheduleRealtime, 2000);
-      return;
+    if (!sb) { setTimeout(setupSiteRealtime, 2000); return; }
+
+    // Helper: check if a panel is currently visible
+    function panelActive(id) {
+      var el = document.getElementById(id);
+      return el && el.classList.contains('active');
     }
+
+    // Debounce helper — prevents rapid-fire reloads from batch changes
+    var _rtTimers = {};
+    function debounceRefresh(key, fn, delay) {
+      if (_rtTimers[key]) clearTimeout(_rtTimers[key]);
+      _rtTimers[key] = setTimeout(fn, delay || 400);
+    }
+
     try {
-      sb.channel('schedule-updates')
+      sb.channel('hhp-live-all')
+
+        // ─── BOOKING REQUESTS — schedules, booking admin, client appts, dashboard ───
         .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_requests' }, function(payload) {
-          // Auto-refresh both schedules when any booking_request changes
-          if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
-          if (typeof loadMasterSchedule === 'function') {
-            var schedPanel = document.getElementById('o-sched');
-            if (schedPanel && schedPanel.classList.contains('active')) loadMasterSchedule();
+
+          // Owner schedule
+          debounceRefresh('ownerSched', function() {
+            if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+          });
+
+          // Master schedule (only if panel is open)
+          if (panelActive('o-sched')) {
+            debounceRefresh('masterSched', function() {
+              if (typeof loadMasterSchedule === 'function') loadMasterSchedule();
+            });
+          }
+
+          // Booking admin (owner overview)
+          if (panelActive('o-overview')) {
+            debounceRefresh('bookingAdmin', function() {
+              if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
+            });
+          }
+
+          // Staff schedule
+          debounceRefresh('staffSched', function() {
+            if (typeof loadStaffSchedule === 'function' && panelActive('s-sched')) loadStaffSchedule();
+          });
+
+          // Staff jobs
+          if (panelActive('s-jobs')) {
+            debounceRefresh('staffJobs', function() {
+              if (typeof loadStaffJobs === 'function') loadStaffJobs();
+            });
+          }
+
+          // Client appointments
+          if (panelActive('c-appts')) {
+            debounceRefresh('clientAppts', function() {
+              if (typeof loadClientAppts === 'function') loadClientAppts('all');
+            });
+          }
+
+          // Client dashboard (upcoming list)
+          if (panelActive('c-dash')) {
+            debounceRefresh('clientDash', function() {
+              if (typeof loadDashboardStats === 'function') loadDashboardStats();
+            });
+          }
+
+          // Calendar (any portal)
+          debounceRefresh('calendar', function() {
+            if ((panelActive('c-cal') || panelActive('s-cal') || panelActive('o-cal')) && typeof loadCalendarBookings === 'function') {
+              var now = new Date();
+              loadCalendarBookings(now.getFullYear(), now.getMonth());
+            }
+          });
+        })
+
+        // ─── WALKS — live tracking, schedule badges, service timer ───
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'walks' }, function(payload) {
+
+          // Refresh owner schedule (badges change: in_progress / completed)
+          debounceRefresh('ownerSchedWalk', function() {
+            if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+          });
+
+          // Staff schedule
+          if (panelActive('s-sched')) {
+            debounceRefresh('staffSchedWalk', function() {
+              if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
+            });
+          }
+
+          // Client live tracking
+          if (panelActive('c-track')) {
+            debounceRefresh('clientTrack', function() {
+              if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.loadClientLiveTracking) {
+                HHP_Tracking.loadClientLiveTracking();
+              }
+            });
           }
         })
-        .subscribe();
-    } catch (e) { console.warn('Schedule realtime setup error:', e); }
+
+        // ─── SERVICE REPORTS — client reports, owner reports ───
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'service_reports' }, function(payload) {
+
+          // Client reports panel
+          if (panelActive('c-reports')) {
+            debounceRefresh('clientReports', function() {
+              if (typeof loadClientReports === 'function') loadClientReports();
+            });
+          }
+
+          // Client dashboard stats (report count)
+          if (panelActive('c-dash')) {
+            debounceRefresh('clientDashRpt', function() {
+              if (typeof loadDashboardStats === 'function') loadDashboardStats();
+            });
+          }
+
+          // Owner overview (if they have a reports section)
+          if (panelActive('o-overview')) {
+            debounceRefresh('ownerDashRpt', function() {
+              if (typeof loadDashboardStats === 'function') loadDashboardStats();
+            });
+          }
+        })
+
+        // ─── PETS — client pet panel, staff clients ───
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'pets' }, function(payload) {
+
+          if (panelActive('c-pets')) {
+            debounceRefresh('clientPets', function() {
+              if (typeof loadMyPets === 'function') loadMyPets();
+            });
+          }
+
+          // Staff clients list (shows pet info)
+          if (panelActive('s-clients')) {
+            debounceRefresh('staffClients', function() {
+              if (typeof loadStaffClients === 'function') loadStaffClients();
+            });
+          }
+
+          // Dashboard pet count
+          if (panelActive('c-dash')) {
+            debounceRefresh('clientDashPets', function() {
+              if (typeof loadDashboardStats === 'function') loadDashboardStats();
+            });
+          }
+        })
+
+        // ─── PROFILES — client list, staff list, dashboard names ───
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, function(payload) {
+
+          if (panelActive('o-clients')) {
+            debounceRefresh('ownerClients', function() {
+              if (typeof loadOwnerClients === 'function') loadOwnerClients();
+            });
+          }
+
+          if (panelActive('s-clients')) {
+            debounceRefresh('staffClientsProf', function() {
+              if (typeof loadStaffClients === 'function') loadStaffClients();
+            });
+          }
+        })
+
+        // ─── PAYMENTS — client billing, owner overview ───
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, function(payload) {
+
+          if (panelActive('c-bill')) {
+            debounceRefresh('clientBilling', function() {
+              if (typeof loadSavedCard === 'function') loadSavedCard();
+            });
+          }
+
+          // Refresh calendar (paid/unpaid badges)
+          debounceRefresh('calPayments', function() {
+            if ((panelActive('c-cal') || panelActive('o-cal')) && typeof loadCalendarBookings === 'function') {
+              var now = new Date();
+              loadCalendarBookings(now.getFullYear(), now.getMonth());
+            }
+          });
+        })
+
+        // ─── NOTIFICATIONS — client notification panel ───
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, function(payload) {
+
+          if (panelActive('c-dash')) {
+            debounceRefresh('clientNotifs', function() {
+              if (typeof loadDashboardStats === 'function') loadDashboardStats();
+            });
+          }
+        })
+
+        // ─── STAFF ASSIGNMENTS — staff client lists ───
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_assignments' }, function(payload) {
+
+          if (panelActive('s-clients')) {
+            debounceRefresh('staffAssign', function() {
+              if (typeof loadStaffClients === 'function') loadStaffClients();
+            });
+          }
+
+          if (panelActive('s-jobs')) {
+            debounceRefresh('staffJobsAssign', function() {
+              if (typeof loadStaffJobs === 'function') loadStaffJobs();
+            });
+          }
+        })
+
+        .subscribe(function(status) {
+          if (status === 'SUBSCRIBED') {
+            console.log('HHP Realtime: Live updates active for all tables');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.warn('HHP Realtime: Channel error, will retry...');
+            setTimeout(setupSiteRealtime, 5000);
+          }
+        });
+
+    } catch (e) {
+      console.warn('Realtime setup error:', e);
+      // Retry after delay
+      setTimeout(setupSiteRealtime, 5000);
+    }
   })();
 
   // ---- STAFF EARNINGS LOADER ----
