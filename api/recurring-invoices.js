@@ -267,7 +267,7 @@ async function sendStripeInvoice(stripe, supabase, booking, serviceDate) {
             // Apply 15% platform fee if connected account is configured
             const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
             if (connectedAccountId) {
-              const feeCents = Math.round(Math.round(amount * 100) * 0.15);
+              const feeCents = Math.round(amount * 100 * 0.15);
               piParams.application_fee_amount = feeCents;
               piParams.transfer_data = { destination: connectedAccountId };
             }

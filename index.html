@@ -12,11 +12,14 @@
 // On public pages or first visit, no hiding needed — remove early-hide immediately
 try{var v=sessionStorage.getItem('hhp_last_view');if(!v||v==='public'){var s=document.getElementById('early-hide');if(s)s.remove();}}catch(e){var s=document.getElementById('early-hide');if(s)s.remove();}
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://niysrippazlkpvdkzepp.supabase.co" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <!-- Supabase JS Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- Cloudinary Upload Widget -->
-<script src="https://upload-widget.cloudinary.com/latest/global/all.js" type="text/javascript"></script>
+<script src="https://upload-widget.cloudinary.com/latest/global/all.js" type="text/javascript" async></script>
 <style>
 :root {
   --gold: #C8963E;
@@ -9961,7 +9964,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/availability.js" defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
   <script src="/js/live-tracking.js" defer></script>
   <script src="/js/service-timer.js" defer></script></body>
 </html>

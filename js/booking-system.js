@@ -53,7 +53,7 @@
   var _dealsLoaded = false;
 
   async function _fetchActiveDeals() {
-    var sb = _getSB();
+    var sb = getSB();
     if (!sb) return;
     try {
       var res = await sb.from('deals').select('*').eq('is_active', true);
@@ -73,7 +73,7 @@
   setTimeout(function() {
     _fetchActiveDeals();
     // Subscribe to realtime deal changes so pricing updates everywhere automatically
-    var sb = _getSB();
+    var sb = getSB();
     if (sb && sb.channel) {
       try {
         sb.channel('deals-realtime')
@@ -85,12 +85,13 @@
     }
   }, 1200);
 
-  // Find the best matching deal for a service name
-  function _findDealForService(serviceName) {
+  // Find the best matching deal for a service name (basePrice used to compare % vs $ fairly)
+  function _findDealForService(serviceName, basePrice) {
     if (!serviceName || _activeDealsCache.length === 0) return null;
     var svc = serviceName.toLowerCase();
     var bestDeal = null;
     var bestDiscount = 0;
+    basePrice = basePrice || 0;
 
     _activeDealsCache.forEach(function(deal) {
       var matches = false;
@@ -103,10 +104,15 @@
       else if (at === 'house_sitting' && (svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1)) matches = true;
 
       if (matches) {
-        // Calculate which deal gives the biggest discount (we'll apply the best one)
-        var discountAmount = deal.discount_type === 'percent' ? deal.discount_value : deal.discount_value;
-        if (discountAmount > bestDiscount) {
-          bestDiscount = discountAmount;
+        // Calculate actual savings to compare deals fairly (percent vs fixed)
+        var actualSavings = 0;
+        if (deal.discount_type === 'percent') {
+          actualSavings = basePrice * (deal.discount_value / 100);
+        } else {
+          actualSavings = Math.min(deal.discount_value, basePrice);
+        }
+        if (actualSavings > bestDiscount) {
+          bestDiscount = actualSavings;
           bestDeal = deal;
         }
       }
@@ -462,8 +468,10 @@
         }
       }
 
-      setInterval(updateSignBtn, 2000);
       setTimeout(updateSignBtn, 1000);
+      setTimeout(updateSignBtn, 3000);
+      // Listen for auth state changes instead of polling
+      if (window._hhpAuthCallbacks) window._hhpAuthCallbacks.push(updateSignBtn);
     }
 
     if (document.readyState === 'loading') {
@@ -861,7 +869,7 @@
       }
 
       // ── Apply active deal discount ──
-      var activeDeal = _findDealForService(svcName);
+      var activeDeal = _findDealForService(svcName, result.total);
       // Remove old discount note if present
       var oldDealNote = breakdownEl ? breakdownEl.querySelector('.brm-deal-note') : null;
       if (oldDealNote) oldDealNote.remove();

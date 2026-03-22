@@ -72,7 +72,7 @@ module.exports = async function handler(req, res) {
 
     // Log payment to Supabase and store payment_intent_id on booking_request
     if (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded') {
-      await supabase.from('payments').insert({
+      const { error: payInsertErr } = await supabase.from('payments').insert({
         stripe_session_id: paymentIntent.id,
         client_email: profile.email,
         client_name: profile.full_name,
@@ -82,13 +82,15 @@ module.exports = async function handler(req, res) {
         notes: bookingRequestId ? 'Auto-charged on booking accept (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Auto-charged',
         paid_at: new Date().toISOString(),
       });
+      if (payInsertErr) console.error('Payment insert error:', payInsertErr.message);
 
       // Store payment_intent_id on booking_request for later capture/cancellation
       if (bookingRequestId) {
-        await supabase
+        const { error: bkUpdateErr } = await supabase
           .from('booking_requests')
           .update({ payment_intent_id: paymentIntent.id })
           .eq('id', bookingRequestId);
+        if (bkUpdateErr) console.error('Booking update error:', bkUpdateErr.message);
       }
     }
 

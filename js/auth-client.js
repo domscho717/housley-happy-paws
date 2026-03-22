@@ -239,8 +239,9 @@ const HHP_Auth = window.HHP_Auth = {
     // ── Logout ──
     async logout() {
         // Clean up realtime subscriptions before signing out
-        if (window.HHP_Messaging && window.HHP_Messaging.cleanup) window.HHP_Messaging.cleanup();
-        if (window.HHP_Notif && window.HHP_Notif.cleanup) window.HHP_Notif.cleanup();
+        try { if (window.HHP_Messaging && window.HHP_Messaging.cleanup) window.HHP_Messaging.cleanup(); } catch(e) { console.warn('Messaging cleanup:', e); }
+        try { if (window.HHP_Notif && window.HHP_Notif.cleanup) window.HHP_Notif.cleanup(); } catch(e) { console.warn('Notif cleanup:', e); }
+        try { if (window.HHP_ServiceTimer) window.HHP_ServiceTimer.stopTimer(); } catch(e) {}
         await this.supabase.auth.signOut();
         this.currentUser = null;
         this.currentRole = null;

@@ -75,11 +75,11 @@ module.exports = async function handler(req, res) {
             await stripe.paymentIntents.capture(booking.payment_intent_id);
             results.captured++;
 
-            // Update payment status in Supabase
+            // Update payment status in Supabase (check both session_id and payment_intent_id)
             await supabase
               .from('payments')
               .update({ status: 'paid' })
-              .eq('stripe_session_id', booking.payment_intent_id);
+              .or('stripe_session_id.eq.' + booking.payment_intent_id + ',stripe_payment_intent_id.eq.' + booking.payment_intent_id);
 
             console.log(`Captured payment for booking ${booking.id}: ${booking.payment_intent_id}`);
           } else if (intent.status === 'succeeded') {
@@ -107,7 +107,7 @@ module.exports = async function handler(req, res) {
       .from('recurring_invoices')
       .select('*')
       .eq('service_date', todayStr)
-      .not('status', 'in', '(captured,voided,failed)');
+      .not('status', 'in', '("captured","voided","failed")');
 
     if (recurringErr) {
       console.error('Failed to fetch recurring invoices:', recurringErr.message);

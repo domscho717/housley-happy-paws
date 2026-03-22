@@ -5,15 +5,17 @@
  */
 
 const HHP_Stripe = window.HHP_Stripe = {
-  // Service pricing map (cents avoided — we send dollars to the API)
+  // Service pricing map (dollars) — kept in sync with booking-system.js SERVICE_PRICES
+  // Actual price is calculated by booking form and passed to checkout; this is a fallback reference.
   pricing: {
+    'Dog Walking - 30 min': 25,
+    'Dog Walking - 60 min': 45,
+    'Drop-In Visit - 30 min': 25,
+    'Drop-In Visit - 40 min': 25,
+    'Cat Care Visit - 30 min': 20,
+    'Cat Care Visit - 40 min': 30,
+    'Cat Care Visit - 1 hour': 35,
     'House Sitting': 125,
-    'Dog Walking (30min)': 22,
-    'Dog Walking (60min)': 30,
-    'Drop-In Visit (20min)': 18,
-    'Drop-In Visit (40min)': 25,
-    'Cat Care (20min)': 16,
-    'Cat Care (40min)': 22,
   },
 
   /**
