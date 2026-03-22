@@ -2467,6 +2467,8 @@
         '<div class="admin-filter-bar" id="adminFilterBar" style="margin-bottom:12px">',
         '  <button class="admin-filter-btn active" data-filter="pending" onclick="HHP_BookingAdmin.filter(\'pending\',this)">Pending</button>',
         '  <button class="admin-filter-btn" data-filter="accepted" onclick="HHP_BookingAdmin.filter(\'accepted\',this)">Accepted</button>',
+        '  <button class="admin-filter-btn" data-filter="in_progress" onclick="HHP_BookingAdmin.filter(\'in_progress\',this)">In Progress</button>',
+        '  <button class="admin-filter-btn" data-filter="completed" onclick="HHP_BookingAdmin.filter(\'completed\',this)">Completed</button>',
         '  <button class="admin-filter-btn" data-filter="modified" onclick="HHP_BookingAdmin.filter(\'modified\',this)">Modified</button>',
         '  <button class="admin-filter-btn" data-filter="declined" onclick="HHP_BookingAdmin.filter(\'declined\',this)">Declined</button>',
         '  <button class="admin-filter-btn" data-filter="all" onclick="HHP_BookingAdmin.filter(\'all\',this)">All</button>',
@@ -2587,6 +2589,10 @@
           ].join('');
         } else if (r.status === 'modified') {
           actionsHTML = '<div class="arc-actions"><span style="color:#888;font-size:13px;">Waiting for client response</span></div>';
+        } else if (r.status === 'in_progress') {
+          actionsHTML = '<div class="arc-actions"><button class="arc-btn accept" onclick="if(typeof reopenLiveServicePanel===\'function\')reopenLiveServicePanel();" style="background:#2196F3">▶ View Live Report</button></div>';
+        } else if (r.status === 'completed') {
+          actionsHTML = '<div class="arc-actions"><button class="arc-btn accept" onclick="if(typeof viewCompletedReport===\'function\')viewCompletedReport(\'' + r.id + '\');" style="background:#4caf50">📋 View Report</button></div>';
         }
 
         // Build avatar for the client on this request

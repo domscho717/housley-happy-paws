@@ -5823,7 +5823,7 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
 
   var panel = document.createElement('div');
   panel.id = 'hhp-live-service-panel';
-  panel.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;justify-content:center;';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,0.5);display:flex;align-items:stretch;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:60px 0 0 0;';
 
   var svcLower = (service || '').toLowerCase();
   var isDogWalk = svcLower.indexOf('walk') !== -1;
@@ -5839,7 +5839,7 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   var labelStyle = 'font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px';
 
   var h = '';
-  h += '<div style="background:white;width:100%;max-width:500px;max-height:92vh;border-radius:20px 20px 0 0;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);padding:0">';
+  h += '<div style="background:white;width:100%;max-width:500px;margin-top:auto;border-radius:20px 20px 0 0;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);padding:0">';
 
   // Header
   h += '<div style="padding:16px 20px 12px;background:var(--forest,#3d5a47);color:white;border-radius:20px 20px 0 0">';
@@ -5895,8 +5895,13 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<option value="30 min"' + (svcLower.indexOf('30') !== -1 ? ' selected' : '') + '>30 Minutes</option>';
   h += '<option value="1 hour"' + (svcLower.indexOf('1 hr') !== -1 || svcLower.indexOf('1 hour') !== -1 ? ' selected' : '') + '>1 Hour</option>';
   h += '</select></div>';
-  h += '<div><div style="' + labelStyle + '">Distance' + (isDogWalk ? '' : ' (optional)') + '</div>';
-  h += '<input type="text" id="lsp-distance" value="' + (isDogWalk ? 'Tracking...' : '') + '" placeholder="e.g. 1.2 mi" style="' + fieldStyle + '"></div></div>';
+  if (isDogWalk) {
+    h += '<div><div style="' + labelStyle + '">Distance (GPS Tracking)</div>';
+    h += '<input type="text" id="lsp-distance" value="Tracking..." placeholder="Auto-fills from GPS" style="' + fieldStyle + '" readonly></div>';
+  } else {
+    h += '<div></div>';
+  }
+  h += '</div>';
 
   // Location
   h += '<div style="margin-bottom:12px"><div style="' + labelStyle + '">Location / Address</div>';
@@ -5918,9 +5923,25 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<input type="file" id="lsp-media-input" accept="image/*,video/*" multiple style="display:none" onchange="handleLspMediaUpload(this)">';
   h += '📷 Add Photos/Videos</label></div>';
 
-  // Notes textarea
-  h += '<div style="margin-bottom:16px"><div style="' + labelStyle + '">Personal Note</div>';
-  h += '<textarea id="lsp-notes" rows="3" placeholder="How did the visit go? Any notes for the client..." style="' + fieldStyle + ';resize:vertical"></textarea></div>';
+  // AI Note Builder
+  h += '<div style="margin-bottom:12px;background:var(--forest-pale,#e8f0ea);border-radius:10px;padding:14px;border-left:3px solid var(--forest,#3d5a47)">';
+  h += '<div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest,#3d5a47);margin-bottom:8px">📝 Quick Note Builder</div>';
+  h += '<div style="display:flex;flex-direction:column;gap:8px">';
+  h += '<select id="lsp-ai-q1" style="' + fieldStyle + '"><option value="">Dog or Cat?</option><option value="dog">🐕 Dog</option><option value="cat">🐱 Cat</option></select>';
+  h += '<select id="lsp-ai-q3" style="' + fieldStyle + '">';
+  h += '<option value="">What happened?</option>';
+  h += '<option value="all_good">Everything went great!</option>';
+  h += '<option value="new_friend">Made a new friend</option>';
+  h += '<option value="shy">Was a little shy</option>';
+  h += '<option value="extra_energy">Had extra energy</option>';
+  h += '<option value="potty">Needed a potty break</option>';
+  h += '<option value="other">Other (I\'ll write my own)</option>';
+  h += '</select>';
+  h += '<button onclick="buildLspNote()" style="padding:8px 16px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:8px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit">✨ Generate Note</button>';
+  h += '</div></div>';
+
+  h += '<div style="margin-bottom:16px"><div style="' + labelStyle + '">Note for Client</div>';
+  h += '<textarea id="lsp-notes" rows="4" placeholder="Use the builder above or write your own note..." style="' + fieldStyle + ';resize:vertical"></textarea></div>';
 
   // End Service button
   h += '<button onclick="endServiceFromPanel()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">⏹ End Service & Send Report</button>';
@@ -5982,6 +6003,26 @@ function handleLspMediaUpload(input) {
       reader.readAsDataURL(file);
     })(files[i]);
   }
+}
+
+// AI Note Builder for live service panel
+function buildLspNote() {
+  var type = (document.getElementById('lsp-ai-q1') || {}).value;
+  var petName = (document.getElementById('lsp-pets') || {}).value || 'your pet';
+  var situation = (document.getElementById('lsp-ai-q3') || {}).value;
+  if (!type) { toast('Please select dog or cat first!'); return; }
+  if (!situation) { toast('Please select what happened!'); return; }
+  var notes = {
+    all_good: petName + ' had such a wonderful visit today! Everything went smoothly from start to finish — ' + petName + ' was happy, well-behaved, and in great spirits the entire time. It\'s always such a joy to spend time with ' + petName + '. I can tell how well-loved ' + petName + ' is! 🐾',
+    new_friend: petName + ' had such a great time today — and made a brand new friend along the way! They hit it off right away and had the best time together. ' + petName + ' was happy, energetic, and just a total joy. What a wonderful ' + type + '! 🐾',
+    shy: petName + ' was a little reserved today, which is completely normal — some days are like that! We took it slow and by the end, ' + petName + ' was more relaxed and comfortable. These things just take time, and ' + petName + ' is doing wonderfully. 🐾',
+    extra_energy: petName + ' had SO much energy today — absolutely unstoppable! We made the most of it and had a great time. ' + petName + ' was playful, enthusiastic, and came home a happy and (slightly!) tired ' + type + '. The best kind of tired. 🐾',
+    potty: petName + ' did great today overall! We just took a little extra time for a potty break, which is totally fine. ' + petName + ' was happy and well-behaved the whole time. Always a pleasure to be with ' + petName + '! 🐾',
+    other: petName + ' had a lovely visit today. Overall a great time — ' + petName + ' is such a wonderful ' + type + ' and it\'s always a pleasure. 🐾'
+  };
+  var noteEl = document.getElementById('lsp-notes');
+  if (noteEl) noteEl.value = notes[situation] || notes.all_good;
+  toast('✨ Note generated! Feel free to edit it.');
 }
 
 var _lspTimerInterval = null;
