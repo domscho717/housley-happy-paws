@@ -72,7 +72,13 @@
   async function _loadPrefs(){
     var sb=_getSB(),u=_getUser(); if(!sb||!u) return;
     try{ var{data}=await sb.from('user_layout_prefs').select('*').eq('user_id',u.id);
-      (data||[]).forEach(function(r){ _prefs[r.portal]={sidebar_order:r.sidebar_order||[],widgets:r.overview_widgets||[],sizes:(r.sidebar_order&&r.sidebar_order.__sizes)||{}}; });
+      (data||[]).forEach(function(r){
+        var ow=r.overview_widgets||[];
+        // overview_widgets can be {wids:[...],sizes:{...}} or just an array
+        var wids=Array.isArray(ow)?ow:(ow.wids||[]);
+        var sizes=(!Array.isArray(ow)&&ow.sizes)?ow.sizes:{};
+        _prefs[r.portal]={sidebar_order:r.sidebar_order||[],widgets:wids,sizes:sizes};
+      });
     }catch(e){console.warn('Cust load:',e);}
   }
 
@@ -82,8 +88,9 @@
     var p=_prefs[portal]||{};
     try{
       var sd=Array.isArray(p.sidebar_order)?(p.sidebar_order).slice():[];
-      if(p.sizes&&Object.keys(p.sizes).length) sd.__sizes=p.sizes;
-      await sb.from('user_layout_prefs').upsert({user_id:u.id,portal:portal,sidebar_order:sd,overview_widgets:p.widgets||[],updated_at:new Date().toISOString()},{onConflict:'user_id,portal'});
+      // Store widgets + sizes together as an object
+      var ow={wids:p.widgets||[],sizes:p.sizes||{}};
+      await sb.from('user_layout_prefs').upsert({user_id:u.id,portal:portal,sidebar_order:sd,overview_widgets:ow,updated_at:new Date().toISOString()},{onConflict:'user_id,portal'});
     }catch(e){console.warn('Cust save:',e);}
     _saving=false;
   }
@@ -269,7 +276,8 @@
       var size=_getSize(portal,w.wid);
       var renderer=_R[w.renderFn];
       var body='';
-      if(renderer){try{body=await renderer();}catch(e){body='<div style="color:var(--mid);font-size:0.82rem">Could not load</div>';}}
+      // Pass size to renderer so it can adapt content for small vs full
+      if(renderer){try{body=await renderer(size);}catch(e){body='<div style="color:var(--mid);font-size:0.82rem">Could not load</div>';}}
       html+=_card(portal,w,body,size);
     }
     if(!html) html='<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--mid);font-size:0.85rem;background:var(--warm);border-radius:12px;border:1.5px dashed var(--border)">No widgets visible. Click <strong>✏️ Customize</strong> to add sections.</div>';
@@ -396,82 +404,230 @@
 
   // ══════════════════════════════════════
   //  WIDGET RENDERERS (_R = summary, _D = detail)
+  //  Each renderer receives size ('half'|'full')
+  //  half = small/compact widget, full = big/expanded widget
   // ══════════════════════════════════════
   var _R={}, _D={};
 
-  function _statRow(items){
-    var h='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  // Helper: stat row — full shows all items expanded, half shows compact 2-col
+  function _statRow(items,size){
+    if(size==='half'){
+      // Small: compact 2-col grid, just number + label, no icon
+      var h='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
+      items.forEach(function(s){
+        h+='<div style="background:var(--warm);border-radius:6px;padding:6px 8px;text-align:center">'+
+          '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.1rem;font-weight:700" id="'+s.id+'">—</div>'+
+          '<div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">'+s.label+'</div></div>';
+      }); return h+'</div>';
+    }
+    // Full: spacious row with icons
+    var h='<div style="display:flex;gap:10px;flex-wrap:wrap">';
     items.forEach(function(s){
-      h+='<div style="flex:1;min-width:70px;background:var(--warm);border-radius:8px;padding:10px;text-align:center">'+
-        '<div style="font-size:0.9rem">'+s.icon+'</div>'+
-        '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700" id="'+s.id+'">—</div>'+
-        '<div style="font-size:0.68rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.03em">'+s.label+'</div></div>';
+      h+='<div style="flex:1;min-width:80px;background:var(--warm);border-radius:10px;padding:14px 10px;text-align:center">'+
+        '<div style="font-size:1.1rem;margin-bottom:4px">'+s.icon+'</div>'+
+        '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.6rem;font-weight:700" id="'+s.id+'">—</div>'+
+        '<div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.03em;margin-top:2px">'+s.label+'</div></div>';
     }); return h+'</div>';
   }
 
-  function _bigNum(n,label){return '<div style="text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:2rem;font-weight:700">'+n+'</div><div style="font-size:0.75rem;color:var(--mid)">'+label+'</div></div>';}
+  function _bigNum(n,label,size){
+    if(size==='full'){
+      return '<div style="text-align:center;padding:8px 0"><div style="font-family:\'Cormorant Garamond\',serif;font-size:2.4rem;font-weight:700">'+n+'</div><div style="font-size:0.82rem;color:var(--mid);margin-top:2px">'+label+'</div></div>';
+    }
+    return '<div style="text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;font-weight:700;line-height:1.2">'+n+'</div><div style="font-size:0.65rem;color:var(--mid)">'+label+'</div></div>';
+  }
 
   // ── CLIENT ──
-  _R._rwClientStats=async function(){return _statRow([{icon:'📅',label:'Total Visits',id:'stat-totalVisits'},{icon:'🦮',label:'Walks Done',id:'stat-walksDone'},{icon:'📋',label:'Reports',id:'stat-avgRatingGiven'},{icon:'🐾',label:'Pets in Care',id:'stat-petsInCare'}]);};
-  _R._rwClientUpcoming=async function(){
+  _R._rwClientStats=async function(sz){return _statRow([{icon:'📅',label:'Total Visits',id:'stat-totalVisits'},{icon:'🦮',label:'Walks Done',id:'stat-walksDone'},{icon:'📋',label:'Reports',id:'stat-avgRatingGiven'},{icon:'🐾',label:'Pets in Care',id:'stat-petsInCare'}],sz);};
+
+  _R._rwClientUpcoming=async function(sz){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'<div style="color:var(--mid);font-size:0.82rem">No data</div>';
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_date').eq('client_id',u.id).in('status',['accepted','confirmed']).gte('preferred_date',today).order('preferred_date').limit(4);
+    var lim=sz==='full'?8:2;
+    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,estimated_total').eq('client_id',u.id).in('status',['accepted','confirmed']).gte('preferred_date',today).order('preferred_date').limit(lim);
       if(!data||!data.length)return'<div style="color:var(--mid);font-size:0.82rem;padding:8px 0">No upcoming appointments</div>';
-      return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});return'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><span style="font-weight:600">'+b.service+'</span><span style="color:var(--mid)">'+d+'</span></div>';}).join('');
+      if(sz==='full'){
+        return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.85rem"><div><span style="font-weight:700">'+b.service+'</span><div style="font-size:0.75rem;color:var(--mid)">'+d+(t?' · '+t:'')+'</div></div><div style="font-weight:600;color:var(--forest)">$'+(b.estimated_total||0).toFixed(2)+'</div></div>';}).join('');
+      }
+      // Small: just service + date, no price/time
+      return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});return'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.78rem"><span style="font-weight:600">'+b.service+'</span><span style="color:var(--mid)">'+d+'</span></div>';}).join('');
     }catch(e){return'';}
   };
-  _R._rwClientNotif=async function(){return '<div id="clientDashNotifications" style="font-size:0.82rem;color:var(--mid);padding:4px 0">Loading...</div>';};
-  _R._rwClientPets=async function(){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('pets').select('id',{count:'exact',head:true}).eq('owner_id',u.id);return _bigNum(count||0,'registered pets');}catch(e){return'';}};
-  _R._rwClientTracking=async function(){return'<div style="font-size:0.82rem;color:var(--mid)">Track your pet\'s walk in real time when a service is active.</div>';};
-  _R._rwClientPhotos=async function(){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('walk_photos').select('id',{count:'exact',head:true}).eq('client_id',u.id);return _bigNum(count||0,'photos from walks');}catch(e){return'';}};
-  _R._rwClientReports=async function(){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);return _bigNum(count||0,'reports received');}catch(e){return'';}};
-  _R._rwClientReviews=async function(){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('reviews').select('id',{count:'exact',head:true}).eq('reviewer_id',u.id);return _bigNum(count||0,'reviews left');}catch(e){return'';}};
-  _R._rwClientMsgs=async function(){return'<div style="font-size:0.82rem;color:var(--mid)">View conversations with your care provider.</div>';};
-  _R._rwClientBilling=async function(){return'<div style="font-size:0.82rem;color:var(--mid)">Manage payment methods and receipts.</div>';};
+
+  _R._rwClientNotif=async function(sz){
+    if(sz==='full') return '<div id="clientDashNotifications" style="font-size:0.85rem;color:var(--mid);padding:4px 0;min-height:60px">Loading...</div>';
+    return '<div id="clientDashNotifications" style="font-size:0.78rem;color:var(--mid);padding:2px 0;max-height:80px;overflow:hidden">Loading...</div>';
+  };
+  _R._rwClientPets=async function(sz){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('pets').select('id',{count:'exact',head:true}).eq('owner_id',u.id);return _bigNum(count||0,'registered pets',sz);}catch(e){return'';}};
+  _R._rwClientTracking=async function(sz){
+    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid);padding:8px 0">Track your pet\'s walk in real time when a service is active. You\'ll see live GPS updates, estimated return time, and route progress.</div>';
+    return'<div style="font-size:0.75rem;color:var(--mid)">Live GPS tracking during walks</div>';
+  };
+  _R._rwClientPhotos=async function(sz){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('walk_photos').select('id',{count:'exact',head:true}).eq('client_id',u.id);return _bigNum(count||0,'photos from walks',sz);}catch(e){return'';}};
+  _R._rwClientReports=async function(sz){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);return _bigNum(count||0,'reports received',sz);}catch(e){return'';}};
+  _R._rwClientReviews=async function(sz){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('reviews').select('id',{count:'exact',head:true}).eq('reviewer_id',u.id);return _bigNum(count||0,'reviews left',sz);}catch(e){return'';}};
+  _R._rwClientMsgs=async function(sz){
+    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">View and send messages to your care provider. Stay updated on your pet\'s services and schedule changes.</div>';
+    return'<div style="font-size:0.75rem;color:var(--mid)">Messages with provider</div>';
+  };
+  _R._rwClientBilling=async function(sz){
+    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">Manage your payment methods, view past invoices, and track spending on pet care services.</div>';
+    return'<div style="font-size:0.75rem;color:var(--mid)">Payments & receipts</div>';
+  };
 
   // ── STAFF ──
-  _R._rwStaffStats=async function(){return _statRow([{icon:'📅',label:'This Week',id:'stat-staffThisWeek'},{icon:'✅',label:'All Time',id:'stat-staffAllTime'},{icon:'📋',label:'Reports Sent',id:'stat-staffYourRating'},{icon:'💰',label:'This Month',id:'stat-staffThisMonth'}]);};
-  _R._rwStaffJobs=async function(){return '<div id="staffDashJobs" style="font-size:0.82rem;color:var(--mid);padding:4px 0">Loading jobs...</div>';};
-  _R._rwStaffClients=async function(){var sb=_getSB();if(!sb)return'';try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('contact_name').in('status',['accepted','confirmed']).gte('preferred_date',today).limit(50);var n=[];(data||[]).forEach(function(b){if(b.contact_name&&n.indexOf(b.contact_name)===-1)n.push(b.contact_name);});return _bigNum(n.length,'active clients');}catch(e){return'';}};
-  _R._rwStaffEarnings=async function(){var sb=_getSB();if(!sb)return'';try{var{count}=await sb.from('booking_requests').select('id',{count:'exact',head:true}).eq('status','completed');return _bigNum(count||0,'jobs completed');}catch(e){return'';}};
-  _R._rwStaffMsgs=async function(){return'<div style="font-size:0.82rem;color:var(--mid)">Messages from clients and owner.</div>';};
-  _R._rwStaffCal=async function(){return'<div style="font-size:0.82rem;color:var(--mid)">View your schedule on a calendar.</div>';};
+  _R._rwStaffStats=async function(sz){return _statRow([{icon:'📅',label:'This Week',id:'stat-staffThisWeek'},{icon:'✅',label:'All Time',id:'stat-staffAllTime'},{icon:'📋',label:'Reports Sent',id:'stat-staffYourRating'},{icon:'💰',label:'This Month',id:'stat-staffThisMonth'}],sz);};
+
+  _R._rwStaffJobs=async function(sz){
+    if(sz==='full') return '<div id="staffDashJobs" style="font-size:0.85rem;color:var(--mid);padding:4px 0;min-height:80px">Loading jobs...</div>';
+    return '<div id="staffDashJobs" style="font-size:0.78rem;color:var(--mid);padding:2px 0;max-height:100px;overflow:hidden">Loading jobs...</div>';
+  };
+  _R._rwStaffClients=async function(sz){
+    var sb=_getSB();if(!sb)return'';
+    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('contact_name').in('status',['accepted','confirmed']).gte('preferred_date',today).limit(50);
+      var n=[];(data||[]).forEach(function(b){if(b.contact_name&&n.indexOf(b.contact_name)===-1)n.push(b.contact_name);});
+      if(sz==='full'){
+        var h=_bigNum(n.length,'active clients',sz);
+        if(n.length>0) h+='<div style="margin-top:8px;font-size:0.78rem;color:var(--mid)">'+n.slice(0,6).join(', ')+(n.length>6?' + '+(n.length-6)+' more':'')+'</div>';
+        return h;
+      }
+      return _bigNum(n.length,'active clients',sz);
+    }catch(e){return'';}
+  };
+  _R._rwStaffEarnings=async function(sz){var sb=_getSB();if(!sb)return'';try{var{count}=await sb.from('booking_requests').select('id',{count:'exact',head:true}).eq('status','completed');return _bigNum(count||0,'jobs completed',sz);}catch(e){return'';}};
+  _R._rwStaffMsgs=async function(sz){
+    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">Messages from clients and the business owner. Stay in the loop on schedule changes and client requests.</div>';
+    return'<div style="font-size:0.75rem;color:var(--mid)">Client & owner messages</div>';
+  };
+  _R._rwStaffCal=async function(sz){
+    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">View your full weekly and monthly schedule. See upcoming jobs, availability, and time off requests.</div>';
+    return'<div style="font-size:0.75rem;color:var(--mid)">Weekly schedule view</div>';
+  };
 
   // ── OWNER ──
-  _R._rwOwnerBanner=async function(){
+  _R._rwOwnerBanner=async function(sz){
+    if(sz==='half'){
+      // Small: just greeting + 3 key stats inline
+      return '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1rem;font-weight:700;color:var(--ink);margin-bottom:6px">Good morning, Rachel 🐾</div>'+
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+          '<div style="flex:1;min-width:48px;text-align:center;background:var(--warm);border-radius:6px;padding:5px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.1rem;font-weight:700" id="stat-activeClients">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">Clients</div></div>'+
+          '<div style="flex:1;min-width:48px;text-align:center;background:var(--warm);border-radius:6px;padding:5px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.1rem;font-weight:700" id="stat-bookingsThisMonth">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">This Mo.</div></div>'+
+          '<div style="flex:1;min-width:48px;text-align:center;background:var(--warm);border-radius:6px;padding:5px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.1rem;font-weight:700" id="stat-todayJobs">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">Today</div></div>'+
+        '</div>';
+    }
+    // Full: full greeting + announcement button + all 5 stats
     return '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'+
       '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700;color:var(--ink)">Good morning, Rachel 🐾</div>'+
       '<div style="font-size:0.82rem;color:var(--mid)">Your business is growing beautifully.</div></div>'+
       '<button class="btn btn-gold btn-sm" onclick="openModal(\'announceModal\')">📢 Post Announcement</button></div>'+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+
-        '<div style="flex:1;min-width:55px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700" id="stat-activeClients">—</div><div style="font-size:0.62rem;color:var(--mid);text-transform:uppercase">Clients</div></div>'+
-        '<div style="flex:1;min-width:55px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700" id="stat-newSignups">—</div><div style="font-size:0.62rem;color:var(--mid);text-transform:uppercase">Sign-ups</div></div>'+
-        '<div style="flex:1;min-width:55px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700" id="stat-bookingsThisMonth">—</div><div style="font-size:0.62rem;color:var(--mid);text-transform:uppercase">This Month</div></div>'+
-        '<div style="flex:1;min-width:55px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700" id="stat-avgRating">—</div><div style="font-size:0.62rem;color:var(--mid);text-transform:uppercase">Reports</div></div>'+
-        '<div style="flex:1;min-width:55px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700" id="stat-todayJobs">—</div><div style="font-size:0.62rem;color:var(--mid);text-transform:uppercase">Today</div></div>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">'+
+        '<div style="flex:1;min-width:60px;text-align:center;background:var(--warm);border-radius:8px;padding:10px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700" id="stat-activeClients">—</div><div style="font-size:0.65rem;color:var(--mid);text-transform:uppercase">Clients</div></div>'+
+        '<div style="flex:1;min-width:60px;text-align:center;background:var(--warm);border-radius:8px;padding:10px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700" id="stat-newSignups">—</div><div style="font-size:0.65rem;color:var(--mid);text-transform:uppercase">Sign-ups</div></div>'+
+        '<div style="flex:1;min-width:60px;text-align:center;background:var(--warm);border-radius:8px;padding:10px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700" id="stat-bookingsThisMonth">—</div><div style="font-size:0.65rem;color:var(--mid);text-transform:uppercase">This Month</div></div>'+
+        '<div style="flex:1;min-width:60px;text-align:center;background:var(--warm);border-radius:8px;padding:10px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700" id="stat-avgRating">—</div><div style="font-size:0.65rem;color:var(--mid);text-transform:uppercase">Reports</div></div>'+
+        '<div style="flex:1;min-width:60px;text-align:center;background:var(--warm);border-radius:8px;padding:10px"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700" id="stat-todayJobs">—</div><div style="font-size:0.65rem;color:var(--mid);text-transform:uppercase">Today</div></div>'+
       '</div>';
   };
-  _R._rwOwnerAlerts=async function(){return '<div id="hhpAlertsCard"><div style="font-weight:700;margin-bottom:10px">🔔 Alerts & Messages</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.82rem">Loading...</div></div>';};
-  _R._rwOwnerWeekStats=async function(){
-    return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-      '<div style="background:var(--gold-pale);border-radius:8px;padding:12px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;font-weight:700" id="stat-jobsThisWeek">—</div><div style="font-size:0.68rem;font-weight:600;color:var(--mid);text-transform:uppercase">Jobs This Week</div></div>'+
-      '<div style="background:var(--forest-pale);border-radius:8px;padding:12px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;font-weight:700" id="stat-weekRevenue">—</div><div style="font-size:0.68rem;font-weight:600;color:var(--mid);text-transform:uppercase">Week Revenue</div></div>'+
-      '<div style="background:var(--rose-pale);border-radius:8px;padding:12px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;font-weight:700" id="stat-newInquiries">—</div><div style="font-size:0.68rem;font-weight:600;color:var(--mid);text-transform:uppercase">New Inquiries</div></div>'+
-      '<div style="background:#e0f2fe;border-radius:8px;padding:12px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;font-weight:700" id="stat-weekRating">—</div><div style="font-size:0.68rem;font-weight:600;color:var(--mid);text-transform:uppercase">Week Rating</div></div></div>';
+
+  _R._rwOwnerAlerts=async function(sz){
+    if(sz==='full') return '<div id="hhpAlertsCard"><div style="font-weight:700;margin-bottom:10px">🔔 Alerts & Messages</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem;min-height:60px">Loading...</div></div>';
+    return '<div id="hhpAlertsCard"><div style="font-weight:600;font-size:0.8rem;margin-bottom:6px">🔔 Alerts</div><div style="padding:4px;text-align:center;color:var(--mid);font-size:0.75rem;max-height:80px;overflow:hidden">Loading...</div></div>';
   };
-  _R._rwOwnerRequests=async function(){return '<div id="hhpAdminDashboard"><div style="font-weight:700;margin-bottom:10px">📋 Booking Requests</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.82rem">Loading requests...</div></div>';};
-  _R._rwOwnerToday=async function(){
-    return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:0.78rem;color:var(--mid)" id="todayDateLabel">Loading...</div>'+
-      '<button class="btn btn-outline btn-sm" onclick="sTab(\'o\',\'o-sched\')" style="font-size:0.75rem">Full Schedule</button></div>'+
-      '<div id="ownerTodayScheduleList" style="display:flex;flex-direction:column;gap:8px"><div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem">Loading schedule...</div></div>';
+
+  _R._rwOwnerWeekStats=async function(sz){
+    if(sz==='half'){
+      // Small: 2x1 grid, only jobs + revenue
+      return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+        '<div style="background:var(--gold-pale);border-radius:6px;padding:8px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.2rem;font-weight:700" id="stat-jobsThisWeek">—</div><div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">Jobs</div></div>'+
+        '<div style="background:var(--forest-pale);border-radius:6px;padding:8px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.2rem;font-weight:700" id="stat-weekRevenue">—</div><div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">Revenue</div></div></div>';
+    }
+    // Full: all 4 stats in 2x2 with bigger text
+    return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+      '<div style="background:var(--gold-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-jobsThisWeek">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Jobs This Week</div></div>'+
+      '<div style="background:var(--forest-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-weekRevenue">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Week Revenue</div></div>'+
+      '<div style="background:var(--rose-pale);border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-newInquiries">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">New Inquiries</div></div>'+
+      '<div style="background:#e0f2fe;border-radius:10px;padding:16px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.8rem;font-weight:700" id="stat-weekRating">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase">Week Rating</div></div></div>';
   };
-  _R._rwOwnerClients=async function(){var sb=_getSB();if(!sb)return'';try{var{count}=await sb.from('profiles').select('id',{count:'exact',head:true}).eq('role','client');return _bigNum(count||0,'registered clients');}catch(e){return'';}};
-  _R._rwOwnerStaff=async function(){var sb=_getSB();if(!sb)return'';try{var{count}=await sb.from('profiles').select('id',{count:'exact',head:true}).eq('role','staff').eq('is_active',true);return _bigNum(count||0,'active staff');}catch(e){return'';}};
-  _R._rwOwnerReviews=async function(){var sb=_getSB();if(!sb)return'';try{var{data}=await sb.from('reviews').select('rating').limit(100);var avg=0;if(data&&data.length){avg=(data.reduce(function(a,r){return a+(r.rating||0);},0)/data.length).toFixed(1);}return _bigNum(data?data.length:0,(avg>0?avg+' avg rating':'no reviews yet'));}catch(e){return'';}};
-  _R._rwOwnerPayments=async function(){var sb=_getSB();if(!sb)return'';try{var{count}=await sb.from('payments').select('id',{count:'exact',head:true}).eq('status','succeeded');return _bigNum(count||0,'payments received');}catch(e){return'';}};
-  _R._rwOwnerDeals=async function(){var sb=_getSB();if(!sb)return'';try{var{data}=await sb.from('deals').select('name').eq('is_active',true);return _bigNum((data||[]).length,(data&&data.length?'active deals':'no active deals'));}catch(e){return'';}};
-  _R._rwOwnerPhotos=async function(){var sb=_getSB();if(!sb)return'';try{var{count}=await sb.from('walk_photos').select('id',{count:'exact',head:true});return _bigNum(count||0,'total photos');}catch(e){return'';}};
-  _R._rwOwnerActivity=async function(){return'<div style="font-size:0.82rem;color:var(--mid)">Recent activity across your business.</div>';};
+
+  _R._rwOwnerRequests=async function(sz){
+    if(sz==='full') return '<div id="hhpAdminDashboard"><div style="font-weight:700;margin-bottom:10px">📋 Booking Requests</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem;min-height:80px">Loading requests...</div></div>';
+    return '<div id="hhpAdminDashboard"><div style="font-weight:600;font-size:0.8rem;margin-bottom:4px">📋 Requests</div><div style="padding:4px;text-align:center;color:var(--mid);font-size:0.75rem;max-height:100px;overflow:hidden">Loading...</div></div>';
+  };
+
+  _R._rwOwnerToday=async function(sz){
+    if(sz==='full'){
+      return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:0.82rem;color:var(--mid)" id="todayDateLabel">Loading...</div>'+
+        '<button class="btn btn-outline btn-sm" onclick="sTab(\'o\',\'o-sched\')" style="font-size:0.75rem">Full Schedule</button></div>'+
+        '<div id="ownerTodayScheduleList" style="display:flex;flex-direction:column;gap:8px;min-height:60px"><div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem">Loading schedule...</div></div>';
+    }
+    // Small: just date + compact list
+    return '<div style="font-size:0.72rem;color:var(--mid);margin-bottom:4px" id="todayDateLabel">Loading...</div>'+
+      '<div id="ownerTodayScheduleList" style="display:flex;flex-direction:column;gap:4px;max-height:90px;overflow:hidden"><div style="padding:6px;text-align:center;color:var(--mid);font-size:0.75rem">Loading...</div></div>';
+  };
+
+  _R._rwOwnerClients=async function(sz){
+    var sb=_getSB();if(!sb)return'';
+    try{var{count}=await sb.from('profiles').select('id',{count:'exact',head:true}).eq('role','client');
+      if(sz==='full'){
+        var h=_bigNum(count||0,'registered clients',sz);
+        var{data}=await sb.from('profiles').select('full_name').eq('role','client').order('created_at',{ascending:false}).limit(5);
+        if(data&&data.length){h+='<div style="margin-top:10px;font-size:0.78rem;color:var(--mid)"><div style="font-weight:600;margin-bottom:4px">Recent:</div>'+data.map(function(p){return'<div style="padding:2px 0">'+p.full_name+'</div>';}).join('')+'</div>';}
+        return h;
+      }
+      return _bigNum(count||0,'clients',sz);
+    }catch(e){return'';}
+  };
+  _R._rwOwnerStaff=async function(sz){
+    var sb=_getSB();if(!sb)return'';
+    try{var{data}=await sb.from('profiles').select('full_name,is_active').eq('role','staff');
+      var active=(data||[]).filter(function(s){return s.is_active;});
+      if(sz==='full'){
+        var h=_bigNum(active.length,'active staff',sz);
+        if(active.length){h+='<div style="margin-top:10px;font-size:0.78rem;color:var(--mid)">'+active.map(function(s){return'<div style="padding:2px 0">✅ '+s.full_name+'</div>';}).join('')+'</div>';}
+        return h;
+      }
+      return _bigNum(active.length,'staff',sz);
+    }catch(e){return'';}
+  };
+  _R._rwOwnerReviews=async function(sz){
+    var sb=_getSB();if(!sb)return'';
+    try{var{data}=await sb.from('reviews').select('rating,comment,reviewer_name').order('created_at',{ascending:false}).limit(sz==='full'?5:100);
+      var avg=0;if(data&&data.length){avg=(data.reduce(function(a,r){return a+(r.rating||0);},0)/data.length).toFixed(1);}
+      if(sz==='full'){
+        var h=_bigNum(data?data.length:0,(avg>0?avg+' avg rating':'no reviews yet'),sz);
+        if(data&&data.length){h+='<div style="margin-top:10px">';data.slice(0,3).forEach(function(r){h+='<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.78rem"><div style="font-weight:600">'+('⭐'.repeat(Math.round(r.rating||0)))+' '+(r.reviewer_name||'Client')+'</div>'+(r.comment?'<div style="color:var(--mid);margin-top:2px">"'+r.comment.substring(0,80)+(r.comment.length>80?'...':'')+'"</div>':'')+'</div>';});h+='</div>';}
+        return h;
+      }
+      return _bigNum(avg>0?avg:'—',(data?data.length:0)+' reviews',sz);
+    }catch(e){return'';}
+  };
+  _R._rwOwnerPayments=async function(sz){
+    var sb=_getSB();if(!sb)return'';
+    try{var{count}=await sb.from('payments').select('id',{count:'exact',head:true}).eq('status','succeeded');
+      if(sz==='full'){
+        var h=_bigNum(count||0,'payments received',sz);
+        var{data}=await sb.from('payments').select('amount,created_at,status').eq('status','succeeded').order('created_at',{ascending:false}).limit(4);
+        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(p){var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.78rem;border-bottom:1px solid var(--border)"><span style="color:var(--mid)">'+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)/100).toFixed(2)+'</span></div>';});h+='</div>';}
+        return h;
+      }
+      return _bigNum(count||0,'payments',sz);
+    }catch(e){return'';}
+  };
+  _R._rwOwnerDeals=async function(sz){
+    var sb=_getSB();if(!sb)return'';
+    try{var{data}=await sb.from('deals').select('name,discount_value,discount_type,is_active').eq('is_active',true);
+      if(sz==='full'){
+        var h=_bigNum((data||[]).length,(data&&data.length?'active deals':'no active deals'),sz);
+        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(d){var disc=d.discount_type==='percent'?d.discount_value+'% off':'$'+d.discount_value+' off';h+='<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:0.78rem;border-bottom:1px solid var(--border)"><span style="font-weight:600">'+d.name+'</span><span style="color:var(--forest);font-weight:600">'+disc+'</span></div>';});h+='</div>';}
+        return h;
+      }
+      return _bigNum((data||[]).length,'deals',sz);
+    }catch(e){return'';}
+  };
+  _R._rwOwnerPhotos=async function(sz){var sb=_getSB();if(!sb)return'';try{var{count}=await sb.from('walk_photos').select('id',{count:'exact',head:true});return _bigNum(count||0,sz==='full'?'total photos uploaded':'photos',sz);}catch(e){return'';}};
+  _R._rwOwnerActivity=async function(sz){
+    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">Recent activity across your business — new bookings, completed walks, payments, and client interactions.</div>';
+    return'<div style="font-size:0.75rem;color:var(--mid)">Business activity feed</div>';
+  };
 
   // ── DETAIL RENDERERS ──
   _D._rwClientUpcoming=async function(){
@@ -569,7 +725,27 @@
     init:function(){_initialized=false;init();},
     toggleEdit:_toggleEdit,
     toggleW:_toggleWidget,
-    setSize:function(p,w,s){if(!_prefs[p])_prefs[p]={sidebar_order:[],widgets:[],sizes:{}};if(!_prefs[p].sizes)_prefs[p].sizes={};_prefs[p].sizes[w]=s;_savePrefs(p);_renderWidgets(p).then(function(){_retrigger(p);});},
+    setSize:function(p,w,s){
+      if(!_prefs[p])_prefs[p]={sidebar_order:[],widgets:[],sizes:{}};
+      if(!_prefs[p].sizes)_prefs[p].sizes={};
+      _prefs[p].sizes[w]=s;_savePrefs(p);
+      // Re-render just the one widget that changed size, not the entire grid
+      var grid=document.getElementById('cust-grid-'+p);
+      if(!grid){_renderWidgets(p).then(function(){_retrigger(p);});return;}
+      var el=grid.querySelector('[data-wid="'+w+'"]');
+      var wDef=(WIDGETS[p]||[]).find(function(x){return x.wid===w;});
+      if(!el||!wDef){_renderWidgets(p).then(function(){_retrigger(p);});return;}
+      var renderer=_R[wDef.renderFn];
+      if(!renderer){return;}
+      renderer(s).then(function(body){
+        var tmp=document.createElement('div');
+        tmp.innerHTML=_card(p,wDef,body,s);
+        var newCard=tmp.firstChild;
+        el.replaceWith(newCard);
+        // Re-trigger data loaders so dynamic IDs inside the new card get populated
+        setTimeout(function(){_retrigger(p);},200);
+      });
+    },
     resetLayout:_resetLayout,
     detail:_detail,
     closeDetail:_closeDetail,
