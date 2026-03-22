@@ -8,7 +8,7 @@
   // fixed:true = always full width, no resize button shown
   var WIDGETS = {
     client: [
-      { wid:'cw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:true,  renderFn:'_rwClientStats' },
+      { wid:'cw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:false,  renderFn:'_rwClientStats' },
       { wid:'cw-upcoming', icon:'📅', label:'Upcoming Appointments', size:'half',  preset:true,  fixed:false, renderFn:'_rwClientUpcoming' },
       { wid:'cw-notif',    icon:'🔔', label:'Recent Notifications',  size:'half',  preset:true,  fixed:false, renderFn:'_rwClientNotif' },
       { wid:'cw-pets',     icon:'🐾', label:'My Pets',               size:'half',  preset:false, fixed:false, renderFn:'_rwClientPets' },
@@ -20,7 +20,7 @@
       { wid:'cw-billing',  icon:'💳', label:'Billing',               size:'half',  preset:false, fixed:false, renderFn:'_rwClientBilling' }
     ],
     staff: [
-      { wid:'sw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:true,  renderFn:'_rwStaffStats' },
+      { wid:'sw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:false,  renderFn:'_rwStaffStats' },
       { wid:'sw-jobs',     icon:'🦮', label:"This Week's Jobs",      size:'full',  preset:true,  fixed:false, renderFn:'_rwStaffJobs' },
       { wid:'sw-clients',  icon:'👥', label:'My Clients',            size:'half',  preset:false, fixed:false, renderFn:'_rwStaffClients' },
       { wid:'sw-earnings', icon:'💰', label:'Earnings',              size:'half',  preset:false, fixed:false, renderFn:'_rwStaffEarnings' },
@@ -28,11 +28,11 @@
       { wid:'sw-cal',      icon:'📆', label:'Calendar',              size:'half',  preset:false, fixed:false, renderFn:'_rwStaffCal' }
     ],
     owner: [
-      { wid:'ow-banner',    icon:'👑', label:'Welcome Banner',        size:'full',  preset:true,  fixed:true,  renderFn:'_rwOwnerBanner' },
+      { wid:'ow-banner',    icon:'👑', label:'Welcome Banner',        size:'full',  preset:true,  fixed:false,  renderFn:'_rwOwnerBanner' },
       { wid:'ow-alerts',    icon:'🔔', label:'Alerts & Messages',     size:'half',  preset:true,  fixed:false, renderFn:'_rwOwnerAlerts' },
       { wid:'ow-weekstats', icon:'📊', label:'This Week at a Glance', size:'half',  preset:true,  fixed:false, renderFn:'_rwOwnerWeekStats' },
-      { wid:'ow-requests',  icon:'📋', label:'Booking Requests',      size:'full',  preset:true,  fixed:true,  renderFn:'_rwOwnerRequests' },
-      { wid:'ow-today',     icon:'📅', label:"Today's Schedule",      size:'full',  preset:true,  fixed:true,  renderFn:'_rwOwnerToday' },
+      { wid:'ow-requests',  icon:'📋', label:'Booking Requests',      size:'full',  preset:true,  fixed:false,  renderFn:'_rwOwnerRequests' },
+      { wid:'ow-today',     icon:'📅', label:"Today's Schedule",      size:'full',  preset:true,  fixed:false,  renderFn:'_rwOwnerToday' },
       { wid:'ow-clients',   icon:'👥', label:'All Clients',           size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerClients' },
       { wid:'ow-staff',     icon:'🧑‍🤝‍🧑', label:'Staff Team',            size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerStaff' },
       { wid:'ow-reviews',   icon:'⭐', label:'Reviews',               size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerReviews' },
@@ -196,14 +196,16 @@
     if(!el||el.getAttribute('data-cust')) return;
     el.setAttribute('data-cust','1');
 
-    // Keep the p-header, hide everything else
+    // Keep the p-header, REMOVE everything else from DOM entirely
+    // (not just hide — hidden elements with IDs cause duplicate ID conflicts
+    // and data loaders populate the hidden originals instead of new widgets)
     var header=el.querySelector('.p-header');
-    // Also keep owner-banner if it exists (we'll manage it as a widget)
+    var toRemove=[];
     Array.from(el.children).forEach(function(child){
       if(child===header) return;
-      child.setAttribute('data-cust-orig','1');
-      child.style.display='none';
+      toRemove.push(child);
     });
+    toRemove.forEach(function(child){ el.removeChild(child); });
 
     // Toolbar
     var tb=document.createElement('div');
