@@ -6100,23 +6100,27 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<div><div style="' + labelStyle + '">Departure Time</div>';
   h += '<input type="time" id="lsp-departure" value="" style="' + fieldStyle + '" placeholder="Auto-filled on end"></div></div>';
 
-  // Row: Duration + Distance
-  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
-  h += '<div><div style="' + labelStyle + '">Duration</div>';
-  h += '<select id="lsp-duration" style="' + fieldStyle + '">';
-  h += '<option value="30 min"' + (svcLower.indexOf('30') !== -1 ? ' selected' : '') + '>30 Minutes</option>';
-  h += '<option value="1 hour"' + (svcLower.indexOf('1 hr') !== -1 || svcLower.indexOf('1 hour') !== -1 ? ' selected' : '') + '>1 Hour</option>';
-  h += '</select></div>';
+  // Duration (full width if no distance)
   if (isDogWalk) {
-    h += '<div><div style="' + labelStyle + '">Distance (GPS Tracking)</div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">';
+    h += '<div><div style="' + labelStyle + '">Duration</div>';
+    h += '<select id="lsp-duration" style="' + fieldStyle + '">';
+    h += '<option value="30 min"' + (svcLower.indexOf('30') !== -1 ? ' selected' : '') + '>30 Minutes</option>';
+    h += '<option value="1 hour"' + (svcLower.indexOf('1 hr') !== -1 || svcLower.indexOf('1 hour') !== -1 ? ' selected' : '') + '>1 Hour</option>';
+    h += '</select></div>';
+    h += '<div><div style="' + labelStyle + '">Distance (GPS)</div>';
     h += '<input type="text" id="lsp-distance" value="Tracking..." placeholder="Auto-fills from GPS" style="' + fieldStyle + '" readonly></div>';
+    h += '</div>';
   } else {
-    h += '<div></div>';
+    h += '<div style="margin-bottom:14px"><div style="' + labelStyle + '">Duration</div>';
+    h += '<select id="lsp-duration" style="' + fieldStyle + '">';
+    h += '<option value="30 min"' + (svcLower.indexOf('30') !== -1 ? ' selected' : '') + '>30 Minutes</option>';
+    h += '<option value="1 hour"' + (svcLower.indexOf('1 hr') !== -1 || svcLower.indexOf('1 hour') !== -1 ? ' selected' : '') + '>1 Hour</option>';
+    h += '</select></div>';
   }
-  h += '</div>';
 
   // Location
-  h += '<div style="margin-bottom:12px"><div style="' + labelStyle + '">Location / Address</div>';
+  h += '<div style="margin-bottom:14px"><div style="' + labelStyle + '">Location / Address</div>';
   h += '<input type="text" id="lsp-address" value="' + (address || '') + '" placeholder="Service address" style="' + fieldStyle + '"></div>';
 
   // Mood select buttons
@@ -6147,11 +6151,11 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<button onclick="buildLspNote()" style="width:100%;padding:10px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:10px;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit">📝 Generate Note</button>';
   h += '</div>';
 
-  h += '<div style="margin-bottom:16px"><div style="' + labelStyle + '">Personal Note</div>';
-  h += '<textarea id="lsp-notes" rows="4" placeholder="Pick a scenario above and hit Generate — or write your own..." style="' + fieldStyle + ';resize:vertical"></textarea></div>';
+  h += '<div style="margin-bottom:18px"><div style="' + labelStyle + '">Personal Note</div>';
+  h += '<textarea id="lsp-notes" rows="6" placeholder="Pick a scenario above and hit Generate — or write your own..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;background:white;resize:vertical;line-height:1.5;min-height:120px"></textarea></div>';
 
   // End Service button
-  h += '<button onclick="endServiceFromPanel()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">⏹ End Service & Send Report</button>';
+  h += '<button id="lsp-end-btn" onclick="endServiceFromPanel()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:20px">⏹ End Service & Send Report</button>';
 
   h += '</div></div>';
 
@@ -6401,14 +6405,27 @@ async function endServiceFromPanel() {
   if (!sb || !user) return;
 
   // Disable the button
-  var endBtn = document.querySelector('#hhp-live-service-panel button[onclick*="endServiceFromPanel"]');
-  if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '⏳ Ending...'; }
+  var endBtn = document.getElementById('lsp-end-btn');
+  if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '⏳ Saving & Sending...'; }
 
   try {
     var endTime = new Date().toISOString();
 
+    // ── Read values from editable report fields BEFORE any DOM changes ──
+    var reportDate = (document.getElementById('lsp-date') || {}).value || new Date().toISOString().split('T')[0];
+    var reportService = (document.getElementById('lsp-service') || {}).value || d.service;
+    var reportPets = (document.getElementById('lsp-pets') || {}).value || d.petNames || '';
+    var reportDuration = (document.getElementById('lsp-duration') || {}).value || '30 min';
+    var mood = (document.getElementById('lsp-mood-val') || {}).value || '';
+    var notesEl = document.getElementById('lsp-notes');
+    var notes = notesEl ? notesEl.value.trim() : '';
+    var distanceEl = document.getElementById('lsp-distance');
+    var distanceVal = distanceEl ? distanceEl.value : '';
+    if (distanceVal === 'Tracking...') distanceVal = '';
+
     // End the walk in DB
-    await sb.from('walks').update({ status: 'completed', end_time: endTime }).eq('id', d.walkId);
+    var { error: walkErr } = await sb.from('walks').update({ status: 'completed', end_time: endTime }).eq('id', d.walkId);
+    if (walkErr) console.warn('Walk end error:', JSON.stringify(walkErr));
 
     // Stop GPS tracking
     if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.getActiveWalkId && HHP_Tracking.getActiveWalkId() === d.walkId) {
@@ -6421,16 +6438,6 @@ async function endServiceFromPanel() {
     if (window._pillTimerInterval) { clearInterval(window._pillTimerInterval); window._pillTimerInterval = null; }
     var pill = document.getElementById('hhp-live-service-pill');
     if (pill) pill.remove();
-
-    // ── Read values from editable report fields ──
-    var reportDate = (document.getElementById('lsp-date') || {}).value || new Date().toISOString().split('T')[0];
-    var reportService = (document.getElementById('lsp-service') || {}).value || d.service;
-    var reportPets = (document.getElementById('lsp-pets') || {}).value || d.petNames || '';
-    var reportDuration = (document.getElementById('lsp-duration') || {}).value || '30 min';
-    var mood = (document.getElementById('lsp-mood-val') || {}).value || '';
-    var notes = (document.getElementById('lsp-notes') || {}).value.trim();
-    var distanceVal = (document.getElementById('lsp-distance') || {}).value || '';
-    if (distanceVal === 'Tracking...') distanceVal = '';
 
     // Arrival/departure from time inputs
     var arrivalInput = (document.getElementById('lsp-arrival') || {}).value || '';
@@ -8634,7 +8641,7 @@ async function loadStaffSchedule() {
     var endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-    var bookingsQuery = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'pending', 'in_progress', 'completed']);
+    var bookingsQuery = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'pending', 'in_progress']);
     if (clientUserIds.length > 0) {
       bookingsQuery = bookingsQuery.in('client_id', clientUserIds);
     }
@@ -10664,9 +10671,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (dateLabel) dateLabel.textContent = todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
     try {
-      // Query booking_requests with accepted status for today's scheduled date
+      // Query booking_requests for today — exclude completed (they go to activity log)
       var { data: bookings, error } = await sb.from('booking_requests').select('*')
-        .eq('scheduled_date', todayStr).in('status', ['accepted', 'confirmed', 'in_progress', 'completed'])
+        .eq('scheduled_date', todayStr).in('status', ['accepted', 'confirmed', 'in_progress'])
         .order('scheduled_time', { ascending: true });
 
       if (error) { console.warn('Owner today schedule error:', error); }
@@ -10674,7 +10681,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Also check for multi-date bookings that include today
       var { data: multiDate } = await sb.from('booking_requests').select('*')
-        .in('status', ['accepted', 'confirmed', 'in_progress', 'completed']).not('booking_dates', 'is', null);
+        .in('status', ['accepted', 'confirmed', 'in_progress']).not('booking_dates', 'is', null);
       if (multiDate) {
         multiDate.forEach(function(br) {
           if (br.booking_dates && Array.isArray(br.booking_dates) && br.booking_dates.indexOf(todayStr) !== -1) {
