@@ -447,6 +447,10 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .sb-item-icon{width:18px;text-align:center;font-size:0.9rem;flex-shrink:0}
 .sb-badge{margin-left:auto;background:var(--rose);color:white;border-radius:50px;padding:3px 8px;font-size:0.68rem;font-weight:800;min-width:22px;text-align:center;box-shadow:0 2px 8px rgba(229,62,62,0.35);animation:badgePulse 2s ease-in-out 3}
 @keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+/* ── Customizer: Widget cards + drag ── */
+.hhp-widget-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.1)!important;border-color:var(--gold)!important}
+.sb-drag-placeholder{pointer-events:none}
+.sb-item.dragging{opacity:0.5}
 
 .portal-main{padding:36px;background:var(--cream)}
 .p-panel{display:none}
@@ -3228,6 +3232,11 @@ function switchView(view) {
 
   // Remember current view so reload goes straight here (no flash)
   try { sessionStorage.setItem('hhp_last_view', view); } catch(e) {}
+
+  // Refresh customizer widgets when switching portals
+  if (typeof HHP_Customizer !== 'undefined' && view !== 'public') {
+    setTimeout(function() { HHP_Customizer.init(); }, 300);
+  }
 }
 function switchViewFromDrop(view) { _userChosePublic = false; switchView(view); }
 
@@ -9910,6 +9919,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/messaging.js" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
+  <script src="/js/customizer.js" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/availability.js" defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
