@@ -5596,10 +5596,26 @@ async function showBookingDetail(bookingId, role, source) {
 
       h += '<div style="margin-bottom:12px">';
       if (activeService) {
-        // Service is in progress — show Stop button
+        // Service is in progress — show elapsed time + Stop button
+        var svcElapsed = Math.floor((Date.now() - new Date(activeService.start_time).getTime()) / 60000);
+        var svcDurMin = (typeof HHP_ServiceTimer !== 'undefined') ? HHP_ServiceTimer.parseServiceDuration(svc) : null;
+        var svcRemaining = svcDurMin ? (svcDurMin - svcElapsed) : null;
+        var svcIsOver = svcRemaining !== null && svcRemaining <= 0;
+
+        h += '<div style="background:' + (svcIsOver ? 'rgba(194,86,86,0.1)' : 'rgba(61,90,71,0.08)') + ';border-radius:12px;padding:14px;margin-bottom:10px;border:1.5px solid ' + (svcIsOver ? 'var(--rose,#c25656)' : 'var(--forest,#3d5a47)') + '">';
+        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+        h += '<div style="width:10px;height:10px;border-radius:50%;background:' + (svcIsOver ? '#c25656' : '#22c55e') + ';animation:pulse 2s infinite"></div>';
+        h += '<span style="font-size:0.82rem;font-weight:700;color:' + (svcIsOver ? 'var(--rose,#c25656)' : 'var(--forest,#3d5a47)') + '">' + (svcIsOver ? '⏰ OVERTIME' : '▶ In Progress') + '</span></div>';
+        h += '<div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:8px">';
+        h += '<div><div style="font-size:0.65rem;text-transform:uppercase;color:var(--mid)">Elapsed</div><div style="font-size:1.1rem;font-weight:800">' + svcElapsed + ' min</div></div>';
+        if (svcDurMin) {
+          h += '<div><div style="font-size:0.65rem;text-transform:uppercase;color:var(--mid)">' + (svcIsOver ? 'Over By' : 'Remaining') + '</div>';
+          h += '<div style="font-size:1.1rem;font-weight:800;color:' + (svcIsOver ? '#c25656' : 'var(--ink)') + '">' + Math.abs(svcRemaining) + ' min</div></div>';
+        }
+        h += '</div></div>';
+
         h += '<button onclick="stopServiceFromDrawer(\'' + activeService.id + '\')" style="width:100%;padding:14px;background:var(--rose,#c25656);color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">';
-        h += '⏹ End Service</button>';
-        h += '<div style="text-align:center;font-size:0.76rem;color:var(--mid);margin-top:6px">Service is currently in progress</div>';
+        h += '⏹ End Service & Generate Report</button>';
       } else {
         // No active service — show Start button
         h += '<button onclick="startServiceFromDrawer(\'' + bookingId + '\',\'' + (b.client_id || '').replace(/'/g, "\\'") + '\',\'' + svc.replace(/'/g, "\\'") + '\',\'' + (b.pet_names || '').replace(/'/g, "\\'") + '\')" style="width:100%;padding:14px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">';
@@ -5637,28 +5653,46 @@ async function showBookingDetail(bookingId, role, source) {
 
 // Start service from the detail drawer
 async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
+  // Fetch booking details for timer (client name, address)
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var clientName = '', address = '';
+  if (sb && bookingId) {
+    try {
+      var { data: bkInfo } = await sb.from('booking_requests').select('contact_name, address').eq('id', bookingId).maybeSingle();
+      if (bkInfo) { clientName = bkInfo.contact_name || ''; address = bkInfo.address || ''; }
+    } catch(e) {}
+  }
+
   if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.startWalk === 'function') {
     closeBookingDetail();
-    HHP_Tracking.startWalk(bookingId, clientId, service, petNames);
+    var walk = await HHP_Tracking.startWalk(bookingId, clientId, service, petNames);
+    // Start the live timer overlay
+    if (walk && walk.id && typeof HHP_ServiceTimer !== 'undefined') {
+      HHP_ServiceTimer.startTimer(walk.id, service, walk.start_time, petNames, clientName, bookingId, address);
+    }
     return;
   }
   // Fallback: create a walk record directly
-  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) { toast('❌ Not logged in'); return; }
   try {
-    var { error } = await sb.from('walks').insert({
+    var startTime = new Date().toISOString();
+    var { data: walkData, error } = await sb.from('walks').insert({
       booking_id: bookingId,
       walker_id: user.id,
       client_id: clientId,
       service: service,
       pet_names: petNames,
       status: 'in_progress',
-      start_time: new Date().toISOString()
-    });
+      start_time: startTime
+    }).select().single();
     if (error) throw error;
     toast('▶ Service started!');
     closeBookingDetail();
+    // Start the live timer overlay
+    if (walkData && typeof HHP_ServiceTimer !== 'undefined') {
+      HHP_ServiceTimer.startTimer(walkData.id, service, startTime, petNames, clientName, bookingId, address);
+    }
     // Refresh schedules
     if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
     if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
@@ -5670,6 +5704,8 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
 
 // Stop service from the detail drawer
 async function stopServiceFromDrawer(walkId) {
+  // Stop the timer overlay
+  if (typeof HHP_ServiceTimer !== 'undefined') HHP_ServiceTimer.stopTimer();
   if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.endWalk === 'function') {
     closeBookingDetail();
     HHP_Tracking.endWalk(walkId);
@@ -9926,5 +9962,6 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/availability.js" defer></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="/js/live-tracking.js" defer></script></body>
+  <script src="/js/live-tracking.js" defer></script>
+  <script src="/js/service-timer.js" defer></script></body>
 </html>

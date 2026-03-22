@@ -134,6 +134,8 @@
 
     _activeWalkId = null;
     _trackingPoints = [];
+    // Stop the service timer overlay
+    if (typeof HHP_ServiceTimer !== 'undefined') HHP_ServiceTimer.stopTimer();
     toast('✅ Service completed! Opening report...');
 
     refreshScheduleView();
@@ -323,10 +325,16 @@
 
     if (isThisWalkActive) {
       var elapsed = Math.floor((Date.now() - new Date(activeWalk.start_time).getTime()) / 60000);
+      var durMin = (typeof HHP_ServiceTimer !== 'undefined') ? HHP_ServiceTimer.parseServiceDuration(booking.service) : null;
+      var remaining = durMin ? (durMin - elapsed) : null;
+      var isOver = remaining !== null && remaining <= 0;
+      var timeInfo = elapsed + ' min';
+      if (remaining !== null) timeInfo += ' · ' + (isOver ? '⏰ +' + Math.abs(remaining) + ' over' : Math.abs(remaining) + ' min left');
+      if (isDogWalk) timeInfo += ' · GPS Active';
       return '<div style="margin-top:8px">' +
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
-          '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></div>' +
-          '<span style="font-size:0.78rem;font-weight:600;color:var(--forest)">In Progress · ' + elapsed + ' min' + (isDogWalk ? ' · GPS Active' : '') + '</span>' +
+          '<div style="width:10px;height:10px;border-radius:50%;background:' + (isOver ? '#c25656' : '#22c55e') + ';animation:pulse 2s infinite"></div>' +
+          '<span style="font-size:0.78rem;font-weight:600;color:' + (isOver ? 'var(--rose,#c25656)' : 'var(--forest)') + '">' + (isOver ? '⏰ Overtime' : 'In Progress') + ' · ' + timeInfo + '</span>' +
         '</div>' +
         '<button onclick="HHP_Tracking.endWalk(\'' + activeWalk.id + '\')" ' +
           'style="background:var(--rose,#c25656);color:white;border:none;border-radius:8px;padding:8px 16px;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit;width:100%">' +
