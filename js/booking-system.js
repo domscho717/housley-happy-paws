@@ -48,6 +48,86 @@
     'House Sitting':                125.00,
   };
 
+  // ── Active Deals Cache — fetched from Supabase, auto-applied to pricing ──
+  var _activeDealsCache = [];
+  var _dealsLoaded = false;
+
+  async function _fetchActiveDeals() {
+    var sb = _getSB();
+    if (!sb) return;
+    try {
+      var res = await sb.from('deals').select('*').eq('is_active', true);
+      _activeDealsCache = (res.data || []).filter(function(d) { return d.discount_value > 0; });
+      _dealsLoaded = true;
+    } catch (e) { console.warn('Failed to load active deals:', e); }
+  }
+
+  // Public refresh function called when owner adds/deactivates deals
+  window._refreshActiveDeals = function() {
+    _fetchActiveDeals().then(function() {
+      if (typeof window._brmUpdatePrice === 'function') window._brmUpdatePrice();
+    });
+  };
+
+  // Load deals on startup (after a brief delay for auth)
+  setTimeout(function() {
+    _fetchActiveDeals();
+    // Subscribe to realtime deal changes so pricing updates everywhere automatically
+    var sb = _getSB();
+    if (sb && sb.channel) {
+      try {
+        sb.channel('deals-realtime')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, function() {
+            _fetchActiveDeals();
+          })
+          .subscribe();
+      } catch(e) { console.warn('Deals realtime sub:', e); }
+    }
+  }, 1200);
+
+  // Find the best matching deal for a service name
+  function _findDealForService(serviceName) {
+    if (!serviceName || _activeDealsCache.length === 0) return null;
+    var svc = serviceName.toLowerCase();
+    var bestDeal = null;
+    var bestDiscount = 0;
+
+    _activeDealsCache.forEach(function(deal) {
+      var matches = false;
+      var at = deal.applies_to || 'all';
+
+      if (at === 'all') matches = true;
+      else if (at === 'dog_walking' && svc.indexOf('walk') !== -1) matches = true;
+      else if (at === 'drop_in' && svc.indexOf('drop') !== -1) matches = true;
+      else if (at === 'cat_care' && svc.indexOf('cat') !== -1) matches = true;
+      else if (at === 'house_sitting' && (svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1)) matches = true;
+
+      if (matches) {
+        // Calculate which deal gives the biggest discount (we'll apply the best one)
+        var discountAmount = deal.discount_type === 'percent' ? deal.discount_value : deal.discount_value;
+        if (discountAmount > bestDiscount) {
+          bestDiscount = discountAmount;
+          bestDeal = deal;
+        }
+      }
+    });
+
+    return bestDeal;
+  }
+
+  // Apply a deal to a price, returns { discountedTotal, savingsAmount, deal }
+  function _applyDeal(deal, originalTotal) {
+    if (!deal || !originalTotal || originalTotal <= 0) return { discountedTotal: originalTotal, savingsAmount: 0, deal: null };
+    var savings = 0;
+    if (deal.discount_type === 'percent') {
+      savings = originalTotal * (deal.discount_value / 100);
+    } else {
+      savings = Math.min(deal.discount_value, originalTotal); // Don't go below $0
+    }
+    savings = Math.round(savings * 100) / 100;
+    return { discountedTotal: Math.max(0, originalTotal - savings), savingsAmount: savings, deal: deal };
+  }
+
   function getServicePrice(serviceName) {
     if (!serviceName) return 0;
     var svc = serviceName.toLowerCase();
@@ -72,8 +152,9 @@
   }
 
   // Creates a dynamic Stripe checkout session and returns the URL
-  async function createCheckoutForService(serviceName, clientEmail, clientName, petNames, notes) {
-    var price = getServicePrice(serviceName);
+  // overridePrice: optional — pass the booking's estimated_total to use the deal-discounted price
+  async function createCheckoutForService(serviceName, clientEmail, clientName, petNames, notes, overridePrice) {
+    var price = overridePrice || getServicePrice(serviceName);
     if (!price) return '';
     try {
       var resp = await fetch('/api/create-checkout-session', {
@@ -777,6 +858,44 @@
           note.textContent = 'Holiday rate applies for this date';
           breakdownEl.appendChild(note);
         }
+      }
+
+      // ── Apply active deal discount ──
+      var activeDeal = _findDealForService(svcName);
+      // Remove old discount note if present
+      var oldDealNote = breakdownEl ? breakdownEl.querySelector('.brm-deal-note') : null;
+      if (oldDealNote) oldDealNote.remove();
+
+      if (activeDeal && result.total > 0) {
+        // Calculate the displayed total (could be multi-date or single)
+        var displayedTotal = result.total;
+        if (totalDates > 1 && !isHS) displayedTotal = result.total * totalDates;
+        else if (isHS) displayedTotal = result.total;
+
+        var dealResult = _applyDeal(activeDeal, displayedTotal);
+        if (dealResult.savingsAmount > 0) {
+          // Update the total display with strikethrough + new price
+          if (totalEl) {
+            var origText = totalEl.textContent;
+            totalEl.innerHTML = '<span style="text-decoration:line-through;color:var(--mid);font-weight:400;font-size:0.85em">$' + displayedTotal.toFixed(2) + '</span> $' + dealResult.discountedTotal.toFixed(2);
+          }
+          // Show discount banner
+          if (breakdownEl) {
+            var dealNote = document.createElement('div');
+            dealNote.className = 'brm-deal-note';
+            dealNote.style.cssText = 'background:linear-gradient(135deg,rgba(61,90,71,0.08),rgba(61,90,71,0.03));border:1px solid rgba(61,90,71,0.2);border-radius:8px;padding:8px 12px;margin-top:8px';
+            var discLabel = activeDeal.discount_type === 'percent' ? activeDeal.discount_value + '% off' : '$' + Number(activeDeal.discount_value).toFixed(0) + ' off';
+            dealNote.innerHTML = '<div style="font-weight:700;font-size:0.82rem;color:var(--forest)">🏷️ ' + (activeDeal.name || 'Special') + ' — ' + discLabel + '</div>' +
+              '<div style="font-size:0.78rem;color:var(--forest)">You save $' + dealResult.savingsAmount.toFixed(2) + '!</div>';
+            breakdownEl.appendChild(dealNote);
+          }
+          // Store discounted total on window for submit to pick up
+          window._brmDealDiscount = { deal: activeDeal, savings: dealResult.savingsAmount, discountedTotal: dealResult.discountedTotal, originalTotal: displayedTotal };
+        } else {
+          window._brmDealDiscount = null;
+        }
+      } else {
+        window._brmDealDiscount = null;
       }
     }
 
@@ -2163,8 +2282,10 @@
           number_of_pets: numPets,
           is_puppy: isPuppy,
           is_holiday: holidayFlag,
-          estimated_total: isHouseSitting ? priceResult.total : multiDateTotal,
-          price_breakdown: multiDateBreakdown,
+          estimated_total: window._brmDealDiscount ? window._brmDealDiscount.discountedTotal : (isHouseSitting ? priceResult.total : multiDateTotal),
+          price_breakdown: multiDateBreakdown + (window._brmDealDiscount ? ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + window._brmDealDiscount.savings.toFixed(2) : ''),
+          deal_id: window._brmDealDiscount ? window._brmDealDiscount.deal.id : null,
+          deal_discount: window._brmDealDiscount ? window._brmDealDiscount.savings : null,
           special_notes: notes || null,
           address: address,
           house_area: address,
@@ -2591,18 +2712,18 @@
                 autoCharged = true;
                 if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + ' automatically!');
               } else if (chargeData.error === 'no_card') {
-                // No saved card — create a dynamic checkout session
-                paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '');
+                // No saved card — create a dynamic checkout session (use estimated_total which has deal discount applied)
+                paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '', req.estimated_total || null);
               } else if (chargeData.error === 'authentication_required') {
-                paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '');
+                paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '', req.estimated_total || null);
                 if (typeof toast === 'function') toast('Card requires authentication — payment link sent instead.');
               }
             } catch (chargeErr) {
               console.warn('Auto-charge failed, falling back to checkout session:', chargeErr);
-              paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '');
+              paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '', req.estimated_total || null);
             }
           } else if (newStatus === 'accepted' && req.service) {
-            paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '');
+            paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '', req.estimated_total || null);
           }
 
           try {

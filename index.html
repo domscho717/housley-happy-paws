@@ -2291,9 +2291,31 @@ try {
           <div id="addDealForm" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
             <div class="form-row" style="margin-bottom:10px">
               <div><label class="form-lbl">Deal Name</label><input class="form-in" id="dealName" placeholder="e.g. Spring Discount"></div>
-              <div><label class="form-lbl">Details</label><input class="form-in" id="dealDetails" placeholder="e.g. 10% off walks in April"></div>
+              <div><label class="form-lbl">Description</label><input class="form-in" id="dealDetails" placeholder="e.g. 10% off walks in April"></div>
             </div>
-            <button class="btn btn-gold btn-sm" onclick="addDeal()">Save Deal</button>
+            <div class="form-row" style="margin-bottom:10px">
+              <div><label class="form-lbl">Discount Type</label>
+                <select class="form-in" id="dealDiscountType">
+                  <option value="percent">Percentage Off (%)</option>
+                  <option value="flat">Dollar Amount Off ($)</option>
+                </select>
+              </div>
+              <div><label class="form-lbl">Discount Value</label><input class="form-in" id="dealDiscountValue" type="number" min="0" step="1" placeholder="e.g. 10"></div>
+            </div>
+            <div style="margin-bottom:10px">
+              <label class="form-lbl">Applies To</label>
+              <select class="form-in" id="dealAppliesTo">
+                <option value="all">All Services</option>
+                <option value="dog_walking">Dog Walking Only</option>
+                <option value="drop_in">Drop-In Visits Only</option>
+                <option value="cat_care">Cat Care Only</option>
+                <option value="house_sitting">House Sitting Only</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-gold btn-sm" onclick="addDeal()">Save Deal</button>
+              <button class="btn btn-sm" onclick="document.getElementById('addDealForm').style.display='none'" style="background:var(--mid);color:white">Cancel</button>
+            </div>
           </div>
         </div>
 
@@ -5461,12 +5483,14 @@ async function showBookingDetail(bookingId, role, source) {
           h += '<div style="font-size:1.4rem">✅</div>';
           h += '<div><div style="font-weight:700;color:#155724;font-size:0.9rem">Payment Verified</div>';
           h += '<div style="font-size:0.78rem;color:#155724">' + (paymentInfo ? '$' + Number(paymentInfo.amount / 100).toFixed(2) + ' paid' + (paymentInfo.paid_at ? ' on ' + new Date(paymentInfo.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') : 'Paid') + '</div>';
+          if (b.deal_discount && b.deal_discount > 0) h += '<div style="font-size:0.75rem;color:#155724;font-style:italic">🏷️ Deal applied: -$' + Number(b.deal_discount).toFixed(2) + '</div>';
           h += '</div></div>';
         } else {
           h += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">❌</div>';
           h += '<div><div style="font-weight:700;color:#c62828;font-size:0.9rem">Payment Not Received</div>';
           if (b.estimated_total) h += '<div style="font-size:0.78rem;color:#c62828">$' + Number(b.estimated_total).toFixed(2) + ' outstanding</div>';
+          if (b.deal_discount && b.deal_discount > 0) h += '<div style="font-size:0.75rem;color:#c62828;font-style:italic">🏷️ Deal discount of $' + Number(b.deal_discount).toFixed(2) + ' already applied to total</div>';
           h += '</div></div>';
         }
       } else {
@@ -5539,6 +5563,9 @@ async function showBookingDetail(bookingId, role, source) {
       h += '<div style="font-size:1.1rem">💲</div>';
       h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Amount</div>';
       h += '<div style="font-weight:700;color:var(--ink);font-size:1rem">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+      if (b.deal_discount && b.deal_discount > 0) {
+        h += '<div style="font-size:0.78rem;color:#2e7d32;font-weight:600">🏷️ You saved $' + Number(b.deal_discount).toFixed(2) + ' with a deal!</div>';
+      }
       h += '<div style="font-size:0.78rem;color:var(--mid)">' + (isPaid ? '✅ Paid' : '⏳ Payment pending') + '</div>';
       h += '</div></div>';
     }
@@ -6365,7 +6392,13 @@ document.querySelectorAll('.fadeup').forEach(el => obs.observe(el));
 async function addDeal() {
   var name = document.getElementById('dealName')?.value?.trim();
   var details = document.getElementById('dealDetails')?.value?.trim();
+  var discountType = document.getElementById('dealDiscountType')?.value || 'percent';
+  var discountValue = parseFloat(document.getElementById('dealDiscountValue')?.value) || 0;
+  var appliesTo = document.getElementById('dealAppliesTo')?.value || 'all';
+
   if (!name) { toast('Please enter a deal name'); return; }
+  if (discountValue <= 0) { toast('Please enter a discount value'); return; }
+  if (discountType === 'percent' && discountValue > 100) { toast('Percentage cannot exceed 100%'); return; }
 
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   if (sb) {
@@ -6374,6 +6407,9 @@ async function addDeal() {
       details: details || '',
       deal_type: 'active',
       is_active: true,
+      discount_type: discountType,
+      discount_value: discountValue,
+      applies_to: appliesTo,
       created_by: window.HHP_Auth.currentUser?.id || null
     }]);
     if (res.error) { console.error('Add deal error:', res.error); toast('Failed to save deal.'); return; }
@@ -6382,9 +6418,12 @@ async function addDeal() {
   document.getElementById('addDealForm').style.display = 'none';
   document.getElementById('dealName').value = '';
   document.getElementById('dealDetails').value = '';
-  toast('🏷️ Deal added!');
+  document.getElementById('dealDiscountValue').value = '';
+  toast('🏷️ Deal added & active!');
   loadDealsPanel();
   if (window.HHP_Notif) HHP_Notif.refresh();
+  // Refresh cached deals for pricing
+  if (typeof _refreshActiveDeals === 'function') _refreshActiveDeals();
 }
 
 async function loadDealsPanel() {
@@ -6401,14 +6440,22 @@ async function loadDealsPanel() {
       return;
     }
     container.innerHTML = '';
+    var appliesLabels = { all: 'All Services', dog_walking: 'Dog Walking', drop_in: 'Drop-In Visits', cat_care: 'Cat Care', house_sitting: 'House Sitting' };
     res.data.forEach(function(deal) {
       var colors = ['gold-pale', 'forest-pale'];
       var borderColors = ['rgba(200,150,62,0.25)', 'rgba(61,90,71,0.2)'];
       var badgeBgs = ['var(--gold)', 'var(--forest)'];
       var idx = res.data.indexOf(deal) % 2;
+      // Build discount label
+      var discountLabel = '';
+      if (deal.discount_value > 0) {
+        discountLabel = deal.discount_type === 'percent' ? deal.discount_value + '% off' : '$' + Number(deal.discount_value).toFixed(0) + ' off';
+        discountLabel += ' · ' + (appliesLabels[deal.applies_to] || 'All Services');
+      }
       var div = document.createElement('div');
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:linear-gradient(135deg,var(--' + colors[idx] + '),#fff);border-radius:10px;margin-bottom:8px;border:1px solid ' + borderColors[idx];
       div.innerHTML = '<div><div style="font-weight:700;font-size:0.9rem">' + (deal.name || 'Untitled') + '</div>' +
+        (discountLabel ? '<div style="font-size:0.82rem;color:var(--forest);font-weight:600;margin-top:2px">' + discountLabel + '</div>' : '') +
         (deal.details ? '<div style="font-size:0.78rem;color:var(--mid)">' + deal.details + '</div>' : '') +
         (deal.promo_code ? '<div style="font-size:0.7rem;color:var(--gold);font-weight:600;margin-top:2px">Code: ' + deal.promo_code + '</div>' : '') +
         '</div><div style="display:flex;align-items:center;gap:8px">' +
@@ -6428,6 +6475,7 @@ async function deactivateDeal(dealId) {
   toast('Deal deactivated.');
   loadDealsPanel();
   if (window.HHP_Notif) HHP_Notif.refresh();
+  if (typeof _refreshActiveDeals === 'function') _refreshActiveDeals();
 }
 
 // ── Invoice: House Sitting date range toggle ──
