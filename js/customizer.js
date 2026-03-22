@@ -443,12 +443,11 @@
   _R._rwClientUpcoming=async function(sz){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'<div style="color:var(--mid);font-size:0.82rem">No data</div>';
     var lim=sz==='full'?8:2;
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,estimated_total').eq('client_id',u.id).in('status',['accepted','confirmed']).gte('preferred_date',today).order('preferred_date').limit(lim);
+    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,estimated_total,status,pet_names').eq('client_id',u.id).in('status',['accepted','confirmed']).gte('preferred_date',today).order('preferred_date').limit(lim);
       if(!data||!data.length)return'<div style="color:var(--mid);font-size:0.82rem;padding:8px 0">No upcoming appointments</div>';
       if(sz==='full'){
-        return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.85rem"><div><span style="font-weight:700">'+b.service+'</span><div style="font-size:0.75rem;color:var(--mid)">'+d+(t?' · '+t:'')+'</div></div><div style="font-weight:600;color:var(--forest)">$'+(b.estimated_total||0).toFixed(2)+'</div></div>';}).join('');
+        return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');return'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.85rem"><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.75rem;color:var(--mid)">'+d+(t?' · '+t:'')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right"><div style="font-weight:600;color:var(--forest)">$'+(b.estimated_total||0).toFixed(2)+'</div><div style="font-size:0.65rem;color:var(--forest);text-transform:uppercase">'+b.status+'</div></div></div>';}).join('');
       }
-      // Small: just service + date, no price/time
       return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});return'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.78rem"><span style="font-weight:600">'+b.service+'</span><span style="color:var(--mid)">'+d+'</span></div>';}).join('');
     }catch(e){return'';}
   };
@@ -457,50 +456,187 @@
     if(sz==='full') return '<div id="clientDashNotifications" style="font-size:0.85rem;color:var(--mid);padding:4px 0;min-height:60px">Loading...</div>';
     return '<div id="clientDashNotifications" style="font-size:0.78rem;color:var(--mid);padding:2px 0;max-height:80px;overflow:hidden">Loading...</div>';
   };
-  _R._rwClientPets=async function(sz){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('pets').select('id',{count:'exact',head:true}).eq('owner_id',u.id);return _bigNum(count||0,'registered pets',sz);}catch(e){return'';}};
+
+  _R._rwClientPets=async function(sz){
+    var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
+    try{
+      var{data}=await sb.from('pets').select('name,species,breed').eq('owner_id',u.id).order('name').limit(10);
+      if(sz==='full'){
+        if(!data||!data.length)return'<div style="color:var(--mid);font-size:0.85rem;padding:12px 0;text-align:center">No pets registered yet</div>';
+        return data.map(function(p){return'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:0.9rem">'+(p.species==='cat'?'🐱':'🐶')+'</div><div><div style="font-weight:700;font-size:0.88rem">'+p.name+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(p.breed||p.species||'Pet')+'</div></div></div>';}).join('');
+      }
+      return _bigNum(data?data.length:0,'pets',sz);
+    }catch(e){return'';}
+  };
+
   _R._rwClientTracking=async function(sz){
-    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid);padding:8px 0">Track your pet\'s walk in real time when a service is active. You\'ll see live GPS updates, estimated return time, and route progress.</div>';
-    return'<div style="font-size:0.75rem;color:var(--mid)">Live GPS tracking during walks</div>';
+    var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
+    if(sz==='full'){
+      try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_time,status').eq('client_id',u.id).eq('preferred_date',today).in('status',['accepted','confirmed','in_progress']).limit(3);
+        var h='<div style="font-size:0.85rem;color:var(--mid);margin-bottom:10px">Track your pet\'s walk in real time when a service is active.</div>';
+        if(data&&data.length){h+='<div style="font-weight:600;font-size:0.8rem;margin-bottom:6px">Today\'s Services:</div>';data.forEach(function(b){var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');h+='<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:0.82rem;border-bottom:1px solid var(--border)"><span>'+b.service+'</span><span style="color:var(--forest);font-weight:600">'+(t||b.status)+'</span></div>';});}
+        else{h+='<div style="color:var(--mid);font-size:0.8rem;font-style:italic">No services scheduled today</div>';}
+        return h;
+      }catch(e){return'';}
+    }
+    return'<div style="font-size:0.75rem;color:var(--mid)">Live GPS tracking</div>';
   };
-  _R._rwClientPhotos=async function(sz){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('walk_photos').select('id',{count:'exact',head:true}).eq('client_id',u.id);return _bigNum(count||0,'photos from walks',sz);}catch(e){return'';}};
-  _R._rwClientReports=async function(sz){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);return _bigNum(count||0,'reports received',sz);}catch(e){return'';}};
-  _R._rwClientReviews=async function(sz){var sb=_getSB(),u=_getUser();if(!sb||!u)return'';try{var{count}=await sb.from('reviews').select('id',{count:'exact',head:true}).eq('reviewer_id',u.id);return _bigNum(count||0,'reviews left',sz);}catch(e){return'';}};
+
+  _R._rwClientPhotos=async function(sz){
+    var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
+    try{
+      if(sz==='full'){
+        var{data}=await sb.from('walk_photos').select('photo_url,caption,created_at').eq('client_id',u.id).order('created_at',{ascending:false}).limit(6);
+        var{count}=await sb.from('walk_photos').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+        var h=_bigNum(count||0,'photos from walks',sz);
+        if(data&&data.length){h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">';data.forEach(function(p){h+='<div style="aspect-ratio:1;border-radius:6px;overflow:hidden;background:var(--warm)">'+(p.photo_url?'<img src="'+p.photo_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':'<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:1.2rem">📷</div>')+'</div>';});h+='</div>';}
+        return h;
+      }
+      var{count}=await sb.from('walk_photos').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+      return _bigNum(count||0,'photos',sz);
+    }catch(e){return'';}
+  };
+
+  _R._rwClientReports=async function(sz){
+    var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
+    try{
+      if(sz==='full'){
+        var{data}=await sb.from('walk_reports').select('*').eq('client_id',u.id).order('created_at',{ascending:false}).limit(4);
+        var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+        var h=_bigNum(count||0,'reports received',sz);
+        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(r){var d=new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.8rem"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(r.service||'Walk')+'</span><span style="color:var(--mid)">'+d+'</span></div>'+(r.notes?'<div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+r.notes.substring(0,60)+(r.notes.length>60?'...':'')+'</div>':'')+'</div>';});h+='</div>';}
+        return h;
+      }
+      var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+      return _bigNum(count||0,'reports',sz);
+    }catch(e){return'';}
+  };
+
+  _R._rwClientReviews=async function(sz){
+    var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
+    try{
+      var{data}=await sb.from('reviews').select('rating,comment,created_at').eq('reviewer_id',u.id).order('created_at',{ascending:false}).limit(sz==='full'?4:100);
+      if(sz==='full'){
+        var h=_bigNum(data?data.length:0,'reviews left',sz);
+        if(data&&data.length){h+='<div style="margin-top:10px">';data.slice(0,3).forEach(function(r){var d=new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.8rem"><div style="display:flex;justify-content:space-between"><span>'+('⭐'.repeat(Math.round(r.rating||0)))+'</span><span style="color:var(--mid);font-size:0.72rem">'+d+'</span></div>'+(r.comment?'<div style="color:var(--mid);font-size:0.75rem;margin-top:2px">"'+r.comment.substring(0,70)+(r.comment.length>70?'...':'')+'"</div>':'')+'</div>';});h+='</div>';}
+        return h;
+      }
+      return _bigNum(data?data.length:0,'reviews',sz);
+    }catch(e){return'';}
+  };
+
   _R._rwClientMsgs=async function(sz){
-    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">View and send messages to your care provider. Stay updated on your pet\'s services and schedule changes.</div>';
-    return'<div style="font-size:0.75rem;color:var(--mid)">Messages with provider</div>';
+    var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
+    if(sz==='full'){
+      try{
+        var{data}=await sb.from('messages').select('body,sender_name,created_at').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(4);
+        var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px">Recent Messages</div>';
+        if(data&&data.length){data.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.8rem"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(m.sender_name||'Unknown')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+((m.body||'').substring(0,80))+'</div></div>';});}
+        else{h+='<div style="color:var(--mid);font-size:0.8rem">No messages yet</div>';}
+        return h;
+      }catch(e){return'<div style="color:var(--mid);font-size:0.82rem">Messages with your provider</div>';}
+    }
+    return'<div style="font-size:0.75rem;color:var(--mid)">Messages</div>';
   };
+
   _R._rwClientBilling=async function(sz){
-    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">Manage your payment methods, view past invoices, and track spending on pet care services.</div>';
-    return'<div style="font-size:0.75rem;color:var(--mid)">Payments & receipts</div>';
+    var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
+    if(sz==='full'){
+      try{
+        var{data}=await sb.from('payments').select('amount,created_at,status').eq('client_id',u.id).order('created_at',{ascending:false}).limit(5);
+        var total=0;(data||[]).forEach(function(p){if(p.status==='succeeded')total+=(p.amount||0);});
+        var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-weight:600;font-size:0.85rem">Payment History</div><div style="font-size:0.78rem;color:var(--forest);font-weight:700">$'+(total/100).toFixed(2)+' total</div></div>';
+        if(data&&data.length){data.forEach(function(p){var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var st=p.status==='succeeded'?'✅':'⏳';h+='<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:0.8rem;border-bottom:1px solid var(--border)"><span>'+st+' '+d+'</span><span style="font-weight:600">$'+((p.amount||0)/100).toFixed(2)+'</span></div>';});}
+        else{h+='<div style="color:var(--mid);font-size:0.8rem">No payments yet</div>';}
+        return h;
+      }catch(e){return'<div style="color:var(--mid);font-size:0.82rem">Payment history</div>';}
+    }
+    return'<div style="font-size:0.75rem;color:var(--mid)">Payments</div>';
   };
 
   // ── STAFF ──
   _R._rwStaffStats=async function(sz){return _statRow([{icon:'📅',label:'This Week',id:'stat-staffThisWeek'},{icon:'✅',label:'All Time',id:'stat-staffAllTime'},{icon:'📋',label:'Reports Sent',id:'stat-staffYourRating'},{icon:'💰',label:'This Month',id:'stat-staffThisMonth'}],sz);};
 
   _R._rwStaffJobs=async function(sz){
-    if(sz==='full') return '<div id="staffDashJobs" style="font-size:0.85rem;color:var(--mid);padding:4px 0;min-height:80px">Loading jobs...</div>';
-    return '<div id="staffDashJobs" style="font-size:0.78rem;color:var(--mid);padding:2px 0;max-height:100px;overflow:hidden">Loading jobs...</div>';
+    var sb=_getSB();if(!sb)return'';
+    if(sz==='full'){
+      try{
+        var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());
+        var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
+        var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]).order('preferred_date').order('preferred_time').limit(10);
+        if(!data||!data.length) return '<div id="staffDashJobs" style="color:var(--mid);font-size:0.85rem;padding:12px 0;text-align:center">No jobs this week</div>';
+        var h='';data.forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');
+          h+='<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><div style="min-width:50px;color:var(--gold);font-weight:700;font-size:0.78rem">'+d.split(',')[0]+'</div><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+(t?' · '+t:'')+'</div></div><div style="font-size:0.68rem;color:var(--forest);font-weight:600;text-transform:uppercase">'+b.status+'</div></div>';
+        });
+        return '<div id="staffDashJobs">'+h+'</div>';
+      }catch(e){return '<div id="staffDashJobs" style="color:var(--mid);font-size:0.82rem">Could not load</div>';}
+    }
+    // Small: just count
+    var sb2=_getSB();if(!sb2)return'';
+    try{var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
+      var{count}=await sb2.from('booking_requests').select('id',{count:'exact',head:true}).in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]);
+      return '<div id="staffDashJobs">'+_bigNum(count||0,'jobs this week',sz)+'</div>';
+    }catch(e){return '<div id="staffDashJobs" style="color:var(--mid);font-size:0.78rem">Loading...</div>';}
   };
+
   _R._rwStaffClients=async function(sz){
     var sb=_getSB();if(!sb)return'';
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('contact_name').in('status',['accepted','confirmed']).gte('preferred_date',today).limit(50);
-      var n=[];(data||[]).forEach(function(b){if(b.contact_name&&n.indexOf(b.contact_name)===-1)n.push(b.contact_name);});
+    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('contact_name,contact_email,pet_names,service').in('status',['accepted','confirmed']).gte('preferred_date',today).limit(50);
+      var clients={};(data||[]).forEach(function(b){if(b.contact_name&&!clients[b.contact_name])clients[b.contact_name]={name:b.contact_name,pets:b.pet_names||'',service:b.service||''};});
+      var n=Object.values(clients);
       if(sz==='full'){
         var h=_bigNum(n.length,'active clients',sz);
-        if(n.length>0) h+='<div style="margin-top:8px;font-size:0.78rem;color:var(--mid)">'+n.slice(0,6).join(', ')+(n.length>6?' + '+(n.length-6)+' more':'')+'</div>';
+        if(n.length){h+='<div style="margin-top:10px">';n.slice(0,6).forEach(function(c){h+='<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.8rem"><div><span style="font-weight:600">'+c.name+'</span>'+(c.pets?'<span style="color:var(--mid);font-size:0.72rem"> · '+c.pets+'</span>':'')+'</div><div style="font-size:0.72rem;color:var(--mid)">'+c.service+'</div></div>';});h+='</div>';}
         return h;
       }
-      return _bigNum(n.length,'active clients',sz);
+      return _bigNum(n.length,'clients',sz);
     }catch(e){return'';}
   };
-  _R._rwStaffEarnings=async function(sz){var sb=_getSB();if(!sb)return'';try{var{count}=await sb.from('booking_requests').select('id',{count:'exact',head:true}).eq('status','completed');return _bigNum(count||0,'jobs completed',sz);}catch(e){return'';}};
-  _R._rwStaffMsgs=async function(sz){
-    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">Messages from clients and the business owner. Stay in the loop on schedule changes and client requests.</div>';
-    return'<div style="font-size:0.75rem;color:var(--mid)">Client & owner messages</div>';
+
+  _R._rwStaffEarnings=async function(sz){
+    var sb=_getSB();if(!sb)return'';
+    try{
+      var{count}=await sb.from('booking_requests').select('id',{count:'exact',head:true}).eq('status','completed');
+      if(sz==='full'){
+        var h=_bigNum(count||0,'jobs completed',sz);
+        var{data}=await sb.from('booking_requests').select('service,estimated_total,preferred_date').eq('status','completed').order('preferred_date',{ascending:false}).limit(5);
+        if(data&&data.length){var totalEarned=data.reduce(function(a,b){return a+(b.estimated_total||0);},0);
+          h+='<div style="margin-top:8px;text-align:center;font-size:0.82rem;color:var(--forest);font-weight:700">$'+totalEarned.toFixed(2)+' recent earnings</div>';
+          h+='<div style="margin-top:8px">';data.forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.78rem;border-bottom:1px solid var(--border)"><span>'+b.service+' <span style="color:var(--mid)">'+d+'</span></span><span style="font-weight:600;color:var(--forest)">$'+(b.estimated_total||0).toFixed(2)+'</span></div>';});h+='</div>';}
+        return h;
+      }
+      return _bigNum(count||0,'completed',sz);
+    }catch(e){return'';}
   };
+
+  _R._rwStaffMsgs=async function(sz){
+    var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
+    if(sz==='full'){
+      try{
+        var{data}=await sb.from('messages').select('body,sender_name,created_at').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(4);
+        var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px">Recent Messages</div>';
+        if(data&&data.length){data.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.8rem"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(m.sender_name||'Unknown')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.body||'').substring(0,80)+'</div></div>';});}
+        else{h+='<div style="color:var(--mid);font-size:0.8rem">No messages yet</div>';}
+        return h;
+      }catch(e){return'<div style="color:var(--mid);font-size:0.82rem">Messages</div>';}
+    }
+    return'<div style="font-size:0.75rem;color:var(--mid)">Messages</div>';
+  };
+
   _R._rwStaffCal=async function(sz){
-    if(sz==='full')return'<div style="font-size:0.85rem;color:var(--mid)">View your full weekly and monthly schedule. See upcoming jobs, availability, and time off requests.</div>';
-    return'<div style="font-size:0.75rem;color:var(--mid)">Weekly schedule view</div>';
+    var sb=_getSB();if(!sb)return'';
+    if(sz==='full'){
+      try{
+        var today=new Date();var days=[];for(var i=0;i<7;i++){var d=new Date(today);d.setDate(today.getDate()+i);days.push(d.toISOString().split('T')[0]);}
+        var{data}=await sb.from('booking_requests').select('preferred_date,service,preferred_time').in('status',['accepted','confirmed']).in('preferred_date',days).order('preferred_date').order('preferred_time').limit(14);
+        var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px">Next 7 Days</div>';
+        if(data&&data.length){var byDay={};data.forEach(function(b){if(!byDay[b.preferred_date])byDay[b.preferred_date]=[];byDay[b.preferred_date].push(b);});
+          Object.keys(byDay).sort().forEach(function(day){var dn=new Date(day+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});h+='<div style="font-weight:700;font-size:0.78rem;color:var(--gold);margin-top:6px;margin-bottom:2px">'+dn+'</div>';byDay[day].forEach(function(b){var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');h+='<div style="padding:3px 0;font-size:0.78rem;color:var(--mid)">'+b.service+(t?' · '+t:'')+'</div>';});});}
+        else{h+='<div style="color:var(--mid);font-size:0.8rem">No jobs in the next 7 days</div>';}
+        return h;
+      }catch(e){return'<div style="color:var(--mid);font-size:0.82rem">Calendar view</div>';}
+    }
+    return'<div style="font-size:0.75rem;color:var(--mid)">Schedule</div>';
   };
 
   // ── OWNER ──
@@ -529,8 +665,27 @@
   };
 
   _R._rwOwnerAlerts=async function(sz){
-    if(sz==='full') return '<div id="hhpAlertsCard"><div style="font-weight:700;margin-bottom:10px">🔔 Alerts & Messages</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem;min-height:60px">Loading...</div></div>';
-    return '<div id="hhpAlertsCard"><div style="font-weight:600;font-size:0.8rem;margin-bottom:6px">🔔 Alerts</div><div style="padding:4px;text-align:center;color:var(--mid);font-size:0.75rem;max-height:80px;overflow:hidden">Loading...</div></div>';
+    var sb=_getSB();if(!sb){
+      if(sz==='full') return '<div id="hhpAlertsCard"><div style="font-weight:700;margin-bottom:10px">🔔 Alerts & Messages</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div></div>';
+      return '<div id="hhpAlertsCard"><div style="font-size:0.75rem;color:var(--mid)">Loading...</div></div>';
+    }
+    try{
+      var{data}=await sb.from('messages').select('body,sender_name,created_at,is_alert').order('created_at',{ascending:false}).limit(sz==='full'?8:1);
+      var{data:announcements}=await sb.from('announcements').select('title,body,created_at').order('created_at',{ascending:false}).limit(sz==='full'?3:1);
+      if(sz==='full'){
+        var h='<div id="hhpAlertsCard">';
+        if(announcements&&announcements.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px;color:var(--gold)">📢 Announcements</div>';announcements.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.8rem"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(a.title||'Announcement')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div>'+(a.body?'<div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+a.body.substring(0,80)+(a.body.length>80?'...':'')+'</div>':'')+'</div>';});}
+        if(data&&data.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-top:10px;margin-bottom:6px">💬 Recent Messages</div>';data.slice(0,5).forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:0.8rem"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(m.sender_name||'System')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.body||'').substring(0,80)+'</div></div>';});}
+        if((!data||!data.length)&&(!announcements||!announcements.length)){h+='<div style="padding:16px 0;text-align:center;color:var(--mid);font-size:0.82rem">No alerts or messages</div>';}
+        return h+'</div>';
+      }
+      // Small: just count
+      var count=((data||[]).length)+((announcements||[]).length);
+      return '<div id="hhpAlertsCard">'+_bigNum(count>0?count:'✓',count>0?'new items':'all clear',sz)+'</div>';
+    }catch(e){
+      if(sz==='full') return '<div id="hhpAlertsCard"><div style="font-weight:700;margin-bottom:10px">🔔 Alerts & Messages</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div></div>';
+      return '<div id="hhpAlertsCard"><div style="font-size:0.75rem;color:var(--mid)">Loading...</div></div>';
+    }
   };
 
   _R._rwOwnerWeekStats=async function(sz){
@@ -549,8 +704,33 @@
   };
 
   _R._rwOwnerRequests=async function(sz){
-    if(sz==='full') return '<div id="hhpAdminDashboard"><div style="font-weight:700;margin-bottom:10px">📋 Booking Requests</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem;min-height:80px">Loading requests...</div></div>';
-    return '<div id="hhpAdminDashboard"><div style="font-weight:600;font-size:0.8rem;margin-bottom:4px">📋 Requests</div><div style="padding:4px;text-align:center;color:var(--mid);font-size:0.75rem;max-height:100px;overflow:hidden">Loading...</div></div>';
+    var sb=_getSB();if(!sb){
+      if(sz==='full') return '<div id="hhpAdminDashboard"><div style="font-weight:700;margin-bottom:10px">📋 Booking Requests</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div></div>';
+      return '<div id="hhpAdminDashboard"><div style="font-size:0.75rem;color:var(--mid)">Loading...</div></div>';
+    }
+    try{
+      var{data}=await sb.from('booking_requests').select('service,contact_name,preferred_date,preferred_time,status,pet_names,estimated_total').order('created_at',{ascending:false}).limit(sz==='full'?10:1);
+      var pending=(data||[]).filter(function(b){return b.status==='pending';});
+      var accepted=(data||[]).filter(function(b){return b.status==='accepted'||b.status==='confirmed';});
+      if(sz==='full'){
+        var h='<div id="hhpAdminDashboard">';
+        // Status summary bar
+        h+='<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">';
+        h+='<div style="flex:1;min-width:60px;background:var(--gold-pale);border-radius:8px;padding:8px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700">'+pending.length+'</div><div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">Pending</div></div>';
+        h+='<div style="flex:1;min-width:60px;background:var(--forest-pale);border-radius:8px;padding:8px;text-align:center"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700">'+accepted.length+'</div><div style="font-size:0.6rem;font-weight:600;color:var(--mid);text-transform:uppercase">Active</div></div>';
+        h+='</div>';
+        // List
+        if(data&&data.length){data.slice(0,6).forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var sCol=b.status==='pending'?'var(--gold)':b.status==='accepted'||b.status==='confirmed'?'var(--forest)':'var(--mid)';
+          h+='<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem"><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:0.72rem;color:var(--mid)">'+d+(t?' '+t:'')+'</div><div style="font-size:0.68rem;font-weight:700;color:'+sCol+';text-transform:uppercase">'+b.status+'</div>'+(b.estimated_total?'<div style="font-size:0.72rem;color:var(--forest);font-weight:600">$'+b.estimated_total.toFixed(2)+'</div>':'')+'</div></div>';});}
+        else{h+='<div style="padding:12px 0;text-align:center;color:var(--mid);font-size:0.82rem">No booking requests</div>';}
+        return h+'</div>';
+      }
+      // Small: just pending count
+      return '<div id="hhpAdminDashboard">'+_bigNum(pending.length,pending.length===1?'pending request':'pending requests',sz)+'</div>';
+    }catch(e){
+      if(sz==='full') return '<div id="hhpAdminDashboard"><div style="font-weight:700;margin-bottom:10px">📋 Booking Requests</div><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div></div>';
+      return '<div id="hhpAdminDashboard"><div style="font-size:0.75rem;color:var(--mid)">Loading...</div></div>';
+    }
   };
 
   _R._rwOwnerToday=async function(sz){
@@ -749,7 +929,65 @@
     resetLayout:_resetLayout,
     detail:_detail,
     closeDetail:_closeDetail,
-    refresh:function(){var p=_getPortal();if(p)_renderWidgets(p).then(function(){_retrigger(p);});}
+    refresh:function(){var p=_getPortal();if(p)_renderWidgets(p).then(function(){_retrigger(p);});},
+    // Mobile drawer edit mode — allows reordering drawer items on mobile
+    _toggleSidebarEditMobile:function(portal,drawer){
+      var btn=document.getElementById('mob-sb-edit-btn');
+      var items=drawer?drawer.querySelectorAll('.hhp-drawer-item'):[];
+      if(!items.length)return;
+      var isEditing=btn&&btn.getAttribute('data-editing')==='1';
+      if(isEditing){
+        // SAVE: collect new order, persist, exit edit mode
+        if(btn){btn.setAttribute('data-editing','0');btn.textContent='✏️ Edit Order';btn.style.background='#f5f0e8';btn.style.color='#5c3d1e';}
+        // Read order from drawer items' data-panel attribute
+        var order=[];
+        if(drawer){drawer.querySelectorAll('.hhp-drawer-item[data-panel]').forEach(function(it){order.push(it.getAttribute('data-panel'));});}
+        if(order.length){
+          if(!_prefs[portal])_prefs[portal]={sidebar_order:[],widgets:[],sizes:{}};
+          _prefs[portal].sidebar_order=order;_savePrefs(portal);
+          // Also reorder the real desktop sidebar
+          _applySidebarOrder(portal);
+        }
+        // Remove drag handles and edit styling from items
+        items.forEach(function(it){var h=it.querySelector('.mob-drag-handle');if(h)h.remove();it.style.outline='';it.style.cursor='';if(it._mobDown){it.removeEventListener('pointerdown',it._mobDown);delete it._mobDown;}});
+        if(typeof toast==='function')toast('✓ Order saved');
+      }else{
+        // ENTER EDIT MODE
+        if(btn){btn.setAttribute('data-editing','1');btn.textContent='💾 Save Order';btn.style.background='var(--gold,#c8963e)';btn.style.color='#fff';}
+        items.forEach(function(it){
+          // Add panel data attribute for order tracking
+          var txt=it.textContent.trim();
+          // Try to match to an sb-item in the actual sidebar
+          var pgId=portal==='client'?'pg-client':portal==='staff'?'pg-staff':'pg-owner';
+          var sidebar=document.querySelector('#'+pgId+' .sidebar');
+          if(sidebar){sidebar.querySelectorAll('.sb-item').forEach(function(sb){if(sb.textContent.trim()===txt){var m=(sb.getAttribute('onclick')||sb.getAttribute('data-orig-onclick')||'').match(/sTab\([^,]+,'([^']+)'\)/);if(m)it.setAttribute('data-panel',m[1]);}});}
+          // Add drag handle
+          if(!it.querySelector('.mob-drag-handle')){var h=document.createElement('span');h.className='mob-drag-handle';h.innerHTML='☰ ';h.style.cssText='color:#8c6b4a;margin-right:6px;font-size:0.9rem';it.insertBefore(h,it.firstChild);}
+          it.style.outline='1px dashed #d4c4ad';it.style.cursor='grab';
+          // Drag listener
+          var _mobDrag={active:false,el:null,ph:null,offsetY:0};
+          it._mobDown=function(e){if(e.button!==0)return;e.preventDefault();e.stopPropagation();
+            _mobDrag.active=true;_mobDrag.el=it;
+            var r=it.getBoundingClientRect();_mobDrag.offsetY=e.clientY-r.top;
+            var ph=document.createElement('div');ph.className='mob-drag-ph';ph.style.cssText='height:'+r.height+'px;background:rgba(200,150,62,0.1);border:1.5px dashed rgba(200,150,62,0.4);border-radius:6px;margin:2px 0';
+            _mobDrag.ph=ph;it.parentElement.insertBefore(ph,it);
+            it.style.cssText+=';position:fixed;left:'+r.left+'px;top:'+r.top+'px;width:'+r.width+'px;z-index:10000;box-shadow:0 6px 24px rgba(0,0,0,0.3);opacity:0.92;pointer-events:none;background:#fff';
+            function onMove(ev){if(!_mobDrag.active)return;ev.preventDefault();it.style.top=(ev.clientY-_mobDrag.offsetY)+'px';
+              var sibs=Array.from(it.parentElement.querySelectorAll('.hhp-drawer-item:not([style*="position:fixed"]):not([style*="position: fixed"]),.mob-drag-ph'));
+              for(var j=0;j<sibs.length;j++){if(sibs[j]===_mobDrag.ph)continue;var mid=sibs[j].getBoundingClientRect().top+sibs[j].offsetHeight/2;if(ev.clientY<mid){it.parentElement.insertBefore(_mobDrag.ph,sibs[j]);return;}}
+              it.parentElement.appendChild(_mobDrag.ph);
+            }
+            function onEnd(){document.removeEventListener('pointermove',onMove);document.removeEventListener('pointerup',onEnd);if(!_mobDrag.active)return;
+              if(_mobDrag.ph&&_mobDrag.ph.parentElement){it.parentElement.insertBefore(it,_mobDrag.ph);_mobDrag.ph.remove();}
+              ['position','left','top','width','z-index','box-shadow','opacity','pointer-events','background'].forEach(function(p2){it.style.removeProperty(p2);});
+              it.style.outline='1px dashed #d4c4ad';it.style.cursor='grab';_mobDrag.active=false;
+            }
+            document.addEventListener('pointermove',onMove);document.addEventListener('pointerup',onEnd);
+          };
+          it.addEventListener('pointerdown',it._mobDown);
+        });
+      }
+    }
   };
 
 })();

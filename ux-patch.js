@@ -1032,6 +1032,24 @@
     header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;">' + portalName + '</span>';
     drawer.appendChild(header);
 
+    // ── SIDEBAR EDIT BUTTON (reorder drawers) ──
+    var portalKey = activePortal === 'pg-owner' ? 'owner' : activePortal === 'pg-staff' ? 'staff' : 'client';
+    var editBtnMob = document.createElement('button');
+    editBtnMob.type = 'button';
+    editBtnMob.id = 'mob-sb-edit-btn';
+    editBtnMob.textContent = '✏️ Edit Order';
+    editBtnMob.style.cssText = 'display:block;width:calc(100% - 40px);margin:8px 20px;padding:10px 0;background:#f5f0e8;border:1px solid #d4c4ad;border-radius:10px;color:#5c3d1e;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;transition:all 0.2s';
+    editBtnMob.addEventListener('click', function() {
+      if (typeof HHP_Customizer !== 'undefined' && HHP_Customizer._toggleSidebarEditMobile) {
+        HHP_Customizer._toggleSidebarEditMobile(portalKey, drawer);
+      } else if (typeof HHP_Customizer !== 'undefined') {
+        // Fallback: toggle desktop sidebar edit mode
+        var desktopBtn = document.getElementById('sb-edit-btn-' + portalKey);
+        if (desktopBtn) desktopBtn.click();
+      }
+    });
+    drawer.appendChild(editBtnMob);
+
     // Read ALL .sb-item buttons from the active portal's sidebar
     var portalEl = document.getElementById(activePortal);
     if (!portalEl) return;
