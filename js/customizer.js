@@ -5,40 +5,41 @@
   // ══════════════════════════════════════
   //  WIDGET REGISTRY
   // ══════════════════════════════════════
+  // fixed:true = always full width, no resize button shown
   var WIDGETS = {
     client: [
-      { wid:'cw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  renderFn:'_rwClientStats' },
-      { wid:'cw-upcoming', icon:'📅', label:'Upcoming Appointments', size:'half',  preset:true,  renderFn:'_rwClientUpcoming' },
-      { wid:'cw-notif',    icon:'🔔', label:'Recent Notifications',  size:'half',  preset:true,  renderFn:'_rwClientNotif' },
-      { wid:'cw-pets',     icon:'🐾', label:'My Pets',               size:'half',  preset:false, renderFn:'_rwClientPets' },
-      { wid:'cw-tracking', icon:'🗺️', label:'Live Tracking',         size:'half',  preset:false, renderFn:'_rwClientTracking' },
-      { wid:'cw-photos',   icon:'📸', label:'Photo Gallery',         size:'half',  preset:false, renderFn:'_rwClientPhotos' },
-      { wid:'cw-reports',  icon:'📋', label:'Walk Reports',          size:'half',  preset:false, renderFn:'_rwClientReports' },
-      { wid:'cw-reviews',  icon:'⭐', label:'My Reviews',            size:'half',  preset:false, renderFn:'_rwClientReviews' },
-      { wid:'cw-msgs',     icon:'💬', label:'Messages',              size:'half',  preset:false, renderFn:'_rwClientMsgs' },
-      { wid:'cw-billing',  icon:'💳', label:'Billing',               size:'half',  preset:false, renderFn:'_rwClientBilling' }
+      { wid:'cw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:true,  renderFn:'_rwClientStats' },
+      { wid:'cw-upcoming', icon:'📅', label:'Upcoming Appointments', size:'half',  preset:true,  fixed:false, renderFn:'_rwClientUpcoming' },
+      { wid:'cw-notif',    icon:'🔔', label:'Recent Notifications',  size:'half',  preset:true,  fixed:false, renderFn:'_rwClientNotif' },
+      { wid:'cw-pets',     icon:'🐾', label:'My Pets',               size:'half',  preset:false, fixed:false, renderFn:'_rwClientPets' },
+      { wid:'cw-tracking', icon:'🗺️', label:'Live Tracking',         size:'half',  preset:false, fixed:false, renderFn:'_rwClientTracking' },
+      { wid:'cw-photos',   icon:'📸', label:'Photo Gallery',         size:'half',  preset:false, fixed:false, renderFn:'_rwClientPhotos' },
+      { wid:'cw-reports',  icon:'📋', label:'Walk Reports',          size:'half',  preset:false, fixed:false, renderFn:'_rwClientReports' },
+      { wid:'cw-reviews',  icon:'⭐', label:'My Reviews',            size:'half',  preset:false, fixed:false, renderFn:'_rwClientReviews' },
+      { wid:'cw-msgs',     icon:'💬', label:'Messages',              size:'half',  preset:false, fixed:false, renderFn:'_rwClientMsgs' },
+      { wid:'cw-billing',  icon:'💳', label:'Billing',               size:'half',  preset:false, fixed:false, renderFn:'_rwClientBilling' }
     ],
     staff: [
-      { wid:'sw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  renderFn:'_rwStaffStats' },
-      { wid:'sw-jobs',     icon:'🦮', label:"This Week's Jobs",      size:'full',  preset:true,  renderFn:'_rwStaffJobs' },
-      { wid:'sw-clients',  icon:'👥', label:'My Clients',            size:'half',  preset:false, renderFn:'_rwStaffClients' },
-      { wid:'sw-earnings', icon:'💰', label:'Earnings',              size:'half',  preset:false, renderFn:'_rwStaffEarnings' },
-      { wid:'sw-msgs',     icon:'💬', label:'Messages',              size:'half',  preset:false, renderFn:'_rwStaffMsgs' },
-      { wid:'sw-cal',      icon:'📆', label:'Calendar',              size:'half',  preset:false, renderFn:'_rwStaffCal' }
+      { wid:'sw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:true,  renderFn:'_rwStaffStats' },
+      { wid:'sw-jobs',     icon:'🦮', label:"This Week's Jobs",      size:'full',  preset:true,  fixed:false, renderFn:'_rwStaffJobs' },
+      { wid:'sw-clients',  icon:'👥', label:'My Clients',            size:'half',  preset:false, fixed:false, renderFn:'_rwStaffClients' },
+      { wid:'sw-earnings', icon:'💰', label:'Earnings',              size:'half',  preset:false, fixed:false, renderFn:'_rwStaffEarnings' },
+      { wid:'sw-msgs',     icon:'💬', label:'Messages',              size:'half',  preset:false, fixed:false, renderFn:'_rwStaffMsgs' },
+      { wid:'sw-cal',      icon:'📆', label:'Calendar',              size:'half',  preset:false, fixed:false, renderFn:'_rwStaffCal' }
     ],
     owner: [
-      { wid:'ow-banner',    icon:'👑', label:'Welcome Banner',        size:'full',  preset:true,  renderFn:'_rwOwnerBanner' },
-      { wid:'ow-alerts',    icon:'🔔', label:'Alerts & Messages',     size:'half',  preset:true,  renderFn:'_rwOwnerAlerts' },
-      { wid:'ow-weekstats', icon:'📊', label:'This Week at a Glance', size:'half',  preset:true,  renderFn:'_rwOwnerWeekStats' },
-      { wid:'ow-requests',  icon:'📋', label:'Booking Requests',      size:'full',  preset:true,  renderFn:'_rwOwnerRequests' },
-      { wid:'ow-today',     icon:'📅', label:"Today's Schedule",      size:'full',  preset:true,  renderFn:'_rwOwnerToday' },
-      { wid:'ow-clients',   icon:'👥', label:'All Clients',           size:'half',  preset:false, renderFn:'_rwOwnerClients' },
-      { wid:'ow-staff',     icon:'🧑‍🤝‍🧑', label:'Staff Team',            size:'half',  preset:false, renderFn:'_rwOwnerStaff' },
-      { wid:'ow-reviews',   icon:'⭐', label:'Reviews',               size:'half',  preset:false, renderFn:'_rwOwnerReviews' },
-      { wid:'ow-payments',  icon:'💳', label:'Payments',              size:'half',  preset:false, renderFn:'_rwOwnerPayments' },
-      { wid:'ow-deals',     icon:'🏷️', label:'Specials & Deals',      size:'half',  preset:false, renderFn:'_rwOwnerDeals' },
-      { wid:'ow-photos',    icon:'🖼️', label:'Photos & Media',        size:'half',  preset:false, renderFn:'_rwOwnerPhotos' },
-      { wid:'ow-activity',  icon:'📜', label:'Activity Log',          size:'half',  preset:false, renderFn:'_rwOwnerActivity' }
+      { wid:'ow-banner',    icon:'👑', label:'Welcome Banner',        size:'full',  preset:true,  fixed:true,  renderFn:'_rwOwnerBanner' },
+      { wid:'ow-alerts',    icon:'🔔', label:'Alerts & Messages',     size:'half',  preset:true,  fixed:false, renderFn:'_rwOwnerAlerts' },
+      { wid:'ow-weekstats', icon:'📊', label:'This Week at a Glance', size:'half',  preset:true,  fixed:false, renderFn:'_rwOwnerWeekStats' },
+      { wid:'ow-requests',  icon:'📋', label:'Booking Requests',      size:'full',  preset:true,  fixed:true,  renderFn:'_rwOwnerRequests' },
+      { wid:'ow-today',     icon:'📅', label:"Today's Schedule",      size:'full',  preset:true,  fixed:true,  renderFn:'_rwOwnerToday' },
+      { wid:'ow-clients',   icon:'👥', label:'All Clients',           size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerClients' },
+      { wid:'ow-staff',     icon:'🧑‍🤝‍🧑', label:'Staff Team',            size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerStaff' },
+      { wid:'ow-reviews',   icon:'⭐', label:'Reviews',               size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerReviews' },
+      { wid:'ow-payments',  icon:'💳', label:'Payments',              size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerPayments' },
+      { wid:'ow-deals',     icon:'🏷️', label:'Specials & Deals',      size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerDeals' },
+      { wid:'ow-photos',    icon:'🖼️', label:'Photos & Media',        size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerPhotos' },
+      { wid:'ow-activity',  icon:'📜', label:'Activity Log',          size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerActivity' }
     ]
   };
 
@@ -103,6 +104,9 @@
 
     // Prevent all text selection + touch callout in sidebar
     sidebar.style.cssText+= ';user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y';
+    // Block selectstart event entirely in sidebar
+    sidebar.addEventListener('selectstart',function(e){e.preventDefault();return false;});
+    sidebar.addEventListener('dragstart',function(e){e.preventDefault();return false;});
 
     var items=sidebar.querySelectorAll('.sb-nav-group .sb-item');
     items.forEach(function(item){
@@ -238,11 +242,12 @@
     var full=size==='full', span=full?'grid-column:1/-1;':'';
     var otherSize=full?'half':'full', sIcon=full?'⊟':'⊞';
     var nav=_panelNav[w.wid]||'';
+    var canResize=!w.fixed; // Don't show resize on fixed-size widgets
     return '<div class="cust-widget" data-wid="'+w.wid+'" style="'+span+'background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.04)">'+
       '<div style="display:flex;align-items:center;gap:8px;padding:12px 14px 0;user-select:none">'+
         '<span style="font-size:1.1rem">'+w.icon+'</span>'+
         '<span style="font-size:0.78rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;flex:1">'+w.label+'</span>'+
-        '<button onclick="event.stopPropagation();HHP_Customizer.setSize(\''+portal+'\',\''+w.wid+'\',\''+otherSize+'\')" title="'+(full?'Shrink':'Expand full width')+'" style="background:none;border:none;cursor:pointer;font-size:1rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">'+sIcon+'</button>'+
+        (canResize?'<button onclick="event.stopPropagation();HHP_Customizer.setSize(\''+portal+'\',\''+w.wid+'\',\''+otherSize+'\')" title="'+(full?'Shrink':'Expand full width')+'" style="background:none;border:none;cursor:pointer;font-size:1rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">'+sIcon+'</button>':'')+
         (nav?'<button onclick="event.stopPropagation();HHP_Customizer.detail(\''+portal+'\',\''+w.wid+'\')" title="Detail view" style="background:none;border:none;cursor:pointer;font-size:0.85rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">🔍</button>':'')+
         (nav?'<button onclick="event.stopPropagation();'+nav+'" title="Go to panel" style="background:none;border:none;cursor:pointer;font-size:0.7rem;color:var(--gold);font-weight:700;padding:2px 6px;opacity:0.5;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">View →</button>':'')+
       '</div><div style="padding:10px 14px 14px">'+body+'</div></div>';
@@ -450,16 +455,17 @@
   // After widgets render, the DOM elements (stat IDs, containers) exist again.
   // Re-fire the existing data-loading functions so they populate.
   function _retrigger(portal){
+    console.log('Customizer: retriggering data loaders for', portal);
     if(portal==='owner'){
-      if(typeof loadDashboardStats==='function') try{loadDashboardStats();}catch(e){}
-      if(typeof loadOwnerTodaySchedule==='function') try{loadOwnerTodaySchedule();}catch(e){}
-      if(window.HHP_BookingAdmin&&typeof window.HHP_BookingAdmin.init==='function') try{window.HHP_BookingAdmin.init();}catch(e){}
-      if(window.HHP_Messaging&&typeof window.HHP_Messaging.loadAlertMessages==='function') try{window.HHP_Messaging.loadAlertMessages();}catch(e){}
+      if(typeof window.loadDashboardStats==='function') try{window.loadDashboardStats();}catch(e){console.warn('retrigger loadDashboardStats:',e);}
+      if(typeof window.loadOwnerTodaySchedule==='function') try{window.loadOwnerTodaySchedule();}catch(e){console.warn('retrigger loadOwnerTodaySchedule:',e);}
+      if(window.HHP_BookingAdmin&&typeof window.HHP_BookingAdmin.init==='function') try{window.HHP_BookingAdmin.init();}catch(e){console.warn('retrigger BookingAdmin:',e);}
+      if(window.HHP_Messaging&&typeof window.HHP_Messaging.loadAlertMessages==='function') try{window.HHP_Messaging.loadAlertMessages();}catch(e){console.warn('retrigger alerts:',e);}
     }else if(portal==='client'){
-      if(typeof loadDashboardStats==='function') try{loadDashboardStats();}catch(e){}
+      if(typeof window.loadDashboardStats==='function') try{window.loadDashboardStats();}catch(e){console.warn('retrigger client stats:',e);}
     }else if(portal==='staff'){
-      if(typeof loadDashboardStats==='function') try{loadDashboardStats();}catch(e){}
-      if(typeof loadStaffSchedule==='function') try{loadStaffSchedule();}catch(e){}
+      if(typeof window.loadDashboardStats==='function') try{window.loadDashboardStats();}catch(e){console.warn('retrigger staff stats:',e);}
+      if(typeof window.loadStaffSchedule==='function') try{window.loadStaffSchedule();}catch(e){console.warn('retrigger staffSchedule:',e);}
     }
   }
 
@@ -482,8 +488,10 @@
 
     // Render widgets, then retrigger data loaders after DOM is ready
     await _renderWidgets(portal);
-    // Small delay to let DOM paint, then fire data loaders
-    setTimeout(function(){_retrigger(portal);},100);
+    // Give DOM time to paint before firing data loaders to populate widget content
+    setTimeout(function(){_retrigger(portal);},300);
+    // Safety: retrigger again after a bit in case some loaders weren't ready yet
+    setTimeout(function(){_retrigger(portal);},1500);
     console.log('Customizer: ready');
   }
 

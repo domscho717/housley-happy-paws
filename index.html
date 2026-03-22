@@ -9358,6 +9358,8 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ---- DASHBOARD STATS LOADER ----
+  // Exposed globally so customizer.js can re-trigger after widget DOM swap
+  window.loadDashboardStats = loadDashboardStats;
   async function loadDashboardStats() {
     try {
       var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
@@ -9619,6 +9621,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // ---- OWNER TODAY'S SCHEDULE WITH START/END WALK BUTTONS ----
+  window.loadOwnerTodaySchedule = loadOwnerTodaySchedule;
   async function loadOwnerTodaySchedule() {
     var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
     if (!sb) return;
