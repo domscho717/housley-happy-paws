@@ -3143,8 +3143,8 @@ function switchView(view) {
     if ((myRole === 'owner' || myRole === 'staff') && !window._viewAsBypass) {
       showClientPickerModal();
       // Reset the dropdown to current view
-      var dd = document.getElementById('viewDropdown');
-      if (dd) dd.value = sessionStorage.getItem('hhp_last_view') || myRole;
+      var ddEl = document.getElementById('viewDropdown');
+      if (ddEl) ddEl.value = sessionStorage.getItem('hhp_last_view') || myRole;
       return;
     }
     // Clear the bypass flag after use
