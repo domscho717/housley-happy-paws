@@ -1516,7 +1516,7 @@ try {
 
       <!-- STAFF REPORT CREATOR -->
       <div class="p-panel" id="s-reports">
-        <div class="p-header"><h2>Create Service Report 📋</h2><p>Build a detailed report card for your client — AI will help you write the note.</p></div>
+        <div class="p-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>Create Service Report 📋</h2><p>Build a detailed report card for your client — AI will help you write the note.</p></div><button class="btn btn-outline btn-sm" onclick="openReportHistory()" style="white-space:nowrap">📋 Report History</button></div>
         <div class="card" style="max-width:680px">
           <div style="background:var(--forest-pale);border-radius:10px;padding:16px;margin-bottom:20px;border-left:3px solid var(--forest)">
             <div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest);margin-bottom:6px">🤖 AI Note Assistant Active</div>
@@ -1740,7 +1740,7 @@ try {
 
       <!-- OWNER REPORT CREATOR (same as staff but with all client access) -->
       <div class="p-panel" id="o-reports">
-        <div class="p-header"><h2>Create Service Report 📋</h2><p>Send a detailed report card to any client after a completed service.</p></div>
+        <div class="p-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px"><div><h2>Create Service Report 📋</h2><p>Send a detailed report card to any client after a completed service.</p></div><button class="btn btn-outline btn-sm" onclick="openReportHistory()" style="white-space:nowrap">📋 Report History</button></div>
         <div class="card" style="max-width:680px">
           <div style="background:var(--forest-pale);border-radius:10px;padding:16px;margin-bottom:20px;border-left:3px solid var(--forest)"><div style="font-size:0.7rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--forest);margin-bottom:6px">📝 Quick Note Builder</div><div style="font-size:0.84rem;color:var(--ink)">Pick a scenario, fill in a few details, and your personalized note is ready to send.</div></div>
 
@@ -2534,6 +2534,7 @@ try {
                 <option value="cancellations">Cancellations</option>
                 <option value="payments">Payments</option>
                 <option value="reports">Service Reports</option>
+                <option value="services">Services (Start/End)</option>
               </select>
             </div>
           </div>
@@ -3574,6 +3575,28 @@ async function loadActivityLog() {
     }
   }
 
+  // Load service starts/completions (from walks table)
+  var serviceCount = 0;
+  if (type === 'all' || type === 'services') {
+    var { data: walks } = await sb.from('walks')
+      .select('*')
+      .gte('start_time', startISO)
+      .lt('start_time', endISO)
+      .order('start_time', { ascending: false })
+      .limit(200);
+
+    if (walks) {
+      serviceCount = walks.length;
+      for (var wi = 0; wi < walks.length; wi++) {
+        var w = walks[wi];
+        allEntries.push({ type: 'service_start', date: w.start_time, walk: w });
+        if (w.status === 'completed' && w.end_time) {
+          allEntries.push({ type: 'service_end', date: w.end_time, walk: w });
+        }
+      }
+    }
+  }
+
   // Sort by date descending
   allEntries.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
 
@@ -3587,7 +3610,8 @@ async function loadActivityLog() {
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2980b9">' + signupCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Sign\u2011ups</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Cancellations</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">$' + (totalRevenue * 0.85 / 100).toFixed(0) + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Net Revenue</div></div>' +
-      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + reportCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Reports</div></div>';
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + reportCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Reports</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2196F3">' + serviceCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Services</div></div>';
   }
 
   if (allEntries.length === 0) {
@@ -3662,6 +3686,22 @@ async function loadActivityLog() {
         '<div style="flex:1"><span style="font-weight:600">Service Report</span> \u2014 ' + _escH(rpt.service || 'Service') +
         '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(rpt.note || '').substring(0, 60) + '</div></div>' +
         '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
+    } else if (entry.type === 'service_start') {
+      var sw = entry.walk;
+      html += '<div style="' + rowStyle + ';background:rgba(33,150,243,0.04)"' + clickAttr + '>' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:#e3f2fd;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">▶</div>' +
+        '<div style="flex:1"><span style="font-weight:600">Service Started</span> — ' + _escH(sw.service || 'Service') +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(sw.pet_name || '') + '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">›</span></div></div>';
+    } else if (entry.type === 'service_end') {
+      var ew = entry.walk;
+      var eDur = '';
+      if (ew.start_time && ew.end_time) { eDur = Math.round((new Date(ew.end_time) - new Date(ew.start_time)) / 60000) + ' min'; }
+      html += '<div style="' + rowStyle + ';background:rgba(76,175,80,0.04)"' + clickAttr + '>' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">✅</div>' +
+        '<div style="flex:1"><span style="font-weight:600">Service Completed</span> — ' + _escH(ew.service || 'Service') +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(ew.pet_name || '') + (eDur ? ' · ' + eDur : '') + '</div></div>' +
+        '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">›</span></div></div>';
     }
   }
   entriesEl.innerHTML = html;
@@ -3936,6 +3976,25 @@ async function showActivityDetail(index) {
       '</div>' +
       (rpt.note ? '<div style="padding:14px;background:var(--warm);border-radius:10px;font-size:0.88rem;line-height:1.6;border-left:3px solid var(--gold);margin-bottom:16px"><strong>Report Notes:</strong><br>' + _escH(rpt.note) + '</div>' : '') +
       (rptClientProfile ? '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + rptClientProfile.id + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Client Profile</button>' : '');
+
+  } else if (entry.type === 'service_start' || entry.type === 'service_end') {
+    var sWalk = entry.walk;
+    var isStart = entry.type === 'service_start';
+    title = isStart ? 'Service Started' : 'Service Completed';
+    icon = isStart ? '▶' : '✅';
+    bgColor = isStart ? '#e3f2fd' : '#e8f5e9';
+    var svcDurStr = '';
+    if (sWalk.start_time && sWalk.end_time) { svcDurStr = Math.round((new Date(sWalk.end_time) - new Date(sWalk.start_time)) / 60000) + ' min'; }
+    content =
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(sWalk.service || '—') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Status:</strong> <span style="color:' + (sWalk.status === 'completed' ? '#4caf50' : '#2196F3') + ';font-weight:600">' + _escH(sWalk.status || '—') + '</span></div>' +
+        (sWalk.pet_name ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pet:</strong> ' + _escH(sWalk.pet_name) + '</div>' : '') +
+        (svcDurStr ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Duration:</strong> ' + svcDurStr + '</div>' : '') +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Started:</strong> ' + new Date(sWalk.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '</div>' +
+        (sWalk.end_time ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Ended:</strong> ' + new Date(sWalk.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + '</div>' : '') +
+      '</div>' +
+      (sWalk.booking_id ? '<button onclick="document.getElementById(\'actDetailModal\').remove();viewCompletedReport(\'' + sWalk.booking_id + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">📋 View Service Report</button>' : '');
   }
 
   if (!content) {
@@ -5707,6 +5766,13 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
       toast('▶ Service started!');
     }
 
+    // ── Update booking status to in_progress ──
+    if (bookingId) {
+      try {
+        await sb.from('booking_requests').update({ status: 'in_progress' }).eq('id', bookingId);
+      } catch(e) { console.warn('Booking in_progress update error:', e); }
+    }
+
     // Close the booking detail drawer
     closeBookingDetail();
 
@@ -5716,13 +5782,22 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
     }
 
     // ── Send "Service Started" notification to client ──
+    var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
     if (clientId) {
-      var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
       var startMsg = '🟢 ' + staffName + ' has started ' + (petNames ? petNames + '\'s ' : 'your ') + service + '! You can track progress in your portal under Live Tracking.';
       try {
         await sb.from('messages').insert({ sender_id: user.id, recipient_id: clientId, body: startMsg });
       } catch(e) { console.warn('Start notification error:', e); }
     }
+
+    // ── Activity log: record service start ──
+    try {
+      await sb.from('messages').insert({
+        sender_id: user.id,
+        recipient_id: user.id,
+        body: '▶ SERVICE STARTED: ' + staffName + ' started ' + service + (petNames ? ' for ' + petNames : '') + (clientName ? ' (client: ' + clientName + ')' : '')
+      });
+    } catch(e) { console.warn('Activity log start error:', e); }
 
     // ── Open the live service report panel ──
     openLiveServicePanel(walk, service, petNames, clientName, bookingId, address);
@@ -5742,6 +5817,9 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   // Remove existing panel if any
   var old = document.getElementById('hhp-live-service-panel');
   if (old) old.remove();
+  // Remove any floating reopen pill
+  var oldPill = document.getElementById('hhp-live-service-pill');
+  if (oldPill) oldPill.remove();
 
   var panel = document.createElement('div');
   panel.id = 'hhp-live-service-panel';
@@ -5749,11 +5827,16 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
 
   var svcLower = (service || '').toLowerCase();
   var isDogWalk = svcLower.indexOf('walk') !== -1;
-  var showDistance = isDogWalk;
-  var showRoute = isDogWalk;
 
   var startTimeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   var dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  var dateVal = new Date().toISOString().split('T')[0];
+  // Convert start time to 24h for input
+  var now = new Date();
+  var arrivalVal = (now.getHours() < 10 ? '0' : '') + now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+
+  var fieldStyle = 'width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:white';
+  var labelStyle = 'font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px';
 
   var h = '';
   h += '<div style="background:white;width:100%;max-width:500px;max-height:92vh;border-radius:20px 20px 0 0;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);padding:0">';
@@ -5777,53 +5860,67 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<div id="lsp-timer-bar" style="height:6px;background:var(--border,#e8e0d4);border-radius:3px;overflow:hidden"><div id="lsp-timer-fill" style="height:100%;background:var(--gold,#c8963e);border-radius:3px;width:0%;transition:width 1s linear"></div></div>';
   h += '</div>';
 
-  // Report fields (auto-filled)
+  // ── REPORT FIELDS (editable, auto-filled where possible) ──
   h += '<div style="padding:16px 20px">';
 
-  // Date
-  h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Date</div>';
-  h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)">' + dateStr + '</div></div>';
+  // Row: Date + Service (side by side)
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  h += '<div><div style="' + labelStyle + '">Date</div>';
+  h += '<input type="date" id="lsp-date" value="' + dateVal + '" style="' + fieldStyle + '"></div>';
+  h += '<div><div style="' + labelStyle + '">Service</div>';
+  h += '<select id="lsp-service" style="' + fieldStyle + '">';
+  ['Dog Walking - 30 min','Dog Walking - 1 hr','Drop-In Visit - 30 min','Drop-In Visit - 1 hr','Cat Care Visit - 30 min','Cat Care Visit - 1 hr','Dog Boarding','Doggy Day Care','House Sitting (Dog)','House Sitting (Cat)'].forEach(function(s) {
+    h += '<option value="' + s + '"' + (s === service ? ' selected' : '') + '>' + s + '</option>';
+  });
+  h += '</select></div></div>';
 
-  // Client
-  if (clientName) {
-    h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Client</div>';
-    h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)">' + clientName + '</div></div>';
-  }
+  // Row: Client + Pets
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  h += '<div><div style="' + labelStyle + '">Client</div>';
+  h += '<input type="text" id="lsp-client" value="' + (clientName || '') + '" placeholder="Client name" style="' + fieldStyle + '"></div>';
+  h += '<div><div style="' + labelStyle + '">Pet(s)</div>';
+  h += '<input type="text" id="lsp-pets" value="' + (petNames || '') + '" placeholder="Pet names" style="' + fieldStyle + '"></div></div>';
 
-  // Pets
-  if (petNames) {
-    h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pets</div>';
-    h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)">' + petNames + '</div></div>';
-  }
+  // Row: Arrival + Departure
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  h += '<div><div style="' + labelStyle + '">Arrival Time</div>';
+  h += '<input type="time" id="lsp-arrival" value="' + arrivalVal + '" style="' + fieldStyle + '"></div>';
+  h += '<div><div style="' + labelStyle + '">Departure Time</div>';
+  h += '<input type="time" id="lsp-departure" value="" style="' + fieldStyle + '" placeholder="Auto-filled on end"></div></div>';
 
-  // Address
-  if (address) {
-    h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Location</div>';
-    h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)">' + address + '</div></div>';
-  }
+  // Row: Duration + Distance
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">';
+  h += '<div><div style="' + labelStyle + '">Duration</div>';
+  h += '<select id="lsp-duration" style="' + fieldStyle + '">';
+  h += '<option value="30 min"' + (svcLower.indexOf('30') !== -1 ? ' selected' : '') + '>30 Minutes</option>';
+  h += '<option value="1 hour"' + (svcLower.indexOf('1 hr') !== -1 || svcLower.indexOf('1 hour') !== -1 ? ' selected' : '') + '>1 Hour</option>';
+  h += '</select></div>';
+  h += '<div><div style="' + labelStyle + '">Distance' + (isDogWalk ? '' : ' (optional)') + '</div>';
+  h += '<input type="text" id="lsp-distance" value="' + (isDogWalk ? 'Tracking...' : '') + '" placeholder="e.g. 1.2 mi" style="' + fieldStyle + '"></div></div>';
 
-  // Arrival time
-  h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Arrival Time</div>';
-  h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)" id="lsp-arrival">' + startTimeStr + '</div></div>';
+  // Location
+  h += '<div style="margin-bottom:12px"><div style="' + labelStyle + '">Location / Address</div>';
+  h += '<input type="text" id="lsp-address" value="' + (address || '') + '" placeholder="Service address" style="' + fieldStyle + '"></div>';
 
-  // Distance (dog walk only)
-  if (showDistance) {
-    h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Distance</div>';
-    h += '<div style="font-size:0.9rem;font-weight:600;color:var(--ink)" id="lsp-distance">Tracking...</div></div>';
-  }
-
-  // Mood select
-  h += '<div style="margin-bottom:14px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pet Mood</div>';
-  h += '<div style="display:flex;gap:8px;flex-wrap:wrap" id="lsp-mood-btns">';
-  ['😊 Happy', '😴 Calm', '🥳 Excited', '😰 Anxious', '😋 Hungry'].forEach(function(m) {
+  // Mood select buttons
+  h += '<div style="margin-bottom:12px"><div style="' + labelStyle + '">Pet Mood</div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap" id="lsp-mood-btns">';
+  ['😄 Great', '😊 Happy', '😌 Calm', '🙈 Shy', '⚡ Energetic'].forEach(function(m) {
     var val = m.split(' ')[1];
-    h += '<button onclick="this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--warm,#fdf7ee)\';b.style.color=\'var(--ink)\';});this.style.background=\'var(--forest,#3d5a47)\';this.style.color=\'white\';document.getElementById(\'lsp-mood-val\').value=\'' + val + '\'" style="padding:6px 12px;border-radius:20px;border:1px solid var(--border,#e8e0d4);background:var(--warm,#fdf7ee);font-size:0.78rem;cursor:pointer;font-family:inherit">' + m + '</button>';
+    h += '<button onclick="this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--warm,#fdf7ee)\';b.style.color=\'var(--ink)\';});this.style.background=\'var(--forest,#3d5a47)\';this.style.color=\'white\';document.getElementById(\'lsp-mood-val\').value=\'' + val + '\'" style="padding:6px 10px;border-radius:20px;border:1px solid var(--border,#e8e0d4);background:var(--warm,#fdf7ee);font-size:0.75rem;cursor:pointer;font-family:inherit">' + m + '</button>';
   });
   h += '</div><input type="hidden" id="lsp-mood-val" value=""></div>';
 
+  // Photos/Media upload area
+  h += '<div style="margin-bottom:12px"><div style="' + labelStyle + '">Photos & Videos</div>';
+  h += '<div id="lsp-media-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px"></div>';
+  h += '<label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--warm,#fdf7ee);border:1.5px dashed var(--border,#e8e0d4);border-radius:10px;cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--mid)">';
+  h += '<input type="file" id="lsp-media-input" accept="image/*,video/*" multiple style="display:none" onchange="handleLspMediaUpload(this)">';
+  h += '📷 Add Photos/Videos</label></div>';
+
   // Notes textarea
-  h += '<div style="margin-bottom:16px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Notes</div>';
-  h += '<textarea id="lsp-notes" rows="3" placeholder="How did the visit go? Any notes for the client..." style="width:100%;padding:10px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.88rem;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea></div>';
+  h += '<div style="margin-bottom:16px"><div style="' + labelStyle + '">Personal Note</div>';
+  h += '<textarea id="lsp-notes" rows="3" placeholder="How did the visit go? Any notes for the client..." style="' + fieldStyle + ';resize:vertical"></textarea></div>';
 
   // End Service button
   h += '<button onclick="endServiceFromPanel()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">⏹ End Service & Send Report</button>';
@@ -5846,12 +5943,45 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
     petNames: petNames,
     clientName: clientName,
     address: address,
-    startTime: walk ? walk.start_time : new Date().toISOString()
+    startTime: walk ? walk.start_time : new Date().toISOString(),
+    mediaUrls: []
   };
 
   // Start updating the timer in the panel
   _lspTimerInterval = setInterval(updateLiveServiceTimer, 1000);
   updateLiveServiceTimer();
+}
+
+// Handle media uploads for live service panel
+function handleLspMediaUpload(input) {
+  var files = input.files;
+  if (!files || files.length === 0) return;
+  var grid = document.getElementById('lsp-media-grid');
+  if (!grid) return;
+  for (var i = 0; i < files.length; i++) {
+    (function(file) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var thumb = document.createElement('div');
+        thumb.style.cssText = 'width:60px;height:60px;border-radius:8px;overflow:hidden;position:relative;flex-shrink:0';
+        if (file.type.startsWith('video/')) {
+          thumb.innerHTML = '<div style="width:100%;height:100%;background:var(--ink);display:flex;align-items:center;justify-content:center;color:white;font-size:1.2rem">🎬</div>';
+        } else {
+          thumb.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover">';
+        }
+        var removeBtn = document.createElement('button');
+        removeBtn.style.cssText = 'position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:white;border:none;font-size:0.6rem;cursor:pointer;display:flex;align-items:center;justify-content:center';
+        removeBtn.textContent = '✕';
+        removeBtn.onclick = function() { thumb.remove(); };
+        thumb.appendChild(removeBtn);
+        grid.appendChild(thumb);
+        // Store data URL for upload later
+        if (!window._liveServiceData) return;
+        window._liveServiceData.mediaUrls.push({ type: file.type.startsWith('video/') ? 'video' : 'image', dataUrl: e.target.result, name: file.name });
+      };
+      reader.readAsDataURL(file);
+    })(files[i]);
+  }
 }
 
 var _lspTimerInterval = null;
@@ -5886,12 +6016,44 @@ function updateLiveServiceTimer() {
 function minimizeLiveServicePanel() {
   var panel = document.getElementById('hhp-live-service-panel');
   if (panel) panel.style.display = 'none';
-  // Timer overlay from service-timer.js is still visible
+
+  // Show floating pill to reopen
+  var existingPill = document.getElementById('hhp-live-service-pill');
+  if (!existingPill) {
+    var pill = document.createElement('div');
+    pill.id = 'hhp-live-service-pill';
+    pill.style.cssText = 'position:fixed;bottom:80px;right:16px;z-index:9996;background:var(--forest,#3d5a47);color:white;padding:10px 18px;border-radius:50px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.25);display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;font-family:inherit;animation:pulse 2s infinite';
+    pill.innerHTML = '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e"></div><span id="hhp-pill-timer">▶ In Progress</span>';
+    pill.onclick = function() { reopenLiveServicePanel(); };
+    document.body.appendChild(pill);
+    // Keep pill timer updated
+    if (!window._pillTimerInterval) {
+      window._pillTimerInterval = setInterval(function() {
+        var d = window._liveServiceData;
+        if (!d || !d.startTime) return;
+        var elapsed = Math.floor((Date.now() - new Date(d.startTime).getTime()) / 1000);
+        var min = Math.floor(elapsed / 60);
+        var sec = elapsed % 60;
+        var pillLabel = document.getElementById('hhp-pill-timer');
+        if (pillLabel) pillLabel.textContent = '▶ ' + min + ':' + (sec < 10 ? '0' : '') + sec;
+      }, 1000);
+    }
+  }
 }
 
 function reopenLiveServicePanel() {
   var panel = document.getElementById('hhp-live-service-panel');
-  if (panel) panel.style.display = 'flex';
+  if (panel) {
+    panel.style.display = 'flex';
+  } else if (window._liveServiceData) {
+    // Panel was removed but data exists — rebuild it
+    var d = window._liveServiceData;
+    openLiveServicePanel({ id: d.walkId, start_time: d.startTime }, d.service, d.petNames, d.clientName, d.bookingId, d.address);
+  }
+  // Hide the pill
+  var pill = document.getElementById('hhp-live-service-pill');
+  if (pill) pill.remove();
+  if (window._pillTimerInterval) { clearInterval(window._pillTimerInterval); window._pillTimerInterval = null; }
 }
 
 // ── END SERVICE from live panel — stop timer, fill report, send to client ──
@@ -5915,38 +6077,64 @@ async function endServiceFromPanel() {
 
     // Stop GPS tracking
     if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.getActiveWalkId && HHP_Tracking.getActiveWalkId() === d.walkId) {
-      // endWalk handles GPS stop + route summary — but we already updated, so just stop GPS
       try { if (typeof HHP_Tracking._stopGPS === 'function') HHP_Tracking._stopGPS(); } catch(e) {}
     }
 
-    // Stop the timer
+    // Stop the timer + pill
     if (typeof HHP_ServiceTimer !== 'undefined') HHP_ServiceTimer.stopTimer();
     if (_lspTimerInterval) { clearInterval(_lspTimerInterval); _lspTimerInterval = null; }
+    if (window._pillTimerInterval) { clearInterval(window._pillTimerInterval); window._pillTimerInterval = null; }
+    var pill = document.getElementById('hhp-live-service-pill');
+    if (pill) pill.remove();
 
-    // Calculate duration
+    // ── Read values from editable report fields ──
+    var reportDate = (document.getElementById('lsp-date') || {}).value || new Date().toISOString().split('T')[0];
+    var reportService = (document.getElementById('lsp-service') || {}).value || d.service;
+    var reportPets = (document.getElementById('lsp-pets') || {}).value || d.petNames || '';
+    var reportDuration = (document.getElementById('lsp-duration') || {}).value || '30 min';
+    var mood = (document.getElementById('lsp-mood-val') || {}).value || '';
+    var notes = (document.getElementById('lsp-notes') || {}).value.trim();
+    var distanceVal = (document.getElementById('lsp-distance') || {}).value || '';
+    if (distanceVal === 'Tracking...') distanceVal = '';
+
+    // Arrival/departure from time inputs
+    var arrivalInput = (document.getElementById('lsp-arrival') || {}).value || '';
+    var departureInput = (document.getElementById('lsp-departure') || {}).value || '';
+
+    // Auto-fill departure if empty
+    if (!departureInput) {
+      var endNow = new Date(endTime);
+      departureInput = (endNow.getHours() < 10 ? '0' : '') + endNow.getHours() + ':' + (endNow.getMinutes() < 10 ? '0' : '') + endNow.getMinutes();
+    }
+
+    // Format for display: "2:30 PM"
+    function fmt12(t24) {
+      if (!t24 || t24.indexOf(':') === -1) return t24;
+      var p = t24.split(':'), h = parseInt(p[0]), m = p[1];
+      var ap = h >= 12 ? 'PM' : 'AM';
+      h = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+      return h + ':' + m + ' ' + ap;
+    }
+    var arrivalStr = fmt12(arrivalInput);
+    var departureStr = fmt12(departureInput);
+
+    // Calculate actual minutes
     var startMs = new Date(d.startTime).getTime();
     var endMs = new Date(endTime).getTime();
     var durMin = Math.round((endMs - startMs) / 60000);
-    var durLabel = durMin > 45 ? '1 hour' : '30 min';
 
-    var mood = document.getElementById('lsp-mood-val') ? document.getElementById('lsp-mood-val').value : '';
-    var notes = document.getElementById('lsp-notes') ? document.getElementById('lsp-notes').value.trim() : '';
-
-    // Build departure time
-    var departureStr = new Date(endTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    var arrivalStr = new Date(d.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
-    // Save the service report
+    // Save the service report with all editable field values
     var reportData = {
       client_id: d.clientId || null,
       author_id: user.id,
-      service: d.service,
-      report_date: new Date().toISOString().split('T')[0],
-      duration: durLabel,
+      service: reportService,
+      report_date: reportDate,
+      duration: reportDuration,
       arrival_time: arrivalStr,
       departure_time: departureStr,
+      distance: distanceVal || null,
       mood: mood || null,
-      pet_name: d.petNames || null,
+      pet_name: reportPets || null,
       personal_note: notes || null,
       booking_id: d.bookingId || null
     };
@@ -5955,10 +6143,11 @@ async function endServiceFromPanel() {
     if (rptErr) console.warn('Report save error:', rptErr);
 
     // ── Send "Service Complete" notification + report summary to client ──
+    var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
     if (d.clientId) {
-      var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
-      var endMsg = '✅ ' + staffName + ' has completed ' + (d.petNames ? d.petNames + '\'s ' : 'your ') + d.service + '!\n';
+      var endMsg = '✅ ' + staffName + ' has completed ' + (reportPets ? reportPets + '\'s ' : 'your ') + reportService + '!\n';
       endMsg += '⏱ Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')';
+      if (distanceVal) endMsg += '\n📏 Distance: ' + distanceVal;
       if (mood) endMsg += '\n😊 Mood: ' + mood;
       if (notes) endMsg += '\n📝 Notes: ' + notes;
       endMsg += '\n\nYou can view the full report in your portal under Walk Reports.';
@@ -5967,6 +6156,15 @@ async function endServiceFromPanel() {
         await sb.from('messages').insert({ sender_id: user.id, recipient_id: d.clientId, body: endMsg });
       } catch(e) { console.warn('End notification error:', e); }
     }
+
+    // ── Activity log: record service completion ──
+    try {
+      await sb.from('messages').insert({
+        sender_id: user.id,
+        recipient_id: user.id,
+        body: '✅ SERVICE COMPLETED: ' + staffName + ' completed ' + reportService + (reportPets ? ' for ' + reportPets : '') + ' (' + durMin + ' min)'
+      });
+    } catch(e) { console.warn('Activity log end error:', e); }
 
     // Update booking status to completed
     if (d.bookingId) {
@@ -6018,6 +6216,127 @@ async function stopServiceFromDrawer(walkId) {
   } catch (e) {
     console.error('Stop service error:', e);
     toast('❌ Failed to load service data');
+  }
+}
+
+// ── VIEW COMPLETED REPORT — opens a read-only modal showing a past service report ──
+async function viewCompletedReport(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  try {
+    var { data: report } = await sb.from('service_reports').select('*').eq('booking_id', bookingId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (!report) {
+      toast('No report found for this booking.');
+      return;
+    }
+
+    var old = document.getElementById('hhp-report-viewer');
+    if (old) old.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'hhp-report-viewer';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center';
+    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+
+    var h = '<div style="background:white;width:90%;max-width:460px;max-height:85vh;border-radius:16px;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">';
+    h += '<div style="padding:16px 20px;background:var(--forest,#3d5a47);color:white;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">';
+    h += '<div style="font-weight:700;font-size:1rem">📋 Service Report</div>';
+    h += '<button onclick="document.getElementById(\'hhp-report-viewer\').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;cursor:pointer;font-family:inherit">Close ✕</button>';
+    h += '</div><div style="padding:16px 20px">';
+
+    var fieldRow = function(label, val) {
+      if (!val) return '';
+      return '<div style="margin-bottom:12px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:2px">' + label + '</div><div style="font-size:0.88rem;font-weight:600;color:var(--ink)">' + val + '</div></div>';
+    };
+
+    h += fieldRow('Service', report.service);
+    h += fieldRow('Date', report.report_date);
+    h += fieldRow('Pet', report.pet_name);
+    h += fieldRow('Duration', report.duration);
+    h += fieldRow('Arrival', report.arrival_time);
+    h += fieldRow('Departure', report.departure_time);
+    h += fieldRow('Distance', report.distance);
+    h += fieldRow('Mood', report.mood);
+    h += fieldRow('Notes', report.personal_note);
+
+    if (report.media && Array.isArray(report.media) && report.media.length > 0) {
+      h += '<div style="margin-bottom:12px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:6px">Photos</div>';
+      h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+      report.media.forEach(function(m) {
+        h += '<img src="' + (m.url || m.thumbnail || '') + '" style="width:70px;height:70px;object-fit:cover;border-radius:8px">';
+      });
+      h += '</div></div>';
+    }
+
+    h += '</div></div>';
+    modal.innerHTML = h;
+    document.body.appendChild(modal);
+  } catch (e) {
+    console.error('View report error:', e);
+    toast('❌ Could not load report');
+  }
+}
+
+// ── VIEW REPORT HISTORY — shows all past reports ──
+async function openReportHistory() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  try {
+    var { data: reports } = await sb.from('service_reports').select('*').order('created_at', { ascending: false }).limit(50);
+    reports = reports || [];
+
+    var old = document.getElementById('hhp-report-history');
+    if (old) old.remove();
+
+    var modal = document.createElement('div');
+    modal.id = 'hhp-report-history';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center';
+    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+
+    var h = '<div style="background:white;width:92%;max-width:500px;max-height:85vh;border-radius:16px;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">';
+    h += '<div style="padding:16px 20px;background:var(--forest,#3d5a47);color:white;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">';
+    h += '<div style="font-weight:700;font-size:1rem">📋 Report History</div>';
+    h += '<button onclick="document.getElementById(\'hhp-report-history\').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;cursor:pointer;font-family:inherit">Close ✕</button>';
+    h += '</div>';
+
+    // Check for in-progress service
+    if (window._liveServiceData && window._liveServiceData.walkId) {
+      h += '<div onclick="reopenLiveServicePanel();document.getElementById(\'hhp-report-history\').remove();" style="padding:14px 20px;background:#e3f2fd;cursor:pointer;border-bottom:1px solid var(--border)">';
+      h += '<div style="display:flex;align-items:center;gap:10px">';
+      h += '<div style="width:10px;height:10px;border-radius:50%;background:#2196F3;animation:pulse 2s infinite"></div>';
+      h += '<div><div style="font-weight:700;font-size:0.88rem;color:#1565C0">▶ In-Progress Report</div>';
+      h += '<div style="font-size:0.78rem;color:var(--mid)">' + (window._liveServiceData.service || 'Service') + ' · ' + (window._liveServiceData.petNames || '') + '</div>';
+      h += '</div></div></div>';
+    }
+
+    if (reports.length === 0 && !(window._liveServiceData && window._liveServiceData.walkId)) {
+      h += '<div style="padding:40px 20px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:8px">📋</div>No reports yet.</div>';
+    } else {
+      h += '<div style="padding:8px 0">';
+      reports.forEach(function(r) {
+        var dateLabel = r.report_date || new Date(r.created_at).toLocaleDateString();
+        h += '<div style="padding:12px 20px;border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background=\'var(--warm)\'" onmouseout="this.style.background=\'\'"';
+        if (r.booking_id) {
+          h += ' onclick="document.getElementById(\'hhp-report-history\').remove();viewCompletedReport(\'' + r.booking_id + '\')"';
+        }
+        h += '>';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center">';
+        h += '<div><div style="font-weight:600;font-size:0.85rem">' + (r.service || 'Service') + '</div>';
+        h += '<div style="font-size:0.75rem;color:var(--mid)">' + dateLabel + (r.pet_name ? ' · ' + r.pet_name : '') + '</div></div>';
+        h += '<div style="font-size:0.75rem;color:var(--mid)">' + (r.duration || '') + '</div>';
+        h += '</div></div>';
+      });
+      h += '</div>';
+    }
+
+    h += '</div>';
+    modal.innerHTML = h;
+    document.body.appendChild(modal);
+  } catch (e) {
+    console.error('Report history error:', e);
+    toast('❌ Could not load reports');
   }
 }
 
@@ -7957,12 +8276,12 @@ async function loadStaffSchedule() {
     var endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-    var bookingsQuery = sb.from('bookings').select('*').in('status', ['confirmed', 'pending']);
+    var bookingsQuery = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'pending', 'in_progress', 'completed']);
     if (clientUserIds.length > 0) {
       bookingsQuery = bookingsQuery.in('client_id', clientUserIds);
     }
-    bookingsQuery = bookingsQuery.gte('date', startOfWeek.toISOString().split('T')[0])
-      .order('date', { ascending: true }).limit(20);
+    bookingsQuery = bookingsQuery.gte('preferred_date', startOfWeek.toISOString().split('T')[0])
+      .order('preferred_date', { ascending: true }).limit(20);
 
     var bookingsRes = await bookingsQuery;
     var bookings = bookingsRes.data || [];
@@ -7982,26 +8301,42 @@ async function loadStaffSchedule() {
     }
 
     var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+    function getStaffSvcIcon(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
     bookings.forEach(function(b) {
-      var icon = svcIcons[b.service] || '🐾';
-      var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      var statusColor = b.status === 'confirmed' ? 'var(--forest,#3d5a47)' : 'var(--gold,#c8963e)';
+      var icon = getStaffSvcIcon(b.service);
+      var bDate = b.preferred_date || b.scheduled_date || b.date;
+      var bTime = b.preferred_time || b.scheduled_time || b.time_slot || '';
+      var dateStr = bDate ? new Date(bDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+      var timeDisplay = bTime;
+      if (bTime && bTime.indexOf(':') !== -1) { var tp = bTime.split(':'); var th = parseInt(tp[0]); var ampm = th >= 12 ? 'PM' : 'AM'; th = th > 12 ? th - 12 : (th === 0 ? 12 : th); timeDisplay = th + ':' + tp[1] + ' ' + ampm; }
+      var st = b.status || 'pending';
+      var statusColor = st === 'in_progress' ? '#2196F3' : st === 'completed' ? '#4caf50' : st === 'accepted' || st === 'confirmed' ? 'var(--forest,#3d5a47)' : 'var(--gold,#c8963e)';
+      var statusLabel = st === 'in_progress' ? '▶ In Progress' : st === 'completed' ? '✅ Completed' : st === 'accepted' || st === 'confirmed' ? 'Confirmed' : st;
       var walkBtn = (typeof HHP_Tracking !== 'undefined') ? HHP_Tracking.buildWalkButton(b, activeWalk) : '';
       var row = document.createElement('div');
       row.style.cssText = 'padding:12px 14px;background:var(--warm,#faf6ee);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:box-shadow 0.15s';
-      row.onclick = (function(bid) { return function() { showBookingDetail(bid, 'staff', 'bookings'); }; })(b.id);
+      row.onclick = (function(bid) { return function() { showBookingDetail(bid, 'staff', 'booking_requests'); }; })(b.id);
       row.onmouseover = function() { this.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)'; };
       row.onmouseout = function() { this.style.boxShadow = 'none'; };
+      var actionHtml = '';
+      if (st === 'in_progress') {
+        actionHtml = '<div onclick="event.stopPropagation();reopenLiveServicePanel();" style="font-size:0.68rem;color:#2196F3;font-weight:600;cursor:pointer">Open Report →</div>';
+      } else if (st === 'completed') {
+        actionHtml = '<div onclick="event.stopPropagation();viewCompletedReport(\'' + b.id + '\');" style="font-size:0.68rem;color:#4caf50;font-weight:600;cursor:pointer">View Report →</div>';
+      } else {
+        actionHtml = '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Details →</div>';
+      }
       row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
         '<div style="font-size:1.3rem">' + icon + '</div>' +
         '<div><div style="font-weight:600;font-size:0.88rem">' + (b.service || 'Service') + '</div>' +
-        '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + fmt12h(b.time_slot) : '') + '</div>' +
-        (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.pet_names + '</div>' : '') +
+        '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (timeDisplay ? ' · ' + timeDisplay : '') + '</div>' +
+        (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">🐾 ' + b.pet_names + '</div>' : '') +
+        (b.contact_name ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.contact_name + '</div>' : '') +
         '</div></div>' +
         '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
-        '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + (b.status || 'pending') + '</span>' +
-        '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Details →</div>' +
+        '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + statusLabel + '</span>' +
+        actionHtml +
         '</div></div>';
       card.appendChild(row);
     });
@@ -9965,7 +10300,7 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       // Query booking_requests with accepted status for today's scheduled date
       var { data: bookings, error } = await sb.from('booking_requests').select('*')
-        .eq('scheduled_date', todayStr).eq('status', 'accepted')
+        .eq('scheduled_date', todayStr).in('status', ['accepted', 'confirmed', 'in_progress', 'completed'])
         .order('scheduled_time', { ascending: true });
 
       if (error) { console.warn('Owner today schedule error:', error); }
@@ -9973,7 +10308,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Also check for multi-date bookings that include today
       var { data: multiDate } = await sb.from('booking_requests').select('*')
-        .eq('status', 'accepted').not('booking_dates', 'is', null);
+        .in('status', ['accepted', 'confirmed', 'in_progress', 'completed']).not('booking_dates', 'is', null);
       if (multiDate) {
         multiDate.forEach(function(br) {
           if (br.booking_dates && Array.isArray(br.booking_dates) && br.booking_dates.indexOf(todayStr) !== -1) {
@@ -10034,8 +10369,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (b.address) h += '<div style="font-size:0.72rem;color:var(--mid)">📍 ' + b.address + '</div>';
         h += '</div></div>';
         h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
-        h += '<span style="background:var(--forest,#3d5a47);color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">confirmed</span>';
-        h += '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Tap for details →</div>';
+        var st = b.status || 'accepted';
+        var badgeColor = st === 'in_progress' ? '#2196F3' : st === 'completed' ? '#4caf50' : 'var(--forest,#3d5a47)';
+        var badgeLabel = st === 'in_progress' ? '▶ In Progress' : st === 'completed' ? '✅ Completed' : 'Confirmed';
+        h += '<span style="background:' + badgeColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + badgeLabel + '</span>';
+        if (st === 'in_progress') {
+          h += '<div onclick="event.stopPropagation();reopenLiveServicePanel();" style="font-size:0.68rem;color:#2196F3;font-weight:600;cursor:pointer">Open Report →</div>';
+        } else if (st === 'completed') {
+          h += '<div onclick="event.stopPropagation();viewCompletedReport(\'' + b.id + '\');" style="font-size:0.68rem;color:#4caf50;font-weight:600;cursor:pointer">View Report →</div>';
+        } else {
+          h += '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Tap for details →</div>';
+        }
         h += '</div></div>';
         h += '</div>';
       });
