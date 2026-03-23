@@ -53,33 +53,11 @@ module.exports = async function handler(req, res) {
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://housleyhappypaws.com'}?payment=cancelled`,
     };
 
-    // Apply 15% platform fee if connected account is configured
-    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-    if (connectedAccountId) {
-      const totalCents = Math.round(price * 100);
-      const feeCents = Math.round(totalCents * 0.15);
-      sessionParams.payment_intent_data = {
-        application_fee_amount: feeCents,
-        transfer_data: {
-          destination: connectedAccountId,
-        },
-      };
-    }
+    // Rachel collects full payment — 15% transfer to Dom happens via webhook/cron
+    // No destination charges needed; keeps payment flow simple and reliable
 
     // Create a Stripe Checkout Session
-    let session;
-    try {
-      session = await stripe.checkout.sessions.create(sessionParams);
-    } catch (stripeErr) {
-      // If connected account fails, retry without platform fee
-      if (connectedAccountId && stripeErr.message && stripeErr.message.includes('No such')) {
-        console.warn('Connected account error, retrying without platform fee:', stripeErr.message);
-        delete sessionParams.payment_intent_data;
-        session = await stripe.checkout.sessions.create(sessionParams);
-      } else {
-        throw stripeErr;
-      }
-    }
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     res.status(200).json({ url: session.url, sessionId: session.id });
   } catch (err) {

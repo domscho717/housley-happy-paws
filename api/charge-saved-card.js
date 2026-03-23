@@ -98,28 +98,33 @@ module.exports = async function handler(req, res) {
       },
     };
 
-    // Apply 15% platform fee if connected account is configured
-    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-    if (connectedAccountId) {
-      const totalCents = Math.round(amount * 100);
-      const feeCents = Math.round(totalCents * 0.15);
-      piParams.application_fee_amount = feeCents;
-      piParams.transfer_data = { destination: connectedAccountId };
-    }
-
-    // Create and confirm a PaymentIntent off-session with manual capture
+    // Create and confirm PaymentIntent (Rachel collects full amount)
     let paymentIntent;
-    try {
-      paymentIntent = await stripe.paymentIntents.create(piParams);
-    } catch (stripeErr) {
-      // If connected account fails, retry without platform fee
-      if (connectedAccountId && stripeErr.message && stripeErr.message.includes('No such')) {
-        console.warn('Connected account error, retrying without platform fee:', stripeErr.message);
-        delete piParams.application_fee_amount;
-        delete piParams.transfer_data;
-        paymentIntent = await stripe.paymentIntents.create(piParams);
-      } else {
-        throw stripeErr;
+    paymentIntent = await stripe.paymentIntents.create(piParams);
+
+    // Transfer 15% to Dom's connected account after successful charge
+    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    if (connectedAccountId && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'requires_capture')) {
+      try {
+        const devShareCents = Math.round(Math.round(amount * 100) * 0.15);
+        // For immediate charges (succeeded), transfer now
+        // For holds (requires_capture), transfer happens when capture-payments runs
+        if (paymentIntent.status === 'succeeded') {
+          await stripe.transfers.create({
+            amount: devShareCents,
+            currency: 'usd',
+            destination: connectedAccountId,
+            source_transaction: paymentIntent.latest_charge,
+            description: `15% dev share — ${service || 'Pet Care'} (${bookingRequestId ? '#' + bookingRequestId.slice(0, 8) : ''})`,
+          });
+          console.log('[charge] Transferred 15% ($' + (devShareCents / 100).toFixed(2) + ') to connected account');
+        } else {
+          // Store that transfer is pending — capture-payments.js will handle it
+          console.log('[charge] Hold placed — 15% transfer ($' + (devShareCents / 100).toFixed(2) + ') will happen on capture');
+        }
+      } catch (transferErr) {
+        // Don't fail the whole charge if transfer fails (Dom's account may not be ready)
+        console.warn('[charge] Transfer to connected account failed (non-blocking):', transferErr.message);
       }
     }
 

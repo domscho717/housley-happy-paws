@@ -72,7 +72,7 @@ module.exports = async function handler(req, res) {
 
           if (intent.status === 'requires_capture') {
             // Capture the payment
-            await stripe.paymentIntents.capture(booking.payment_intent_id);
+            const captured = await stripe.paymentIntents.capture(booking.payment_intent_id);
             results.captured++;
 
             // Update payment status in Supabase (check both session_id and payment_intent_id)
@@ -80,6 +80,24 @@ module.exports = async function handler(req, res) {
               .from('payments')
               .update({ status: 'paid' })
               .or('stripe_session_id.eq.' + booking.payment_intent_id + ',stripe_payment_intent_id.eq.' + booking.payment_intent_id);
+
+            // Transfer 15% to Dom's connected account after capture
+            const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+            if (connectedAccountId && captured.latest_charge) {
+              try {
+                const devShareCents = Math.round(captured.amount * 0.15);
+                await stripe.transfers.create({
+                  amount: devShareCents,
+                  currency: 'usd',
+                  destination: connectedAccountId,
+                  source_transaction: captured.latest_charge,
+                  description: `15% dev share — captured for booking #${booking.id.slice(0, 8)}`,
+                });
+                console.log(`Transferred 15% ($${(devShareCents / 100).toFixed(2)}) to connected account`);
+              } catch (transferErr) {
+                console.warn('Transfer to connected account failed (non-blocking):', transferErr.message);
+              }
+            }
 
             console.log(`Captured payment for booking ${booking.id}: ${booking.payment_intent_id}`);
           } else if (intent.status === 'succeeded') {
