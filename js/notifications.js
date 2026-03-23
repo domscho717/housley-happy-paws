@@ -267,8 +267,10 @@
     }
   }
 
-  // ── Promo strip (on services/booking section) ───────────────
+  // ── Promo strip (on services/booking section) — DISABLED per owner request ──
   function buildPromoStrip() {
+    if (_promoStripEl) { _promoStripEl.remove(); _promoStripEl = null; }
+    return;
     if (_activeDeals.length === 0) {
       if (_promoStripEl) { _promoStripEl.remove(); _promoStripEl = null; }
       return;
