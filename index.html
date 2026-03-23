@@ -422,9 +422,10 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 /* ===================== PORTAL LAYOUT ===================== */
 .portal-wrap{display:grid;grid-template-columns:248px 1fr;min-height:calc(100vh - 72px);padding-top:72px}
 .sidebar{
-  background:#16100A;padding:28px 16px;
+  background:#16100A;padding:28px 16px 100px;
   position:sticky;top:72px;height:calc(100vh - 72px);
-  overflow-y:auto;display:flex;flex-direction:column;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  display:flex;flex-direction:column;
   scrollbar-width:thin;scrollbar-color:rgba(200,150,62,0.4) transparent;
 }
 .sidebar::-webkit-scrollbar{width:6px}

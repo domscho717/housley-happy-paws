@@ -311,7 +311,7 @@
       ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;opacity:0;transition:opacity 0.25s';
       ov.onclick=function(e){if(e.target===ov)_closeDetail();};
       var sh=document.createElement('div');sh.id='cust-detail-sh';
-      sh.style.cssText='position:fixed;bottom:0;left:0;right:0;max-height:80vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;overflow-y:auto;transform:translateY(100%);transition:transform 0.3s ease';
+      sh.style.cssText='position:fixed;bottom:0;left:0;right:0;max-height:80vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
       sh.innerHTML='<div style="padding:10px 0 4px;text-align:center;cursor:pointer" onclick="HHP_Customizer.closeDetail()"><div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div></div><div id="cust-detail-body" style="padding:4px 20px 28px"></div>';
       ov.appendChild(sh);document.body.appendChild(ov);
     }
@@ -368,7 +368,7 @@
     ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;opacity:0;transition:opacity 0.25s';
     ov.onclick=function(e){if(e.target===ov)_toggleEdit();};
     var sh=document.createElement('div');sh.id='cust-picker-sh';
-    sh.style.cssText='position:fixed;bottom:0;left:0;right:0;max-height:80vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;overflow-y:auto;transform:translateY(100%);transition:transform 0.3s ease';
+    sh.style.cssText='position:fixed;bottom:0;left:0;right:0;max-height:80vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
     sh.innerHTML=
       '<div id="cust-drag-handle" style="padding:16px 0 8px;text-align:center;cursor:grab;touch-action:none" onclick="HHP_Customizer.toggleEdit()"><div style="width:56px;height:6px;background:#c0b8a8;border-radius:6px;margin:0 auto"></div></div>'+
       '<div style="padding:4px 20px 28px">'+
