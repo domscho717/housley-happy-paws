@@ -947,45 +947,26 @@
     try{
       var{data:clients}=await sb.from('profiles').select('id,user_id,full_name,phone,pet_names,avatar_url').eq('role','client').order('full_name',{ascending:true});
       var totalCount=(clients||[]).length;
-      // Fetch all pets — owner RLS allows reading all, then group by owner_id
-      var petsByOwner={};
-      try{
-        var{data:allPets,error:petErr}=await sb.from('pets').select('id,name,species,breed,avatar_url,owner_id').order('name');
-        if(petErr)console.warn('Pets query error:',petErr);
-        (allPets||[]).forEach(function(p){if(!petsByOwner[p.owner_id])petsByOwner[p.owner_id]=[];petsByOwner[p.owner_id].push(p);});
-      }catch(pe){console.warn('Pets fetch error:',pe);}
       if(sz==='full'){
         var lim=8;
         var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700">'+totalCount+'</span><span style="font-size:0.75rem;color:var(--mid)">registered clients</span></div>';
         h+='<div style="display:flex;flex-direction:column;gap:2px">';
         (clients||[]).slice(0,lim).forEach(function(c){
           var uid='oc-'+c.id;
-          var pets=petsByOwner[c.user_id]||[];
-          var petCount=pets.length;
+          var petStr=c.pet_names||'';
           var avatar=c.avatar_url?'<img src="'+c.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':'<span style="font-size:0.9rem">👤</span>';
           h+='<div>';
-          // Client row — clicking name opens profile, clicking arrow toggles pets
+          // Client row — clicking name opens profile, clicking arrow loads & toggles pets
           h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;transition:background 0.15s;user-select:none" onmouseover="this.style.background=\'rgba(0,0,0,0.03)\'" onmouseout="this.style.background=\'\'">';
           h+='<div style="width:36px;height:36px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+avatar+'</div>';
           h+='<div style="flex:1;min-width:0;cursor:pointer" onclick="sTab(\'o\',\'o-clients\')"><div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);transition:color 0.15s" onmouseover="this.style.color=\'var(--forest)\'" onmouseout="this.style.color=\'var(--ink)\'">'+c.full_name+'</div>';
-          h+='<div style="font-size:0.7rem;color:var(--mid)">'+(c.phone||'No phone')+(petCount?' · '+petCount+' pet'+(petCount>1?'s':''):'')+'</div></div>';
-          h+='<span style="font-size:0.75rem;color:var(--mid);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s" id="'+uid+'-arrow" onclick="(function(){var el=document.getElementById(\''+uid+'\');var ar=document.getElementById(\''+uid+'-arrow\');if(el){if(el.style.display===\'none\'){el.style.display=\'block\';if(ar)ar.textContent=\'▲\';}else{el.style.display=\'none\';if(ar)ar.textContent=\'▼\';}}})();" onmouseover="this.style.background=\'rgba(200,150,62,0.15)\'" onmouseout="this.style.background=\'\'">▼</span>';
+          h+='<div style="font-size:0.7rem;color:var(--mid)">'+(c.phone||'No phone')+(petStr?' · '+petStr:'')+'</div></div>';
+          // Arrow triggers lazy pet load
+          h+='<span style="font-size:0.75rem;color:var(--mid);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s" id="'+uid+'-arrow" onclick="HHP_Customizer.togglePets(\''+uid+'\',\''+c.user_id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.15)\'" onmouseout="this.style.background=\'\'">▼</span>';
           h+='</div>';
-          // Pet dropdown (hidden by default)
-          h+='<div id="'+uid+'" style="display:none;margin-left:46px;margin-bottom:4px;border-left:2px solid var(--gold-pale);padding-left:10px">';
-          if(pets.length){
-            pets.forEach(function(pet){
-              var petAvatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
-              h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
-              h+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
-              h+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
-              h+='<span style="font-size:0.65rem;color:var(--forest);font-weight:600">View →</span>';
-              h+='</div>';
-            });
-          }else{
-            h+='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0;font-style:italic">No pets registered</div>';
-          }
-          h+='</div></div>';
+          // Pet dropdown container (hidden, loaded on first click)
+          h+='<div id="'+uid+'" style="display:none;margin-left:46px;margin-bottom:4px;border-left:2px solid var(--gold-pale);padding-left:10px"><div style="font-size:0.75rem;color:var(--mid);padding:4px 0">Loading pets...</div></div>';
+          h+='</div>';
         });
         h+='</div>';
         if(totalCount>lim){h+='<div style="margin-top:8px;text-align:center"><a href="javascript:sTab(\'o\',\'o-clients\')" style="color:var(--forest);font-weight:600;font-size:0.78rem;text-decoration:none">View all '+totalCount+' clients →</a></div>';}
@@ -1002,6 +983,51 @@
       return h;
     }catch(e){return'';}
   };
+
+  // Lazy-load pets when arrow is clicked
+  async function _togglePets(uid,ownerUserId){
+    var el=document.getElementById(uid);
+    var ar=document.getElementById(uid+'-arrow');
+    if(!el)return;
+    if(el.style.display!=='none'){
+      // Collapse
+      el.style.display='none';
+      if(ar)ar.textContent='▼';
+      return;
+    }
+    // Expand
+    el.style.display='block';
+    if(ar)ar.textContent='▲';
+    // If already loaded (has pet cards), just show
+    if(el.getAttribute('data-loaded')==='1')return;
+    // Fetch pets for this client
+    el.innerHTML='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0">Loading pets...</div>';
+    var sb=_getSB();
+    if(!sb){el.innerHTML='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0;font-style:italic">Could not load</div>';return;}
+    try{
+      var{data:pets,error}=await sb.from('pets').select('id,name,species,breed,avatar_url,owner_id').eq('owner_id',ownerUserId).order('name');
+      if(error)console.warn('Pet load error:',error);
+      if(!pets||!pets.length){
+        el.innerHTML='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0;font-style:italic">No pets registered</div>';
+        el.setAttribute('data-loaded','1');
+        return;
+      }
+      var h='';
+      pets.forEach(function(pet){
+        var petAvatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
+        h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
+        h+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
+        h+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
+        h+='<span style="font-size:0.65rem;color:var(--forest);font-weight:600">View →</span>';
+        h+='</div>';
+      });
+      el.innerHTML=h;
+      el.setAttribute('data-loaded','1');
+    }catch(e){
+      console.warn('Pet fetch failed:',e);
+      el.innerHTML='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0;font-style:italic">Could not load pets</div>';
+    }
+  }
   _R._rwOwnerStaff=async function(sz){
     if(sz!=='full') return _bigNum(0,'staff',sz);
     var sb=_getSB();if(!sb)return'';
@@ -1253,6 +1279,7 @@
     detail:_detail,
     closeDetail:_closeDetail,
     openPetProfile:_openPetProfile,
+    togglePets:_togglePets,
     refresh:function(){var p=_getPortal();if(p)_renderWidgets(p).then(function(){_retrigger(p);});},
     // Mobile drawer edit mode — reorder portal sidebar items only
     _toggleSidebarEditMobile:function(portal,drawer){
