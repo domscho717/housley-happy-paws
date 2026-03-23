@@ -40,9 +40,10 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
 
-  // Tomorrow's date in YYYY-MM-DD
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Tomorrow's date in YYYY-MM-DD (Eastern time, auto-adjusts for DST)
+  const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const tomorrow = new Date(estNow);
+  tomorrow.setDate(estNow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
   const results = { processed: 0, invoiced: 0, skipped: 0, errors: [] };

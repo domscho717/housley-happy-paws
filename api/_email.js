@@ -15,6 +15,14 @@ const FROM_NAME = 'Housley Happy Paws';
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://housleyhappypaws.com';
 
+/**
+ * Escape HTML special characters to prevent XSS in email templates
+ */
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
 function getResend() {
   if (!process.env.RESEND_API_KEY) {
     console.warn('[email] RESEND_API_KEY not set — emails will be logged only');
@@ -128,6 +136,7 @@ module.exports = {
   buildHTML,
   mapsLink,
   fmt12,
+  escHtml,
   RACHEL_EMAIL,
   SITE_URL,
 };

@@ -4,7 +4,7 @@
  * Uses Resend for email delivery.
  */
 
-const { sendEmail, fmt12, SITE_URL } = require('./_email');
+const { sendEmail, fmt12, escHtml, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -23,12 +23,22 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields: email, name, service, status' });
   }
 
+  // Validate status is one of the expected values
+  if (!['accepted', 'modified', 'declined'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, or declined' });
+  }
+
+  try {
+  const safeName = escHtml(name);
+  const safeService = escHtml(service);
+  const safeNotes = escHtml(adminNotes);
+
   let subject, bodyHTML;
   const dateFmt = scheduledDate ? new Date(scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
   const timeFmt = fmt12(scheduledTime) || '';
 
   if (status === 'accepted') {
-    subject = `✅ Your ${service} booking is confirmed! — Housley Happy Paws`;
+    subject = `✅ Your ${safeService} booking is confirmed! — Housley Happy Paws`;
 
     // Build invoice section
     let invoiceHTML = '';
@@ -97,16 +107,16 @@ module.exports = async function handler(req, res) {
     }
 
     bodyHTML = `
-      <p>Hi ${name}!</p>
+      <p>Hi ${safeName}!</p>
       <p>Great news! Rachel has <strong>confirmed</strong> your booking request. 🎉</p>
 
       <div style="background:#eef4ef;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #3d5a47">
-        <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${service}</div>
+        <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService}</div>
         ${dateFmt ? `<div style="margin-bottom:4px">📅 ${dateFmt}</div>` : ''}
         ${timeFmt ? `<div style="margin-bottom:4px">🕐 ${timeFmt}</div>` : ''}
       </div>
 
-      ${adminNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-weight:700;margin-bottom:6px">Note from Rachel:</div><div style="font-style:italic;color:#5c3d1e">${adminNotes}</div></div>` : ''}
+      ${safeNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-weight:700;margin-bottom:6px">Note from Rachel:</div><div style="font-style:italic;color:#5c3d1e">${safeNotes}</div></div>` : ''}
       ${dateDetailsHTML}
       ${recurringHTML}
       ${invoiceHTML}
@@ -121,8 +131,8 @@ module.exports = async function handler(req, res) {
   } else if (status === 'modified') {
     subject = `📝 Booking update: Rachel suggested a new time — Housley Happy Paws`;
     bodyHTML = `
-      <p>Hi ${name}!</p>
-      <p>Rachel reviewed your <strong>${service}</strong> request and suggested a different time:</p>
+      <p>Hi ${safeName}!</p>
+      <p>Rachel reviewed your <strong>${safeService}</strong> request and suggested a different time:</p>
       <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c8963e">
         ${dateFmt ? `<div style="margin-bottom:4px">📅 <strong>New Date:</strong> ${dateFmt}</div>` : ''}
         ${timeFmt ? `<div style="margin-bottom:4px">🕐 <strong>New Time:</strong> ${timeFmt}</div>` : ''}
@@ -135,9 +145,9 @@ module.exports = async function handler(req, res) {
   } else if (status === 'declined') {
     subject = `Booking update — Housley Happy Paws`;
     bodyHTML = `
-      <p>Hi ${name}!</p>
-      <p>Unfortunately, Rachel is unable to accommodate your <strong>${service}</strong> request at this time.</p>
-      ${adminNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-weight:700;margin-bottom:6px">Note from Rachel:</div><div style="font-style:italic;color:#5c3d1e">${adminNotes}</div></div>` : ''}
+      <p>Hi ${safeName}!</p>
+      <p>Unfortunately, Rachel is unable to accommodate your <strong>${safeService}</strong> request at this time.</p>
+      ${safeNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-weight:700;margin-bottom:6px">Note from Rachel:</div><div style="font-style:italic;color:#5c3d1e">${safeNotes}</div></div>` : ''}
       <p>Please feel free to request a different date or time!</p>
       <div style="margin-top:16px"><a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">Book a New Time →</a></div>
     `;
@@ -158,4 +168,8 @@ module.exports = async function handler(req, res) {
     message: result.success ? 'Status notification emailed to client.' : 'Notification logged (email not configured).',
     subject,
   });
+  } catch (err) {
+    console.error('[booking-status-notification] Error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 };

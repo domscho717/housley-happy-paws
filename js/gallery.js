@@ -112,7 +112,9 @@
       allDots[currentSlide].style.transform = 'scale(1.25)';
     }
 
-    setInterval(function() { goToAboutSlide(currentSlide + 1); }, 5000);
+    // Clear any previous slideshow interval, then start a new one
+    if (window._hhpAboutSlideshowInterval) clearInterval(window._hhpAboutSlideshowInterval);
+    window._hhpAboutSlideshowInterval = setInterval(function() { goToAboutSlide(currentSlide + 1); }, 5000);
   }
 
   // ═══════════════════════════════════════════════════════════════

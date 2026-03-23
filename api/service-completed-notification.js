@@ -4,7 +4,7 @@
  * Uses Resend for email delivery.
  */
 
-const { sendEmail, fmt12, SITE_URL } = require('./_email');
+const { sendEmail, fmt12, escHtml, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -22,6 +22,13 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields: clientEmail, service' });
   }
 
+  try {
+  const safeNote = escHtml(personalNote);
+  const safeName = escHtml(clientName);
+  const safePets = escHtml(petNames);
+  const safeService = escHtml(service);
+  const safeStaff = escHtml(staffName);
+
   const moodEmojis = { great: '😄', happy: '😊', calm: '😌', shy: '🙈', energetic: '⚡' };
   const moodDisplay = mood ? (moodEmojis[mood.toLowerCase()] || '😊') + ' ' + mood : '';
 
@@ -29,11 +36,11 @@ module.exports = async function handler(req, res) {
     ? new Date(reportDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     : new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
-  const subject = `✅ ${petNames ? petNames + "'s" : 'Your'} ${service} is complete! — Housley Happy Paws`;
+  const subject = `✅ ${safePets ? safePets + "'s" : 'Your'} ${safeService} is complete! — Housley Happy Paws`;
 
   const bodyHTML = `
-    <p>Hi ${clientName || 'there'}!</p>
-    <p>${staffName || 'Rachel'} has completed ${petNames ? `<strong>${petNames}</strong>'s` : 'your'} <strong>${service}</strong>! Here's a summary:</p>
+    <p>Hi ${safeName || 'there'}!</p>
+    <p>${safeStaff || 'Rachel'} has completed ${safePets ? `<strong>${safePets}</strong>'s` : 'your'} <strong>${safeService}</strong>! Here's a summary:</p>
 
     <div style="background:#eef4ef;border-radius:10px;padding:20px;margin:16px 0;border-left:4px solid #3d5a47">
       <div style="font-weight:700;font-size:1.1rem;margin-bottom:12px;color:#3d5a47">Service Report</div>
@@ -60,16 +67,16 @@ module.exports = async function handler(req, res) {
       ${mediaCount && mediaCount > 0 ? `<div style="margin-bottom:8px">📷 <strong>${mediaCount} photo${mediaCount > 1 ? 's' : ''}/video${mediaCount > 1 ? 's' : ''}</strong> captured — view in your portal!</div>` : ''}
     </div>
 
-    ${personalNote ? `
+    ${safeNote ? `
     <div style="background:#fdf7ee;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #e8e0d4">
-      <div style="font-weight:700;margin-bottom:8px">📝 Note from ${staffName || 'Rachel'}:</div>
-      <div style="color:#5c3d1e;line-height:1.7;white-space:pre-wrap">${personalNote}</div>
+      <div style="font-weight:700;margin-bottom:8px">📝 Note from ${safeStaff || 'Rachel'}:</div>
+      <div style="color:#5c3d1e;line-height:1.7;white-space:pre-wrap">${safeNote}</div>
     </div>` : ''}
 
     <div style="margin-top:20px">
       <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View Full Report in Portal →</a>
     </div>
-    <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Thank you for trusting Housley Happy Paws with ${petNames || 'your pet'}! 🐾</p>
+    <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Thank you for trusting Housley Happy Paws with ${safePets || 'your pet'}! 🐾</p>
   `;
 
   const result = await sendEmail({
@@ -85,4 +92,8 @@ module.exports = async function handler(req, res) {
     emailId: result.id || null,
     emailError: result.error || null,
   });
+  } catch (err) {
+    console.error('[service-completed-notification] Error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 };

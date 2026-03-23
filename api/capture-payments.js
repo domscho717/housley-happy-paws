@@ -39,8 +39,8 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
 
-  // Today's date in YYYY-MM-DD
-  const today = new Date();
+  // Today's date in YYYY-MM-DD (Eastern time, auto-adjusts for DST)
+  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const todayStr = today.toISOString().split('T')[0];
 
   const results = {

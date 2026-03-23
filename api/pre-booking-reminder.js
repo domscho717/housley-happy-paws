@@ -27,10 +27,9 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
 
-  // Calculate current time and 30-min window in EST
+  // Calculate current time and 30-min window in Eastern time (auto-adjusts for DST)
   const now = new Date();
-  const estOffset = -5 * 60;
-  const estNow = new Date(now.getTime() + (estOffset + now.getTimezoneOffset()) * 60000);
+  const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const todayStr = estNow.toISOString().split('T')[0];
 
   // Current time in HH:MM format
