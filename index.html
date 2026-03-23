@@ -735,29 +735,22 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .portal-back-btn{left:12px;top:82px}
 }
 
-/* ── Public page with sidebar (logged-in users) ── */
-#pg-public.has-sidebar{
-  display:grid!important;grid-template-columns:248px 1fr;min-height:100vh;
+/* ── Fixed sidebar for logged-in users on any page ── */
+#homeSidebarPanel{
+  display:none;position:fixed;left:0;top:72px;bottom:0;width:248px;
+  background:#16100A;z-index:200;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;scrollbar-color:rgba(200,150,62,0.4) transparent;
 }
-#pg-public.has-sidebar > .public-sidebar{
-  position:sticky;top:72px;height:calc(100vh - 72px);overflow-y:auto;
-  background:var(--ink,#1e1409);z-index:90;
-}
-#pg-public.has-sidebar > .public-sidebar .sidebar{
-  position:static;width:100%;height:100%;
-}
-#pg-public.has-sidebar > .public-content{
-  overflow-y:auto;min-width:0;
-}
-#pg-public.has-sidebar > .portal-main{
-  min-width:0;padding:24px 28px;overflow-y:auto;
-}
-#pg-public.has-sidebar > .portal-main .p-panel{
-  max-width:100%;
-}
+#homeSidebarPanel.visible{display:block}
+#homeSidebarPanel .sidebar{position:static;width:100%;height:auto;min-height:100%}
+/* Push page content right when sidebar is visible */
+body.home-sidebar-open #pg-public{margin-left:248px}
+body.home-sidebar-open .nav{padding-left:248px}
 @media(max-width:900px){
-  #pg-public.has-sidebar{display:block}
-  #pg-public.has-sidebar > .public-sidebar{display:none!important}
+  #homeSidebarPanel{display:none!important}
+  body.home-sidebar-open #pg-public{margin-left:0}
+  body.home-sidebar-open .nav{padding-left:0}
 }
 
 /* Prevent iOS Safari zoom on input focus — all inputs must be ≥16px */
@@ -1253,6 +1246,9 @@ try {
     <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA</div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
   </footer>
 </div>
+
+<!-- Fixed sidebar for logged-in users on home page -->
+<div id="homeSidebarPanel"></div>
 
 <!-- Portal Back Button (shared across all portals) -->
 <button class="portal-back-btn" id="portalBackBtn" onclick="goBackPanel()">← Back</button>
@@ -3195,155 +3191,49 @@ function addAboutPhotoSlot() {
 let _userChosePublic = false;
 
 // ── Show/hide the portal sidebar on the public home page for logged-in users ──
-// For CLIENTS: sidebar items load panels inline on the home page (replacing public content)
-// For OWNER/STAFF: sidebar items navigate to their portal (existing behavior)
-window._publicSidebarActive = false;
-window._publicOriginalContent = null; // stash original public page HTML
-
+// Uses a fixed panel (#homeSidebarPanel) that sits OUTSIDE pg-public — no DOM restructuring.
+// For CLIENTS: sidebar items switch to client portal and open the panel.
+// For OWNER/STAFF: sidebar items switch to their portal and open the panel.
 function showPublicSidebar(show) {
-  console.log('[showPublicSidebar] called with show=', show);
-  var pgPublic = document.getElementById('pg-public');
-  if (!pgPublic) { console.log('[showPublicSidebar] no pg-public found'); return; }
+  var panel = document.getElementById('homeSidebarPanel');
+  if (!panel) return;
 
-  // Move portal-main back to pg-client if it was moved here
-  var movedMain = pgPublic.querySelector('.portal-main');
-  if (movedMain) {
-    var pgClient = document.getElementById('pg-client');
-    var clientWrap = pgClient ? pgClient.querySelector('.portal-wrap') : null;
-    if (clientWrap) clientWrap.appendChild(movedMain);
+  if (!show) {
+    panel.classList.remove('visible');
+    panel.innerHTML = '';
+    document.body.classList.remove('home-sidebar-open');
+    return;
   }
-
-  // Remove previous sidebar if any
-  var oldSb = pgPublic.querySelector('.public-sidebar');
-  if (oldSb) oldSb.remove();
-
-  // Unwrap public-content wrapper back to normal
-  var wrapper = pgPublic.querySelector('.public-content');
-  if (wrapper) {
-    wrapper.style.display = ''; // ensure visible
-    while (wrapper.firstChild) pgPublic.appendChild(wrapper.firstChild);
-    wrapper.remove();
-  }
-
-  pgPublic.classList.remove('has-sidebar');
-  window._publicSidebarActive = false;
-
-  if (!show) return;
 
   // Determine which portal sidebar to clone based on role
   var role = (typeof HHP_Auth !== 'undefined') ? HHP_Auth.currentRole : null;
   var portalId = role === 'owner' ? 'pg-owner' : role === 'staff' ? 'pg-staff' : 'pg-client';
   var viewName = role === 'owner' ? 'owner' : role === 'staff' ? 'staff' : 'client';
-  var isClient = role === 'client';
   var srcSidebar = document.querySelector('#' + portalId + ' .sidebar');
-  console.log('[showPublicSidebar] role=', role, 'portalId=', portalId, 'srcSidebar=', !!srcSidebar);
-  if (!srcSidebar) { console.log('[showPublicSidebar] no source sidebar found, aborting'); return; }
+  if (!srcSidebar) return;
 
   // Clone the sidebar
   var clone = srcSidebar.cloneNode(true);
-  clone.classList.add('public-sidebar-inner');
 
-  // Rewrite onclick handlers
+  // Rewrite onclick handlers to switch to portal + open panel
   clone.querySelectorAll('.sb-item').forEach(function(btn) {
     var origOnclick = btn.getAttribute('onclick') || '';
     var match = origOnclick.match(/sTab\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)/);
     if (match) {
       var portal = match[1];
       var panelId = match[2];
-      if (isClient) {
-        // CLIENT: load panel inline on the home page
-        btn.setAttribute('onclick', "showInlinePanel('" + portal + "','" + panelId + "',this)");
-      } else {
-        // OWNER/STAFF: navigate to portal
-        btn.setAttribute('onclick', "switchView('" + viewName + "');setTimeout(function(){sTab('" + portal + "','" + panelId + "')},50)");
-      }
+      btn.setAttribute('onclick', "switchView('" + viewName + "');setTimeout(function(){sTab('" + portal + "','" + panelId + "')},50)");
     }
   });
 
-  // Add a "Home" button at the top for clients (shows public content again)
-  var navGroups = clone.querySelectorAll('.sb-nav-group');
-  if (navGroups.length > 0 && isClient) {
-    var homeBtn = document.createElement('button');
-    homeBtn.className = 'sb-item active';
-    homeBtn.id = 'publicSidebarHomeBtn';
-    homeBtn.innerHTML = '<span class="sb-item-icon">🏡</span>Home';
-    homeBtn.setAttribute('onclick', "showInlinePanel(null,null,this)");
-    navGroups[0].insertBefore(homeBtn, navGroups[0].firstChild);
-  }
+  // Remove active state from cloned items (we're on home page)
+  clone.querySelectorAll('.sb-item.active').forEach(function(b) { b.classList.remove('active'); });
 
-  // Remove active state from cloned portal items (we're on home page)
-  clone.querySelectorAll('.sb-item.active').forEach(function(b) {
-    if (b.id !== 'publicSidebarHomeBtn') b.classList.remove('active');
-  });
-
-  // Wrap all existing pg-public children in .public-content
-  var contentWrap = document.createElement('div');
-  contentWrap.className = 'public-content';
-  while (pgPublic.firstChild) contentWrap.appendChild(pgPublic.firstChild);
-
-  // Create sidebar container
-  var sidebarWrap = document.createElement('div');
-  sidebarWrap.className = 'public-sidebar';
-  sidebarWrap.appendChild(clone);
-
-  // Assemble: sidebar first, then content
-  pgPublic.appendChild(sidebarWrap);
-  pgPublic.appendChild(contentWrap);
-  pgPublic.classList.add('has-sidebar');
-  window._publicSidebarActive = true;
-  console.log('[showPublicSidebar] sidebar injected, has-sidebar class added, children:', pgPublic.children.length);
-}
-
-// ── Load a client panel inline on the home page, replacing public content ──
-// Moves the REAL portal-main from pg-client into the public page grid so
-// data loaders (sTab) work on the actual elements.
-function showInlinePanel(portal, panelId, clickedBtn) {
-  var pgPublic = document.getElementById('pg-public');
-  if (!pgPublic) return;
-
-  var publicContent = pgPublic.querySelector('.public-content');
-  var portalMain = document.querySelector('#pg-client .portal-main');
-
-  // Update sidebar active states
-  var sidebar = pgPublic.querySelector('.public-sidebar');
-  if (sidebar) {
-    sidebar.querySelectorAll('.sb-item').forEach(function(b) { b.classList.remove('active'); });
-    if (clickedBtn) clickedBtn.classList.add('active');
-  }
-
-  // If no panel specified (Home clicked), restore public content
-  if (!panelId) {
-    if (publicContent) publicContent.style.display = '';
-    // Move portal-main back to pg-client if it was moved
-    var movedMain = pgPublic.querySelector('.portal-main');
-    if (movedMain && portalMain !== movedMain) portalMain = movedMain;
-    if (movedMain) {
-      var pgClient = document.getElementById('pg-client');
-      var clientWrap = pgClient ? pgClient.querySelector('.portal-wrap') : null;
-      if (clientWrap) clientWrap.appendChild(movedMain);
-    }
-    window.scrollTo(0, 0);
-    return;
-  }
-
-  if (!portalMain) {
-    // portal-main might already be in pg-public from a previous click
-    portalMain = pgPublic.querySelector('.portal-main');
-  }
-  if (!portalMain) return;
-
-  // Hide public content
-  if (publicContent) publicContent.style.display = 'none';
-
-  // Move the real portal-main into pg-public (after public-content)
-  if (!pgPublic.contains(portalMain)) {
-    pgPublic.appendChild(portalMain);
-  }
-
-  // Use real sTab to switch panels and load data
-  if (typeof sTab === 'function') sTab(portal, panelId);
-
-  window.scrollTo(0, 0);
+  // Populate the fixed panel
+  panel.innerHTML = '';
+  panel.appendChild(clone);
+  panel.classList.add('visible');
+  document.body.classList.add('home-sidebar-open');
 }
 
 function switchView(view) {
