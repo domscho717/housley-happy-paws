@@ -1891,8 +1891,8 @@ try {
               <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Set your total review count and rating from all sources — shown on public website</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <div><label style="font-size:0.7rem;font-weight:600;color:var(--mid)">Total Count</label><input type="number" id="rv-ext-count" class="form-in" value="102" style="width:70px;text-align:center;padding:5px" onchange="saveExternalReviewStats()"></div>
-              <div><label style="font-size:0.7rem;font-weight:600;color:var(--mid)">Avg Rating</label><input type="number" id="rv-ext-rating" class="form-in" value="5.0" step="0.1" min="1" max="5" style="width:70px;text-align:center;padding:5px" onchange="saveExternalReviewStats()"></div>
+              <div><label style="font-size:0.7rem;font-weight:600;color:var(--mid)">Total Count</label><input type="number" id="rv-ext-count" class="form-in" value="48" style="width:54px;text-align:center;padding:4px 2px;font-size:0.82rem;height:30px" onchange="saveExternalReviewStats()"></div>
+              <div><label style="font-size:0.7rem;font-weight:600;color:var(--mid)">Avg Rating</label><input type="number" id="rv-ext-rating" class="form-in" value="5.0" step="0.1" min="1" max="5" style="width:54px;text-align:center;padding:4px 2px;font-size:0.82rem;height:30px" onchange="saveExternalReviewStats()"></div>
             </div>
           </div>
         </div>
@@ -10577,6 +10577,11 @@ async function loadOwnerReviews() {
   if (!listEl) return;
 
   try {
+    // Ensure external stats are loaded from DB
+    if (!window._extReviewStatsCache && typeof _loadExternalReviewStats === 'function') {
+      await _loadExternalReviewStats();
+    }
+
     var { data: reviews, error } = await sb.from('reviews').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     _rvCache = reviews || [];
@@ -10588,10 +10593,19 @@ async function loadOwnerReviews() {
     var approved = _rvCache.filter(function(r) { return r.status === 'approved'; }).length;
     var featured = _rvCache.filter(function(r) { return r.featured; }).length;
     var displayTotal = Math.max(extStats.count, dbTotal);
-    var avgRating = extStats.rating.toFixed(1);
+    // Calculate avg rating: blend DB reviews with external stats if external count is higher
+    var dbSum = _rvCache.reduce(function(s, r) { return s + r.rating; }, 0);
+    var avgRating;
+    if (dbTotal >= displayTotal || displayTotal === 0) {
+      avgRating = dbTotal > 0 ? (dbSum / dbTotal).toFixed(1) : extStats.rating.toFixed(1);
+    } else {
+      var extOnlyCount = displayTotal - dbTotal;
+      avgRating = ((extStats.rating * extOnlyCount + dbSum) / displayTotal).toFixed(1);
+    }
+    if (parseFloat(avgRating) > 5) avgRating = '5.0';
 
     var el1 = document.getElementById('rv-avgRating'); if (el1) el1.textContent = avgRating + ' ⭐';
-    var el2 = document.getElementById('rv-totalReviews'); if (el2) el2.textContent = displayTotal + (dbTotal < displayTotal ? ' (' + dbTotal + ' entered)' : '');
+    var el2 = document.getElementById('rv-totalReviews'); if (el2) el2.textContent = displayTotal;
     var el3 = document.getElementById('rv-pendingCount'); if (el3) el3.textContent = pending;
     var el4 = document.getElementById('rv-publicCount'); if (el4) el4.textContent = approved;
 
@@ -10810,19 +10824,49 @@ async function submitPastReview(autoApprove) {
 }
 
 // ── External review stats (Rover/Google totals) ──
-function saveExternalReviewStats() {
+async function saveExternalReviewStats() {
   var count = parseInt(document.getElementById('rv-ext-count').value) || 0;
   var rating = parseFloat(document.getElementById('rv-ext-rating').value) || 5.0;
   if (rating > 5) rating = 5; if (rating < 1) rating = 1;
-  // Save to site data (same system as footer, pricing, etc.)
-  setSiteData({ extReviewCount: count, extReviewRating: rating });
-  toast('📊 External review stats saved!');
+
+  // Cache locally for immediate use
+  window._extReviewStatsCache = { count: count, rating: rating };
+
+  // Save to Supabase site_content table so it persists across devices
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (sb) {
+    await sb.from('site_content').upsert({
+      section_key: 'review_stats',
+      content: { count: count, rating: rating },
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'section_key' });
+  }
+
+  toast('📊 Review stats saved!');
+  // Refresh stats in owner panel
+  loadOwnerReviews();
   if (typeof loadPublicReviews === 'function') loadPublicReviews();
 }
 
 function _getExternalReviewStats() {
-  // Dynamic — count comes from the database now, no hardcoded number
+  // Return cached stats from Supabase (loaded at init)
+  if (window._extReviewStatsCache) return window._extReviewStatsCache;
   return { count: 0, rating: 5.0 };
+}
+
+// Load external review stats from Supabase on page init
+async function _loadExternalReviewStats() {
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  if (!sb) return;
+  try {
+    var { data } = await sb.from('site_content').select('content').eq('section_key', 'review_stats').maybeSingle();
+    if (data && data.content) {
+      window._extReviewStatsCache = {
+        count: parseInt(data.content.count) || 0,
+        rating: parseFloat(data.content.rating) || 5.0
+      };
+    }
+  } catch(e) { console.warn('Load ext review stats error:', e); }
 }
 
 // ── Load client's own reviews (My Reviews panel) ──
@@ -11040,8 +11084,11 @@ document.addEventListener('DOMContentLoaded', function() {
   // Initialize note builder with one empty pet row
   if (typeof addOwnerNotePetRow === 'function') addOwnerNotePetRow();
 
-  // Load public reviews for homepage (runs for all visitors)
-  setTimeout(function() { if (typeof loadPublicReviews === 'function') loadPublicReviews(); }, 1000);
+  // Load external review stats from DB, then load public reviews for homepage
+  setTimeout(async function() {
+    if (typeof _loadExternalReviewStats === 'function') await _loadExternalReviewStats();
+    if (typeof loadPublicReviews === 'function') loadPublicReviews();
+  }, 1000);
 
   // Watch for panel switches to load data
   var origSTab = window.sTab;
