@@ -791,11 +791,13 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   /* Payments & Bank */
   #o-payments > div[style*="grid"] { grid-template-columns: 1fr !important; }
 
-  /* General panel spacing */
-  .p-panel { padding: 10px !important; }
-  .p-panel .card { padding: 16px !important; }
+  /* General panel spacing — tighten for mobile */
+  .portal-main { padding: 14px 12px !important; }
+  .p-panel { padding: 6px !important; }
+  .p-panel .card { padding: 14px !important; }
+  .p-header { margin-bottom: 12px !important; }
   .p-header h2 { font-size: 1.15rem !important; }
-  .p-header p { font-size: 0.8rem !important; }
+  .p-header p { font-size: 0.8rem !important; margin-bottom: 0 !important; }
 
   /* Calendar mobile fix: equal-width columns, no stretching */
   .cal-grid { gap: 3px !important; }
