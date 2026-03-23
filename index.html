@@ -8782,6 +8782,106 @@ function filterOwnerClients() {
   renderOwnerClientsSplit(active, newOnes);
 }
 
+// ── Show Client Profile (owner view) ──
+async function showClientProfile(profileId) {
+  if (!profileId) return;
+  var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;
+  if (!sb) { if (typeof toast === 'function') toast('Database not available'); return; }
+
+  try {
+    // Fetch client profile
+    var { data: client } = await sb.from('profiles').select('*').eq('id', profileId).single();
+    if (!client) { if (typeof toast === 'function') toast('Client not found'); return; }
+
+    // Fetch their pets
+    var { data: pets } = await sb.from('pets').select('*').eq('owner_id', client.user_id).order('name');
+
+    // Fetch recent bookings
+    var { data: bookings } = await sb.from('booking_requests').select('service,preferred_date,preferred_time,status,estimated_total').eq('client_id', client.user_id).order('preferred_date', { ascending: false }).limit(5);
+
+    // Build modal
+    var old = document.getElementById('client-profile-modal');
+    if (old) old.remove();
+
+    var ov = document.createElement('div');
+    ov.id = 'client-profile-modal';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;opacity:0;transition:opacity 0.25s;display:flex;align-items:flex-end;justify-content:center';
+    ov.onclick = function(e) {
+      if (e.target === ov) {
+        ov.style.opacity = '0';
+        sh.style.transform = 'translateY(100%)';
+        setTimeout(function() { ov.remove(); }, 300);
+      }
+    };
+
+    var sh = document.createElement('div');
+    sh.style.cssText = 'width:100%;max-width:500px;max-height:85vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
+
+    var avatar = client.avatar_url
+      ? '<img src="' + client.avatar_url + '" style="width:100%;height:100%;object-fit:cover">'
+      : '<span style="font-size:1.8rem;font-weight:700;color:var(--forest)">' + (client.full_name ? client.full_name.charAt(0).toUpperCase() : '?') + '</span>';
+
+    var joinDate = client.created_at ? new Date(client.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    var hasCard = !!client.stripe_customer_id;
+
+    var h = '<div style="padding:12px 0 4px;text-align:center;cursor:pointer" onclick="var m=document.getElementById(\'client-profile-modal\');if(m){m.style.opacity=\'0\';m.querySelector(\'div:last-child\').style.transform=\'translateY(100%)\';setTimeout(function(){m.remove();},300);}"><div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div></div>';
+    h += '<div style="padding:0 24px 24px">';
+
+    // Header
+    h += '<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">';
+    h += '<div style="width:60px;height:60px;border-radius:50%;background:var(--forest-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">' + avatar + '</div>';
+    h += '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700">' + (client.full_name || 'Client') + '</div>';
+    h += '<div style="font-size:0.82rem;color:var(--mid)">' + (client.email || '') + '</div>';
+    if (client.phone) h += '<div style="font-size:0.82rem;color:var(--mid)">' + client.phone + '</div>';
+    h += '</div></div>';
+
+    // Info tiles
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">';
+    h += '<div style="background:var(--warm);border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.6rem;font-weight:700;color:var(--mid);text-transform:uppercase">Joined</div><div style="font-size:0.82rem;font-weight:600">' + (joinDate || '—') + '</div></div>';
+    h += '<div style="background:var(--warm);border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.6rem;font-weight:700;color:var(--mid);text-transform:uppercase">Pets</div><div style="font-size:0.82rem;font-weight:600">' + ((pets || []).length) + '</div></div>';
+    h += '<div style="background:' + (hasCard ? '#dcfce7' : '#fef3c7') + ';border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.6rem;font-weight:700;color:var(--mid);text-transform:uppercase">Payment</div><div style="font-size:0.82rem;font-weight:600">' + (hasCard ? '💳 On file' : 'No card') + '</div></div>';
+    h += '</div>';
+
+    // Pets section
+    if (pets && pets.length) {
+      h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Pets</div>';
+      pets.forEach(function(pet) {
+        var petAvatar = pet.avatar_url ? '<img src="' + pet.avatar_url + '" style="width:100%;height:100%;object-fit:cover">' : (pet.species === 'cat' ? '🐱' : '🐶');
+        h += '<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all 0.15s" onclick="document.getElementById(\'client-profile-modal\').remove();HHP_Customizer.openPetProfile(\'' + pet.id + '\')" onmouseover="this.style.borderColor=\'var(--gold)\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.boxShadow=\'none\'">';
+        h += '<div style="width:36px;height:36px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.9rem">' + petAvatar + '</div>';
+        h += '<div style="flex:1"><div style="font-weight:700;font-size:0.88rem">' + pet.name + '</div><div style="font-size:0.75rem;color:var(--mid)">' + (pet.breed || pet.species || '') + (pet.sex ? ' · ' + pet.sex : '') + '</div></div>';
+        h += '<span style="font-size:0.72rem;color:var(--forest);font-weight:600">View →</span>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+
+    // Recent bookings
+    if (bookings && bookings.length) {
+      h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Recent Bookings</div>';
+      bookings.forEach(function(b) {
+        var d = new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        var t = (typeof fmt12h === 'function') ? fmt12h(b.preferred_time || '') : (b.preferred_time || '');
+        var sCol = b.status === 'completed' ? 'var(--forest)' : b.status === 'pending' ? '#c8963e' : 'var(--mid)';
+        h += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem">';
+        h += '<div><span style="font-weight:600">' + b.service + '</span><span style="color:var(--mid);font-size:0.75rem;margin-left:6px">' + d + (t ? ' ' + t : '') + '</span></div>';
+        h += '<div style="text-align:right"><span style="font-size:0.75rem;font-weight:600;color:' + sCol + ';text-transform:uppercase">' + b.status + '</span>' + (b.estimated_total ? '<span style="margin-left:6px;color:var(--forest);font-weight:600">$' + b.estimated_total.toFixed(2) + '</span>' : '') + '</div>';
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+
+    h += '</div>';
+    sh.innerHTML = h;
+    ov.appendChild(sh);
+    document.body.appendChild(ov);
+    requestAnimationFrame(function() { ov.style.opacity = '1'; sh.style.transform = 'translateY(0)'; });
+  } catch (e) {
+    console.error('showClientProfile error:', e);
+    if (typeof toast === 'function') toast('Could not load client profile');
+  }
+}
+
 // ── Owner Settings Save Functions (persist to site_content via Supabase) ──
 async function _saveSiteContent(key, data) {
   var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);

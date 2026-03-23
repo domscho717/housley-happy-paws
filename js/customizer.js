@@ -976,9 +976,10 @@
           if(pets.length){
             pets.forEach(function(pet){
               var petAvatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
-              h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();sTab(\'o\',\'o-clients\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
+              h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
               h+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
-              h+='<div><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
+              h+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
+              h+='<span style="font-size:0.65rem;color:var(--forest);font-weight:600">View →</span>';
               h+='</div>';
             });
           }else{
@@ -1173,6 +1174,55 @@
   }
   setTimeout(_fallback,500);
 
+  // ── PET PROFILE MODAL ──
+  async function _openPetProfile(petId){
+    var sb=_getSB();if(!sb||!petId)return;
+    try{
+      var{data:pet}=await sb.from('pets').select('*').eq('id',petId).single();
+      if(!pet){if(typeof toast==='function')toast('Pet not found');return;}
+      // Get owner info
+      var ownerName='';
+      if(pet.owner_id){var{data:owner}=await sb.from('profiles').select('full_name').eq('user_id',pet.owner_id).single();if(owner)ownerName=owner.full_name;}
+      // Build modal
+      var old=document.getElementById('pet-profile-modal');if(old)old.remove();
+      var ov=document.createElement('div');ov.id='pet-profile-modal';
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;opacity:0;transition:opacity 0.25s;display:flex;align-items:flex-end;justify-content:center';
+      ov.onclick=function(e){if(e.target===ov){ov.style.opacity='0';sh.style.transform='translateY(100%)';setTimeout(function(){ov.remove();},300);}};
+      var sh=document.createElement('div');
+      sh.style.cssText='width:100%;max-width:500px;max-height:80vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
+      var avatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover">':'<span style="font-size:2.5rem">'+(pet.species==='cat'?'🐱':'🐶')+'</span>';
+      var age='';
+      if(pet.birthday){var bd=new Date(pet.birthday);var now=new Date();var years=now.getFullYear()-bd.getFullYear();var months=now.getMonth()-bd.getMonth();if(months<0){years--;months+=12;}age=years>0?years+' yr'+(years>1?'s':'')+(months>0?' '+months+' mo':''):months+' mo';}
+      sh.innerHTML=
+        '<div style="padding:12px 0 4px;text-align:center;cursor:pointer" onclick="this.closest(\'#pet-profile-modal\').style.opacity=\'0\';this.closest(\'#pet-profile-modal\').querySelector(\'div:last-child\').style.transform=\'translateY(100%)\';setTimeout(function(){var m=document.getElementById(\'pet-profile-modal\');if(m)m.remove();},300)"><div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div></div>'+
+        '<div style="padding:0 24px 24px">'+
+          '<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">'+
+            '<div style="width:70px;height:70px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+avatar+'</div>'+
+            '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;font-weight:700">'+pet.name+'</div>'+
+              (ownerName?'<div style="font-size:0.82rem;color:var(--mid)">Owner: <span style="font-weight:600;color:var(--ink)">'+ownerName+'</span></div>':'')+
+            '</div>'+
+          '</div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'+
+            _petInfoTile('Species',pet.species||'—')+
+            _petInfoTile('Breed',pet.breed||'—')+
+            _petInfoTile('Sex',pet.sex||'—')+
+            _petInfoTile('Age',age||'—')+
+            _petInfoTile('Weight',(pet.weight?pet.weight+' lbs':'—'))+
+            _petInfoTile('Color',pet.color||'—')+
+          '</div>'+
+          (pet.temperament?'<div style="margin-bottom:12px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Temperament</div><div style="font-size:0.85rem;color:var(--ink);background:var(--warm);padding:10px;border-radius:8px">'+pet.temperament+'</div></div>':'')+
+          (pet.special_needs?'<div style="margin-bottom:12px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Special Needs</div><div style="font-size:0.85rem;color:var(--ink);background:#fef3c7;padding:10px;border-radius:8px">'+pet.special_needs+'</div></div>':'')+
+          (pet.vet_info?'<div style="margin-bottom:12px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Vet Info</div><div style="font-size:0.85rem;color:var(--ink);background:var(--warm);padding:10px;border-radius:8px">'+pet.vet_info+'</div></div>':'')+
+          (pet.notes?'<div style="margin-bottom:12px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Notes</div><div style="font-size:0.85rem;color:var(--ink);background:var(--warm);padding:10px;border-radius:8px">'+pet.notes+'</div></div>':'')+
+        '</div>';
+      ov.appendChild(sh);document.body.appendChild(ov);
+      requestAnimationFrame(function(){ov.style.opacity='1';sh.style.transform='translateY(0)';});
+    }catch(e){console.warn('Pet profile error:',e);if(typeof toast==='function')toast('Could not load pet profile');}
+  }
+  function _petInfoTile(label,value){
+    return '<div style="background:var(--warm);border-radius:8px;padding:8px 10px"><div style="font-size:0.65rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:2px">'+label+'</div><div style="font-size:0.88rem;font-weight:600;color:var(--ink)">'+value+'</div></div>';
+  }
+
   // ── PUBLIC API ──
   window.HHP_Customizer={
     init:function(){_initialized=false;init();},
@@ -1202,6 +1252,7 @@
     resetLayout:_resetLayout,
     detail:_detail,
     closeDetail:_closeDetail,
+    openPetProfile:_openPetProfile,
     refresh:function(){var p=_getPortal();if(p)_renderWidgets(p).then(function(){_retrigger(p);});},
     // Mobile drawer edit mode — reorder portal sidebar items only
     _toggleSidebarEditMobile:function(portal,drawer){
