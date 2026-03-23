@@ -3262,6 +3262,11 @@ function showPublicSidebar(show) {
 }
 
 function switchView(view) {
+  // For signed-in clients, redirect 'public' to their portal — home IS the portal
+  if (view === 'public' && typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated() && HHP_Auth.currentRole === 'client') {
+    view = 'client';
+  }
+
   // Auth gating — if trying to access private portal, check login
   if (view !== 'public' && typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) {
     if (!HHP_Auth.isAuthenticated()) {
@@ -3399,7 +3404,17 @@ function toggleSbGroup(btn) {
     group.classList.toggle('collapsed');
   }
 }
-function showPublic() { _userChosePublic = true; switchView('public'); }
+function showPublic() {
+  // For signed-in clients, "Home" = their portal dashboard
+  if (typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated() && HHP_Auth.currentRole === 'client') {
+    _userChosePublic = false;
+    switchView('client');
+    sTab('c', 'c-dash');
+    return;
+  }
+  _userChosePublic = true;
+  switchView('public');
+}
 
 // ══════════════════════════════════════════════════════════════
 // ── VIEW AS CLIENT — lets owner/staff view any client's portal ──
