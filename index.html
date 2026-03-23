@@ -7951,12 +7951,24 @@ async function addPaymentMethod() {
 (function checkCardSaved() {
   var params = new URLSearchParams(window.location.search);
   if (params.get('card_saved') === 'success') {
-    setTimeout(function() { toast('✅ Payment method saved! Your card is on file for future bookings.'); loadSavedCard(); }, 500);
-    // Clean URL
+    // Clean URL first
     window.history.replaceState({}, '', window.location.pathname);
+    setTimeout(function() {
+      loadSavedCard();
+      // Check if there's a pending booking to restore
+      if (typeof window._restorePendingBooking === 'function' && window._restorePendingBooking()) {
+        // Booking form was restored — toast is shown inside _restorePendingBooking
+      } else {
+        toast('✅ Payment method saved! Your card is on file for future bookings.');
+      }
+    }, 1000);
   } else if (params.get('card_saved') === 'cancelled') {
-    setTimeout(function() { toast('Card setup was cancelled.'); }, 500);
     window.history.replaceState({}, '', window.location.pathname);
+    setTimeout(function() {
+      // Still try to restore the booking form even on cancel
+      if (typeof window._restorePendingBooking === 'function') window._restorePendingBooking();
+      toast('Card setup was cancelled. You can try again from the booking form.');
+    }, 500);
   }
 })();
 

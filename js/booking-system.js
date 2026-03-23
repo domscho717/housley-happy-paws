@@ -2255,7 +2255,7 @@
         if (!pmData.hasCard || !pmData.methods || pmData.methods.length === 0) {
           if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Booking Request'; }
           if (errEl) errEl.innerHTML = '💳 <strong>Payment method required.</strong> Please add a card on file before booking a paid service. ' +
-            '<a href="#" onclick="event.preventDefault();if(typeof addPaymentMethod===\'function\')addPaymentMethod();else{toast(\'Please add a card in your Payment tab first.\');}" style="color:var(--gold-deep);font-weight:600;text-decoration:underline;">Add Payment Method</a>';
+            '<a href="#" onclick="event.preventDefault();window._saveBookingAndAddCard();" style="color:var(--gold-deep);font-weight:600;text-decoration:underline;">Add Payment Method</a>';
           return;
         }
       } catch (pmErr) {
@@ -2866,6 +2866,160 @@
       setTimeout(_initAdminWhenReady, 2000);
     }
   }
+
+  // ── Save booking form state before Stripe redirect ──
+  window._saveBookingAndAddCard = function() {
+    try {
+      var formData = {
+        service: (document.getElementById('brm-service') || {}).value || '',
+        name: (document.getElementById('brm-name') || {}).value || '',
+        email: (document.getElementById('brm-email') || {}).value || '',
+        phone: (document.getElementById('brm-phone') || {}).value || '',
+        address: (document.getElementById('brm-address') || {}).value || '',
+        notes: (document.getElementById('brm-notes') || {}).value || '',
+        date: (document.getElementById('brm-date') || {}).value || '',
+        enddate: (document.getElementById('brm-enddate') || {}).value || '',
+        pettype: (document.getElementById('brm-pettype') || {}).value || '',
+        selectedPetIds: (document.getElementById('brm-pets-selected-ids') || {}).value || '',
+        timestamp: Date.now()
+      };
+
+      // Save date card details if any
+      var dateCards = [];
+      document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
+        var idx = card.id.replace('brm-dc-', '');
+        var timeEl = document.getElementById('brm-dc-time-' + idx);
+        var recurCb = document.getElementById('brm-dc-recur-' + idx);
+        var freqEl = document.getElementById('brm-dc-freq-' + idx);
+        var endEl = document.getElementById('brm-dc-recur-end-' + idx);
+        var ongoingEl = document.getElementById('brm-dc-ongoing-' + idx);
+        dateCards.push({
+          date: card.getAttribute('data-date'),
+          time: timeEl ? timeEl.value : '',
+          recurring: recurCb ? recurCb.checked : false,
+          frequency: freqEl ? freqEl.value : 'weekly',
+          endDate: endEl ? endEl.value : '',
+          ongoing: ongoingEl ? ongoingEl.checked : false
+        });
+      });
+      formData.dateCards = dateCards;
+
+      sessionStorage.setItem('hhp_pending_booking', JSON.stringify(formData));
+    } catch (e) {
+      console.warn('Could not save booking state:', e);
+    }
+
+    // Now redirect to Stripe for card setup
+    if (typeof addPaymentMethod === 'function') {
+      addPaymentMethod();
+    } else {
+      toast('Please add a card in your Payment tab first.');
+    }
+  };
+
+  // ── Restore booking form after returning from Stripe ──
+  window._restorePendingBooking = function() {
+    try {
+      var saved = sessionStorage.getItem('hhp_pending_booking');
+      if (!saved) return false;
+
+      var formData = JSON.parse(saved);
+      // Only restore if saved within the last 30 minutes
+      if (Date.now() - formData.timestamp > 30 * 60 * 1000) {
+        sessionStorage.removeItem('hhp_pending_booking');
+        return false;
+      }
+
+      // Open the booking modal with the saved service
+      if (typeof openBookingModal === 'function') {
+        openBookingModal(formData.service || undefined);
+      }
+
+      // Wait for modal to render, then populate fields
+      setTimeout(function() {
+        var fields = {
+          'brm-service': formData.service,
+          'brm-name': formData.name,
+          'brm-email': formData.email,
+          'brm-phone': formData.phone,
+          'brm-address': formData.address,
+          'brm-notes': formData.notes,
+          'brm-date': formData.date,
+          'brm-enddate': formData.enddate,
+          'brm-pettype': formData.pettype,
+          'brm-pets-selected-ids': formData.selectedPetIds
+        };
+
+        Object.keys(fields).forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el && fields[id]) {
+            el.value = fields[id];
+            // Trigger change for service dropdown to show correct UI
+            if (id === 'brm-service') el.dispatchEvent(new Event('change'));
+          }
+        });
+
+        // Restore date cards
+        if (formData.dateCards && formData.dateCards.length > 0) {
+          formData.dateCards.forEach(function(dc) {
+            // Add each date card back
+            var addDateInput = document.getElementById('brm-add-date-input');
+            if (addDateInput) {
+              addDateInput.value = dc.date;
+              var addBtn = document.querySelector('[onclick*="addBrmDateCard"], .brm-add-date-btn');
+              if (addBtn) addBtn.click();
+              else if (typeof window._addBrmDateCard === 'function') window._addBrmDateCard();
+            }
+          });
+
+          // After cards are added, restore their settings
+          setTimeout(function() {
+            formData.dateCards.forEach(function(dc, idx) {
+              var timeEl = document.getElementById('brm-dc-time-' + idx);
+              if (timeEl && dc.time) timeEl.value = dc.time;
+              var recurCb = document.getElementById('brm-dc-recur-' + idx);
+              if (recurCb && dc.recurring) {
+                recurCb.checked = true;
+                recurCb.dispatchEvent(new Event('change'));
+                setTimeout(function() {
+                  var freqEl = document.getElementById('brm-dc-freq-' + idx);
+                  if (freqEl && dc.frequency) freqEl.value = dc.frequency;
+                  var endEl = document.getElementById('brm-dc-recur-end-' + idx);
+                  if (endEl && dc.endDate) endEl.value = dc.endDate;
+                  var ongoingEl = document.getElementById('brm-dc-ongoing-' + idx);
+                  if (ongoingEl && dc.ongoing) {
+                    ongoingEl.checked = true;
+                    ongoingEl.dispatchEvent(new Event('change'));
+                  }
+                }, 200);
+              }
+            });
+          }, 500);
+        }
+
+        // Re-check pet checkboxes
+        if (formData.selectedPetIds) {
+          var petIds = formData.selectedPetIds.split(',');
+          petIds.forEach(function(pid) {
+            var cb = document.querySelector('input[type="checkbox"][value="' + pid + '"]');
+            if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+          });
+        }
+
+        // Show success toast
+        toast('✅ Card saved! Your booking has been restored — just hit Submit.');
+
+        // Clean up
+        sessionStorage.removeItem('hhp_pending_booking');
+      }, 800);
+
+      return true;
+    } catch (e) {
+      console.warn('Could not restore booking state:', e);
+      sessionStorage.removeItem('hhp_pending_booking');
+      return false;
+    }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
