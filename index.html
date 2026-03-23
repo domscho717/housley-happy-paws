@@ -739,6 +739,24 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .portal-back-btn{left:12px;top:82px}
 }
 
+/* ── Scroll-to-Top Button ── */
+#scrollTopBtn{
+  display:none;position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:450;
+  background:rgba(30,20,9,0.75);color:#fff;border:none;border-radius:20px;
+  padding:5px 14px 5px 12px;font-size:0.72rem;font-weight:600;letter-spacing:0.03em;
+  cursor:pointer;font-family:'Jost',sans-serif;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:0 2px 12px rgba(0,0,0,0.18);
+  align-items:center;gap:4px;
+  transition:opacity 0.25s,transform 0.25s;
+  opacity:0;transform:translateX(-50%) translateY(-10px);
+}
+#scrollTopBtn.visible{display:inline-flex;opacity:1;transform:translateX(-50%) translateY(0)}
+#scrollTopBtn:hover{background:rgba(30,20,9,0.9)}
+@media(max-width:900px){
+  #scrollTopBtn{top:14px;padding:4px 12px 4px 10px;font-size:0.68rem}
+}
+
 /* Prevent iOS Safari zoom on input focus — all inputs must be ≥16px */
 @media screen and (-webkit-min-device-pixel-ratio:0) {
   select,textarea,input[type="text"],input[type="email"],input[type="password"],input[type="tel"],input[type="number"],input[type="date"],input[type="time"],input[type="search"]{font-size:16px!important}
@@ -1254,6 +1272,9 @@ try {
 
 <!-- Portal Back Button (shared across all portals) -->
 <button class="portal-back-btn" id="portalBackBtn" onclick="goBackPanel()">← Back</button>
+
+<!-- Scroll-to-Top Button (all pages + portals) -->
+<button id="scrollTopBtn" onclick="scrollToTop()">↑ Top</button>
 
 <!-- ========= CLIENT PORTAL ========= -->
 <div class="page" id="pg-client">
@@ -11131,6 +11152,61 @@ document.addEventListener('DOMContentLoaded', function() {
     };
   }
 });
+
+// ── Scroll-to-Top Button ──
+(function(){
+  var btn = document.getElementById('scrollTopBtn');
+  if (!btn) return;
+  var THRESHOLD = 350; // px scrolled before button appears
+  var _visible = false;
+
+  function show() { if (!_visible) { _visible = true; btn.classList.add('visible'); } }
+  function hide() { if (_visible) { _visible = false; btn.classList.remove('visible'); } }
+
+  // Scroll handler for any element
+  function onScroll(scrollTop) {
+    if (scrollTop > THRESHOLD) show(); else hide();
+  }
+
+  // Home page scrolls via window
+  window.addEventListener('scroll', function() {
+    // Only act if home page is visible (no portal active)
+    var activePage = document.querySelector('.page.active');
+    if (!activePage) onScroll(window.scrollY || document.documentElement.scrollTop);
+  }, { passive: true });
+
+  // Portal pages scroll via .portal-main
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.portal-main').forEach(function(pm) {
+      pm.addEventListener('scroll', function() {
+        // Only act if this portal-main's page is active
+        var page = pm.closest('.page');
+        if (page && page.classList.contains('active')) onScroll(pm.scrollTop);
+      }, { passive: true });
+    });
+  });
+
+  // scrollToTop: scroll the correct container
+  window.scrollToTop = function() {
+    var activePage = document.querySelector('.page.active');
+    if (activePage) {
+      var pm = activePage.querySelector('.portal-main');
+      if (pm) pm.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    hide();
+  };
+
+  // Hide button on view switch
+  var origSwitch = window.switchView;
+  if (origSwitch) {
+    window.switchView = function() {
+      hide();
+      return origSwitch.apply(this, arguments);
+    };
+  }
+})();
 
 </script>
 
