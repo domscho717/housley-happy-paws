@@ -67,7 +67,19 @@ module.exports = async function handler(req, res) {
     }
 
     // Create a Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (stripeErr) {
+      // If connected account fails, retry without platform fee
+      if (connectedAccountId && stripeErr.message && stripeErr.message.includes('No such')) {
+        console.warn('Connected account error, retrying without platform fee:', stripeErr.message);
+        delete sessionParams.payment_intent_data;
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else {
+        throw stripeErr;
+      }
+    }
 
     res.status(200).json({ url: session.url, sessionId: session.id });
   } catch (err) {

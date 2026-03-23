@@ -18,19 +18,35 @@ module.exports = async function handler(req, res) {
     }
 
     // Get the client's Stripe customer ID
+    // Note: clientProfileId is the auth user ID, profiles use user_id column
     const { data: profile } = await supabase
       .from('profiles')
       .select('stripe_customer_id, full_name, email')
-      .eq('id', clientProfileId)
+      .eq('user_id', clientProfileId)
       .single();
 
-    if (!profile?.stripe_customer_id) {
+    let stripeCustomerId = profile?.stripe_customer_id || null;
+
+    // Fallback: search Stripe by email if no customer ID stored
+    if (!stripeCustomerId && profile?.email) {
+      const existing = await stripe.customers.list({ email: profile.email, limit: 1 });
+      if (existing.data.length > 0) {
+        stripeCustomerId = existing.data[0].id;
+        // Save it to profile for next time
+        await supabase
+          .from('profiles')
+          .update({ stripe_customer_id: stripeCustomerId })
+          .eq('user_id', clientProfileId);
+      }
+    }
+
+    if (!stripeCustomerId) {
       return res.status(400).json({ error: 'no_card', message: 'Client has no saved payment method. Use a payment link instead.' });
     }
 
     // Get the default payment method
     const methods = await stripe.paymentMethods.list({
-      customer: profile.stripe_customer_id,
+      customer: stripeCustomerId,
       type: 'card',
       limit: 1,
     });
@@ -45,7 +61,7 @@ module.exports = async function handler(req, res) {
     const piParams = {
       amount: Math.round(amount * 100), // cents
       currency: 'usd',
-      customer: profile.stripe_customer_id,
+      customer: stripeCustomerId,
       payment_method: paymentMethodId,
       off_session: true,
       confirm: true,
@@ -68,7 +84,20 @@ module.exports = async function handler(req, res) {
     }
 
     // Create and confirm a PaymentIntent off-session with manual capture
-    const paymentIntent = await stripe.paymentIntents.create(piParams);
+    let paymentIntent;
+    try {
+      paymentIntent = await stripe.paymentIntents.create(piParams);
+    } catch (stripeErr) {
+      // If connected account fails, retry without platform fee
+      if (connectedAccountId && stripeErr.message && stripeErr.message.includes('No such')) {
+        console.warn('Connected account error, retrying without platform fee:', stripeErr.message);
+        delete piParams.application_fee_amount;
+        delete piParams.transfer_data;
+        paymentIntent = await stripe.paymentIntents.create(piParams);
+      } else {
+        throw stripeErr;
+      }
+    }
 
     // Log payment to Supabase and store payment_intent_id on booking_request
     if (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded') {

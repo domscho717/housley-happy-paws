@@ -16,12 +16,13 @@ module.exports = async function handler(req, res) {
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
     // Check if profile already has a Stripe customer
+    // Note: profileId is the auth user ID, profiles use user_id column
     let stripeCustomerId = null;
     if (profileId) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('stripe_customer_id')
-        .eq('id', profileId)
+        .eq('user_id', profileId)
         .single();
       stripeCustomerId = profile?.stripe_customer_id || null;
     }
@@ -46,7 +47,7 @@ module.exports = async function handler(req, res) {
         await supabase
           .from('profiles')
           .update({ stripe_customer_id: stripeCustomerId })
-          .eq('id', profileId);
+          .eq('user_id', profileId);
       }
     }
 
