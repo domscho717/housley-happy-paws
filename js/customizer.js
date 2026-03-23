@@ -370,7 +370,7 @@
     var sh=document.createElement('div');sh.id='cust-picker-sh';
     sh.style.cssText='position:fixed;bottom:0;left:0;right:0;max-height:80vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;overflow-y:auto;transform:translateY(100%);transition:transform 0.3s ease';
     sh.innerHTML=
-      '<div style="padding:10px 0 4px;text-align:center;cursor:pointer" onclick="HHP_Customizer.toggleEdit()"><div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div></div>'+
+      '<div id="cust-drag-handle" style="padding:16px 0 8px;text-align:center;cursor:grab;touch-action:none" onclick="HHP_Customizer.toggleEdit()"><div style="width:56px;height:6px;background:#c0b8a8;border-radius:6px;margin:0 auto"></div></div>'+
       '<div style="padding:4px 20px 28px">'+
         '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;margin-bottom:4px">Customize Your Overview</h3>'+
         '<p style="font-size:0.82rem;color:var(--mid);margin-bottom:16px">Toggle sections on or off. Use ⊞/⊟ on widgets to resize them.</p>'+
@@ -383,6 +383,35 @@
     ov.appendChild(sh);document.body.appendChild(ov);
     ov.style.display='block';
     requestAnimationFrame(function(){ov.style.opacity='1';sh.style.transform='translateY(0)';});
+
+    // ── Drag-to-close on the handle ──
+    var handle=document.getElementById('cust-drag-handle');
+    if(handle){
+      var startY=0,currentY=0,dragging=false;
+      function onDragStart(e){
+        dragging=true;startY=e.touches?e.touches[0].clientY:e.clientY;currentY=0;
+        sh.style.transition='none';handle.style.cursor='grabbing';
+      }
+      function onDragMove(e){
+        if(!dragging)return;
+        var y=(e.touches?e.touches[0].clientY:e.clientY)-startY;
+        if(y<0)y=0; // don't drag upward past start
+        currentY=y;sh.style.transform='translateY('+y+'px)';
+        ov.style.opacity=String(Math.max(0,1-y/300));
+      }
+      function onDragEnd(){
+        if(!dragging)return;dragging=false;
+        sh.style.transition='transform 0.3s ease';handle.style.cursor='grab';
+        if(currentY>100){_toggleEdit();}
+        else{sh.style.transform='translateY(0)';ov.style.opacity='1';}
+      }
+      handle.addEventListener('touchstart',onDragStart,{passive:true});
+      handle.addEventListener('touchmove',onDragMove,{passive:true});
+      handle.addEventListener('touchend',onDragEnd);
+      handle.addEventListener('mousedown',onDragStart);
+      document.addEventListener('mousemove',onDragMove);
+      document.addEventListener('mouseup',onDragEnd);
+    }
   }
 
   function _toggleWidget(portal,wid){
