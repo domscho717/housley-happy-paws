@@ -51,6 +51,7 @@
   // ── Active Deals Cache — fetched from Supabase, auto-applied to pricing ──
   var _activeDealsCache = [];
   var _dealsLoaded = false;
+  var _clientUsedDealIds = []; // deal IDs the current client has already redeemed
 
   async function _fetchActiveDeals() {
     var sb = getSB();
@@ -59,6 +60,19 @@
       var res = await sb.from('deals').select('*').eq('is_active', true);
       _activeDealsCache = (res.data || []).filter(function(d) { return d.discount_value > 0; });
       _dealsLoaded = true;
+
+      // Fetch which deals the current client has already used (for once_per_client limits)
+      _clientUsedDealIds = [];
+      var clientId = window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null;
+      if (clientId) {
+        var usageRes = await sb.from('booking_requests')
+          .select('deal_id')
+          .eq('client_id', clientId)
+          .not('deal_id', 'is', null);
+        if (usageRes.data) {
+          _clientUsedDealIds = usageRes.data.map(function(r) { return r.deal_id; });
+        }
+      }
     } catch (e) { console.warn('Failed to load active deals:', e); }
   }
 
@@ -94,6 +108,11 @@
     basePrice = basePrice || 0;
 
     _activeDealsCache.forEach(function(deal) {
+      // Skip once_per_client deals already used by this client
+      if (deal.usage_limit === 'once_per_client' && _clientUsedDealIds.indexOf(deal.id) !== -1) {
+        return;
+      }
+
       var matches = false;
       var at = deal.applies_to || 'all';
 

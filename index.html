@@ -2333,6 +2333,13 @@ try {
                 <option value="house_sitting">House Sitting Only</option>
               </select>
             </div>
+            <div style="margin-bottom:10px">
+              <label class="form-lbl">Usage Limit</label>
+              <select class="form-in" id="dealUsageLimit">
+                <option value="unlimited">Unlimited — clients can use every time</option>
+                <option value="once_per_client">Once Per Client — each client can only use this once</option>
+              </select>
+            </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-gold btn-sm" onclick="addDeal()">Save Deal</button>
               <button class="btn btn-sm" onclick="document.getElementById('addDealForm').style.display='none'" style="background:var(--mid);color:white">Cancel</button>
@@ -7548,6 +7555,7 @@ async function addDeal() {
   var discountType = document.getElementById('dealDiscountType')?.value || 'percent';
   var discountValue = parseFloat(document.getElementById('dealDiscountValue')?.value) || 0;
   var appliesTo = document.getElementById('dealAppliesTo')?.value || 'all';
+  var usageLimit = document.getElementById('dealUsageLimit')?.value || 'unlimited';
 
   if (!name) { toast('Please enter a deal name'); return; }
   if (discountValue <= 0) { toast('Please enter a discount value'); return; }
@@ -7563,6 +7571,7 @@ async function addDeal() {
       discount_type: discountType,
       discount_value: discountValue,
       applies_to: appliesTo,
+      usage_limit: usageLimit,
       created_by: window.HHP_Auth.currentUser?.id || null
     }]);
     if (res.error) { console.error('Add deal error:', res.error); toast('Failed to save deal.'); return; }
@@ -7605,10 +7614,12 @@ async function loadDealsPanel() {
         discountLabel = deal.discount_type === 'percent' ? deal.discount_value + '% off' : '$' + Number(deal.discount_value).toFixed(0) + ' off';
         discountLabel += ' · ' + (appliesLabels[deal.applies_to] || 'All Services');
       }
+      var usageLabel = deal.usage_limit === 'once_per_client' ? '🔒 Once per client' : '♾️ Unlimited use';
       var div = document.createElement('div');
       div.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:linear-gradient(135deg,var(--' + colors[idx] + '),#fff);border-radius:10px;margin-bottom:8px;border:1px solid ' + borderColors[idx];
       div.innerHTML = '<div><div style="font-weight:700;font-size:0.9rem">' + (deal.name || 'Untitled') + '</div>' +
         (discountLabel ? '<div style="font-size:0.82rem;color:var(--forest);font-weight:600;margin-top:2px">' + discountLabel + '</div>' : '') +
+        '<div style="font-size:0.75rem;color:var(--mid);margin-top:2px">' + usageLabel + '</div>' +
         (deal.details ? '<div style="font-size:0.78rem;color:var(--mid)">' + deal.details + '</div>' : '') +
         (deal.promo_code ? '<div style="font-size:0.7rem;color:var(--gold);font-weight:600;margin-top:2px">Code: ' + deal.promo_code + '</div>' : '') +
         '</div><div style="display:flex;align-items:center;gap:8px">' +
