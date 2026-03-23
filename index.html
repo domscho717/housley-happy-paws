@@ -3773,11 +3773,12 @@ async function loadActivityLog() {
     }
   }
 
-  // Load bookings created (not cancelled)
+  // Load bookings created (not canceled) — use booking_requests table
   if (type === 'all' || type === 'bookings') {
-    var { data: newBookings } = await sb.from('bookings')
+    var { data: newBookings } = await sb.from('booking_requests')
       .select('*')
-      .neq('status', 'cancelled')
+      .neq('status', 'canceled')
+      .neq('status', 'declined')
       .gte('created_at', startISO)
       .lt('created_at', endISO)
       .order('created_at', { ascending: false })
@@ -3799,6 +3800,11 @@ async function loadActivityLog() {
         var bkEntry = newBookings[nb2];
         var resolved = bkNameMap[bkEntry.client_id];
         if (resolved) { bkEntry.client_name = resolved.name; bkEntry._profileId = resolved.profileId; }
+        // Map booking_requests fields to activity log format
+        bkEntry.service = bkEntry.service || 'Appointment';
+        bkEntry.date = bkEntry.preferred_date || bkEntry.date;
+        bkEntry.time_slot = bkEntry.preferred_time || bkEntry.time_slot || '';
+        bkEntry.client_name = bkEntry.client_name || bkEntry.contact_name || 'Client';
         allEntries.push({ type: 'booking', date: bkEntry.created_at, booking: bkEntry });
       }
     }
@@ -3822,20 +3828,20 @@ async function loadActivityLog() {
     }
   }
 
-  // Load cancellations
+  // Load cancellations — use booking_requests table (status='canceled', one L)
   if (type === 'all' || type === 'cancellations') {
-    var { data: cancelled } = await sb.from('bookings')
+    var { data: cancelled } = await sb.from('booking_requests')
       .select('*')
-      .eq('status', 'cancelled')
-      .gte('cancelled_at', startISO)
-      .lt('cancelled_at', endISO)
-      .order('cancelled_at', { ascending: false })
+      .eq('status', 'canceled')
+      .gte('canceled_at', startISO)
+      .lt('canceled_at', endISO)
+      .order('canceled_at', { ascending: false })
       .limit(200);
 
     if (!cancelled || cancelled.length === 0) {
-      var { data: cancelled2 } = await sb.from('bookings')
+      var { data: cancelled2 } = await sb.from('booking_requests')
         .select('*')
-        .eq('status', 'cancelled')
+        .eq('status', 'canceled')
         .gte('updated_at', startISO)
         .lt('updated_at', endISO)
         .order('updated_at', { ascending: false })
@@ -3859,7 +3865,11 @@ async function loadActivityLog() {
         var cxEntry = cancelled[cb2];
         var cxResolved = cxNameMap[cxEntry.client_id];
         if (cxResolved) { cxEntry.client_name = cxResolved.name; cxEntry._profileId = cxResolved.profileId; }
-        allEntries.push({ type: 'cancellation', date: cxEntry.cancelled_at || cxEntry.updated_at, booking: cxEntry });
+        cxEntry.client_name = cxEntry.client_name || cxEntry.contact_name || 'Client';
+        cxEntry.service = cxEntry.service || 'Service';
+        cxEntry.date = cxEntry.preferred_date || cxEntry.date;
+        cxEntry.time_slot = cxEntry.preferred_time || cxEntry.time_slot || '';
+        allEntries.push({ type: 'cancellation', date: cxEntry.canceled_at || cxEntry.updated_at, booking: cxEntry });
       }
     }
   }
@@ -3877,7 +3887,7 @@ async function loadActivityLog() {
     if (payments) {
       paymentCount = payments.length;
       for (var pi = 0; pi < payments.length; pi++) {
-        totalRevenue += (payments[pi].amount || 0);
+        totalRevenue += (parseFloat(payments[pi].amount) || 0);
         allEntries.push({ type: 'payment', date: payments[pi].paid_at || payments[pi].created_at, payment: payments[pi] });
       }
     }
@@ -3935,7 +3945,7 @@ async function loadActivityLog() {
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">' + bookingCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Bookings</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2980b9">' + signupCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Sign\u2011ups</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--rose)">' + cancelCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Cancellations</div></div>' +
-      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">$' + (totalRevenue * 0.85 / 100).toFixed(0) + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Net Revenue</div></div>' +
+      '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--forest)">$' + totalRevenue.toFixed(0) + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Revenue</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:var(--gold-deep)">' + reportCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Reports</div></div>' +
       '<div class="card" style="text-align:center;padding:14px"><div style="font-size:1.4rem;font-weight:700;color:#2196F3">' + serviceCount + '</div><div style="font-size:0.72rem;color:var(--mid);font-weight:600">Services</div></div>';
   }
@@ -4002,7 +4012,7 @@ async function loadActivityLog() {
       var pay = entry.payment;
       html += '<div style="' + rowStyle + ';background:rgba(39,174,96,0.04)"' + clickAttr + '>' +
         '<div style="width:32px;height:32px;border-radius:50%;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">\uD83D\uDCB3</div>' +
-        '<div style="flex:1"><span style="font-weight:600">Payment</span> \u2014 $' + ((pay.amount || 0)/100).toFixed(2) +
+        '<div style="flex:1"><span style="font-weight:600">Payment</span> \u2014 $' + (parseFloat(pay.amount) || 0).toFixed(2) +
         '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(pay.client_email || 'Client') + '</div></div>' +
         '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
     } else if (entry.type === 'report') {
@@ -4010,7 +4020,7 @@ async function loadActivityLog() {
       html += '<div style="' + rowStyle + ';background:rgba(200,150,62,0.04)"' + clickAttr + '>' +
         '<div style="width:32px;height:32px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">\uD83D\uDCCB</div>' +
         '<div style="flex:1"><span style="font-weight:600">Service Report</span> \u2014 ' + _escH(rpt.service || 'Service') +
-        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(rpt.note || '').substring(0, 60) + '</div></div>' +
+        '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">' + _escH(rpt.personal_note || rpt.pet_name || '').substring(0, 60) + '</div></div>' +
         '<div style="display:flex;align-items:center;gap:6px"><div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeStr + '</div><span style="color:var(--gold);font-size:0.8rem">\u203A</span></div></div>';
     } else if (entry.type === 'service_start') {
       var sw = entry.walk;
@@ -4086,11 +4096,11 @@ async function showActivityDetail(index) {
       // Fetching conversation messages
 
       // Fetch both directions separately then merge (complex .or filter was failing silently)
-      var msgDir1 = await sb.from('messages').select('sender_id, content, created_at')
+      var msgDir1 = await sb.from('messages').select('sender_id, body, created_at')
         .eq('sender_id', entry.sender).eq('recipient_id', entry.recipient)
         .gte('created_at', dayStartISO).lte('created_at', dayEndISO)
         .order('created_at', { ascending: true }).limit(100);
-      var msgDir2 = await sb.from('messages').select('sender_id, content, created_at')
+      var msgDir2 = await sb.from('messages').select('sender_id, body, created_at')
         .eq('sender_id', entry.recipient).eq('recipient_id', entry.sender)
         .gte('created_at', dayStartISO).lte('created_at', dayEndISO)
         .order('created_at', { ascending: true }).limit(100);
@@ -4114,7 +4124,7 @@ async function showActivityDetail(index) {
           var t = new Date(m.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
           msgHtml += '<div style="display:flex;flex-direction:column;align-items:' + align + ';margin-bottom:10px">';
           msgHtml += '<span style="font-weight:600;font-size:0.72rem;color:var(--mid);margin-bottom:2px">' + _escH(who) + ' \u00B7 ' + t + '</span>';
-          msgHtml += '<div style="font-size:0.84rem;color:' + bubbleColor + ';padding:8px 12px;background:' + bubbleBg + ';border-radius:12px;max-width:85%;word-wrap:break-word">' + _escH(m.content || '') + '</div>';
+          msgHtml += '<div style="font-size:0.84rem;color:' + bubbleColor + ';padding:8px 12px;background:' + bubbleBg + ';border-radius:12px;max-width:85%;word-wrap:break-word">' + _escH(m.body || '') + '</div>';
           msgHtml += '</div>';
         });
         msgHtml += '</div>';
@@ -4219,8 +4229,8 @@ async function showActivityDetail(index) {
     icon = '\u274C';
     bgColor = 'var(--rose-pale,#ffe0e3)';
     var cb = entry.booking;
-    var cancelDate = (cb.cancelled_at || cb.updated_at) ? new Date(cb.cancelled_at || cb.updated_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
-    var origDate = cb.date ? new Date(cb.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '\u2014';
+    var cancelDate = (cb.canceled_at || cb.updated_at) ? new Date(cb.canceled_at || cb.updated_at).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
+    var origDate = (cb.preferred_date || cb.date) ? new Date((cb.preferred_date || cb.date) + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '\u2014';
     // Resolve client full profile
     var cancelClientName = cb.client_name || '';
     var cancelClientProfile = null;
@@ -4238,7 +4248,7 @@ async function showActivityDetail(index) {
         (cancelClientProfile ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client Phone:</strong> ' + _escH(cancelClientProfile.phone || '\u2014') + '</div>' : '') +
         (cancelClientProfile ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client Email:</strong> ' + _escH(cancelClientProfile.email || '\u2014') + '</div>' : '') +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Original Date:</strong> ' + origDate + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Time Slot:</strong> ' + (typeof fmt12h === 'function' ? fmt12h(cb.time_slot || '') || '\u2014' : _escH(cb.time_slot || '\u2014')) + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Time Slot:</strong> ' + (typeof fmt12h === 'function' ? fmt12h(cb.preferred_time || cb.time_slot || '') || '\u2014' : _escH(cb.preferred_time || cb.time_slot || '\u2014')) + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pets:</strong> ' + _escH(cb.pet_names || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Cancelled:</strong> ' + cancelDate + '</div>' +
         (cb.notes ? '<div style="padding:12px;background:var(--warm);border-radius:8px;grid-column:1/-1;border-left:3px solid var(--gold)"><strong>Original Booking Notes:</strong> ' + _escH(cb.notes) + '</div>' : '') +
@@ -4258,9 +4268,9 @@ async function showActivityDetail(index) {
       if (payRes.data) { payClientProfile = payRes.data; payClientName = payRes.data.full_name || payClientName; }
     }
     content =
-      '<div style="text-align:center;margin-bottom:16px"><div style="font-size:2rem;font-weight:700;color:var(--forest)">$' + ((pay.amount || 0)/100).toFixed(2) + '</div><div style="font-size:0.78rem;color:var(--mid)">Payment Received</div></div>' +
+      '<div style="text-align:center;margin-bottom:16px"><div style="font-size:2rem;font-weight:700;color:var(--forest)">$' + (parseFloat(pay.amount) || 0).toFixed(2) + '</div><div style="font-size:0.78rem;color:var(--mid)">Payment Received</div></div>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Amount:</strong> <span style="color:var(--forest);font-weight:700">$' + ((pay.amount || 0)/100).toFixed(2) + '</span></div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Amount:</strong> <span style="color:var(--forest);font-weight:700">$' + (parseFloat(pay.amount) || 0).toFixed(2) + '</span></div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Status:</strong> <span style="color:var(--forest);font-weight:600">' + _escH(pay.status || 'paid') + '</span></div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Client:</strong> ' + _escH(payClientName || pay.client_email || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Email:</strong> ' + _escH(pay.client_email || (payClientProfile ? payClientProfile.email : '') || '\u2014') + '</div>' +
@@ -4284,10 +4294,12 @@ async function showActivityDetail(index) {
       if (rptRes.data) { rptClientProfile = rptRes.data; rptClientName = rptRes.data.full_name; }
     }
     var rptStaffName = '';
-    if (sb && rpt.staff_id) {
-      var rptSRes = await sb.from('profiles').select('full_name').eq('user_id', rpt.staff_id).single();
+    if (sb && rpt.author_id) {
+      var rptSRes = await sb.from('profiles').select('full_name').eq('user_id', rpt.author_id).single();
       if (rptSRes.data) rptStaffName = rptSRes.data.full_name;
     }
+    var mediaCount = 0;
+    try { if (rpt.media && Array.isArray(rpt.media)) mediaCount = rpt.media.length; } catch(e) {}
     content =
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Service:</strong> ' + _escH(rpt.service || '\u2014') + '</div>' +
@@ -4297,10 +4309,10 @@ async function showActivityDetail(index) {
         (rpt.distance ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Distance:</strong> ' + _escH(rpt.distance) + '</div>' : '') +
         (rpt.mood ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pet Mood:</strong> ' + _escH(rpt.mood) + '</div>' : '') +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Date:</strong> ' + fullDate + '</div>' +
-        (rpt.media_count ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Media:</strong> ' + rpt.media_count + ' file(s)</div>' : '') +
-        (rpt.pet_names ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pets:</strong> ' + _escH(rpt.pet_names) + '</div>' : '') +
+        (mediaCount > 0 ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Media:</strong> ' + mediaCount + ' file(s)</div>' : '') +
+        (rpt.pet_name ? '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Pet:</strong> ' + _escH(rpt.pet_name) + '</div>' : '') +
       '</div>' +
-      (rpt.note ? '<div style="padding:14px;background:var(--warm);border-radius:10px;font-size:0.88rem;line-height:1.6;border-left:3px solid var(--gold);margin-bottom:16px"><strong>Report Notes:</strong><br>' + _escH(rpt.note) + '</div>' : '') +
+      (rpt.personal_note ? '<div style="padding:14px;background:var(--warm);border-radius:10px;font-size:0.88rem;line-height:1.6;border-left:3px solid var(--gold);margin-bottom:16px"><strong>Report Notes:</strong><br>' + _escH(rpt.personal_note) + '</div>' : '') +
       (rptClientProfile ? '<button onclick="document.getElementById(\'actDetailModal\').remove();showClientProfile(\'' + rptClientProfile.id + '\')" style="width:100%;padding:10px;background:var(--forest);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">\uD83D\uDC64 View Client Profile</button>' : '');
 
   } else if (entry.type === 'service_start' || entry.type === 'service_end') {
@@ -4379,14 +4391,14 @@ function _buildActivityText() {
     else if (e.type === 'booking') stats.bookings++;
     else if (e.type === 'signup') stats.signups++;
     else if (e.type === 'cancellation') stats.cancellations++;
-    else if (e.type === 'payment') { stats.payments++; stats.revenue += ((e.payment.amount || 0) * 0.85); }
+    else if (e.type === 'payment') { stats.payments++; stats.revenue += (parseFloat(e.payment.amount) || 0); }
     else if (e.type === 'report') stats.reports++;
   });
 
   lines.push('SUMMARY');
   lines.push('Total Events: ' + entries.length);
   lines.push('Messages: ' + stats.messages + ' | Bookings: ' + stats.bookings + ' | Sign-ups: ' + stats.signups);
-  lines.push('Cancellations: ' + stats.cancellations + ' | Payments: ' + stats.payments + ' ($' + (stats.revenue/100).toFixed(2) + ') | Reports: ' + stats.reports);
+  lines.push('Cancellations: ' + stats.cancellations + ' | Payments: ' + stats.payments + ' ($' + stats.revenue.toFixed(2) + ') | Reports: ' + stats.reports);
   lines.push('');
   lines.push('-'.repeat(60));
   lines.push('');
@@ -4415,10 +4427,10 @@ function _buildActivityText() {
       lines.push('[' + time + '] \u274C Cancellation \u2014 ' + (cb.service || 'Service') + ' | ' + (cb.client_name || 'Client') + (cb.cancellation_reason ? ' | Reason: ' + cb.cancellation_reason : ''));
     } else if (entry.type === 'payment') {
       var pay = entry.payment;
-      lines.push('[' + time + '] \uD83D\uDCB3 Payment \u2014 $' + ((pay.amount || 0)/100).toFixed(2) + ' | ' + (pay.client_email || 'Client'));
+      lines.push('[' + time + '] \uD83D\uDCB3 Payment \u2014 $' + (parseFloat(pay.amount) || 0).toFixed(2) + ' | ' + (pay.client_email || 'Client'));
     } else if (entry.type === 'report') {
       var rpt = entry.report;
-      lines.push('[' + time + '] \uD83D\uDCCB Service Report \u2014 ' + (rpt.service || 'Service'));
+      lines.push('[' + time + '] \uD83D\uDCCB Service Report \u2014 ' + (rpt.service || 'Service') + (rpt.pet_name ? ' (' + rpt.pet_name + ')' : ''));
     }
   });
 

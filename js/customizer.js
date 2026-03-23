@@ -1135,8 +1135,8 @@
       var activities=[];
       var{data:bookings}=await sb.from('booking_requests').select('id,service,contact_name,created_at,status').order('created_at',{ascending:false}).limit(3);
       (bookings||[]).forEach(function(b){activities.push({type:'booking',label:b.contact_name+' booked '+b.service,date:b.created_at,status:b.status});});
-      var{data:payments}=await sb.from('payments').select('amount,created_at').eq('status','succeeded').order('created_at',{ascending:false}).limit(2);
-      (payments||[]).forEach(function(p){activities.push({type:'payment',label:'Payment received: $'+((p.amount||0)/100).toFixed(2),date:p.created_at});});
+      var{data:payments}=await sb.from('payments').select('amount,created_at,status').order('created_at',{ascending:false}).limit(2);
+      (payments||[]).forEach(function(p){activities.push({type:'payment',label:'Payment received: $'+(parseFloat(p.amount)||0).toFixed(2),date:p.created_at});});
       var{data:signups}=await sb.from('profiles').select('full_name,created_at').eq('role','client').order('created_at',{ascending:false}).limit(1);
       (signups||[]).forEach(function(s){activities.push({type:'signup',label:s.full_name+' signed up',date:s.created_at});});
       activities.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
