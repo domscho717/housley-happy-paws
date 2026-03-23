@@ -2490,6 +2490,7 @@
         '  <button class="admin-filter-btn" data-filter="completed" onclick="HHP_BookingAdmin.filter(\'completed\',this)">Completed</button>',
         '  <button class="admin-filter-btn" data-filter="modified" onclick="HHP_BookingAdmin.filter(\'modified\',this)">Modified</button>',
         '  <button class="admin-filter-btn" data-filter="declined" onclick="HHP_BookingAdmin.filter(\'declined\',this)">Declined</button>',
+        '  <button class="admin-filter-btn" data-filter="payment_hold" onclick="HHP_BookingAdmin.filter(\'payment_hold\',this)">⚠️ Payment Hold</button>',
         '  <button class="admin-filter-btn" data-filter="all" onclick="HHP_BookingAdmin.filter(\'all\',this)">All</button>',
         '</div>',
         '<div id="adminRequestsList"></div>',
@@ -2612,6 +2613,14 @@
           actionsHTML = '<div class="arc-actions"><button class="arc-btn accept" onclick="if(typeof reopenLiveServicePanel===\'function\')reopenLiveServicePanel();" style="background:#2196F3">▶ View Live Report</button></div>';
         } else if (r.status === 'completed') {
           actionsHTML = '<div class="arc-actions"><button class="arc-btn accept" onclick="if(typeof viewCompletedReport===\'function\')viewCompletedReport(\'' + r.id + '\');" style="background:#4caf50">📋 View Report</button></div>';
+        } else if (r.status === 'payment_hold') {
+          actionsHTML = [
+            '<div class="arc-actions">',
+            '  <div style="background:#fff3cd;color:#856404;padding:8px 12px;border-radius:8px;font-size:0.82rem;margin-bottom:8px;border:1px solid #ffc107">⚠️ Payment failed — client has been notified to update their card</div>',
+            '  <button class="arc-btn accept" onclick="HHP_BookingAdmin.retryPayment(\'' + r.id + '\')" style="background:#c8963e">🔄 Retry Payment</button>',
+            '  <button class="arc-btn decline" onclick="HHP_BookingAdmin.updateStatus(\'' + r.id + '\',\'declined\')">Cancel Booking</button>',
+            '</div>',
+          ].join('');
         }
 
         // Build avatar for the client on this request
@@ -2698,6 +2707,22 @@
       });
     },
 
+    async retryPayment(requestId) {
+      var req = this.requests.find(function(r) { return r.id === requestId; });
+      if (!req) { alert('Booking not found.'); return; }
+
+      if (typeof toast === 'function') toast('🔄 Retrying payment...');
+
+      // First set back to pending so updateStatus can accept it
+      var sb = getSB();
+      if (!sb) return;
+      await sb.from('booking_requests').update({ status: 'pending', admin_notes: '' }).eq('id', requestId);
+      req.status = 'pending';
+
+      // Now try to accept (which triggers the charge flow)
+      await this.updateStatus(requestId, 'accepted');
+    },
+
     async updateStatus(requestId, newStatus, extraFields) {
       var sb = getSB();
       if (!sb) return;
@@ -2725,9 +2750,12 @@
         // Send notification to client about the status change
         var req = this.requests.find(function(r) { return r.id === requestId; });
         if (req) {
-          // If accepting, try to auto-charge saved card first
+          // If accepting, try to charge the client's card FIRST
           var paymentLink = '';
           var autoCharged = false;
+          var cardDeclined = false;
+          var declineMessage = '';
+
           if (newStatus === 'accepted' && req.service && req.estimated_total > 0 && req.client_id) {
             try {
               var chargeResp = await fetch('/api/charge-saved-card', {
@@ -2741,24 +2769,71 @@
                 }),
               });
               var chargeData = await chargeResp.json();
+
               if (chargeData.success) {
                 autoCharged = true;
                 if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + ' automatically!');
+
               } else if (chargeData.error === 'no_card') {
-                // No saved card — create a dynamic checkout session (use estimated_total which has deal discount applied)
-                paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '', req.estimated_total || null);
-              } else if (chargeData.error === 'authentication_required') {
-                paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '', req.estimated_total || null);
-                if (typeof toast === 'function') toast('Card requires authentication — payment link sent instead.');
+                // No saved card — put on hold, notify client to add a card
+                cardDeclined = true;
+                declineMessage = 'No payment method on file. Please add a card to confirm your booking.';
+
+              } else if (chargeData.error === 'card_declined') {
+                // Card declined — put on hold, notify client
+                cardDeclined = true;
+                declineMessage = chargeData.message || 'Your card was declined. Please update your payment method.';
+
+              } else {
+                // Other error — put on hold
+                cardDeclined = true;
+                declineMessage = 'Payment could not be processed. Please update your payment method.';
               }
             } catch (chargeErr) {
-              console.warn('Auto-charge failed, falling back to checkout session:', chargeErr);
-              paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '', req.estimated_total || null);
+              console.warn('Auto-charge failed:', chargeErr);
+              cardDeclined = true;
+              declineMessage = 'Payment could not be processed. Please update your payment method.';
             }
-          } else if (newStatus === 'accepted' && req.service) {
-            paymentLink = await createCheckoutForService(req.service, req.contact_email, req.contact_name, '', '', req.estimated_total || null);
+
+            // If card was declined, put booking on hold instead of accepting
+            if (cardDeclined) {
+              await sb.from('booking_requests').update({
+                status: 'payment_hold',
+                admin_notes: (update.admin_notes || '') + (update.admin_notes ? '\n' : '') + '⚠️ Payment failed: ' + declineMessage,
+              }).eq('id', requestId);
+
+              // Notify the client their payment failed
+              try {
+                await fetch('/api/booking-status-notification', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    email: req.contact_email,
+                    name: req.contact_name,
+                    service: req.service,
+                    status: 'payment_hold',
+                    scheduledDate: update.scheduled_date || req.preferred_date,
+                    scheduledTime: update.scheduled_time || req.preferred_time,
+                    adminNotes: '',
+                    paymentLink: '',
+                    estimatedTotal: req.estimated_total || null,
+                    priceBreakdown: req.price_breakdown || '',
+                    autoCharged: false,
+                    declineMessage: declineMessage,
+                  }),
+                });
+              } catch (e) { console.warn('Decline notification failed:', e); }
+
+              if (typeof toast === 'function') toast('⚠️ Payment failed — booking on hold. Client has been notified to update their payment method.');
+              await this.loadRequests();
+              return;
+            }
+
+          } else if (newStatus === 'accepted' && req.service && (!req.estimated_total || req.estimated_total <= 0)) {
+            // Free service — no charge needed, just accept
           }
 
+          // Payment succeeded (or no charge needed) — send confirmation email
           try {
             await fetch('/api/booking-status-notification', {
               method: 'POST',
@@ -2771,7 +2846,7 @@
                 scheduledDate: update.scheduled_date || req.preferred_date,
                 scheduledTime: update.scheduled_time || req.preferred_time,
                 adminNotes: update.admin_notes || '',
-                paymentLink: autoCharged ? '' : paymentLink,
+                paymentLink: '',
                 estimatedTotal: req.estimated_total || null,
                 priceBreakdown: req.price_breakdown || '',
                 autoCharged: autoCharged,

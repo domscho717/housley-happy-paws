@@ -24,8 +24,8 @@ module.exports = async function handler(req, res) {
   }
 
   // Validate status is one of the expected values
-  if (!['accepted', 'modified', 'declined'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, or declined' });
+  if (!['accepted', 'modified', 'declined', 'payment_hold'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, or payment_hold' });
   }
 
   try {
@@ -151,12 +151,37 @@ module.exports = async function handler(req, res) {
       <p>Please feel free to request a different date or time!</p>
       <div style="margin-top:16px"><a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">Book a New Time →</a></div>
     `;
+
+  } else if (status === 'payment_hold') {
+    const safeDeclineMsg = escHtml(req.body?.declineMessage || 'Your payment could not be processed.');
+    subject = `⚠️ Payment issue with your ${safeService} booking — Housley Happy Paws`;
+    bodyHTML = `
+      <p>Hi ${safeName}!</p>
+      <p>Rachel would love to confirm your <strong>${safeService}</strong> booking, but there was an issue with your payment:</p>
+
+      <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #ffc107">
+        <div style="font-weight:700;margin-bottom:8px;color:#856404">⚠️ Payment Issue</div>
+        <div style="color:#856404">${safeDeclineMsg}</div>
+      </div>
+
+      ${dateFmt ? `<div style="margin-bottom:4px">📅 Requested date: ${dateFmt}</div>` : ''}
+      ${timeFmt ? `<div style="margin-bottom:4px">🕐 Requested time: ${timeFmt}</div>` : ''}
+      ${estimatedTotal ? `<div style="margin-bottom:4px">💰 Total: $${Number(estimatedTotal).toFixed(2)}</div>` : ''}
+
+      <p style="margin-top:16px">Please log in and update your payment method so we can confirm your booking:</p>
+
+      <div style="margin-top:16px">
+        <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">Update Payment Method →</a>
+      </div>
+
+      <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Your booking is on hold and will be confirmed once payment is resolved. Questions? Reply to this email or call 717-715-7595.</p>
+    `;
   }
 
   const result = await sendEmail({
     to: email,
     subject,
-    title: status === 'accepted' ? 'Booking Confirmed!' : status === 'modified' ? 'Booking Update' : 'Booking Update',
+    title: status === 'accepted' ? 'Booking Confirmed!' : status === 'payment_hold' ? 'Payment Issue' : status === 'modified' ? 'Booking Update' : 'Booking Update',
     bodyHTML,
   });
 

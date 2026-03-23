@@ -163,14 +163,37 @@ module.exports = async function handler(req, res) {
       amount: amount,
     });
   } catch (err) {
-    console.error('Charge saved card error:', err.message);
+    console.error('Charge saved card error:', err.message, err.code || '');
 
-    // Handle card authentication required (SCA)
-    if (err.code === 'authentication_required') {
+    // Classify the error for the frontend
+    const declineCode = err.decline_code || err.code || 'unknown';
+    const isCardDecline = err.type === 'StripeCardError' || err.code === 'card_declined';
+    const isAuthRequired = err.code === 'authentication_required';
+    const isExpired = declineCode === 'expired_card';
+    const isInsufficientFunds = declineCode === 'insufficient_funds';
+
+    // Friendly decline messages for the client
+    const declineMessages = {
+      'card_declined': 'The card was declined. Please try a different card.',
+      'insufficient_funds': 'The card has insufficient funds.',
+      'expired_card': 'The card has expired. Please update your payment method.',
+      'incorrect_cvc': 'The CVC code is incorrect.',
+      'processing_error': 'A processing error occurred. Please try again.',
+      'authentication_required': 'The card requires authentication. Please complete payment manually.',
+      'lost_card': 'The card has been reported lost. Please use a different card.',
+      'stolen_card': 'The card has been reported stolen. Please use a different card.',
+      'do_not_honor': 'The card issuer declined the charge. Please contact your bank or try a different card.',
+    };
+
+    const friendlyMessage = declineMessages[declineCode] || declineMessages[err.code] || 'The card was declined. Please update your payment method and try again.';
+
+    if (isCardDecline || isAuthRequired) {
       return res.status(402).json({
-        error: 'authentication_required',
-        message: 'Card requires authentication. Client will need to pay manually.',
-        paymentIntentId: err.raw?.payment_intent?.id,
+        error: 'card_declined',
+        declineCode: declineCode,
+        message: friendlyMessage,
+        paymentIntentId: err.raw?.payment_intent?.id || null,
+        needsNewCard: isExpired || declineCode === 'lost_card' || declineCode === 'stolen_card',
       });
     }
 
