@@ -7892,19 +7892,35 @@ async function loadSavedCard() {
 
     if (data.hasCard && data.methods.length > 0) {
       var card = data.methods[0];
-      var brandIcon = { visa: '💳', mastercard: '💳', amex: '💳', discover: '💳' };
+      // Store for remove function
+      window._savedPaymentMethodId = card.id;
       display.innerHTML =
         '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--forest-pale);border:1px solid var(--forest-light);border-radius:10px">' +
         '<div style="font-size:1.8rem">💳</div>' +
-        '<div style="text-align:left">' +
+        '<div style="text-align:left;flex:1">' +
         '<div style="font-weight:700;font-size:0.95rem;text-transform:capitalize">' + card.brand + ' •••• ' + card.last4 + '</div>' +
         '<div style="font-size:0.78rem;color:var(--mid)">Expires ' + card.expMonth + '/' + card.expYear + '</div>' +
         '</div>' +
         '</div>';
-      if (addBtn) addBtn.textContent = '🔄 Update Payment Method';
+      if (addBtn) addBtn.textContent = '🔄 Change Payment Method';
+      // Show remove button
+      var actionsEl = document.getElementById('savedCardActions');
+      if (actionsEl && !document.getElementById('removeCardBtn')) {
+        var removeBtn = document.createElement('button');
+        removeBtn.id = 'removeCardBtn';
+        removeBtn.className = 'btn btn-outline btn-sm';
+        removeBtn.style.cssText = 'width:100%;justify-content:center;color:var(--rose);border-color:var(--rose-light)';
+        removeBtn.textContent = '✕ Remove Payment Method';
+        removeBtn.onclick = function() { removePaymentMethod(); };
+        actionsEl.appendChild(removeBtn);
+      }
     } else {
+      window._savedPaymentMethodId = null;
       display.innerHTML = '<div style="padding:14px;text-align:center;color:var(--mid);font-size:0.88rem">No payment method on file yet.</div>';
       if (addBtn) addBtn.textContent = '💳 Add Payment Method';
+      // Remove the remove button if it exists
+      var existingRemoveBtn = document.getElementById('removeCardBtn');
+      if (existingRemoveBtn) existingRemoveBtn.remove();
     }
   } catch (err) {
     console.warn('Could not load saved card:', err);
@@ -7944,6 +7960,41 @@ async function addPaymentMethod() {
     console.error('Add payment method error:', err);
     toast('Could not connect to Stripe. Please try again.');
     if (btn) { btn.disabled = false; btn.textContent = '💳 Add Payment Method'; }
+  }
+}
+
+async function removePaymentMethod() {
+  if (!window._savedPaymentMethodId) {
+    toast('No payment method to remove.');
+    return;
+  }
+
+  // Confirm with user
+  var confirmed = confirm('Are you sure you want to remove your payment method? You will need to add a new card before booking paid services.');
+  if (!confirmed) return;
+
+  var removeBtn = document.getElementById('removeCardBtn');
+  if (removeBtn) { removeBtn.disabled = true; removeBtn.textContent = 'Removing...'; }
+
+  try {
+    var resp = await fetch('/api/remove-payment-method', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentMethodId: window._savedPaymentMethodId }),
+    });
+    var data = await resp.json();
+
+    if (data.success) {
+      toast('✅ Payment method removed.');
+      window._savedPaymentMethodId = null;
+      loadSavedCard(); // Refresh the display
+    } else {
+      throw new Error(data.error || 'Failed to remove payment method');
+    }
+  } catch (err) {
+    console.error('Remove payment method error:', err);
+    toast('Could not remove payment method. Please try again.');
+    if (removeBtn) { removeBtn.disabled = false; removeBtn.textContent = '✕ Remove Payment Method'; }
   }
 }
 
