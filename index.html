@@ -1372,6 +1372,16 @@ try {
               <div class="form-group"><label class="form-lbl">Additional Notes</label><textarea class="form-ta" id="pet-notes" style="min-height:60px" placeholder="Anything else Rachel should know..."></textarea></div>
             </div>
 
+            <!-- Section 5: Emergency Contact -->
+            <div style="margin-bottom:20px">
+              <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Emergency Contact <span id="ec-required-tag" style="color:#c0392b;font-weight:400;font-size:0.78rem">* (required)</span></div>
+              <div id="ec-autofill-note" style="display:none;background:var(--gold-pale);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.8rem;color:var(--brown)">Auto-filled from your profile. Update here if this pet has a different emergency contact.</div>
+              <div class="form-row">
+                <div class="form-group"><label class="form-lbl">Emergency Contact Name <span id="ec-name-star" style="color:#c0392b">*</span></label><input class="form-in" id="pet-ec-name" placeholder="e.g. John Smith"></div>
+                <div class="form-group"><label class="form-lbl">Emergency Phone <span id="ec-phone-star" style="color:#c0392b">*</span></label><input class="form-in" id="pet-ec-phone" placeholder="(717) 555-0199"></div>
+              </div>
+            </div>
+
             <button class="btn btn-gold" style="width:100%;justify-content:center" onclick="savePet()">Save Pet Profile</button>
           </div>
         </div>
@@ -8354,7 +8364,7 @@ function renderMyPets(pets) {
   }).join('');
 }
 
-function openPetForm(petData) {
+async function openPetForm(petData) {
   document.getElementById('petFormWrap').style.display = 'block';
   document.getElementById('petFormTitle').textContent = petData ? 'Edit Pet Profile' : 'Add New Pet';
   document.getElementById('pet-edit-id').value = petData ? petData.id : '';
@@ -8383,6 +8393,44 @@ function openPetForm(petData) {
   document.getElementById('pet-special').value = petData?.special_needs || '';
   document.getElementById('pet-feeding').value = petData?.feeding_instructions || '';
   document.getElementById('pet-notes').value = petData?.notes || '';
+
+  // Emergency contact — auto-fill from profile
+  var ecName = document.getElementById('pet-ec-name');
+  var ecPhone = document.getElementById('pet-ec-phone');
+  var ecNote = document.getElementById('ec-autofill-note');
+  var ecReqTag = document.getElementById('ec-required-tag');
+  var ecNameStar = document.getElementById('ec-name-star');
+  var ecPhoneStar = document.getElementById('ec-phone-star');
+  ecName.value = '';
+  ecPhone.value = '';
+  ecNote.style.display = 'none';
+
+  // Fetch profile to get existing emergency contact
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  var profileEC = null;
+  var profileEP = null;
+  var hasPetsAlready = (_myPets && _myPets.length > 0);
+  if (sb && user) {
+    try {
+      var { data: prof } = await sb.from('profiles').select('emergency_contact,emergency_phone').eq('user_id', user.id).single();
+      if (prof) { profileEC = prof.emergency_contact; profileEP = prof.emergency_phone; }
+    } catch(e) {}
+  }
+
+  if (profileEC || profileEP) {
+    // Auto-fill from profile for subsequent pets
+    ecName.value = profileEC || '';
+    ecPhone.value = profileEP || '';
+    ecNote.style.display = 'block';
+    // Still required but pre-filled
+  } else if (!hasPetsAlready && !petData) {
+    // First pet, no EC on file — mandatory and unfilled
+    ecReqTag.style.display = '';
+    ecNameStar.style.display = '';
+    ecPhoneStar.style.display = '';
+  }
+
   // Photo preview
   var preview = document.getElementById('pet-photo-preview');
   if (petData?.photo_url) {
@@ -8448,6 +8496,10 @@ async function savePet() {
   if (!document.getElementById('pet-meds').value.trim()) missing.push('Medications');
   if (!document.getElementById('pet-allergies').value.trim()) missing.push('Allergies');
   if (!document.getElementById('pet-special').value.trim()) missing.push('Special Needs');
+
+  // Emergency contact — always required
+  if (!document.getElementById('pet-ec-name').value.trim()) missing.push('Emergency Contact Name');
+  if (!document.getElementById('pet-ec-phone').value.trim()) missing.push('Emergency Phone');
 
   // Health & Safety — at least acknowledge each checkbox (section is mandatory)
   var healthChecks = ['pet-spayed','pet-microchipped','pet-housetrained','pet-vaccinated','pet-fleaprev'];
@@ -8523,6 +8575,16 @@ async function savePet() {
       var { error } = await sb.from('pets').insert(petData);
       if (error) throw error;
       toast('✅ ' + name + ' added to your pets!');
+    }
+    // Save emergency contact to profile
+    var ecNameVal = document.getElementById('pet-ec-name').value.trim();
+    var ecPhoneVal = document.getElementById('pet-ec-phone').value.trim();
+    if (ecNameVal || ecPhoneVal) {
+      await sb.from('profiles').update({
+        emergency_contact: ecNameVal,
+        emergency_phone: ecPhoneVal,
+        updated_at: new Date().toISOString()
+      }).eq('user_id', user.id);
     }
     closePetForm();
     document.getElementById('pet-photo-input').value = '';
@@ -8793,11 +8855,15 @@ async function showClientProfile(profileId) {
     var { data: client } = await sb.from('profiles').select('*').eq('id', profileId).single();
     if (!client) { if (typeof toast === 'function') toast('Client not found'); return; }
 
-    // Fetch their pets
-    var { data: pets } = await sb.from('pets').select('*').eq('owner_id', client.user_id).order('name');
-
-    // Fetch recent bookings
-    var { data: bookings } = await sb.from('booking_requests').select('service,preferred_date,preferred_time,status,estimated_total').eq('client_id', client.user_id).order('preferred_date', { ascending: false }).limit(5);
+    // Fetch pets, bookings, and payments in parallel
+    var [petsRes, bookingsRes, paymentsRes] = await Promise.all([
+      sb.from('pets').select('*').eq('owner_id', client.user_id).order('name'),
+      sb.from('booking_requests').select('service,preferred_date,preferred_time,status,estimated_total').eq('client_id', client.user_id).order('preferred_date', { ascending: false }).limit(10),
+      sb.from('payments').select('service,amount,status,paid_at').eq('client_email', client.email || '').order('paid_at', { ascending: false }).limit(10)
+    ]);
+    var pets = petsRes.data || [];
+    var bookings = bookingsRes.data || [];
+    var payments = paymentsRes.data || [];
 
     // Build modal
     var old = document.getElementById('client-profile-modal');
@@ -8823,27 +8889,39 @@ async function showClientProfile(profileId) {
 
     var joinDate = client.created_at ? new Date(client.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
     var hasCard = !!client.stripe_customer_id;
+    var totalPaid = payments.reduce(function(sum, p) { return sum + (p.status === 'paid' ? parseFloat(p.amount || 0) : 0); }, 0);
 
     var h = '<div style="padding:12px 0 4px;text-align:center;cursor:pointer" onclick="var m=document.getElementById(\'client-profile-modal\');if(m){m.style.opacity=\'0\';m.querySelector(\'div:last-child\').style.transform=\'translateY(100%)\';setTimeout(function(){m.remove();},300);}"><div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div></div>';
     h += '<div style="padding:0 24px 24px">';
 
     // Header
-    h += '<div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">';
+    h += '<div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">';
     h += '<div style="width:60px;height:60px;border-radius:50%;background:var(--forest-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">' + avatar + '</div>';
     h += '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700">' + (client.full_name || 'Client') + '</div>';
     h += '<div style="font-size:0.82rem;color:var(--mid)">' + (client.email || '') + '</div>';
     if (client.phone) h += '<div style="font-size:0.82rem;color:var(--mid)">' + client.phone + '</div>';
+    if (client.address) h += '<div style="font-size:0.78rem;color:var(--mid)">' + client.address + '</div>';
     h += '</div></div>';
 
+    // Emergency contact
+    if (client.emergency_contact || client.emergency_phone) {
+      h += '<div style="background:#fef3c7;border-radius:8px;padding:10px 12px;margin-bottom:12px;border-left:3px solid #f59e0b">';
+      h += '<div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:#92400e;margin-bottom:4px">Emergency Contact</div>';
+      if (client.emergency_contact) h += '<div style="font-size:0.84rem;font-weight:600;color:var(--ink)">' + client.emergency_contact + '</div>';
+      if (client.emergency_phone) h += '<div style="font-size:0.82rem;color:var(--mid)">' + client.emergency_phone + '</div>';
+      h += '</div>';
+    }
+
     // Info tiles
-    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">';
-    h += '<div style="background:var(--warm);border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.6rem;font-weight:700;color:var(--mid);text-transform:uppercase">Joined</div><div style="font-size:0.82rem;font-weight:600">' + (joinDate || '—') + '</div></div>';
-    h += '<div style="background:var(--warm);border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.6rem;font-weight:700;color:var(--mid);text-transform:uppercase">Pets</div><div style="font-size:0.82rem;font-weight:600">' + ((pets || []).length) + '</div></div>';
-    h += '<div style="background:' + (hasCard ? '#dcfce7' : '#fef3c7') + ';border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.6rem;font-weight:700;color:var(--mid);text-transform:uppercase">Payment</div><div style="font-size:0.82rem;font-weight:600">' + (hasCard ? '💳 On file' : 'No card') + '</div></div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:16px">';
+    h += '<div style="background:var(--warm);border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.58rem;font-weight:700;color:var(--mid);text-transform:uppercase">Joined</div><div style="font-size:0.78rem;font-weight:600">' + (joinDate || '—') + '</div></div>';
+    h += '<div style="background:var(--warm);border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.58rem;font-weight:700;color:var(--mid);text-transform:uppercase">Pets</div><div style="font-size:0.78rem;font-weight:600">' + pets.length + '</div></div>';
+    h += '<div style="background:var(--warm);border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.58rem;font-weight:700;color:var(--mid);text-transform:uppercase">Bookings</div><div style="font-size:0.78rem;font-weight:600">' + bookings.length + '</div></div>';
+    h += '<div style="background:' + (hasCard ? '#dcfce7' : '#fef3c7') + ';border-radius:8px;padding:8px;text-align:center"><div style="font-size:0.58rem;font-weight:700;color:var(--mid);text-transform:uppercase">Paid</div><div style="font-size:0.78rem;font-weight:600">$' + totalPaid.toFixed(0) + '</div></div>';
     h += '</div>';
 
     // Pets section
-    if (pets && pets.length) {
+    if (pets.length) {
       h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Pets</div>';
       pets.forEach(function(pet) {
         var petAvatar = pet.avatar_url ? '<img src="' + pet.avatar_url + '" style="width:100%;height:100%;object-fit:cover">' : (pet.species === 'cat' ? '🐱' : '🐶');
@@ -8856,20 +8934,41 @@ async function showClientProfile(profileId) {
       h += '</div>';
     }
 
-    // Recent bookings
-    if (bookings && bookings.length) {
-      h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Recent Bookings</div>';
+    // Booking history
+    h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Booking History</div>';
+    if (bookings.length) {
       bookings.forEach(function(b) {
         var d = new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         var t = (typeof fmt12h === 'function') ? fmt12h(b.preferred_time || '') : (b.preferred_time || '');
-        var sCol = b.status === 'completed' ? 'var(--forest)' : b.status === 'pending' ? '#c8963e' : 'var(--mid)';
-        h += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem">';
-        h += '<div><span style="font-weight:600">' + b.service + '</span><span style="color:var(--mid);font-size:0.75rem;margin-left:6px">' + d + (t ? ' ' + t : '') + '</span></div>';
-        h += '<div style="text-align:right"><span style="font-size:0.75rem;font-weight:600;color:' + sCol + ';text-transform:uppercase">' + b.status + '</span>' + (b.estimated_total ? '<span style="margin-left:6px;color:var(--forest);font-weight:600">$' + b.estimated_total.toFixed(2) + '</span>' : '') + '</div>';
-        h += '</div>';
+        var sCol = b.status === 'completed' ? 'var(--forest)' : b.status === 'accepted' ? '#2563eb' : b.status === 'pending' ? '#c8963e' : b.status === 'canceled' ? '#dc2626' : 'var(--mid)';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem">';
+        h += '<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + b.service + '</div><div style="font-size:0.72rem;color:var(--mid)">' + d + (t ? ' at ' + t : '') + '</div></div>';
+        h += '<div style="text-align:right;flex-shrink:0;margin-left:8px"><span style="display:inline-block;font-size:0.68rem;font-weight:700;color:' + sCol + ';text-transform:uppercase;background:' + sCol + '15;padding:2px 6px;border-radius:4px">' + b.status + '</span>';
+        if (b.estimated_total) h += '<div style="font-size:0.78rem;color:var(--forest);font-weight:600;margin-top:2px">$' + parseFloat(b.estimated_total).toFixed(2) + '</div>';
+        h += '</div></div>';
       });
-      h += '</div>';
+    } else {
+      h += '<div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem;background:var(--warm);border-radius:8px">No bookings yet</div>';
     }
+    h += '</div>';
+
+    // Payment history
+    h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Payment History</div>';
+    if (payments.length) {
+      payments.forEach(function(p) {
+        var pDate = p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        var pTime = p.paid_at ? new Date(p.paid_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+        var pCol = p.status === 'paid' ? 'var(--forest)' : p.status === 'refunded' ? '#dc2626' : '#c8963e';
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem">';
+        h += '<div><div style="font-weight:600">' + (p.service || 'Payment') + '</div><div style="font-size:0.72rem;color:var(--mid)">' + pDate + (pTime ? ' at ' + pTime : '') + '</div></div>';
+        h += '<div style="text-align:right"><span style="font-size:0.68rem;font-weight:700;color:' + pCol + ';text-transform:uppercase;background:' + pCol + '15;padding:2px 6px;border-radius:4px">' + p.status + '</span>';
+        h += '<div style="font-size:0.82rem;color:var(--forest);font-weight:700;margin-top:2px">$' + parseFloat(p.amount || 0).toFixed(2) + '</div>';
+        h += '</div></div>';
+      });
+    } else {
+      h += '<div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem;background:var(--warm);border-radius:8px">No payments recorded</div>';
+    }
+    h += '</div>';
 
     h += '</div>';
     sh.innerHTML = h;

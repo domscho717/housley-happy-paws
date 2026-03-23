@@ -945,27 +945,48 @@
   _R._rwOwnerClients=async function(sz){
     var sb=_getSB();if(!sb)return'';
     try{
-      var{data:clients}=await sb.from('profiles').select('id,user_id,full_name,phone,pet_names,avatar_url').eq('role','client').order('full_name',{ascending:true});
-      var totalCount=(clients||[]).length;
+      var[clientsRes,petsRes]=await Promise.all([
+        sb.from('profiles').select('id,user_id,full_name,phone,pet_names,avatar_url').eq('role','client').order('full_name',{ascending:true}),
+        sb.from('pets').select('id,name,species,breed,avatar_url,owner_id')
+      ]);
+      var clients=clientsRes.data||[];
+      var allPets=petsRes.data||[];
+      // Index pets by owner_id
+      var petsByOwner={};
+      allPets.forEach(function(p){if(!petsByOwner[p.owner_id])petsByOwner[p.owner_id]=[];petsByOwner[p.owner_id].push(p);});
+      var totalCount=clients.length;
       if(sz==='full'){
         var lim=8;
         var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700">'+totalCount+'</span><span style="font-size:0.75rem;color:var(--mid)">registered clients</span></div>';
         h+='<div style="display:flex;flex-direction:column;gap:2px">';
-        (clients||[]).slice(0,lim).forEach(function(c){
+        clients.slice(0,lim).forEach(function(c){
           var uid='oc-'+c.id;
-          var petStr=c.pet_names||'';
+          var cPets=petsByOwner[c.user_id]||[];
+          var petStr=cPets.map(function(p){return p.name;}).join(', ')||c.pet_names||'';
           var avatar=c.avatar_url?'<img src="'+c.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':'<span style="font-size:0.9rem">👤</span>';
           h+='<div>';
-          // Client row — clicking name opens profile, clicking arrow loads & toggles pets
           h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;transition:background 0.15s;user-select:none" onmouseover="this.style.background=\'rgba(0,0,0,0.03)\'" onmouseout="this.style.background=\'\'">';
           h+='<div style="width:36px;height:36px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+avatar+'</div>';
           h+='<div style="flex:1;min-width:0;cursor:pointer" onclick="sTab(\'o\',\'o-clients\')"><div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);transition:color 0.15s" onmouseover="this.style.color=\'var(--forest)\'" onmouseout="this.style.color=\'var(--ink)\'">'+c.full_name+'</div>';
           h+='<div style="font-size:0.7rem;color:var(--mid)">'+(c.phone||'No phone')+(petStr?' · '+petStr:'')+'</div></div>';
-          // Arrow triggers lazy pet load
-          h+='<span style="font-size:0.75rem;color:var(--mid);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s" id="'+uid+'-arrow" onclick="HHP_Customizer.togglePets(\''+uid+'\',\''+c.user_id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.15)\'" onmouseout="this.style.background=\'\'">▼</span>';
+          // Arrow toggles pre-loaded pet list
+          if(cPets.length){
+            h+='<span style="font-size:0.75rem;color:var(--mid);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s" id="'+uid+'-arrow" onclick="(function(){var el=document.getElementById(\''+uid+'\');var ar=document.getElementById(\''+uid+'-arrow\');if(el.style.display===\'none\'){el.style.display=\'block\';ar.textContent=\'\\u25B2\';}else{el.style.display=\'none\';ar.textContent=\'\\u25BC\';}})()" onmouseover="this.style.background=\'rgba(200,150,62,0.15)\'" onmouseout="this.style.background=\'\'">▼</span>';
+          }
           h+='</div>';
-          // Pet dropdown container (hidden, loaded on first click)
-          h+='<div id="'+uid+'" style="display:none;margin-left:46px;margin-bottom:4px;border-left:2px solid var(--gold-pale);padding-left:10px"><div style="font-size:0.75rem;color:var(--mid);padding:4px 0">Loading pets...</div></div>';
+          // Pet dropdown (pre-rendered, hidden)
+          if(cPets.length){
+            h+='<div id="'+uid+'" style="display:none;margin-left:46px;margin-bottom:4px;border-left:2px solid var(--gold-pale);padding-left:10px">';
+            cPets.forEach(function(pet){
+              var petAvatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
+              h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
+              h+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
+              h+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
+              h+='<span style="font-size:0.65rem;color:var(--forest);font-weight:600">View →</span>';
+              h+='</div>';
+            });
+            h+='</div>';
+          }
           h+='</div>';
         });
         h+='</div>';
