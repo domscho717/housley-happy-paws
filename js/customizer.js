@@ -840,12 +840,12 @@
           var petCount=pets.length;
           var avatar=c.avatar_url?'<img src="'+c.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':'<span style="font-size:0.9rem">👤</span>';
           h+='<div>';
-          // Client row
-          h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;cursor:pointer;transition:background 0.15s;user-select:none" onclick="(function(){var el=document.getElementById(\''+uid+'\');if(el){el.style.display=el.style.display===\'none\'?\'block\':\'none\';}})();" onmouseover="this.style.background=\'rgba(0,0,0,0.03)\'" onmouseout="this.style.background=\'\'">';
+          // Client row — clicking name opens profile, clicking arrow toggles pets
+          h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:8px;transition:background 0.15s;user-select:none" onmouseover="this.style.background=\'rgba(0,0,0,0.03)\'" onmouseout="this.style.background=\'\'">';
           h+='<div style="width:36px;height:36px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+avatar+'</div>';
-          h+='<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+c.full_name+'</div>';
+          h+='<div style="flex:1;min-width:0;cursor:pointer" onclick="sTab(\'o\',\'o-clients\')"><div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);transition:color 0.15s" onmouseover="this.style.color=\'var(--forest)\'" onmouseout="this.style.color=\'var(--ink)\'">'+c.full_name+'</div>';
           h+='<div style="font-size:0.7rem;color:var(--mid)">'+(c.phone||'No phone')+(petCount?' · '+petCount+' pet'+(petCount>1?'s':''):'')+'</div></div>';
-          h+='<span style="font-size:0.65rem;color:var(--mid);transition:transform 0.2s" id="'+uid+'-arrow">▼</span>';
+          h+='<span style="font-size:0.75rem;color:var(--mid);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s" id="'+uid+'-arrow" onclick="(function(){var el=document.getElementById(\''+uid+'\');var ar=document.getElementById(\''+uid+'-arrow\');if(el){if(el.style.display===\'none\'){el.style.display=\'block\';if(ar)ar.textContent=\'▲\';}else{el.style.display=\'none\';if(ar)ar.textContent=\'▼\';}}})();" onmouseover="this.style.background=\'rgba(200,150,62,0.15)\'" onmouseout="this.style.background=\'\'">▼</span>';
           h+='</div>';
           // Pet dropdown (hidden by default)
           h+='<div id="'+uid+'" style="display:none;margin-left:46px;margin-bottom:4px;border-left:2px solid var(--gold-pale);padding-left:10px">';
