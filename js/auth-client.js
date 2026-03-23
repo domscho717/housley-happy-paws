@@ -170,16 +170,13 @@ const HHP_Auth = window.HHP_Auth = {
         const dropdown = document.getElementById('viewDropdown');
         if (!dropdown) return;
 
-        let opts = '';
+        let opts = '<option value="public">🐾 Home</option>';
 
         if (this.currentRole === 'client') {
-            // Client: home IS the portal — no separate Home option
-            opts = '<option value="client" selected>🐾 My Portal</option>';
+            opts += '<option value="client" selected>👤 My Portal</option>';
         } else if (this.currentRole === 'staff') {
-            opts = '<option value="public">🐾 Home</option>';
             opts += '<option value="staff" selected>🧑 Staff</option>';
         } else if (this.currentRole === 'owner') {
-            opts = '<option value="public">🐾 Home</option>';
             opts += '<option value="client">👤 Client View</option>';
             opts += '<option value="staff">🧑 Staff View</option>';
             opts += '<option value="owner" selected>👑 Owner</option>';

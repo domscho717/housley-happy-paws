@@ -749,6 +749,12 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 #pg-public.has-sidebar > .public-content{
   overflow-y:auto;min-width:0;
 }
+#pg-public.has-sidebar > .portal-main{
+  min-width:0;padding:24px 28px;overflow-y:auto;
+}
+#pg-public.has-sidebar > .portal-main .p-panel{
+  max-width:100%;
+}
 @media(max-width:900px){
   #pg-public.has-sidebar{display:block}
   #pg-public.has-sidebar > .public-sidebar{display:none!important}
@@ -3189,22 +3195,37 @@ function addAboutPhotoSlot() {
 let _userChosePublic = false;
 
 // ── Show/hide the portal sidebar on the public home page for logged-in users ──
+// For CLIENTS: sidebar items load panels inline on the home page (replacing public content)
+// For OWNER/STAFF: sidebar items navigate to their portal (existing behavior)
+window._publicSidebarActive = false;
+window._publicOriginalContent = null; // stash original public page HTML
+
 function showPublicSidebar(show) {
   var pgPublic = document.getElementById('pg-public');
   if (!pgPublic) return;
+
+  // Move portal-main back to pg-client if it was moved here
+  var movedMain = pgPublic.querySelector('.portal-main');
+  if (movedMain) {
+    var pgClient = document.getElementById('pg-client');
+    var clientWrap = pgClient ? pgClient.querySelector('.portal-wrap') : null;
+    if (clientWrap) clientWrap.appendChild(movedMain);
+  }
 
   // Remove previous sidebar if any
   var oldSb = pgPublic.querySelector('.public-sidebar');
   if (oldSb) oldSb.remove();
 
-  // Unwrap public-content wrapper if it exists
+  // Unwrap public-content wrapper back to normal
   var wrapper = pgPublic.querySelector('.public-content');
   if (wrapper) {
+    wrapper.style.display = ''; // ensure visible
     while (wrapper.firstChild) pgPublic.appendChild(wrapper.firstChild);
     wrapper.remove();
   }
 
   pgPublic.classList.remove('has-sidebar');
+  window._publicSidebarActive = false;
 
   if (!show) return;
 
@@ -3212,6 +3233,7 @@ function showPublicSidebar(show) {
   var role = (typeof HHP_Auth !== 'undefined') ? HHP_Auth.currentRole : null;
   var portalId = role === 'owner' ? 'pg-owner' : role === 'staff' ? 'pg-staff' : 'pg-client';
   var viewName = role === 'owner' ? 'owner' : role === 'staff' ? 'staff' : 'client';
+  var isClient = role === 'client';
   var srcSidebar = document.querySelector('#' + portalId + ' .sidebar');
   if (!srcSidebar) return;
 
@@ -3219,31 +3241,38 @@ function showPublicSidebar(show) {
   var clone = srcSidebar.cloneNode(true);
   clone.classList.add('public-sidebar-inner');
 
-  // Rewrite onclick handlers so they switch to the portal first, then open panel
+  // Rewrite onclick handlers
   clone.querySelectorAll('.sb-item').forEach(function(btn) {
     var origOnclick = btn.getAttribute('onclick') || '';
-    // Extract the sTab call: sTab('x','panel-id')
     var match = origOnclick.match(/sTab\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)/);
     if (match) {
       var portal = match[1];
       var panelId = match[2];
-      btn.setAttribute('onclick', "switchView('" + viewName + "');setTimeout(function(){sTab('" + portal + "','" + panelId + "')},50)");
+      if (isClient) {
+        // CLIENT: load panel inline on the home page
+        btn.setAttribute('onclick', "showInlinePanel('" + portal + "','" + panelId + "',this)");
+      } else {
+        // OWNER/STAFF: navigate to portal
+        btn.setAttribute('onclick', "switchView('" + viewName + "');setTimeout(function(){sTab('" + portal + "','" + panelId + "')},50)");
+      }
     }
   });
 
-  // Add a "Home" button at the top of the cloned sidebar menu
+  // Add a "Home" button at the top for clients (shows public content again)
   var navGroups = clone.querySelectorAll('.sb-nav-group');
-  if (navGroups.length > 0) {
+  if (navGroups.length > 0 && isClient) {
     var homeBtn = document.createElement('button');
-    homeBtn.className = 'sb-item';
+    homeBtn.className = 'sb-item active';
+    homeBtn.id = 'publicSidebarHomeBtn';
     homeBtn.innerHTML = '<span class="sb-item-icon">🏡</span>Home';
-    homeBtn.style.cssText = 'opacity:0.7';
-    homeBtn.setAttribute('onclick', "document.getElementById('pg-public').querySelector('.public-content').scrollTo(0,0)");
+    homeBtn.setAttribute('onclick', "showInlinePanel(null,null,this)");
     navGroups[0].insertBefore(homeBtn, navGroups[0].firstChild);
   }
 
-  // Remove active state from cloned items (we're on home page)
-  clone.querySelectorAll('.sb-item.active').forEach(function(b) { b.classList.remove('active'); });
+  // Remove active state from cloned portal items (we're on home page)
+  clone.querySelectorAll('.sb-item.active').forEach(function(b) {
+    if (b.id !== 'publicSidebarHomeBtn') b.classList.remove('active');
+  });
 
   // Wrap all existing pg-public children in .public-content
   var contentWrap = document.createElement('div');
@@ -3259,14 +3288,62 @@ function showPublicSidebar(show) {
   pgPublic.appendChild(sidebarWrap);
   pgPublic.appendChild(contentWrap);
   pgPublic.classList.add('has-sidebar');
+  window._publicSidebarActive = true;
+}
+
+// ── Load a client panel inline on the home page, replacing public content ──
+// Moves the REAL portal-main from pg-client into the public page grid so
+// data loaders (sTab) work on the actual elements.
+function showInlinePanel(portal, panelId, clickedBtn) {
+  var pgPublic = document.getElementById('pg-public');
+  if (!pgPublic) return;
+
+  var publicContent = pgPublic.querySelector('.public-content');
+  var portalMain = document.querySelector('#pg-client .portal-main');
+
+  // Update sidebar active states
+  var sidebar = pgPublic.querySelector('.public-sidebar');
+  if (sidebar) {
+    sidebar.querySelectorAll('.sb-item').forEach(function(b) { b.classList.remove('active'); });
+    if (clickedBtn) clickedBtn.classList.add('active');
+  }
+
+  // If no panel specified (Home clicked), restore public content
+  if (!panelId) {
+    if (publicContent) publicContent.style.display = '';
+    // Move portal-main back to pg-client if it was moved
+    var movedMain = pgPublic.querySelector('.portal-main');
+    if (movedMain && portalMain !== movedMain) portalMain = movedMain;
+    if (movedMain) {
+      var pgClient = document.getElementById('pg-client');
+      var clientWrap = pgClient ? pgClient.querySelector('.portal-wrap') : null;
+      if (clientWrap) clientWrap.appendChild(movedMain);
+    }
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  if (!portalMain) {
+    // portal-main might already be in pg-public from a previous click
+    portalMain = pgPublic.querySelector('.portal-main');
+  }
+  if (!portalMain) return;
+
+  // Hide public content
+  if (publicContent) publicContent.style.display = 'none';
+
+  // Move the real portal-main into pg-public (after public-content)
+  if (!pgPublic.contains(portalMain)) {
+    pgPublic.appendChild(portalMain);
+  }
+
+  // Use real sTab to switch panels and load data
+  if (typeof sTab === 'function') sTab(portal, panelId);
+
+  window.scrollTo(0, 0);
 }
 
 function switchView(view) {
-  // For signed-in clients, redirect 'public' to their portal — home IS the portal
-  if (view === 'public' && typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated() && HHP_Auth.currentRole === 'client') {
-    view = 'client';
-  }
-
   // Auth gating — if trying to access private portal, check login
   if (view !== 'public' && typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) {
     if (!HHP_Auth.isAuthenticated()) {
@@ -3404,17 +3481,7 @@ function toggleSbGroup(btn) {
     group.classList.toggle('collapsed');
   }
 }
-function showPublic() {
-  // For signed-in clients, "Home" = their portal dashboard
-  if (typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated() && HHP_Auth.currentRole === 'client') {
-    _userChosePublic = false;
-    switchView('client');
-    sTab('c', 'c-dash');
-    return;
-  }
-  _userChosePublic = true;
-  switchView('public');
-}
+function showPublic() { _userChosePublic = true; switchView('public'); }
 
 // ══════════════════════════════════════════════════════════════
 // ── VIEW AS CLIENT — lets owner/staff view any client's portal ──
