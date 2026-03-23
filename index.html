@@ -459,7 +459,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .cust-widget{transition:transform 0.2s,box-shadow 0.2s,border-color 0.2s}
 .cust-widget:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,0.1)!important;border-color:var(--gold)!important}
 
-.portal-main{padding:36px;background:var(--cream)}
+.portal-main{padding:36px;background:var(--cream);overflow-y:auto;-webkit-overflow-scrolling:touch}
 .p-panel{display:none}
 .p-panel.active{display:block}
 .p-header{margin-bottom:28px}
@@ -558,7 +558,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .portal-cal .cal-day{min-height:64px}
 
 /* MESSAGES */
-.msg-thread{max-height:60vh;min-height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 0;margin-bottom:14px}
+.msg-thread{max-height:60vh;min-height:350px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:10px;padding:4px 0;margin-bottom:14px}
 .msg-in{background:var(--warm);border-radius:4px 14px 14px 14px;padding:10px 14px;font-size:0.86rem;line-height:1.5;max-width:74%;align-self:flex-start;border:1px solid var(--border)}
 .msg-out{background:var(--gold);border-radius:14px 14px 4px 14px;padding:10px 14px;font-size:0.86rem;line-height:1.5;max-width:74%;align-self:flex-end;font-weight:500;color:var(--ink)}
 .msg-meta{font-size:0.68rem;color:var(--mid);margin-top:3px;font-weight:400}
@@ -591,7 +591,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 /* MODAL */
 .overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(30,20,9,0.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px}
 .overlay.open{display:flex}
-.modal{background:white;border-radius:14px;padding:0;max-width:580px;width:100%;max-height:88vh;overflow-y:auto;animation:mIn 0.28s ease;display:flex;flex-direction:column}
+.modal{background:white;border-radius:14px;padding:0;max-width:580px;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:mIn 0.28s ease;display:flex;flex-direction:column}
 .modal-wide{max-width:720px}
 .modal-head{display:flex;justify-content:space-between;align-items:flex-start;padding:28px 36px 16px;position:sticky;top:0;background:white;z-index:2;border-radius:14px 14px 0 0}
 .modal-head + *{padding-left:36px;padding-right:36px}
@@ -1211,23 +1211,17 @@ try {
   <div class="portal-wrap">
     <div class="sidebar">
       <div class="sidebar-user"><div class="sb-ava">🐾</div><div><div class="sb-name">Welcome!</div><div class="sb-role">Client Portal</div></div></div>
-      <button class="sb-item" onclick="sTab('c','c-pets')" style="background:linear-gradient(135deg,rgba(200,150,62,0.2),rgba(61,90,71,0.15));border:1px solid rgba(200,150,62,0.25);color:var(--gold-light);margin-bottom:8px"><span class="sb-item-icon">🐾</span>My Pets</button>
-      <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Overview <span class="sb-arrow">▼</span></button>
-      <div class="sb-nav-group" style="max-height:200px">
+      <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Menu <span class="sb-arrow">▼</span></button>
+      <div class="sb-nav-group" style="max-height:1200px">
         <button class="sb-item active" onclick="sTab('c','c-dash')"><span class="sb-item-icon">🏠</span>Dashboard</button>
+        <button class="sb-item" onclick="sTab('c','c-pets')" style="background:linear-gradient(135deg,rgba(200,150,62,0.2),rgba(61,90,71,0.15));border:1px solid rgba(200,150,62,0.25);color:var(--gold-light)"><span class="sb-item-icon">🐾</span>My Pets</button>
         <button class="sb-item" onclick="sTab('c','c-appts')"><span class="sb-item-icon">📅</span>Appointments</button>
-      </div>
-      <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Pet Services <span class="sb-arrow">▼</span></button>
-      <div class="sb-nav-group" style="max-height:200px">
         <button class="sb-item" onclick="sTab('c','c-track')"><span class="sb-item-icon">🗺️</span>Live Tracking</button>
         <button class="sb-item" onclick="sTab('c','c-photos')"><span class="sb-item-icon">📸</span>Photo Gallery</button>
         <button class="sb-item" onclick="sTab('c','c-reports')"><span class="sb-item-icon">📋</span>Walk Reports</button>
         <button class="sb-item" onclick="sTab('c','c-reviews')"><span class="sb-item-icon">⭐</span>My Reviews</button>
-      </div>
-      <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Account <span class="sb-arrow">▼</span></button>
-      <div class="sb-nav-group" style="max-height:300px">
         <button class="sb-item" onclick="sTab('c','c-msgs')"><span class="sb-item-icon">💬</span>Messages</button>
-      <button class="sb-item" onclick="sTab('c','c-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
+        <button class="sb-item" onclick="sTab('c','c-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
         <button class="sb-item" onclick="sTab('c','c-bill')"><span class="sb-item-icon">💳</span>Billing</button>
       </div>
     </div>
@@ -2871,7 +2865,7 @@ try {
 
 <!-- BOOKING DETAIL DRAWER -->
 <div id="bookingDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;opacity:0;transition:opacity 0.25s" onclick="if(event.target===this)closeBookingDetail()">
-  <div id="bookingDetailDrawer" style="position:fixed;bottom:0;left:0;right:0;max-height:88vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;transform:translateY(100%);transition:transform 0.3s ease;overflow-y:auto;padding:0">
+  <div id="bookingDetailDrawer" style="position:fixed;bottom:0;left:0;right:0;max-height:88vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;transform:translateY(100%);transition:transform 0.3s ease;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0">
     <!-- Drag handle -->
     <div style="padding:10px 0 4px;text-align:center;cursor:grab" onclick="closeBookingDetail()">
       <div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div>
@@ -5644,6 +5638,7 @@ async function loadClientAppts(filter, tabBtn) {
     var today = new Date().toISOString().split('T')[0];
     if (filter === 'upcoming') query = query.gte('preferred_date', today).order('preferred_date', { ascending: true });
     else if (filter === 'past') query = query.lt('preferred_date', today);
+    else if (filter === 'canceled') query = query.eq('status', 'canceled');
 
     var { data: appts, error } = await query;
     if (error) throw error;
@@ -5660,70 +5655,249 @@ async function loadClientAppts(filter, tabBtn) {
     }
 
     if (!appts || appts.length === 0) {
-      listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📅</div><div style="font-weight:600;margin-bottom:6px">No appointments ' + (filter === 'upcoming' ? 'coming up' : filter === 'past' ? 'in the past' : 'yet') + '</div><div style="font-size:0.84rem">Book a service to get started!</div></div>';
+      listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📅</div><div style="font-weight:600;margin-bottom:6px">No appointments ' + (filter === 'upcoming' ? 'coming up' : filter === 'past' ? 'in the past' : filter === 'canceled' ? 'canceled' : 'yet') + '</div><div style="font-size:0.84rem">Book a service to get started!</div></div>';
       return;
     }
 
-    var html = '<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">';
+    // ── Helper: get next N upcoming dates for a recurring booking ──
+    function getNextRecurringDates(booking, count) {
+      var dates = [];
+      if (!booking.recurrence_pattern || booking.status === 'canceled') return dates;
+      var d = new Date();
+      d.setHours(12, 0, 0, 0);
+      var limit = new Date(d);
+      limit.setDate(limit.getDate() + 90); // look ahead 90 days
+      while (d <= limit && dates.length < count) {
+        var dk = d.toISOString().split('T')[0];
+        if (dk >= today && typeof isRecurringOnDate === 'function' && isRecurringOnDate(booking, dk)) {
+          var t = (typeof getRecurringTime === 'function') ? getRecurringTime(booking, dk) : '';
+          dates.push({ date: dk, time: t });
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      return dates;
+    }
+
+    // Separate recurring from one-time
+    var recurringAppts = [];
+    var oneTimeAppts = [];
     appts.forEach(function(b) {
-      var svc = (b.service || '').toLowerCase();
-      var icon = '📅';
-      if (svc.indexOf('walk') !== -1) icon = '🦮';
-      else if (svc.indexOf('drop') !== -1) icon = '🐾';
-      else if (svc.indexOf('cat') !== -1) icon = '🐱';
-      else if (svc.indexOf('house') !== -1) icon = '🏡';
-      else if (svc.indexOf('meet') !== -1) icon = '🤝';
+      if (b.recurrence_pattern && b.status !== 'canceled') {
+        recurringAppts.push(b);
+      } else {
+        oneTimeAppts.push(b);
+      }
+    });
 
-      var shortId = b.id ? b.id.slice(0, 8) : '';
-      var isPaid = paidSet.has(shortId) || paidSet.has(user.email.toLowerCase() + '|' + b.estimated_total);
+    var html = '';
 
-      var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : '#e2e3e5';
-      var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
-      var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">✅ Paid</span>' : '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">❌ Unpaid</span>') : '';
+    // ── RECURRING SERVICES SECTION ──
+    if (recurringAppts.length > 0 && filter !== 'past' && filter !== 'canceled') {
+      html += '<div style="margin-bottom:20px">';
+      html += '<div style="font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;gap:8px">🔄 Recurring Services</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:12px">';
 
-      var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
-      var timeDisplay = fmt12h(b.preferred_time) || '';
+      recurringAppts.forEach(function(b) {
+        var svc = (b.service || '').toLowerCase();
+        var icon = '📅';
+        if (svc.indexOf('walk') !== -1) icon = '🦮';
+        else if (svc.indexOf('drop') !== -1) icon = '🐾';
+        else if (svc.indexOf('cat') !== -1) icon = '🐱';
+        else if (svc.indexOf('house') !== -1) icon = '🏡';
 
-      var isRecurring = !!b.recurrence_pattern;
-      var recurLabel = '';
-      if (isRecurring) {
+        var recurLabel = '';
+        var scheduleDay = '';
         try {
           var rp = typeof b.recurrence_pattern === 'string' ? JSON.parse(b.recurrence_pattern) : b.recurrence_pattern;
           if (rp.type === 'per_card' && rp.schedules && rp.schedules[0]) {
-            recurLabel = rp.schedules[0].frequency === 'biweekly' ? 'Every 2 weeks' : 'Weekly';
+            recurLabel = rp.schedules[0].frequency === 'biweekly' ? 'Every 2 Weeks' : 'Weekly';
+            if (rp.schedules[0].start_date) {
+              scheduleDay = new Date(rp.schedules[0].start_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' }) + 's';
+            }
           } else if (rp.frequency) {
-            recurLabel = rp.frequency === 'biweekly' ? 'Every 2 weeks' : 'Weekly';
+            recurLabel = rp.frequency === 'biweekly' ? 'Every 2 Weeks' : 'Weekly';
+            if (rp.days && rp.days.length > 0) {
+              var dayNames = { sun:'Sunday', mon:'Monday', tue:'Tuesday', wed:'Wednesday', thu:'Thursday', fri:'Friday', sat:'Saturday' };
+              scheduleDay = rp.days.map(function(d) { return (dayNames[d] || d) + 's'; }).join(', ');
+            }
           }
         } catch(e) {}
-      }
 
-      html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : 'var(--mid)') + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
-      html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
-      html += '<div style="flex:1;min-width:0">';
-      html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + (recurLabel ? ' <span style="font-size:0.72rem;color:var(--forest);font-weight:600">🔄 ' + recurLabel + '</span>' : '') + '</div>';
-      html += '<div style="font-size:0.8rem;color:var(--mid)">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div>';
-      if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid)">Pets: ' + b.pet_names + '</div>';
-      html += '</div>';
-      html += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
-      html += '<div style="display:flex;gap:6px;align-items:center">';
-      html += '<span style="background:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + statusText + '</span>';
-      if (b.status === 'canceled') {
-        html += '<span class="cancel-badge">CANCELED</span>';
+        // Get next upcoming dates
+        var nextDates = getNextRecurringDates(b, 4);
+
+        // Card
+        html += '<div style="background:white;border-radius:12px;border:1.5px solid var(--border);overflow:hidden">';
+
+        // Header
+        html += '<div style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')">';
+        html += '<div style="font-size:1.6rem;flex-shrink:0">' + icon + '</div>';
+        html += '<div style="flex:1">';
+        html += '<div style="font-weight:700;font-size:0.95rem;color:var(--ink)">' + (b.service || 'Pet Care') + '</div>';
+        html += '<div style="font-size:0.8rem;color:var(--forest);font-weight:600">' + recurLabel + (scheduleDay ? ' · ' + scheduleDay : '') + '</div>';
+        if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid)">Pets: ' + b.pet_names + '</div>';
+        html += '</div>';
+        html += '<span style="background:#d4edda;color:#155724;padding:3px 10px;border-radius:50px;font-size:0.72rem;font-weight:700">Active</span>';
+        html += '</div>';
+
+        // Next upcoming dates
+        if (nextDates.length > 0) {
+          html += '<div style="padding:12px 16px;background:var(--warm)">';
+          html += '<div style="font-size:0.75rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Upcoming Visits</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:6px">';
+          nextDates.forEach(function(nd, idx) {
+            var ndDate = new Date(nd.date + 'T12:00:00');
+            var dateStr = ndDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var timeStr = nd.time ? ((typeof fmt12h === 'function') ? fmt12h(nd.time) : nd.time) : '';
+            var isNext = idx === 0;
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + (isNext ? 'white' : 'transparent') + ';border-radius:8px;' + (isNext ? 'border:1.5px solid var(--forest);' : '') + '">';
+            html += '<div style="width:6px;height:6px;border-radius:50%;background:' + (isNext ? 'var(--forest)' : 'var(--mid)') + ';flex-shrink:0"></div>';
+            html += '<div style="flex:1;font-size:0.84rem;' + (isNext ? 'font-weight:700;color:var(--ink)' : 'color:var(--mid)') + '">' + dateStr + (timeStr ? ' at ' + timeStr : '') + '</div>';
+            if (isNext) html += '<span style="font-size:0.68rem;font-weight:700;color:var(--forest);background:#d4edda;padding:2px 8px;border-radius:4px">NEXT</span>';
+            html += '</div>';
+          });
+          html += '</div></div>';
+        }
+
+        // Action buttons
+        html += '<div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border)">';
+        html += '<button onclick="event.stopPropagation();showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:white;font-size:0.78rem;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">View Details</button>';
+        html += '<button onclick="event.stopPropagation();requestRecurringChange(\'' + b.id + '\')" style="flex:1;padding:8px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold-pale);font-size:0.78rem;font-weight:600;color:var(--gold-deep);cursor:pointer;font-family:inherit">Request Change</button>';
+        html += '<button onclick="event.stopPropagation();requestRecurringCancel(\'' + b.id + '\')" style="padding:8px 12px;border:1.5px solid #f8d7da;border-radius:8px;background:#fef2f2;font-size:0.78rem;font-weight:600;color:#c62828;cursor:pointer;font-family:inherit">Cancel</button>';
+        html += '</div>';
+
+        // Price
+        if (b.estimated_total > 0) {
+          html += '<div style="padding:6px 16px 10px;font-size:0.78rem;color:var(--mid)">$' + Number(b.estimated_total).toFixed(2) + '/visit · Charged before each visit</div>';
+        }
+
+        html += '</div>'; // end card
+      });
+
+      html += '</div></div>';
+    }
+
+    // ── ONE-TIME / COMPLETED APPOINTMENTS SECTION ──
+    var singleAppts = oneTimeAppts;
+    // Also include canceled recurring in general list
+    if (filter === 'canceled') {
+      singleAppts = appts.filter(function(b) { return b.status === 'canceled'; });
+    }
+
+    if (singleAppts.length > 0) {
+      if (recurringAppts.length > 0 && filter !== 'past' && filter !== 'canceled') {
+        html += '<div style="font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;gap:8px">📅 Appointments</div>';
       }
+      html += '<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">';
+      singleAppts.forEach(function(b) {
+        var svc = (b.service || '').toLowerCase();
+        var icon = '📅';
+        if (svc.indexOf('walk') !== -1) icon = '🦮';
+        else if (svc.indexOf('drop') !== -1) icon = '🐾';
+        else if (svc.indexOf('cat') !== -1) icon = '🐱';
+        else if (svc.indexOf('house') !== -1) icon = '🏡';
+        else if (svc.indexOf('meet') !== -1) icon = '🤝';
+
+        var shortId = b.id ? b.id.slice(0, 8) : '';
+        var isPaid = paidSet.has(shortId) || paidSet.has(user.email.toLowerCase() + '|' + b.estimated_total);
+
+        var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
+        var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
+        var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Paid</span>' : '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Unpaid</span>') : '';
+
+        var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
+        var timeDisplay = fmt12h(b.preferred_time) || '';
+
+        html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)') + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
+        html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
+        html += '<div style="flex:1;min-width:0">';
+        html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + '</div>';
+        html += '<div style="font-size:0.8rem;color:var(--mid)">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div>';
+        if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid)">Pets: ' + b.pet_names + '</div>';
+        html += '</div>';
+        html += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
+        html += '<span style="background:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + statusText + '</span>';
+        html += '<div style="display:flex;gap:4px;align-items:center">';
+        html += paidBadge;
+        if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+        html += '</div></div></div>';
+      });
       html += '</div>';
-      html += '<div style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">View Details →</div>';
-      html += '<div style="display:flex;gap:4px;align-items:center">';
-      html += paidBadge;
-      if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
-      html += '</div></div></div>';
-    });
-    html += '</div>';
+    }
+
+    if (!html) {
+      listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📅</div><div style="font-weight:600;margin-bottom:6px">No appointments here</div></div>';
+      return;
+    }
     listEl.innerHTML = html;
   } catch (err) {
     console.error('Load client appts error:', err);
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
   }
 }
+// ── Recurring: Request Change (sends message to owner) ──
+async function requestRecurringChange(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+
+  var reason = prompt('What would you like to change about this recurring service?\n\n(e.g. different day, different time, add/remove a pet, pause for a week)');
+  if (!reason || !reason.trim()) return;
+
+  try {
+    // Find the booking for context
+    var { data: booking } = await sb.from('booking_requests').select('service, pet_names').eq('id', bookingId).maybeSingle();
+    var svcName = booking ? booking.service : 'recurring service';
+
+    // Send as a message to the owner
+    var { error } = await sb.from('messages').insert([{
+      sender_id: user.id,
+      sender_name: (user.profile && user.profile.full_name) || user.email,
+      recipient_role: 'owner',
+      subject: 'Change Request: ' + svcName,
+      body: '📝 Change request for recurring ' + svcName + (booking && booking.pet_names ? ' (' + booking.pet_names + ')' : '') + ':\n\n' + reason.trim(),
+      is_read: false
+    }]);
+
+    if (error) throw error;
+    if (typeof toast === 'function') toast('📨 Change request sent to Rachel!');
+  } catch(e) {
+    console.error('Change request error:', e);
+    alert('Sorry, there was an error sending your request. Please try messaging Rachel directly.');
+  }
+}
+
+// ── Recurring: Request Cancellation ──
+async function requestRecurringCancel(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+
+  var confirmed = confirm('Are you sure you want to request cancellation of this recurring service?\n\nRachel will review your request and confirm.');
+  if (!confirmed) return;
+
+  try {
+    var { data: booking } = await sb.from('booking_requests').select('service, pet_names').eq('id', bookingId).maybeSingle();
+    var svcName = booking ? booking.service : 'recurring service';
+
+    // Send cancellation request as message
+    var { error } = await sb.from('messages').insert([{
+      sender_id: user.id,
+      sender_name: (user.profile && user.profile.full_name) || user.email,
+      recipient_role: 'owner',
+      subject: 'Cancellation Request: ' + svcName,
+      body: '🚫 Cancellation request for recurring ' + svcName + (booking && booking.pet_names ? ' (' + booking.pet_names + ')' : '') + '.\n\nThe client has requested to cancel this recurring service.',
+      is_read: false
+    }]);
+
+    if (error) throw error;
+    if (typeof toast === 'function') toast('📨 Cancellation request sent to Rachel. She\'ll confirm shortly.');
+  } catch(e) {
+    console.error('Cancel request error:', e);
+    alert('Sorry, there was an error sending your request. Please try messaging Rachel directly.');
+  }
+}
+
 // ── BOOKING DETAIL DRAWER ──
 function openBookingDetail() {
   var overlay = document.getElementById('bookingDetailOverlay');
