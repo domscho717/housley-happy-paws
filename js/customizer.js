@@ -353,13 +353,19 @@
   function _buildPicker(portal){
     var old=document.getElementById('cust-picker-ov');if(old)old.remove();
     var active=_getActive(portal), allW=WIDGETS[portal]||[];
+    // Build ordered list: active widgets first (in order), then inactive ones
+    var ordered=[];
+    active.forEach(function(wid){var w=allW.find(function(x){return x.wid===wid;});if(w)ordered.push(w);});
+    allW.forEach(function(w){if(active.indexOf(w.wid)===-1)ordered.push(w);});
+
     var listHTML='';
-    allW.forEach(function(w){
+    ordered.forEach(function(w){
       var on=active.indexOf(w.wid)!==-1;
-      listHTML+='<div onclick="HHP_Customizer.toggleW(\''+portal+'\',\''+w.wid+'\')" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;cursor:pointer;transition:background 0.15s;'+(on?'background:rgba(61,90,71,0.1);border:1.5px solid var(--forest)':'background:var(--warm);border:1.5px solid transparent')+'">'+
+      listHTML+='<div class="cust-pick-item" data-wid="'+w.wid+'" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:10px;transition:background 0.15s,box-shadow 0.15s;'+(on?'background:rgba(61,90,71,0.1);border:1.5px solid var(--forest)':'background:var(--warm);border:1.5px solid transparent')+'">'+
+        '<span class="cust-pick-drag" style="cursor:grab;touch-action:none;font-size:1rem;color:var(--mid);user-select:none;padding:0 2px">☰</span>'+
         '<div style="font-size:1.3rem;width:32px;text-align:center">'+w.icon+'</div>'+
-        '<div style="flex:1"><div style="font-weight:700;font-size:0.9rem;color:var(--ink)">'+w.label+'</div></div>'+
-        '<div style="width:40px;height:24px;border-radius:12px;background:'+(on?'var(--forest)':'#ccc')+';position:relative;flex-shrink:0">'+
+        '<div style="flex:1;cursor:pointer" onclick="HHP_Customizer.toggleW(\''+portal+'\',\''+w.wid+'\')"><div style="font-weight:700;font-size:0.9rem;color:var(--ink)">'+w.label+'</div></div>'+
+        '<div onclick="HHP_Customizer.toggleW(\''+portal+'\',\''+w.wid+'\')" style="width:40px;height:24px;border-radius:12px;background:'+(on?'var(--forest)':'#ccc')+';position:relative;flex-shrink:0;cursor:pointer">'+
           '<div style="width:20px;height:20px;border-radius:50%;background:white;position:absolute;top:2px;'+(on?'left:18px':'left:2px')+';transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></div>'+
         '</div></div>';
     });
@@ -373,8 +379,8 @@
       '<div id="cust-drag-handle" style="padding:16px 0 8px;text-align:center;cursor:grab;touch-action:none" onclick="HHP_Customizer.toggleEdit()"><div style="width:56px;height:6px;background:#c0b8a8;border-radius:6px;margin:0 auto"></div></div>'+
       '<div style="padding:4px 20px 28px">'+
         '<h3 style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;margin-bottom:4px">Customize Your Overview</h3>'+
-        '<p style="font-size:0.82rem;color:var(--mid);margin-bottom:16px">Toggle sections on or off. Use ⊞/⊟ on widgets to resize them.</p>'+
-        '<div style="display:flex;flex-direction:column;gap:8px">'+listHTML+'</div>'+
+        '<p style="font-size:0.82rem;color:var(--mid);margin-bottom:16px">Toggle sections on or off. Hold ☰ and drag to reorder.</p>'+
+        '<div id="cust-pick-list" style="display:flex;flex-direction:column;gap:8px">'+listHTML+'</div>'+
         '<div style="display:flex;gap:10px;margin-top:18px">'+
           '<button onclick="HHP_Customizer.resetLayout()" style="flex:1;padding:12px;background:var(--warm);border:1px solid var(--border);border-radius:10px;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--mid)">↩ Reset Defaults</button>'+
           '<button onclick="HHP_Customizer.toggleEdit()" style="flex:1;padding:12px;background:var(--forest);color:white;border:none;border-radius:10px;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Done</button>'+
@@ -395,7 +401,7 @@
       function onDragMove(e){
         if(!dragging)return;
         var y=(e.touches?e.touches[0].clientY:e.clientY)-startY;
-        if(y<0)y=0; // don't drag upward past start
+        if(y<0)y=0;
         currentY=y;sh.style.transform='translateY('+y+'px)';
         ov.style.opacity=String(Math.max(0,1-y/300));
       }
@@ -412,6 +418,95 @@
       document.addEventListener('mousemove',onDragMove);
       document.addEventListener('mouseup',onDragEnd);
     }
+
+    // ── Widget reorder drag ──
+    _initPickerDrag(portal);
+  }
+
+  function _initPickerDrag(portal){
+    var list=document.getElementById('cust-pick-list');if(!list)return;
+    var drag={active:false,el:null,ph:null,offsetY:0,scrollEl:null};
+    var items=list.querySelectorAll('.cust-pick-item');
+
+    function getY(e){return e.touches?e.touches[0].clientY:e.clientY;}
+
+    function onStart(e){
+      if(drag.active)return;
+      var item=e.target.closest('.cust-pick-item');if(!item)return;
+      // Only start drag from the handle
+      if(!e.target.classList.contains('cust-pick-drag'))return;
+      e.preventDefault();
+      drag.active=true;drag.el=item;
+      var r=item.getBoundingClientRect();
+      drag.offsetY=getY(e)-r.top;
+      drag.scrollEl=document.getElementById('cust-picker-sh');
+      // Create placeholder
+      var ph=document.createElement('div');
+      ph.className='cust-pick-ph';
+      ph.style.cssText='height:'+r.height+'px;border-radius:10px;background:rgba(61,90,71,0.08);border:2px dashed var(--forest);margin-bottom:0;transition:height 0.15s';
+      drag.ph=ph;
+      item.parentElement.insertBefore(ph,item);
+      // Float the item
+      item.style.position='fixed';
+      item.style.left=r.left+'px';
+      item.style.top=r.top+'px';
+      item.style.width=r.width+'px';
+      item.style.zIndex='10000';
+      item.style.boxShadow='0 8px 30px rgba(0,0,0,0.18)';
+      item.style.opacity='0.95';
+      item.style.pointerEvents='none';
+      item.style.transition='box-shadow 0.2s';
+    }
+
+    function onMove(e){
+      if(!drag.active||!drag.el)return;
+      e.preventDefault();
+      var y=getY(e);
+      drag.el.style.top=(y-drag.offsetY)+'px';
+      // Find insertion point
+      var siblings=Array.from(list.querySelectorAll('.cust-pick-item:not([style*="position:fixed"]):not([style*="position: fixed"]),.cust-pick-ph'));
+      for(var i=0;i<siblings.length;i++){
+        if(siblings[i]===drag.ph)continue;
+        var sr=siblings[i].getBoundingClientRect();
+        var mid=sr.top+sr.height/2;
+        if(y<mid){siblings[i].parentElement.insertBefore(drag.ph,siblings[i]);return;}
+      }
+      // Past all items — append
+      if(siblings.length){var last=siblings[siblings.length-1];if(last&&last.parentElement)last.parentElement.insertBefore(drag.ph,last.nextSibling);}
+    }
+
+    function onEnd(){
+      if(!drag.active||!drag.el)return;
+      // Place item where placeholder is
+      if(drag.ph&&drag.ph.parentElement){drag.ph.parentElement.insertBefore(drag.el,drag.ph);drag.ph.remove();}
+      // Reset styles
+      ['position','left','top','width','z-index','box-shadow','opacity','pointer-events','transition'].forEach(function(p){drag.el.style.removeProperty(p);});
+      drag.active=false;drag.el=null;drag.ph=null;
+      // Save new order
+      _savePickerOrder(portal);
+    }
+
+    list.addEventListener('mousedown',onStart);
+    list.addEventListener('touchstart',onStart,{passive:false});
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('touchmove',onMove,{passive:false});
+    document.addEventListener('mouseup',onEnd);
+    document.addEventListener('touchend',onEnd);
+  }
+
+  function _savePickerOrder(portal){
+    var list=document.getElementById('cust-pick-list');if(!list)return;
+    var items=list.querySelectorAll('.cust-pick-item');
+    var active=_getActive(portal);
+    var newOrder=[];
+    items.forEach(function(item){
+      var wid=item.getAttribute('data-wid');
+      if(active.indexOf(wid)!==-1) newOrder.push(wid);
+    });
+    if(!_prefs[portal])_prefs[portal]={sidebar_order:[],widgets:[],sizes:{}};
+    _prefs[portal].widgets=newOrder;
+    _savePrefs(portal);
+    _renderWidgets(portal).then(function(){_retrigger(_getPortal());});
   }
 
   function _toggleWidget(portal,wid){
@@ -577,7 +672,11 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     try{
       var lim=sz==='full'?8:2;
-      var{data,count:unreadCount}=await sb.from('messages').select('body,sender_name,created_at',{count:'exact'}).or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).eq('is_read',false).order('created_at',{ascending:false}).limit(lim);
+      // Get all recent messages
+      var{data}=await sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim);
+      // Get unread count separately
+      var{count:unreadCount}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false);
+      unreadCount=unreadCount||0;
       if(sz==='full'){
         var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px;display:flex;justify-content:space-between">Recent Messages'+
           (unreadCount>0?'<span style="background:#e74c3c;color:white;font-size:0.65rem;font-weight:700;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center">'+Math.min(unreadCount,9)+'</span>':'')+'</div>';
@@ -660,7 +759,11 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     try{
       var lim=sz==='full'?8:2;
-      var{data,count:unreadCount}=await sb.from('messages').select('body,sender_name,created_at',{count:'exact'}).or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).eq('is_read',false).order('created_at',{ascending:false}).limit(lim);
+      // Get all recent messages
+      var{data}=await sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim);
+      // Get unread count separately
+      var{count:unreadCount}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false);
+      unreadCount=unreadCount||0;
       if(sz==='full'){
         var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px;display:flex;justify-content:space-between">Recent Messages'+
           (unreadCount>0?'<span style="background:#e74c3c;color:white;font-size:0.65rem;font-weight:700;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center">'+Math.min(unreadCount,9)+'</span>':'')+'</div>';
@@ -696,13 +799,34 @@
           var hasJob=jobDates[dateStr];
           var isToday=dateStr===today.toISOString().split('T')[0];
           var isCurrentMonth=d.getMonth()===today.getMonth();
-          h+='<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:background 0.15s;background:'+(isCurrentMonth?'var(--warm)':'rgba(0,0,0,0.02)')+';border:'+(isToday?'2px solid var(--gold)':'1px solid var(--border)')+';color:'+(isCurrentMonth?'var(--ink)':'var(--mid)')+';" onclick="sTab(\'s\',\'s-cal\')" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\''+(isCurrentMonth?'var(--warm)':'rgba(0,0,0,0.02)')+'\'">'+d.getDate()+(hasJob?'<span style="position:absolute;width:4px;height:4px;background:var(--forest);border-radius:50%;margin-top:14px"></span>':'')+'</div>';
+          h+='<div style="position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:background 0.15s;background:'+(isCurrentMonth?'var(--warm)':'rgba(0,0,0,0.02)')+';border:'+(isToday?'2px solid var(--gold)':'1px solid var(--border)')+';color:'+(isCurrentMonth?'var(--ink)':'var(--mid)')+';" onclick="sTab(\'s\',\'s-cal\')" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\''+(isCurrentMonth?'var(--warm)':'rgba(0,0,0,0.02)')+'\'">'+d.getDate()+(hasJob?'<span style="position:absolute;width:4px;height:4px;background:var(--forest);border-radius:50%;margin-top:14px"></span>':'')+'</div>';
         }
         h+='</div>';
         return h;
       }catch(e){return'<div style="color:var(--mid);font-size:0.82rem">Calendar view</div>';}
     }
-    return'<div style="font-size:0.75rem;color:var(--mid)">Schedule</div>';
+    // Small: week view with job info
+    try{
+      var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());
+      var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
+      var{data:weekJobs}=await sb.from('booking_requests').select('preferred_date,service,preferred_time').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]).order('preferred_date').order('preferred_time');
+      var jobsByDay={};(weekJobs||[]).forEach(function(b){if(!jobsByDay[b.preferred_date])jobsByDay[b.preferred_date]=[];jobsByDay[b.preferred_date].push(b);});
+      var dayLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      var h='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+      for(var i=0;i<7;i++){
+        var d=new Date(startOfWeek);d.setDate(startOfWeek.getDate()+i);
+        var dateStr=d.toISOString().split('T')[0];
+        var isToday=dateStr===today.toISOString().split('T')[0];
+        var jobs=jobsByDay[dateStr]||[];
+        h+='<div style="text-align:center;padding:3px 1px;border-radius:6px;cursor:pointer;background:'+(isToday?'rgba(61,90,71,0.1)':'var(--warm)')+';border:'+(isToday?'1.5px solid var(--forest)':'1px solid var(--border)')+'" onclick="sTab(\'s\',\'s-cal\')">';
+        h+='<div style="font-size:0.6rem;font-weight:700;color:var(--mid)">'+dayLabels[i]+'</div>';
+        h+='<div style="font-size:0.75rem;font-weight:700">'+d.getDate()+'</div>';
+        if(jobs.length){h+='<div style="width:5px;height:5px;background:var(--forest);border-radius:50%;margin:2px auto 0"></div>';}
+        h+='</div>';
+      }
+      h+='</div>';
+      return h;
+    }catch(e){return'<div style="font-size:0.75rem;color:var(--mid)">Schedule</div>';}
   };
 
   // ── OWNER ──
@@ -714,7 +838,7 @@
         '<button class="btn btn-gold btn-sm" onclick="openModal(\'announceModal\')" style="padding:4px 8px;font-size:0.7rem;white-space:nowrap;flex-shrink:0">📢</button></div>'+
         '<div style="display:flex;gap:5px;flex-wrap:wrap">'+
           '<div style="flex:1;min-width:45px;text-align:center;background:var(--warm);border-radius:6px;padding:5px;cursor:pointer" onclick="sTab(\'o\',\'o-clients\')" style="transition:background 0.15s" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\'var(--warm)\'"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1rem;font-weight:700" id="stat-activeClients">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">Clients</div></div>'+
-          '<div style="flex:1;min-width:45px;text-align:center;background:var(--warm);border-radius:6px;padding:5px;cursor:pointer" onclick="sTab(\'o\',\'o-activity\')" style="transition:background 0.15s" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\'var(--warm)\'"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1rem;font-weight:700" id="stat-newSignups">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">Sign-ups</div></div>'+
+          '<div style="flex:1;min-width:45px;text-align:center;background:var(--warm);border-radius:6px;padding:5px;cursor:pointer" onclick="sTab(\'o\',\'o-activity\')" style="transition:background 0.15s" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\'var(--warm)\'"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1rem;font-weight:700" id="stat-avgRating">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">Reports</div></div>'+
           '<div style="flex:1;min-width:45px;text-align:center;background:var(--warm);border-radius:6px;padding:5px;cursor:pointer" onclick="sTab(\'o\',\'o-activity\')" style="transition:background 0.15s" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\'var(--warm)\'"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1rem;font-weight:700" id="stat-todayJobs">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">Today</div></div>'+
         '</div>';
     }
