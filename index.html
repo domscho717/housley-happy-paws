@@ -720,6 +720,21 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .pay-check-box{font-size:1rem;flex-shrink:0;min-width:20px}
 
 
+/* ── Back Button (portal navigation) ── */
+.portal-back-btn{
+  display:none;position:fixed;top:82px;left:268px;z-index:400;
+  background:white;border:1.5px solid var(--border);border-radius:8px;
+  padding:6px 14px;font-size:0.78rem;font-weight:600;color:var(--ink);
+  cursor:pointer;font-family:'Jost',sans-serif;
+  box-shadow:0 2px 10px rgba(0,0,0,0.08);transition:all 0.15s;
+  align-items:center;gap:6px;
+}
+.portal-back-btn:hover{background:var(--warm);border-color:var(--gold);color:var(--gold-deep)}
+.portal-back-btn.visible{display:inline-flex}
+@media(max-width:900px){
+  .portal-back-btn{left:12px;top:82px}
+}
+
 /* Prevent iOS Safari zoom on input focus — all inputs must be ≥16px */
 @media screen and (-webkit-min-device-pixel-ratio:0) {
   select,textarea,input[type="text"],input[type="email"],input[type="password"],input[type="tel"],input[type="number"],input[type="date"],input[type="time"],input[type="search"]{font-size:16px!important}
@@ -1213,6 +1228,9 @@ try {
     <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA</div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
   </footer>
 </div>
+
+<!-- Portal Back Button (shared across all portals) -->
+<button class="portal-back-btn" id="portalBackBtn" onclick="goBackPanel()">← Back</button>
 
 <!-- ========= CLIENT PORTAL ========= -->
 <div class="page" id="pg-client">
@@ -3188,6 +3206,13 @@ function switchView(view) {
   // Ensure body scroll is never stuck from a modal or overlay
   document.body.style.overflow = '';
 
+  // Reset back button history when switching portals or going to public
+  window._panelHistory = [];
+  window._currentPanel = null;
+  window._currentPortal = null;
+  var backBtn = document.getElementById('portalBackBtn');
+  if (backBtn) backBtn.classList.remove('visible');
+
   // For logged-in clients: show a floating "My Portal" button when viewing public/home
   var isClient = typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated() && HHP_Auth.currentRole === 'client';
   var floatingPortalBtn = document.getElementById('floatingPortalBtn');
@@ -3484,11 +3509,51 @@ function exitViewAsClient() {
 // No IIFE needed — portals stay hidden (opacity:0) until auth settles
 
 // ---- TABS ----
+// ── Portal navigation history for Back button ──
+window._panelHistory = [];
+window._panelDefaults = { c: 'c-dash', s: 's-sched', o: 'o-overview' };
+window._currentPanel = null;
+window._currentPortal = null;
+window._isGoingBack = false;
+
+function updateBackButton() {
+  var btn = document.getElementById('portalBackBtn');
+  if (!btn) return;
+  var portal = window._currentPortal;
+  var defaultPanel = portal ? window._panelDefaults[portal] : null;
+  // Show back button if we have history and we're not on the default page
+  if (window._panelHistory.length > 0 && window._currentPanel !== defaultPanel) {
+    btn.classList.add('visible');
+  } else {
+    btn.classList.remove('visible');
+  }
+}
+
+function goBackPanel() {
+  if (window._panelHistory.length === 0) return;
+  var prev = window._panelHistory.pop();
+  window._isGoingBack = true;
+  sTab(prev.portal, prev.panelId);
+  window._isGoingBack = false;
+  updateBackButton();
+}
+
 function sTab(portal, panelId) {
   const prefix = portal === 'c' ? 'c-' : portal === 's' ? 's-' : 'o-';
   document.querySelectorAll('.p-panel[id^="'+prefix+'"]').forEach(p => p.classList.remove('active'));
   const el = document.getElementById(panelId);
   if(el) el.classList.add('active');
+
+  // Track navigation history for back button
+  if (!window._isGoingBack && window._currentPanel && window._currentPanel !== panelId) {
+    window._panelHistory.push({ portal: window._currentPortal, panelId: window._currentPanel });
+    // Keep history at a reasonable size
+    if (window._panelHistory.length > 20) window._panelHistory.shift();
+  }
+  window._currentPanel = panelId;
+  window._currentPortal = portal;
+  updateBackButton();
+
   // Scroll to top of content when switching panels
   window.scrollTo(0, 0);
   var pm = el ? el.closest('.portal-main') : null;
