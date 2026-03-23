@@ -735,24 +735,6 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .portal-back-btn{left:12px;top:82px}
 }
 
-/* ── Fixed sidebar for logged-in users on any page ── */
-#homeSidebarPanel{
-  display:none;position:fixed;left:0;top:72px;bottom:0;width:248px;
-  background:#16100A;z-index:200;overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:thin;scrollbar-color:rgba(200,150,62,0.4) transparent;
-}
-#homeSidebarPanel.visible{display:block}
-#homeSidebarPanel .sidebar{position:static;width:100%;height:auto;min-height:100%}
-/* Push page content right when sidebar is visible */
-body.home-sidebar-open #pg-public{margin-left:248px}
-body.home-sidebar-open .nav{padding-left:248px}
-@media(max-width:900px){
-  #homeSidebarPanel{display:none!important}
-  body.home-sidebar-open #pg-public{margin-left:0}
-  body.home-sidebar-open .nav{padding-left:0}
-}
-
 /* Prevent iOS Safari zoom on input focus — all inputs must be ≥16px */
 @media screen and (-webkit-min-device-pixel-ratio:0) {
   select,textarea,input[type="text"],input[type="email"],input[type="password"],input[type="tel"],input[type="number"],input[type="date"],input[type="time"],input[type="search"]{font-size:16px!important}
@@ -1246,9 +1228,6 @@ try {
     <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA</div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
   </footer>
 </div>
-
-<!-- Fixed sidebar for logged-in users on home page -->
-<div id="homeSidebarPanel"></div>
 
 <!-- Portal Back Button (shared across all portals) -->
 <button class="portal-back-btn" id="portalBackBtn" onclick="goBackPanel()">← Back</button>
@@ -3191,51 +3170,6 @@ function addAboutPhotoSlot() {
 let _userChosePublic = false;
 
 // ── Show/hide the portal sidebar on the public home page for logged-in users ──
-// Uses a fixed panel (#homeSidebarPanel) that sits OUTSIDE pg-public — no DOM restructuring.
-// For CLIENTS: sidebar items switch to client portal and open the panel.
-// For OWNER/STAFF: sidebar items switch to their portal and open the panel.
-function showPublicSidebar(show) {
-  var panel = document.getElementById('homeSidebarPanel');
-  if (!panel) return;
-
-  if (!show) {
-    panel.classList.remove('visible');
-    panel.innerHTML = '';
-    document.body.classList.remove('home-sidebar-open');
-    return;
-  }
-
-  // Determine which portal sidebar to clone based on role
-  var role = (typeof HHP_Auth !== 'undefined') ? HHP_Auth.currentRole : null;
-  var portalId = role === 'owner' ? 'pg-owner' : role === 'staff' ? 'pg-staff' : 'pg-client';
-  var viewName = role === 'owner' ? 'owner' : role === 'staff' ? 'staff' : 'client';
-  var srcSidebar = document.querySelector('#' + portalId + ' .sidebar');
-  if (!srcSidebar) return;
-
-  // Clone the sidebar
-  var clone = srcSidebar.cloneNode(true);
-
-  // Rewrite onclick handlers to switch to portal + open panel
-  clone.querySelectorAll('.sb-item').forEach(function(btn) {
-    var origOnclick = btn.getAttribute('onclick') || '';
-    var match = origOnclick.match(/sTab\(\s*'([^']+)'\s*,\s*'([^']+)'\s*\)/);
-    if (match) {
-      var portal = match[1];
-      var panelId = match[2];
-      btn.setAttribute('onclick', "switchView('" + viewName + "');setTimeout(function(){sTab('" + portal + "','" + panelId + "')},50)");
-    }
-  });
-
-  // Remove active state from cloned items (we're on home page)
-  clone.querySelectorAll('.sb-item.active').forEach(function(b) { b.classList.remove('active'); });
-
-  // Populate the fixed panel
-  panel.innerHTML = '';
-  panel.appendChild(clone);
-  panel.classList.add('visible');
-  document.body.classList.add('home-sidebar-open');
-}
-
 function switchView(view) {
   // Auth gating — if trying to access private portal, check login
   if (view !== 'public' && typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) {
@@ -3280,10 +3214,8 @@ function switchView(view) {
   var backBtn = document.getElementById('portalBackBtn');
   if (backBtn) backBtn.classList.remove('visible');
 
-  // Show portal sidebar on home page for logged-in users
   var isLoggedIn = typeof HHP_Auth !== 'undefined' && HHP_Auth.isAuthenticated();
   var isClient = isLoggedIn && HHP_Auth.currentRole === 'client';
-  showPublicSidebar(isLoggedIn && view === 'public');
   // Hide old floating portal button if it exists
   var floatingPortalBtn = document.getElementById('floatingPortalBtn');
   if (floatingPortalBtn) floatingPortalBtn.style.display = 'none';
