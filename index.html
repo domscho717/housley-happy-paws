@@ -737,7 +737,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 
 /* ── Public page with sidebar (logged-in users) ── */
 #pg-public.has-sidebar{
-  display:grid;grid-template-columns:248px 1fr;min-height:100vh;
+  display:grid!important;grid-template-columns:248px 1fr;min-height:100vh;
 }
 #pg-public.has-sidebar > .public-sidebar{
   position:sticky;top:72px;height:calc(100vh - 72px);overflow-y:auto;
@@ -3201,8 +3201,9 @@ window._publicSidebarActive = false;
 window._publicOriginalContent = null; // stash original public page HTML
 
 function showPublicSidebar(show) {
+  console.log('[showPublicSidebar] called with show=', show);
   var pgPublic = document.getElementById('pg-public');
-  if (!pgPublic) return;
+  if (!pgPublic) { console.log('[showPublicSidebar] no pg-public found'); return; }
 
   // Move portal-main back to pg-client if it was moved here
   var movedMain = pgPublic.querySelector('.portal-main');
@@ -3235,7 +3236,8 @@ function showPublicSidebar(show) {
   var viewName = role === 'owner' ? 'owner' : role === 'staff' ? 'staff' : 'client';
   var isClient = role === 'client';
   var srcSidebar = document.querySelector('#' + portalId + ' .sidebar');
-  if (!srcSidebar) return;
+  console.log('[showPublicSidebar] role=', role, 'portalId=', portalId, 'srcSidebar=', !!srcSidebar);
+  if (!srcSidebar) { console.log('[showPublicSidebar] no source sidebar found, aborting'); return; }
 
   // Clone the sidebar
   var clone = srcSidebar.cloneNode(true);
@@ -3289,6 +3291,7 @@ function showPublicSidebar(show) {
   pgPublic.appendChild(contentWrap);
   pgPublic.classList.add('has-sidebar');
   window._publicSidebarActive = true;
+  console.log('[showPublicSidebar] sidebar injected, has-sidebar class added, children:', pgPublic.children.length);
 }
 
 // ── Load a client panel inline on the home page, replacing public content ──
