@@ -290,8 +290,18 @@ const HHP_Avatar = {
 
   // ── Initialize: inject sections and wire up ──
   init() {
-    // Wait for auth to be ready, then inject
     var self = this;
+
+    // Immediately apply cached avatar (no auth needed) to prevent flash
+    var cachedUrl = '';
+    try { cachedUrl = sessionStorage.getItem('hhp_avatar_url') || ''; } catch(e) {}
+    if (cachedUrl) {
+      document.querySelectorAll('.sidebar-user .sb-ava').forEach(function(el) {
+        el.innerHTML = '<img src="' + cachedUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
+      });
+    }
+
+    // Wait for auth to be ready, then inject upload sections
     var attempts = 0;
     function tryInit() {
       attempts++;
@@ -301,7 +311,6 @@ const HHP_Avatar = {
         setTimeout(tryInit, 500);
       }
     }
-    // Start checking after a short delay
     setTimeout(tryInit, 1000);
   }
 };

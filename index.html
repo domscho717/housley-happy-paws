@@ -12,6 +12,10 @@
 // On public pages or first visit, no hiding needed — remove early-hide immediately
 try{var v=sessionStorage.getItem('hhp_last_view');if(!v||v==='public'){var s=document.getElementById('early-hide');if(s)s.remove();}}catch(e){var s=document.getElementById('early-hide');if(s)s.remove();}
 </script>
+<script>
+// Instant avatar: apply cached profile picture to prevent flash of default emoji
+try{var _ca=sessionStorage.getItem('hhp_avatar_url');if(_ca){var st=document.createElement('style');st.textContent='.sb-ava{background:none!important;font-size:0!important;overflow:hidden}.sb-ava::before{content:none!important}.sb-ava img{width:100%;height:100%;border-radius:50%;object-fit:cover}';document.head.appendChild(st);document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.sb-ava').forEach(function(el){el.innerHTML='<img src="'+_ca+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';});});}}catch(e){}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://niysrippazlkpvdkzepp.supabase.co" crossorigin>
