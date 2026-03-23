@@ -815,6 +815,25 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   #hhp-live-service-panel input[type="time"],
   #hhp-live-service-panel select,
   #hhp-live-service-panel input[type="text"] { font-size: 16px !important; min-height: 44px !important; }
+
+  /* Modal mobile: tighter padding, centered close button */
+  .modal-head { padding: 16px 18px 10px !important; align-items: center !important; }
+  .modal-head + * { padding-left: 18px !important; padding-right: 18px !important; }
+  .modal > *:not(.modal-head) { padding-left: 18px !important; padding-right: 18px !important; }
+  .modal > *:last-child { padding-bottom: 20px !important; }
+  .modal-title { font-size: 1.3rem !important; }
+  .modal-close { width: 32px !important; height: 32px !important; font-size: 0.95rem !important; }
+
+  /* Tabs row: wrap on narrow screens */
+  .tabs { flex-wrap: wrap !important; gap: 4px !important; }
+  .tab { font-size: 0.76rem !important; padding: 6px 10px !important; }
+
+  /* Master Schedule controls: stack on mobile */
+  #o-sched .card > div:first-child { flex-wrap: wrap !important; gap: 8px !important; }
+  #o-sched .card > div:first-child > div { width: 100% !important; justify-content: center !important; }
+
+  /* Appointments: reduce inner spacing */
+  #c-appts > div[style*="flex"] { flex-wrap: wrap !important; gap: 6px !important; }
 }
 
 /* Collapsible sidebar nav */
