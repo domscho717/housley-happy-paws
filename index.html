@@ -720,6 +720,14 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .pay-check-box{font-size:1rem;flex-shrink:0;min-width:20px}
 
 
+/* Prevent iOS Safari zoom on input focus — all inputs must be ≥16px */
+@media screen and (-webkit-min-device-pixel-ratio:0) {
+  select,textarea,input[type="text"],input[type="email"],input[type="password"],input[type="tel"],input[type="number"],input[type="date"],input[type="time"],input[type="search"]{font-size:16px!important}
+}
+/* Ensure portal never overflows viewport */
+.portal-wrap{max-width:100vw;overflow-x:hidden}
+.portal-main{max-width:100%;overflow-x:hidden}
+
 @media(max-width:900px){
   .nav{padding:0 20px}.nav-center{display:none}
   .hero{grid-template-columns:1fr;padding:100px 20px 60px}
@@ -824,7 +832,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .auth-subtitle{font-size:0.88rem;color:var(--brown);margin-bottom:28px;font-weight:300}
 .auth-form{display:flex;flex-direction:column;gap:12px;text-align:left}
 .auth-form .form-lbl{font-size:0.76rem;font-weight:600;color:var(--brown);margin-bottom:4px;display:block}
-.auth-form .form-in{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'Jost',sans-serif;font-size:0.92rem;background:white;transition:border-color 0.2s;outline:none}
+.auth-form .form-in{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'Jost',sans-serif;font-size:16px;background:white;transition:border-color 0.2s;outline:none;box-sizing:border-box}
 .auth-form .form-in:focus{border-color:var(--gold)}
 .auth-error{font-size:0.82rem;min-height:20px;margin-top:4px}
 .auth-skip{margin-top:16px;font-size:0.78rem;color:var(--mid)}
@@ -1229,7 +1237,7 @@ try {
 
       <!-- DASH -->
       <div class="p-panel active" id="c-dash">
-        <div class="p-header"><h2>Welcome to your Client Portal 🐾</h2><p>Your appointments, photos, and walk reports will appear here once you're booked.</p></div>
+        <div class="p-header"><h2 id="clientDashGreeting">Welcome to your Client Portal 🐾</h2><p id="clientDashSubGreeting">Your appointments, photos, and walk reports will appear here once you're booked.</p></div>
         <div class="stats-row">
           <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num" id="stat-totalVisits">—</div><div class="stat-lbl">Total Visits</div></div>
           <div class="stat-box"><div class="stat-icon">🦮</div><div class="stat-num" id="stat-walksDone">—</div><div class="stat-lbl">Walks Done</div></div>
@@ -1660,7 +1668,7 @@ try {
 
       <div class="p-panel active" id="o-overview">
         <div class="owner-banner">
-          <div class="ob-top"><div><div class="ob-h">Good morning, Rachel 🐾</div><div class="ob-p">Your business is growing beautifully. Here's today at a glance.</div></div><button class="btn btn-gold btn-sm" onclick="openModal('announceModal')">📢 Post Announcement</button></div>
+          <div class="ob-top"><div><div class="ob-h" id="ownerDashGreeting">Good morning, Rachel 🐾</div><div class="ob-p">Your business is growing beautifully. Here's today at a glance.</div></div><button class="btn btn-gold btn-sm" onclick="openModal('announceModal')">📢 Post Announcement</button></div>
           <div class="ob-stats"><div><div class="ob-sn" id="stat-activeClients">—</div><div class="ob-sl">Active Clients</div></div><div><div class="ob-sn" id="stat-newSignups">—</div><div class="ob-sl">New Sign‑ups</div></div><div><div class="ob-sn" id="stat-bookingsThisMonth">—</div><div class="ob-sl">This Month</div></div><div><div class="ob-sn" id="stat-avgRating">— 📋</div><div class="ob-sl">Reports Sent</div></div><div><div class="ob-sn" id="stat-todayJobs">—</div><div class="ob-sl">Today's Jobs</div></div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
@@ -10980,14 +10988,47 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       if (effectiveRole === 'client') {
+        // CLIENT GREETING — personalized with name and pet names
+        try {
+          var greetEl = document.getElementById('clientDashGreeting');
+          var subEl = document.getElementById('clientDashSubGreeting');
+          if (greetEl) {
+            var hour = new Date().getHours();
+            var timeGreet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+            var clientName = '';
+            if (window._viewingAsClient && window._viewingAsClient.fullName) {
+              clientName = window._viewingAsClient.fullName.split(' ')[0];
+            } else if (window.HHP_Auth && window.HHP_Auth.currentUser && window.HHP_Auth.currentUser.profile) {
+              clientName = (window.HHP_Auth.currentUser.profile.full_name || '').split(' ')[0];
+            }
+            greetEl.textContent = timeGreet + (clientName ? ', ' + clientName : '') + ' 🐾';
+          }
+          if (subEl) {
+            var { data: clientPets } = await sb.from('pets').select('name').eq('owner_id', effectiveUserId);
+            if (clientPets && clientPets.length > 0) {
+              var petNames = clientPets.map(function(p) { return p.name; });
+              if (petNames.length === 1) {
+                subEl.textContent = 'Here\'s everything about ' + petNames[0] + '\'s care at a glance.';
+              } else if (petNames.length === 2) {
+                subEl.textContent = 'Here\'s everything about ' + petNames[0] + ' & ' + petNames[1] + '\'s care at a glance.';
+              } else {
+                var last = petNames.pop();
+                subEl.textContent = 'Here\'s everything about ' + petNames.join(', ') + ' & ' + last + '\'s care at a glance.';
+              }
+            } else {
+              subEl.textContent = 'Your appointments, photos, and walk reports will appear here once you\'re booked.';
+            }
+          }
+        } catch(ge) { console.warn('Greeting error:', ge); }
+
         // CLIENT DASHBOARD STATS (uses effectiveUserId for View As support)
-        // Total Visits — count all bookings for this client
-        const { count: totalVisits } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId);
+        // Total Visits — count accepted/completed booking_requests (bookings table may be empty)
+        const { count: totalVisits } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('status', ['accepted', 'completed']);
         const el = document.getElementById('stat-totalVisits');
         if (el) el.textContent = totalVisits || '0';
 
-        // Walks Done — count bookings where service='Dog Walking' (or similar)
-        const { count: walksDone } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('service', ['Dog Walking', 'Dog Walk']);
+        // Walks Done — count walk-related booking_requests
+        const { count: walksDone } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('status', ['accepted', 'completed']).ilike('service', '%walk%');
         const el2 = document.getElementById('stat-walksDone');
         if (el2) el2.textContent = walksDone || '0';
 
@@ -10996,9 +11037,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const el3 = document.getElementById('stat-avgRatingGiven');
         if (el3) el3.textContent = (reportsReceived || 0);
 
-        // Pets in Care — count pets owned by this client
+        // Pets in Care — count pets owned by this client (pets table uses owner_id)
         try {
-          const { count: petsCount } = await sb.from('pets').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId);
+          const { count: petsCount } = await sb.from('pets').select('*', { count: 'exact', head: true }).eq('owner_id', effectiveUserId);
           const el4 = document.getElementById('stat-petsInCare');
           if (el4) el4.textContent = petsCount || '0';
         } catch(e) {
@@ -11141,6 +11182,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
       } else if (role === 'owner') {
+        // OWNER GREETING — time-based
+        try {
+          var oGreetEl = document.getElementById('ownerDashGreeting');
+          if (oGreetEl) {
+            var oHour = new Date().getHours();
+            var oTimeGreet = oHour < 12 ? 'Good morning' : oHour < 17 ? 'Good afternoon' : 'Good evening';
+            oGreetEl.textContent = oTimeGreet + ', Rachel 🐾';
+          }
+        } catch(oge) {}
         // OWNER DASHBOARD STATS
         // Active Clients — clients with at least one accepted/completed booking
         const { data: allClients } = await sb.from('profiles').select('user_id').eq('role', 'client');
