@@ -951,6 +951,7 @@
       ]);
       var clients=clientsRes.data||[];
       var allPets=petsRes.data||[];
+      console.log('[Widget] Pets query result:',allPets.length,'pets, error:',petsRes.error);
       // Index pets by owner_id
       var petsByOwner={};
       allPets.forEach(function(p){if(!petsByOwner[p.owner_id])petsByOwner[p.owner_id]=[];petsByOwner[p.owner_id].push(p);});
@@ -969,23 +970,25 @@
           h+='<div style="width:36px;height:36px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+avatar+'</div>';
           h+='<div style="flex:1;min-width:0;cursor:pointer" onclick="sTab(\'o\',\'o-clients\')"><div style="font-weight:700;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);transition:color 0.15s" onmouseover="this.style.color=\'var(--forest)\'" onmouseout="this.style.color=\'var(--ink)\'">'+c.full_name+'</div>';
           h+='<div style="font-size:0.7rem;color:var(--mid)">'+(c.phone||'No phone')+(petStr?' · '+petStr:'')+'</div></div>';
-          // Arrow toggles pre-loaded pet list
-          if(cPets.length){
-            h+='<span style="font-size:0.75rem;color:var(--mid);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s" id="'+uid+'-arrow" onclick="(function(){var el=document.getElementById(\''+uid+'\');var ar=document.getElementById(\''+uid+'-arrow\');if(el.style.display===\'none\'){el.style.display=\'block\';ar.textContent=\'\\u25B2\';}else{el.style.display=\'none\';ar.textContent=\'\\u25BC\';}})()" onmouseover="this.style.background=\'rgba(200,150,62,0.15)\'" onmouseout="this.style.background=\'\'">▼</span>';
-          }
+          // Arrow always shows — toggles pet dropdown or lazy-loads
+          h+='<span style="font-size:0.75rem;color:var(--mid);cursor:pointer;padding:4px 8px;border-radius:4px;transition:all 0.15s" id="'+uid+'-arrow" onclick="HHP_Customizer.togglePets(\''+uid+'\',\''+c.user_id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.15)\'" onmouseout="this.style.background=\'\'">▼</span>';
           h+='</div>';
-          // Pet dropdown (pre-rendered, hidden)
+          // Pet dropdown container
           if(cPets.length){
-            h+='<div id="'+uid+'" style="display:none;margin-left:46px;margin-bottom:4px;border-left:2px solid var(--gold-pale);padding-left:10px">';
+            // Pre-rendered pets
+            var petHtml='';
             cPets.forEach(function(pet){
               var petAvatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
-              h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
-              h+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
-              h+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
-              h+='<span style="font-size:0.65rem;color:var(--forest);font-weight:600">View →</span>';
-              h+='</div>';
+              petHtml+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
+              petHtml+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
+              petHtml+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
+              petHtml+='<span style="font-size:0.65rem;color:var(--forest);font-weight:600">View →</span>';
+              petHtml+='</div>';
             });
-            h+='</div>';
+            h+='<div id="'+uid+'" style="display:none;margin-left:46px;margin-bottom:4px;border-left:2px solid var(--gold-pale);padding-left:10px" data-loaded="1">'+petHtml+'</div>';
+          } else {
+            // Empty container — will be lazy-loaded on arrow click
+            h+='<div id="'+uid+'" style="display:none;margin-left:46px;margin-bottom:4px;border-left:2px solid var(--gold-pale);padding-left:10px"></div>';
           }
           h+='</div>';
         });
@@ -1009,7 +1012,7 @@
   async function _togglePets(uid,ownerUserId){
     var el=document.getElementById(uid);
     var ar=document.getElementById(uid+'-arrow');
-    if(!el)return;
+    if(!el){console.warn('[togglePets] No element found for id:',uid);return;}
     if(el.style.display!=='none'){
       // Collapse
       el.style.display='none';
@@ -1026,7 +1029,15 @@
     var sb=_getSB();
     if(!sb){el.innerHTML='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0;font-style:italic">Could not load</div>';return;}
     try{
+      console.log('[togglePets] Fetching pets for owner_id:',ownerUserId);
+      // First try filtered query
       var{data:pets,error}=await sb.from('pets').select('id,name,species,breed,avatar_url,owner_id').eq('owner_id',ownerUserId).order('name');
+      console.log('[togglePets] Result:',pets?pets.length:'null','pets, error:',error);
+      // If filtered returned empty, try unfiltered to check if it's a data issue vs RLS
+      if((!pets||!pets.length)&&!error){
+        var allCheck=await sb.from('pets').select('id,owner_id',{count:'exact',head:true});
+        console.log('[togglePets] All pets count:',allCheck.count,'error:',allCheck.error);
+      }
       if(error)console.warn('Pet load error:',error);
       if(!pets||!pets.length){
         el.innerHTML='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0;font-style:italic">No pets registered</div>';
