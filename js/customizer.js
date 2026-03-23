@@ -947,13 +947,13 @@
     try{
       var{data:clients}=await sb.from('profiles').select('id,user_id,full_name,phone,pet_names,avatar_url').eq('role','client').order('full_name',{ascending:true});
       var totalCount=(clients||[]).length;
-      // Fetch all pets for all clients in one query
-      var clientUserIds=(clients||[]).map(function(c){return c.user_id;}).filter(Boolean);
+      // Fetch all pets — owner RLS allows reading all, then group by owner_id
       var petsByOwner={};
-      if(clientUserIds.length){
-        var{data:allPets}=await sb.from('pets').select('id,name,species,breed,avatar_url,owner_id').in('owner_id',clientUserIds).order('name');
+      try{
+        var{data:allPets,error:petErr}=await sb.from('pets').select('id,name,species,breed,avatar_url,owner_id').order('name');
+        if(petErr)console.warn('Pets query error:',petErr);
         (allPets||[]).forEach(function(p){if(!petsByOwner[p.owner_id])petsByOwner[p.owner_id]=[];petsByOwner[p.owner_id].push(p);});
-      }
+      }catch(pe){console.warn('Pets fetch error:',pe);}
       if(sz==='full'){
         var lim=8;
         var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><span style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700">'+totalCount+'</span><span style="font-size:0.75rem;color:var(--mid)">registered clients</span></div>';
