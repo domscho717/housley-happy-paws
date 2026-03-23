@@ -76,15 +76,19 @@ async function sendEmail({ to, subject, title, bodyHTML, replyTo }) {
   const resend = getResend();
 
   // Always log
-  console.log(`[email] To: ${to} | Subject: ${subject}`);
+  const fromAddr = `${FROM_NAME} <${FROM_EMAIL}>`;
+  console.log(`[email] To: ${to} | From: ${fromAddr} | Subject: ${subject}`);
 
   if (!resend) {
+    console.error('[email] RESEND_API_KEY is not set!');
     return { success: false, error: 'RESEND_API_KEY not configured' };
   }
 
+  console.log('[email] Resend client created, API key starts with:', process.env.RESEND_API_KEY?.substring(0, 6) + '...');
+
   try {
     const { data, error } = await resend.emails.send({
-      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      from: fromAddr,
       to: [to],
       subject: subject,
       html: buildHTML(title || subject, bodyHTML),
@@ -92,14 +96,14 @@ async function sendEmail({ to, subject, title, bodyHTML, replyTo }) {
     });
 
     if (error) {
-      console.error('[email] Resend error:', error);
+      console.error('[email] Resend API error:', JSON.stringify(error));
       return { success: false, error: error.message || JSON.stringify(error) };
     }
 
     console.log('[email] Sent successfully, ID:', data?.id);
     return { success: true, id: data?.id };
   } catch (err) {
-    console.error('[email] Send failed:', err);
+    console.error('[email] Send exception:', err.message, err.statusCode || '');
     return { success: false, error: err.message };
   }
 }
