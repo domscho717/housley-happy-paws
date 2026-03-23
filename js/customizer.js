@@ -1129,21 +1129,52 @@
     }catch(e){return'';}
   };
   _R._rwOwnerActivity=async function(sz){
-    if(sz!=='full') return'<div style="font-size:0.75rem;color:var(--mid)">Business activity feed</div>';
-    var sb=_getSB();if(!sb)return'';
+    var sb=_getSB();if(!sb)return'<div style="font-size:0.82rem;color:var(--mid)">Sign in to view activity</div>';
     try{
       var activities=[];
-      var{data:bookings}=await sb.from('booking_requests').select('id,service,contact_name,created_at,status').order('created_at',{ascending:false}).limit(3);
-      (bookings||[]).forEach(function(b){activities.push({type:'booking',label:b.contact_name+' booked '+b.service,date:b.created_at,status:b.status});});
-      var{data:payments}=await sb.from('payments').select('amount,created_at,status').order('created_at',{ascending:false}).limit(2);
-      (payments||[]).forEach(function(p){activities.push({type:'payment',label:'Payment received: $'+(parseFloat(p.amount)||0).toFixed(2),date:p.created_at});});
-      var{data:signups}=await sb.from('profiles').select('full_name,created_at').eq('role','client').order('created_at',{ascending:false}).limit(1);
-      (signups||[]).forEach(function(s){activities.push({type:'signup',label:s.full_name+' signed up',date:s.created_at});});
+      var maxItems=sz==='full'?8:5;
+      // Fetch recent bookings
+      var{data:bookings}=await sb.from('booking_requests').select('id,service,contact_name,created_at,status').order('created_at',{ascending:false}).limit(4);
+      (bookings||[]).forEach(function(b){
+        var statusIcon=b.status==='accepted'?'✅ ':b.status==='canceled'?'❌ ':'';
+        activities.push({type:'booking',label:(b.contact_name||'Client')+' — '+statusIcon+(b.service||'Booking'),date:b.created_at});
+      });
+      // Fetch recent payments
+      var{data:payments}=await sb.from('payments').select('amount,client_email,created_at').order('created_at',{ascending:false}).limit(3);
+      (payments||[]).forEach(function(p){activities.push({type:'payment',label:'Payment $'+(parseFloat(p.amount)||0).toFixed(2)+(p.client_email?' — '+p.client_email:''),date:p.created_at});});
+      // Fetch recent signups
+      var{data:signups}=await sb.from('profiles').select('full_name,created_at').eq('role','client').order('created_at',{ascending:false}).limit(2);
+      (signups||[]).forEach(function(s){activities.push({type:'signup',label:(s.full_name||'New client')+' signed up',date:s.created_at});});
+      // Fetch recent messages (grouped by day)
+      var{data:recentMsgs}=await sb.from('messages').select('sender_id,created_at').order('created_at',{ascending:false}).limit(20);
+      if(recentMsgs&&recentMsgs.length){
+        var msgDays={};
+        recentMsgs.forEach(function(m){var day=new Date(m.created_at).toDateString();if(!msgDays[day])msgDays[day]={count:0,date:m.created_at};msgDays[day].count++;});
+        Object.values(msgDays).slice(0,2).forEach(function(d){activities.push({type:'message',label:d.count+' message'+(d.count>1?'s':'')+' exchanged',date:d.date});});
+      }
+      // Fetch recent service reports
+      var{data:reports}=await sb.from('service_reports').select('service,pet_name,created_at').order('created_at',{ascending:false}).limit(2);
+      (reports||[]).forEach(function(r){activities.push({type:'report',label:'Report: '+(r.service||'Service')+(r.pet_name?' ('+r.pet_name+')':''),date:r.created_at});});
+
       activities.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
-      var h='<div style="font-size:0.85rem;color:var(--mid);margin-bottom:10px">Recent activity across your business</div>';
-      if(activities.length){h+='<div style="display:flex;flex-direction:column;gap:6px">';activities.slice(0,6).forEach(function(a){var d=new Date(a.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});var icon=a.type==='booking'?'📋':a.type==='payment'?'💳':'👤';h+='<div style="display:flex;gap:8px;padding:6px;border-bottom:1px solid var(--border);font-size:0.78rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-activity\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span style="font-size:1rem;flex-shrink:0">'+icon+'</span><div style="flex:1"><div style="font-weight:600">'+a.label+'</div><div style="color:var(--mid);font-size:0.7rem">'+d+'</div></div></div>';});h+='</div>';h+='<div style="margin-top:10px;text-align:center"><a href="javascript:sTab(\'o\',\'o-activity\')" style="color:var(--forest);font-weight:600;font-size:0.78rem;text-decoration:none;cursor:pointer">View Activity Log →</a></div>';}
+
+      if(!activities.length) return'<div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem">No recent activity yet.</div>';
+
+      var h='';
+      h+='<div style="display:flex;flex-direction:column;gap:2px">';
+      activities.slice(0,maxItems).forEach(function(a){
+        var d=new Date(a.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        var icons={booking:'📋',payment:'💳',signup:'👤',message:'💬',report:'📄'};
+        var icon=icons[a.type]||'📌';
+        h+='<div style="display:flex;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border);font-size:0.78rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-activity\')" onmouseover="this.style.background=\'rgba(0,0,0,0.03)\'" onmouseout="this.style.background=\'\'">';
+        h+='<span style="font-size:0.95rem;flex-shrink:0;margin-top:1px">'+icon+'</span>';
+        h+='<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+a.label+'</div>';
+        h+='<div style="color:var(--mid);font-size:0.68rem">'+d+'</div></div></div>';
+      });
+      h+='</div>';
+      h+='<div style="margin-top:8px;text-align:center"><a href="javascript:sTab(\'o\',\'o-activity\')" style="color:var(--forest);font-weight:600;font-size:0.78rem;text-decoration:none;cursor:pointer">View Full Activity Log →</a></div>';
       return h;
-    }catch(e){return'<div style="font-size:0.82rem;color:var(--mid)">Business activity</div>';}
+    }catch(e){console.warn('Activity widget error:',e);return'<div style="font-size:0.82rem;color:var(--mid)">Could not load activity</div>';}
   };
 
   // ── DETAIL RENDERERS ──
