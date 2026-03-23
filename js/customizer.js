@@ -595,7 +595,7 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     if(sz!=='full') return _bigNum(0,'pets',sz);
     try{
-      var{data}=await sb.from('pets').select('id,name,species,breed,avatar_url').eq('owner_id',u.id).order('name').limit(10);
+      var{data}=await sb.from('pets').select('id,name,species,breed,photo_url').eq('owner_id',u.id).order('name').limit(10);
       if(!data||!data.length)return'<div style="color:var(--mid);font-size:0.85rem;padding:12px 0;text-align:center">No pets registered yet</div>';
       return data.map(function(p){
         var avatar=p.avatar_url?'<img src="'+p.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(p.species==='cat'?'🐱':'🐶');
@@ -947,11 +947,14 @@
     try{
       var[clientsRes,petsRes]=await Promise.all([
         sb.from('profiles').select('id,user_id,full_name,phone,pet_names,avatar_url').eq('role','client').order('full_name',{ascending:true}),
-        sb.from('pets').select('id,name,species,breed,avatar_url,owner_id')
+        sb.from('pets').select('id,name,species,breed,photo_url,owner_id')
       ]);
       var clients=clientsRes.data||[];
       var allPets=petsRes.data||[];
-      console.log('[Widget] Pets query result:',allPets.length,'pets, error:',petsRes.error);
+      // Fallback: if direct query failed, try RPC function
+      if((!allPets||!allPets.length)&&!petsRes.error){
+        try{var rpc=await sb.rpc('get_all_pets');if(rpc.data&&rpc.data.length)allPets=rpc.data;}catch(e){}
+      }
       // Index pets by owner_id
       var petsByOwner={};
       allPets.forEach(function(p){if(!petsByOwner[p.owner_id])petsByOwner[p.owner_id]=[];petsByOwner[p.owner_id].push(p);});
@@ -978,7 +981,7 @@
             // Pre-rendered pets
             var petHtml='';
             cPets.forEach(function(pet){
-              var petAvatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
+              var petAvatar=pet.photo_url?'<img src="'+pet.photo_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
               petHtml+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
               petHtml+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
               petHtml+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
@@ -1029,14 +1032,16 @@
     var sb=_getSB();
     if(!sb){el.innerHTML='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0;font-style:italic">Could not load</div>';return;}
     try{
-      console.log('[togglePets] Fetching pets for owner_id:',ownerUserId);
-      // First try filtered query
-      var{data:pets,error}=await sb.from('pets').select('id,name,species,breed,avatar_url,owner_id').eq('owner_id',ownerUserId).order('name');
-      console.log('[togglePets] Result:',pets?pets.length:'null','pets, error:',error);
-      // If filtered returned empty, try unfiltered to check if it's a data issue vs RLS
+      // First try direct query
+      var{data:pets,error}=await sb.from('pets').select('id,name,species,breed,photo_url,owner_id').eq('owner_id',ownerUserId).order('name');
+      // Fallback: try RPC if direct query returned empty
       if((!pets||!pets.length)&&!error){
-        var allCheck=await sb.from('pets').select('id,owner_id',{count:'exact',head:true});
-        console.log('[togglePets] All pets count:',allCheck.count,'error:',allCheck.error);
+        try{
+          var rpc=await sb.rpc('get_all_pets');
+          if(rpc.data&&rpc.data.length){
+            pets=rpc.data.filter(function(p){return p.owner_id===ownerUserId;});
+          }
+        }catch(e){}
       }
       if(error)console.warn('Pet load error:',error);
       if(!pets||!pets.length){
@@ -1046,7 +1051,7 @@
       }
       var h='';
       pets.forEach(function(pet){
-        var petAvatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
+        var petAvatar=pet.photo_url?'<img src="'+pet.photo_url+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">':(pet.species==='cat'?'🐱':'🐶');
         h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
         h+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
         h+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
@@ -1248,7 +1253,7 @@
       ov.onclick=function(e){if(e.target===ov){ov.style.opacity='0';sh.style.transform='translateY(100%)';setTimeout(function(){ov.remove();},300);}};
       var sh=document.createElement('div');
       sh.style.cssText='width:100%;max-width:500px;max-height:80vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
-      var avatar=pet.avatar_url?'<img src="'+pet.avatar_url+'" style="width:100%;height:100%;object-fit:cover">':'<span style="font-size:2.5rem">'+(pet.species==='cat'?'🐱':'🐶')+'</span>';
+      var avatar=pet.photo_url?'<img src="'+pet.photo_url+'" style="width:100%;height:100%;object-fit:cover">':'<span style="font-size:2.5rem">'+(pet.species==='cat'?'🐱':'🐶')+'</span>';
       var age='';
       if(pet.birthday){var bd=new Date(pet.birthday);var now=new Date();var years=now.getFullYear()-bd.getFullYear();var months=now.getMonth()-bd.getMonth();if(months<0){years--;months+=12;}age=years>0?years+' yr'+(years>1?'s':'')+(months>0?' '+months+' mo':''):months+' mo';}
       sh.innerHTML=
