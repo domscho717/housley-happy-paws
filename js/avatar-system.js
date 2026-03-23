@@ -129,19 +129,30 @@ const HHP_Avatar = {
       ? '<img src="' + currentUrl + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--gold, #c8963e)">'
       : '<div style="width:80px;height:80px;border-radius:50%;background:var(--warm, #faf6ee);border:2px dashed var(--border, #e0d5c5);display:flex;align-items:center;justify-content:center;font-size:2rem">🐾</div>';
 
-    return [
-      '<div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--warm, #faf6ee);border-radius:12px;border:1px solid var(--border, #e0d5c5)">',
-      '  <div class="avatar-preview-slot" style="cursor:pointer" onclick="HHP_Avatar.uploadMyAvatar()">' + preview + '</div>',
-      '  <div style="flex:1">',
-      '    <div style="font-weight:600;font-size:0.92rem;margin-bottom:4px">Profile Picture</div>',
-      '    <div style="font-size:0.78rem;color:var(--mid, #8c6b4a);margin-bottom:8px">Upload a photo of you or your pet. Shows on messages, bookings, and your profile.</div>',
-      '    <button class="btn btn-gold btn-sm" onclick="HHP_Avatar.uploadMyAvatar()" style="font-size:0.78rem;padding:6px 14px">',
-      currentUrl ? '📷 Change Photo' : '📷 Upload Photo',
-      '    </button>',
-      currentUrl ? '    <button class="btn btn-outline btn-sm" onclick="HHP_Avatar.removeMyAvatar()" style="font-size:0.78rem;padding:6px 14px;margin-left:6px">Remove</button>' : '',
-      '  </div>',
-      '</div>'
-    ].join('\n');
+    if (currentUrl) {
+      // Photo exists — show photo preview + Change / Remove buttons only
+      return [
+        '<div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--warm, #faf6ee);border-radius:12px;border:1px solid var(--border, #e0d5c5)">',
+        '  <div class="avatar-preview-slot" style="cursor:pointer" onclick="HHP_Avatar.uploadMyAvatar()">' + preview + '</div>',
+        '  <div style="flex:1;display:flex;gap:8px;flex-wrap:wrap">',
+        '    <button class="btn btn-gold btn-sm" onclick="HHP_Avatar.uploadMyAvatar()" style="font-size:0.78rem;padding:6px 14px">📷 Change Photo</button>',
+        '    <button class="btn btn-outline btn-sm" onclick="HHP_Avatar.removeMyAvatar()" style="font-size:0.78rem;padding:6px 14px">Remove</button>',
+        '  </div>',
+        '</div>'
+      ].join('\n');
+    } else {
+      // No photo — show description + Upload button
+      return [
+        '<div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--warm, #faf6ee);border-radius:12px;border:1px solid var(--border, #e0d5c5)">',
+        '  <div class="avatar-preview-slot" style="cursor:pointer" onclick="HHP_Avatar.uploadMyAvatar()">' + preview + '</div>',
+        '  <div style="flex:1">',
+        '    <div style="font-weight:600;font-size:0.92rem;margin-bottom:4px">Profile Picture</div>',
+        '    <div style="font-size:0.78rem;color:var(--mid, #8c6b4a);margin-bottom:8px">Upload a photo of you or your pet. Shows on messages, bookings, and your profile.</div>',
+        '    <button class="btn btn-gold btn-sm" onclick="HHP_Avatar.uploadMyAvatar()" style="font-size:0.78rem;padding:6px 14px">📷 Upload Photo</button>',
+        '  </div>',
+        '</div>'
+      ].join('\n');
+    }
   },
 
   // ── Upload avatar for the currently signed-in user ──
@@ -199,6 +210,20 @@ const HHP_Avatar = {
     var uploadCard = document.getElementById('avatar-upload-card');
     if (uploadCard) {
       uploadCard.innerHTML = this.buildUploadSection(url);
+      // Show/hide the "Your Profile Picture" title based on whether photo exists
+      var parentCard = uploadCard.parentElement;
+      if (parentCard) {
+        var titleEl = parentCard.querySelector('.avatar-upload-title');
+        if (url && titleEl) {
+          titleEl.remove();
+        } else if (!url && !parentCard.querySelector('.avatar-upload-title')) {
+          var t = document.createElement('div');
+          t.className = 'card-title avatar-upload-title';
+          t.style.marginBottom = '12px';
+          t.textContent = 'Your Profile Picture';
+          parentCard.insertBefore(t, uploadCard);
+        }
+      }
     }
   },
 
@@ -232,7 +257,7 @@ const HHP_Avatar = {
       card.id = 'avatar-upload-card-client';
       card.className = 'card';
       card.style.marginBottom = '18px';
-      card.innerHTML = '<div class="card-title" style="margin-bottom:12px">Your Profile Picture</div><div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
+      card.innerHTML = (url ? '' : '<div class="card-title avatar-upload-title" style="margin-bottom:12px">Your Profile Picture</div>') + '<div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
       // Insert after the p-header
       var header = cDash.querySelector('.p-header');
       if (header && header.nextSibling) {
@@ -265,7 +290,7 @@ const HHP_Avatar = {
       card.id = 'avatar-upload-card-staff';
       card.className = 'card';
       card.style.marginBottom = '18px';
-      card.innerHTML = '<div class="card-title" style="margin-bottom:12px">Your Profile Picture</div><div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
+      card.innerHTML = (url ? '' : '<div class="card-title avatar-upload-title" style="margin-bottom:12px">Your Profile Picture</div>') + '<div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
       var header = sDash.querySelector('.p-header');
       if (header && header.nextSibling) {
         sDash.insertBefore(card, header.nextSibling);

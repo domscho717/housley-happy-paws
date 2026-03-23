@@ -1349,8 +1349,8 @@ try {
                 <div style="display:flex;align-items:center;gap:12px">
                   <div id="pet-photo-preview" style="width:80px;height:80px;border-radius:12px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.5rem;background:var(--warm)" onclick="document.getElementById('pet-photo-input').click()">📷</div>
                   <div>
-                    <button type="button" class="btn btn-gold btn-sm" onclick="document.getElementById('pet-photo-input').click()" style="font-size:0.78rem;padding:6px 14px">📷 Upload Photo</button>
-                    <div style="font-size:0.72rem;color:var(--mid);margin-top:4px">Tap to add a photo of your pet</div>
+                    <button type="button" class="btn btn-gold btn-sm" id="pet-photo-btn" onclick="document.getElementById('pet-photo-input').click()" style="font-size:0.78rem;padding:6px 14px">📷 Upload Photo</button>
+                    <div id="pet-photo-desc" style="font-size:0.72rem;color:var(--mid);margin-top:4px">Tap to add a photo of your pet</div>
                   </div>
                 </div>
                 <input type="file" id="pet-photo-input" accept="image/*" style="display:none" onchange="previewPetPhoto(this)">
@@ -8470,14 +8470,20 @@ async function openPetForm(petData) {
 
   // Photo preview
   var preview = document.getElementById('pet-photo-preview');
+  var petPhotoBtn = document.getElementById('pet-photo-btn');
+  var petPhotoDesc = document.getElementById('pet-photo-desc');
   if (petData?.photo_url) {
     preview.style.backgroundImage = 'url(' + petData.photo_url + ')';
     preview.style.backgroundSize = 'cover';
     preview.style.backgroundPosition = 'center';
     preview.textContent = '';
+    if (petPhotoBtn) petPhotoBtn.innerHTML = '📷 Change Photo';
+    if (petPhotoDesc) petPhotoDesc.style.display = 'none';
   } else {
     preview.style.backgroundImage = '';
     preview.innerHTML = '📷';
+    if (petPhotoBtn) petPhotoBtn.innerHTML = '📷 Upload Photo';
+    if (petPhotoDesc) { petPhotoDesc.style.display = ''; petPhotoDesc.textContent = 'Tap to add a photo of your pet'; }
   }
   // Scroll to form
   document.getElementById('petFormWrap').scrollIntoView({ behavior: 'auto', block: 'start' });
@@ -8496,6 +8502,10 @@ function previewPetPhoto(input) {
     preview.style.backgroundSize = 'cover';
     preview.style.backgroundPosition = 'center';
     preview.textContent = '';
+    var petPhotoBtn = document.getElementById('pet-photo-btn');
+    var petPhotoDesc = document.getElementById('pet-photo-desc');
+    if (petPhotoBtn) petPhotoBtn.innerHTML = '📷 Change Photo';
+    if (petPhotoDesc) petPhotoDesc.style.display = 'none';
   };
   reader.readAsDataURL(input.files[0]);
 }
