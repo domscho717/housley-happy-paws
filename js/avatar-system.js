@@ -125,30 +125,30 @@ const HHP_Avatar = {
 
   // ── Build the upload section HTML (reusable across all portals) ──
   buildUploadSection(currentUrl) {
-    var preview = currentUrl
-      ? '<img src="' + currentUrl + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--gold, #c8963e)">'
-      : '<div style="width:80px;height:80px;border-radius:50%;background:var(--warm, #faf6ee);border:2px dashed var(--border, #e0d5c5);display:flex;align-items:center;justify-content:center;font-size:2rem">🐾</div>';
-
     if (currentUrl) {
-      // Photo exists — show photo preview + Change / Remove buttons only
+      // Photo exists — compact row: small avatar + Change / Remove buttons
       return [
-        '<div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--warm, #faf6ee);border-radius:12px;border:1px solid var(--border, #e0d5c5)">',
-        '  <div class="avatar-preview-slot" style="cursor:pointer" onclick="HHP_Avatar.uploadMyAvatar()">' + preview + '</div>',
-        '  <div style="flex:1;display:flex;gap:8px;flex-wrap:wrap">',
-        '    <button class="btn btn-gold btn-sm" onclick="HHP_Avatar.uploadMyAvatar()" style="font-size:0.78rem;padding:6px 14px">📷 Change Photo</button>',
-        '    <button class="btn btn-outline btn-sm" onclick="HHP_Avatar.removeMyAvatar()" style="font-size:0.78rem;padding:6px 14px">Remove</button>',
+        '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--warm, #faf6ee);border-radius:10px;border:1px solid var(--border, #e0d5c5)">',
+        '  <div class="avatar-preview-slot" style="cursor:pointer" onclick="HHP_Avatar.uploadMyAvatar()">',
+        '    <img src="' + currentUrl + '" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--gold, #c8963e)">',
+        '  </div>',
+        '  <div style="flex:1;display:flex;gap:8px;flex-wrap:wrap;align-items:center">',
+        '    <button class="btn btn-gold btn-sm" onclick="HHP_Avatar.uploadMyAvatar()" style="font-size:0.75rem;padding:5px 12px">📷 Change Photo</button>',
+        '    <button class="btn btn-outline btn-sm" onclick="HHP_Avatar.removeMyAvatar()" style="font-size:0.75rem;padding:5px 12px">Remove</button>',
         '  </div>',
         '</div>'
       ].join('\n');
     } else {
       // No photo — show description + Upload button
       return [
-        '<div style="display:flex;align-items:center;gap:16px;padding:16px;background:var(--warm, #faf6ee);border-radius:12px;border:1px solid var(--border, #e0d5c5)">',
-        '  <div class="avatar-preview-slot" style="cursor:pointer" onclick="HHP_Avatar.uploadMyAvatar()">' + preview + '</div>',
+        '<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--warm, #faf6ee);border-radius:10px;border:1px solid var(--border, #e0d5c5)">',
+        '  <div class="avatar-preview-slot" style="cursor:pointer" onclick="HHP_Avatar.uploadMyAvatar()">',
+        '    <div style="width:56px;height:56px;border-radius:50%;background:var(--gold-pale, #fdf7ee);border:2px dashed var(--border, #e0d5c5);display:flex;align-items:center;justify-content:center;font-size:1.5rem">🐾</div>',
+        '  </div>',
         '  <div style="flex:1">',
-        '    <div style="font-weight:600;font-size:0.92rem;margin-bottom:4px">Profile Picture</div>',
-        '    <div style="font-size:0.78rem;color:var(--mid, #8c6b4a);margin-bottom:8px">Upload a photo of you or your pet. Shows on messages, bookings, and your profile.</div>',
-        '    <button class="btn btn-gold btn-sm" onclick="HHP_Avatar.uploadMyAvatar()" style="font-size:0.78rem;padding:6px 14px">📷 Upload Photo</button>',
+        '    <div style="font-weight:600;font-size:0.88rem;margin-bottom:3px">Profile Picture</div>',
+        '    <div style="font-size:0.75rem;color:var(--mid, #8c6b4a);margin-bottom:6px">Upload a photo — it shows on messages, bookings, and your profile.</div>',
+        '    <button class="btn btn-gold btn-sm" onclick="HHP_Avatar.uploadMyAvatar()" style="font-size:0.75rem;padding:5px 12px">📷 Upload Photo</button>',
         '  </div>',
         '</div>'
       ].join('\n');
@@ -200,9 +200,9 @@ const HHP_Avatar = {
     // Update any avatar-preview-slot on the page
     document.querySelectorAll('.avatar-preview-slot').forEach(function(el) {
       if (url) {
-        el.innerHTML = '<img src="' + url + '" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--gold, #c8963e)">';
+        el.innerHTML = '<img src="' + url + '" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--gold, #c8963e)">';
       } else {
-        el.innerHTML = '<div style="width:80px;height:80px;border-radius:50%;background:var(--warm, #faf6ee);border:2px dashed var(--border, #e0d5c5);display:flex;align-items:center;justify-content:center;font-size:2rem">🐾</div>';
+        el.innerHTML = '<div style="width:56px;height:56px;border-radius:50%;background:var(--gold-pale, #fdf7ee);border:2px dashed var(--border, #e0d5c5);display:flex;align-items:center;justify-content:center;font-size:1.5rem">🐾</div>';
       }
     });
 
@@ -256,14 +256,19 @@ const HHP_Avatar = {
       var card = document.createElement('div');
       card.id = 'avatar-upload-card-client';
       card.className = 'card';
-      card.style.marginBottom = '18px';
-      card.innerHTML = (url ? '' : '<div class="card-title avatar-upload-title" style="margin-bottom:12px">Your Profile Picture</div>') + '<div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
-      // Insert after the p-header
-      var header = cDash.querySelector('.p-header');
-      if (header && header.nextSibling) {
-        cDash.insertBefore(card, header.nextSibling);
+      card.style.cssText = 'margin-bottom:12px;padding:' + (url ? '10px 14px' : '16px') + '';
+      card.innerHTML = (url ? '' : '<div class="card-title avatar-upload-title" style="margin-bottom:10px">Your Profile Picture</div>') + '<div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
+      // Try customizer grid first, then p-header, then append
+      var custGrid = cDash.querySelector('[id^="cust-grid-"]');
+      if (custGrid) {
+        cDash.insertBefore(card, custGrid);
       } else {
-        cDash.appendChild(card);
+        var header = cDash.querySelector('.p-header');
+        if (header && header.nextSibling) {
+          cDash.insertBefore(card, header.nextSibling);
+        } else {
+          cDash.appendChild(card);
+        }
       }
     }
 
@@ -272,30 +277,43 @@ const HHP_Avatar = {
     if (oOverview && !document.getElementById('avatar-upload-card-owner')) {
       var card = document.createElement('div');
       card.id = 'avatar-upload-card-owner';
-      card.style.cssText = 'margin-bottom:18px';
+      card.style.cssText = 'margin-bottom:12px';
       card.innerHTML = '<div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
-      // Insert after the owner banner
-      var banner = oOverview.querySelector('.owner-banner');
-      if (banner && banner.nextSibling) {
-        oOverview.insertBefore(card, banner.nextSibling);
+      // Try customizer grid first (customizer removes .owner-banner and replaces with widgets)
+      var custGrid = oOverview.querySelector('[id^="cust-grid-"]');
+      if (custGrid) {
+        oOverview.insertBefore(card, custGrid);
       } else {
-        oOverview.prepend(card);
+        // Fallback: insert after owner banner or at top
+        var banner = oOverview.querySelector('.owner-banner');
+        if (banner && banner.nextSibling) {
+          oOverview.insertBefore(card, banner.nextSibling);
+        } else {
+          // Insert as first child
+          oOverview.insertBefore(card, oOverview.firstChild);
+        }
       }
     }
 
-    // Staff Portal — inject into dashboard
-    var sDash = document.getElementById('s-dash');
-    if (sDash && !document.getElementById('avatar-upload-card-staff')) {
+    // Staff Portal — inject into schedule (staff main panel is s-sched, not s-dash)
+    var sSched = document.getElementById('s-sched');
+    if (sSched && !document.getElementById('avatar-upload-card-staff')) {
       var card = document.createElement('div');
       card.id = 'avatar-upload-card-staff';
       card.className = 'card';
-      card.style.marginBottom = '18px';
-      card.innerHTML = (url ? '' : '<div class="card-title avatar-upload-title" style="margin-bottom:12px">Your Profile Picture</div>') + '<div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
-      var header = sDash.querySelector('.p-header');
-      if (header && header.nextSibling) {
-        sDash.insertBefore(card, header.nextSibling);
+      card.style.cssText = 'margin-bottom:12px;padding:' + (url ? '10px 14px' : '16px') + '';
+      card.innerHTML = (url ? '' : '<div class="card-title avatar-upload-title" style="margin-bottom:10px">Your Profile Picture</div>') + '<div id="avatar-upload-card">' + this.buildUploadSection(url) + '</div>';
+      // Try customizer grid first, then p-header, then prepend
+      var custGrid = sSched.querySelector('[id^="cust-grid-"]');
+      if (custGrid) {
+        sSched.insertBefore(card, custGrid);
       } else {
-        sDash.appendChild(card);
+        var header = sSched.querySelector('.p-header');
+        if (header && header.nextSibling) {
+          sSched.insertBefore(card, header.nextSibling);
+        } else {
+          sSched.appendChild(card);
+        }
       }
     }
 
