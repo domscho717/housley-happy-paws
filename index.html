@@ -3536,6 +3536,14 @@ function sTab(portal, panelId) {
     // Keep history at a reasonable size
     if (window._panelHistory.length > 20) window._panelHistory.shift();
   }
+  // If _currentPanel was null (first nav after portal switch), seed it with the default
+  // so the NEXT navigation will have a proper origin to push into history
+  if (!window._currentPanel && panelId !== window._panelDefaults[portal]) {
+    var defPanel = window._panelDefaults[portal];
+    if (defPanel) {
+      window._panelHistory.push({ portal: portal, panelId: defPanel });
+    }
+  }
   window._currentPanel = panelId;
   window._currentPortal = portal;
   updateBackButton();
