@@ -742,19 +742,22 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 /* ── Scroll-to-Top Button ── */
 #scrollTopBtn{
   display:none;position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:450;
-  background:rgba(30,20,9,0.75);color:#fff;border:none;border-radius:20px;
-  padding:5px 14px 5px 12px;font-size:0.72rem;font-weight:600;letter-spacing:0.03em;
+  background:rgba(30,20,9,0.78);color:#fff;border:none;border-radius:20px;
+  padding:7px 16px 7px 13px;font-size:0.74rem;font-weight:600;letter-spacing:0.03em;
   cursor:pointer;font-family:'Jost',sans-serif;
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  box-shadow:0 2px 12px rgba(0,0,0,0.18);
+  box-shadow:0 2px 12px rgba(0,0,0,0.2);
   align-items:center;gap:4px;
   transition:opacity 0.25s,transform 0.25s;
   opacity:0;transform:translateX(-50%) translateY(-10px);
+  -webkit-tap-highlight-color:transparent;
+  min-height:36px;
 }
 #scrollTopBtn.visible{display:inline-flex;opacity:1;transform:translateX(-50%) translateY(0)}
-#scrollTopBtn:hover{background:rgba(30,20,9,0.9)}
+#scrollTopBtn:hover{background:rgba(30,20,9,0.92)}
+#scrollTopBtn:active{transform:translateX(-50%) scale(0.95)}
 @media(max-width:900px){
-  #scrollTopBtn{top:14px;padding:4px 12px 4px 10px;font-size:0.68rem}
+  #scrollTopBtn{top:14px;padding:6px 14px 6px 11px;font-size:0.7rem;min-height:34px}
 }
 
 /* Prevent iOS Safari zoom on input focus — all inputs must be ≥16px */
@@ -11153,48 +11156,63 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// ── Scroll-to-Top Button ──
+// ── Scroll-to-Top Button (iOS + Android + Desktop) ──
 (function(){
   var btn = document.getElementById('scrollTopBtn');
   if (!btn) return;
-  var THRESHOLD = 350; // px scrolled before button appears
+  var THRESHOLD = 300;
   var _visible = false;
+  var _raf = null;
 
   function show() { if (!_visible) { _visible = true; btn.classList.add('visible'); } }
   function hide() { if (_visible) { _visible = false; btn.classList.remove('visible'); } }
 
-  // Scroll handler for any element
-  function onScroll(scrollTop) {
-    if (scrollTop > THRESHOLD) show(); else hide();
+  // Get current scroll position from the right container
+  function getScrollTop() {
+    var activePage = document.querySelector('.page.active');
+    if (activePage) {
+      var pm = activePage.querySelector('.portal-main');
+      // On mobile, portal-main may not actually scroll (content flows into window)
+      if (pm && pm.scrollHeight > pm.clientHeight + 10) return pm.scrollTop;
+    }
+    return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
   }
 
-  // Home page scrolls via window
-  window.addEventListener('scroll', function() {
-    // Only act if home page is visible (no portal active)
-    var activePage = document.querySelector('.page.active');
-    if (!activePage) onScroll(window.scrollY || document.documentElement.scrollTop);
-  }, { passive: true });
+  function check() {
+    var st = getScrollTop();
+    if (st > THRESHOLD) show(); else hide();
+  }
 
-  // Portal pages scroll via .portal-main
+  // Listen to BOTH window and portal-main scroll — covers all platforms
+  window.addEventListener('scroll', check, { passive: true });
+
   document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.portal-main').forEach(function(pm) {
-      pm.addEventListener('scroll', function() {
-        // Only act if this portal-main's page is active
-        var page = pm.closest('.page');
-        if (page && page.classList.contains('active')) onScroll(pm.scrollTop);
-      }, { passive: true });
+      pm.addEventListener('scroll', check, { passive: true });
     });
   });
+
+  // iOS fallback: touchmove doesn't always fire scroll events
+  var _touchTimer = null;
+  document.addEventListener('touchmove', function() {
+    if (_touchTimer) clearTimeout(_touchTimer);
+    _touchTimer = setTimeout(check, 100);
+  }, { passive: true });
+  document.addEventListener('touchend', function() {
+    // Check after touch settles (momentum scroll on iOS)
+    setTimeout(check, 300);
+    setTimeout(check, 800);
+  }, { passive: true });
 
   // scrollToTop: scroll the correct container
   window.scrollToTop = function() {
     var activePage = document.querySelector('.page.active');
-    if (activePage) {
-      var pm = activePage.querySelector('.portal-main');
-      if (pm) pm.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    var pm = activePage ? activePage.querySelector('.portal-main') : null;
+    if (pm && pm.scrollHeight > pm.clientHeight + 10) {
+      pm.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    // Always also scroll window (covers mobile where portal-main doesn't independently scroll)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     hide();
   };
 
