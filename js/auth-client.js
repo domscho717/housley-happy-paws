@@ -98,7 +98,7 @@ const HHP_Auth = window.HHP_Auth = {
             // Get user role from profiles table
             const { data: profile, error } = await this.supabase
                 .from('profiles')
-                .select('role, full_name, phone, pet_names, avatar_url')
+                .select('role, full_name, phone, pet_names, avatar_url, preferences')
                 .eq('user_id', session.user.id)
                 .single();
 
@@ -111,6 +111,15 @@ const HHP_Auth = window.HHP_Auth = {
                 // Cache avatar for instant display
                 if (profile.avatar_url) {
                     try { sessionStorage.setItem('hhp_avatar_url', profile.avatar_url); } catch(e) {}
+                }
+                // Load user preferences from DB into settings
+                if (profile.preferences && typeof profile.preferences === 'object') {
+                    try {
+                        var local = JSON.parse(localStorage.getItem('hhp_settings') || '{}');
+                        var merged = Object.assign({}, local, profile.preferences);
+                        localStorage.setItem('hhp_settings', JSON.stringify(merged));
+                        if (window.HHP_Settings && typeof HHP_Settings.init === 'function') HHP_Settings.init();
+                    } catch(e) {}
                 }
             } else {
                 this.currentRole = 'client';
@@ -174,6 +183,17 @@ const HHP_Auth = window.HHP_Auth = {
                 if (typeof switchView === 'function') switchView('client');
                 break;
         }
+        // Apply default view preference from settings (if not 'auto')
+        var self = this;
+        setTimeout(function() {
+            if (window.HHP_Settings && typeof HHP_Settings.getDefaultView === 'function') {
+                var dv = HHP_Settings.getDefaultView();
+                if (dv && dv !== 'auto' && typeof sTab === 'function') {
+                    var portalKey = self.currentRole === 'owner' ? 'o' : self.currentRole === 'staff' ? 's' : 'c';
+                    sTab(portalKey, dv);
+                }
+            }
+        }, 100);
     },
 
     // ── Update nav/UI to reflect logged-in user ──
