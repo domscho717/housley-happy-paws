@@ -47,10 +47,13 @@ try{var _ca=sessionStorage.getItem('hhp_avatar_url');if(_ca){var st=document.cre
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://niysrippazlkpvdkzepp.supabase.co" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<!-- Supabase JS Client -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<!-- Cloudinary Upload Widget -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<!-- Preload critical font CSS — non-render-blocking -->
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
+<!-- Supabase JS Client — async to not block HTML parsing -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" async></script>
+<!-- Cloudinary Upload Widget — loaded async, only needed for uploads -->
 <script src="https://upload-widget.cloudinary.com/latest/global/all.js" type="text/javascript" async></script>
 <style>
 :root {
@@ -986,9 +989,58 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .auth-skip a:hover{color:var(--gold-deep)}
 .auth-divider{display:flex;align-items:center;gap:12px;margin:8px 0;color:var(--mid);font-size:0.78rem}
 .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Page loading indicator ── */
+#hhpLoadingScreen{
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:10000;
+  background:var(--cream,#FDFAF5);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 0.35s;
+}
+[data-theme="dark"] #hhpLoadingScreen{background:#141210}
+#hhpLoadingScreen.fade-out{opacity:0;pointer-events:none}
+.hhp-loader{
+  width:40px;height:40px;border:3px solid var(--border,rgba(30,20,9,0.09));
+  border-top-color:var(--gold,#C8963E);border-radius:50%;
+  animation:hhpSpin 0.7s linear infinite;
+}
+@keyframes hhpSpin{to{transform:rotate(360deg)}}
+.hhp-loader-text{
+  margin-top:14px;font-family:'Jost',sans-serif;font-size:0.82rem;
+  font-weight:500;color:var(--mid,#8C6B4A);letter-spacing:0.02em;
+}
 </style>
 </head>
 <body class="loading-auth">
+<!-- Instant loading screen — removed once content is ready -->
+<div id="hhpLoadingScreen">
+  <div class="hhp-loader"></div>
+  <div class="hhp-loader-text">Loading...</div>
+</div>
+<script>
+// Remove loading screen as soon as the page is interactive
+(function(){
+  function hideLoader(){
+    var el=document.getElementById('hhpLoadingScreen');
+    if(!el)return;
+    el.classList.add('fade-out');
+    setTimeout(function(){if(el.parentNode)el.remove();},400);
+  }
+  // For returning users with cached session, hide faster
+  var hasCache=false;
+  try{hasCache=!!sessionStorage.getItem('hhp_cached_role')&&!!sessionStorage.getItem('hhp_last_view');}catch(e){}
+  if(hasCache){
+    // Returning user — hide loader as soon as DOM is ready
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',hideLoader);}
+    else hideLoader();
+  } else {
+    // New visitor — hide after a short delay to let critical CSS paint
+    window.addEventListener('load',function(){setTimeout(hideLoader,200);});
+    // Safety: always hide within 4 seconds even if load event is slow
+    setTimeout(hideLoader,4000);
+  }
+})();
+</script>
 <script>
 // Instant restore: if we have a cached role + last view, show the portal immediately
 // (auth will verify in the background — but user sees content right away)
@@ -3741,7 +3793,13 @@ function sTab(portal, panelId) {
   if (panelId === 's-jobs' && typeof loadStaffJobs === 'function') loadStaffJobs();
   if (panelId === 's-earn' && typeof loadStaffEarnings === 'function') loadStaffEarnings();
   // Client panels
-  if (panelId === 'c-track') { if (typeof HHP_Tracking !== 'undefined') HHP_Tracking.loadClientLiveTracking(); else if (typeof loadLiveTracking === 'function') loadLiveTracking(); }
+  if (panelId === 'c-track') {
+    // Lazy-load Leaflet + live-tracking.js on first open
+    if (typeof _loadLeaflet === 'function' && typeof HHP_Tracking === 'undefined' && typeof loadLiveTracking === 'undefined') {
+      _loadLeaflet(function() { if (typeof HHP_Tracking !== 'undefined') HHP_Tracking.loadClientLiveTracking(); else if (typeof loadLiveTracking === 'function') loadLiveTracking(); });
+    } else if (typeof HHP_Tracking !== 'undefined') HHP_Tracking.loadClientLiveTracking();
+    else if (typeof loadLiveTracking === 'function') loadLiveTracking();
+  }
   // Gallery re-render when switching to photo panels
   if (panelId === 'c-photos' && window.HHP_Gallery) HHP_Gallery.render('client');
   if (panelId === 'o-photos') {
@@ -11383,8 +11441,19 @@ document.addEventListener('DOMContentLoaded', function() {
     for (var i = 0; i < cbs.length; i++) { try { cbs[i](); } catch(e) { console.error('Auth callback error:', e); } }
   }
 
+    // Wait for Supabase SDK to load (async script)
+  function waitForSupabase(cb, maxWait) {
+    if (window.supabase) return cb();
+    var start = Date.now();
+    var check = setInterval(function() {
+      if (window.supabase) { clearInterval(check); cb(); }
+      else if (Date.now() - start > (maxWait || 8000)) { clearInterval(check); console.warn('Supabase SDK load timeout'); cb(); }
+    }, 50);
+  }
+
     // Initialize auth when page loads
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('DOMContentLoaded', function() {
+    waitForSupabase(async function() {
     if (typeof HHP_Auth !== 'undefined' && HHP_Auth.SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
       const ok = await HHP_Auth.init();
       // Set global alias so all functions can access the same Supabase client
@@ -11406,6 +11475,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Auth not configured — dev mode
       _fireAuthReady();
     }
+    }); // end waitForSupabase
   });
 
   // ── Recurring date calculation (matches backend logic in recurring-invoices.js) ──
@@ -12343,8 +12413,25 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
-  <script src="/js/live-tracking.js" defer></script>
+  <!-- Leaflet + live tracking: lazy-loaded only when tracking panel is opened -->
+  <script>
+  (function(){
+    var leafletLoaded=false;
+    window._loadLeaflet=function(cb){
+      if(leafletLoaded){if(cb)cb();return;}
+      var css=document.createElement('link');css.rel='stylesheet';
+      css.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+      document.head.appendChild(css);
+      var js=document.createElement('script');
+      js.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+      js.onload=function(){
+        leafletLoaded=true;
+        var t=document.createElement('script');t.src='/js/live-tracking.js';
+        if(cb)t.onload=cb;document.body.appendChild(t);
+      };
+      document.body.appendChild(js);
+    };
+  })();
+  </script>
   <script src="/js/service-timer.js" defer></script></body>
 </html>
