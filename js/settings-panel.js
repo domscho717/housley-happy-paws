@@ -42,7 +42,7 @@
       var sb = window.HHP_Auth && window.HHP_Auth.supabase;
       var user = window.HHP_Auth && window.HHP_Auth.currentUser;
       if (!sb || !user) return;
-      sb.from('profiles').update({ preferences: s }).eq('id', user.id).then(function() {});
+      sb.from('profiles').update({ preferences: s }).eq('user_id', user.id).then(function() {});
     } catch(e) {}
   }
 
@@ -51,7 +51,7 @@
       var sb = window.HHP_Auth && window.HHP_Auth.supabase;
       var user = window.HHP_Auth && window.HHP_Auth.currentUser;
       if (!sb || !user) return;
-      sb.from('profiles').select('preferences').eq('id', user.id).maybeSingle().then(function(res) {
+      sb.from('profiles').select('preferences').eq('user_id', user.id).maybeSingle().then(function(res) {
         if (res && res.data && res.data.preferences) {
           var remote = res.data.preferences;
           var local = loadSettings();
