@@ -42,7 +42,7 @@ const HHP_Auth = window.HHP_Auth = {
                 this.currentRole = null;
                 this.session = null;
                 this._handledSessionId = null;
-                try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); } catch(e) {}
+                try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
                 this.showLoginScreen();
             }
         });
@@ -75,8 +75,14 @@ const HHP_Auth = window.HHP_Auth = {
                 // On reload: restore the LAST VIEW (could be public/home)
                 // On fresh login: go to portal
                 var lastView = sessionStorage.getItem('hhp_last_view');
+                var lastPanel = sessionStorage.getItem('hhp_last_panel');
+                var lastPortal = sessionStorage.getItem('hhp_last_portal');
                 if (lastView) {
                     if (typeof switchView === 'function') switchView(lastView);
+                    // Restore the specific panel the user was on (switchView resets to overview)
+                    if (lastPanel && lastPortal && typeof sTab === 'function') {
+                        setTimeout(function() { sTab(lastPortal, lastPanel); }, 50);
+                    }
                 } else {
                     this.routeToPortal();
                 }
@@ -131,8 +137,13 @@ const HHP_Auth = window.HHP_Auth = {
         } else if (!usedCache) {
             // Session restore but no cache was used — restore last view or go to portal
             var lastView = sessionStorage.getItem('hhp_last_view');
+            var lastPanel = sessionStorage.getItem('hhp_last_panel');
+            var lastPortal = sessionStorage.getItem('hhp_last_portal');
             if (lastView) {
                 if (typeof switchView === 'function') switchView(lastView);
+                if (lastPanel && lastPortal && typeof sTab === 'function') {
+                    setTimeout(function() { sTab(lastPortal, lastPanel); }, 50);
+                }
             } else {
                 this.routeToPortal();
             }
@@ -250,7 +261,7 @@ const HHP_Auth = window.HHP_Auth = {
         this.currentRole = null;
         this.session = null;
         this._handledSessionId = null;
-        try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); } catch(e) {}
+        try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
         if (typeof switchView === 'function') switchView('public');
         this.showLoginScreen();
     },

@@ -9,8 +9,32 @@
 #pg-client,#pg-staff,#pg-owner{display:none!important;visibility:hidden!important}
 </style>
 <script>
-// On public pages or first visit, no hiding needed — remove early-hide immediately
-try{var v=sessionStorage.getItem('hhp_last_view');if(!v||v==='public'){var s=document.getElementById('early-hide');if(s)s.remove();}}catch(e){var s=document.getElementById('early-hide');if(s)s.remove();}
+// Instant page restore: show the correct portal/panel immediately on reload (no flash)
+try{
+  var _lv=sessionStorage.getItem('hhp_last_view');
+  var _lp=sessionStorage.getItem('hhp_last_panel');
+  if(!_lv||_lv==='public'){
+    // Public page — remove early-hide immediately
+    var s=document.getElementById('early-hide');if(s)s.remove();
+  } else {
+    // Portal reload — instantly show the right portal page and hide the public page
+    var _eh=document.getElementById('early-hide');
+    if(_eh){
+      var _css='#pg-public{display:none!important}#pg-'+_lv+'{display:block!important;visibility:visible!important}';
+      if(_lv!=='client')_css+='#pg-client{display:none!important;visibility:hidden!important}';
+      if(_lv!=='staff')_css+='#pg-staff{display:none!important;visibility:hidden!important}';
+      if(_lv!=='owner')_css+='#pg-owner{display:none!important;visibility:hidden!important}';
+      _eh.textContent=_css;
+    }
+    // Also pre-activate the last panel via CSS if available
+    if(_lp){
+      var _ps=document.createElement('style');
+      _ps.id='early-panel';
+      _ps.textContent='.p-panel{display:none!important}.p-panel#'+_lp+'{display:block!important}';
+      document.head.appendChild(_ps);
+    }
+  }
+}catch(e){var s=document.getElementById('early-hide');if(s)s.remove();}
 </script>
 <script>
 // Instant avatar: apply cached profile picture to prevent flash of default emoji
@@ -905,10 +929,17 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 </head>
 <body class="loading-auth">
 <script>
-// If user was on the public page (or first visit), show immediately — no auth needed to see it
+// Instant restore: if we have a cached role + last view, show the portal immediately
+// (auth will verify in the background — but user sees content right away)
 try {
   var lv = sessionStorage.getItem('hhp_last_view');
-  if (!lv || lv === 'public') document.body.classList.remove('loading-auth');
+  var cr = sessionStorage.getItem('hhp_cached_role');
+  if (!lv || lv === 'public') {
+    document.body.classList.remove('loading-auth');
+  } else if (cr) {
+    // Returning user with cached role — safe to show portal instantly
+    document.body.classList.remove('loading-auth');
+  }
 } catch(e) { document.body.classList.remove('loading-auth'); }
 </script>
 
@@ -3325,9 +3356,11 @@ function switchView(view) {
     if (floatingBookBtn) floatingBookBtn.style.display = 'none';
     if (floatingBookMenu) floatingBookMenu.style.display = 'none';
   }
-  // Remove early-hide style and loading-auth — auth has settled, safe to show content
+  // Remove early-hide/early-panel styles — auth has settled, safe to show content
   var earlyHide = document.getElementById('early-hide');
   if (earlyHide) earlyHide.remove();
+  var earlyPanel = document.getElementById('early-panel');
+  if (earlyPanel) earlyPanel.remove();
   document.body.classList.remove('loading-auth');
   const dd = document.getElementById('viewDropdown');
   if(dd) dd.value = view;
@@ -3347,7 +3380,12 @@ function switchView(view) {
   }
 
   // Remember current view so reload goes straight here (no flash)
-  try { sessionStorage.setItem('hhp_last_view', view); } catch(e) {}
+  try {
+    sessionStorage.setItem('hhp_last_view', view);
+    // Clear saved panel when switching portals (will be re-set by sTab if user navigates)
+    sessionStorage.removeItem('hhp_last_panel');
+    sessionStorage.removeItem('hhp_last_portal');
+  } catch(e) {}
 
   // Refresh customizer widgets when switching portals
   if (typeof HHP_Customizer !== 'undefined' && view !== 'public') {
@@ -3606,6 +3644,9 @@ function sTab(portal, panelId) {
   window._currentPanel = panelId;
   window._currentPortal = portal;
   updateBackButton();
+
+  // Save current panel for reload persistence
+  try { sessionStorage.setItem('hhp_last_panel', panelId); sessionStorage.setItem('hhp_last_portal', portal); } catch(e) {}
 
   // Scroll to top of content when switching panels
   window.scrollTo(0, 0);
