@@ -1887,7 +1887,7 @@ try {
 
       <div class="p-panel active" id="o-overview">
         <div class="owner-banner">
-          <div class="ob-top"><div><div class="ob-h" id="ownerDashGreeting">Good morning, Rachel 🐾</div><div class="ob-p">Your business is growing beautifully. Here's today at a glance.</div></div><button class="btn btn-gold btn-sm" onclick="openModal('announceModal')">📢 Post Announcement</button></div>
+          <div class="ob-top"><div><div class="ob-h" id="ownerDashGreeting">Welcome, Rachel 🐾</div><div class="ob-p">Your business is growing beautifully. Here's today at a glance.</div></div><button class="btn btn-gold btn-sm" onclick="openModal('announceModal')">📢 Post Announcement</button></div>
           <div class="ob-stats"><div><div class="ob-sn" id="stat-activeClients">—</div><div class="ob-sl">Active Clients</div></div><div><div class="ob-sn" id="stat-newSignups">—</div><div class="ob-sl">New Sign‑ups</div></div><div><div class="ob-sn" id="stat-bookingsThisMonth">—</div><div class="ob-sl">This Month</div></div><div><div class="ob-sn" id="stat-avgRating">— 📋</div><div class="ob-sl">Reports Sent</div></div><div><div class="ob-sn" id="stat-todayJobs">—</div><div class="ob-sl">Today's Jobs</div></div></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
@@ -11563,6 +11563,20 @@ document.addEventListener('DOMContentLoaded', function() {
   // Exposed globally so customizer.js can re-trigger after widget DOM swap
   window.loadDashboardStats = loadDashboardStats;
   async function loadDashboardStats() {
+    // Instant greeting — runs BEFORE any Supabase calls so users see correct time-of-day immediately
+    try {
+      var _h = new Date().getHours();
+      var _tg = _h < 12 ? 'Good morning' : _h < 17 ? 'Good afternoon' : 'Good evening';
+      var _oEl = document.getElementById('ownerDashGreeting');
+      if (_oEl && _oEl.textContent.indexOf(_tg) === -1) _oEl.textContent = _tg + ', Rachel 🐾';
+      var _cEl = document.getElementById('clientDashGreeting');
+      if (_cEl) {
+        var _cn = '';
+        try { _cn = (window.HHP_Auth.currentUser.profile.full_name || '').split(' ')[0]; } catch(e){}
+        _cEl.textContent = _tg + (_cn ? ', ' + _cn : '') + ' 🐾';
+      }
+    } catch(e){}
+
     try {
       var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
       if (!sb) return;
