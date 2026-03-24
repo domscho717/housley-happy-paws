@@ -1,5 +1,6 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { sendEmail, sendToRachel, fmt12, escHtml, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -173,7 +174,68 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    // 7. Return success response
+    // 7. Send cancellation email notifications (non-blocking)
+    const safeName = escHtml(booking.contact_name || 'Client');
+    const safeService = escHtml(booking.service || 'Pet Care');
+    const serviceDate = cancelDate || booking.scheduled_date || booking.preferred_date || '';
+    const dateFmt = serviceDate
+      ? new Date(serviceDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      : 'TBD';
+    const timeFmt = booking.preferred_time ? fmt12(booking.preferred_time) : '';
+    const cancelLabel = isSingleCancel ? 'a single visit' : 'the booking';
+    const feeNote = cancellationType === 'late'
+      ? '<div style="background:#fff3cd;border-radius:8px;padding:12px;margin:12px 0;color:#856404;font-weight:600">⚠️ Late cancellation — the cancellation fee will be charged per policy.</div>'
+      : '<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">✅ Canceled before the 48-hour window — no charge.</div>';
+
+    try {
+      if (canceledBy === 'client') {
+        // Client canceled → Notify Rachel (owner)
+        await sendToRachel({
+          subject: `🔴 Booking Canceled: ${safeService} — ${safeName}`,
+          title: 'Booking Canceled by Client',
+          bodyHTML: `
+            <p><strong>${safeName}</strong> has canceled ${cancelLabel} for <strong>${safeService}</strong>.</p>
+            <div style="background:#fef2f2;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c62828">
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService}</div>
+              ${dateFmt !== 'TBD' ? `<div style="margin-bottom:4px">📅 ${dateFmt}</div>` : ''}
+              ${timeFmt ? `<div style="margin-bottom:4px">🕐 ${timeFmt}</div>` : ''}
+              <div style="margin-top:8px;font-size:0.85rem;color:#666">Canceled by: ${safeName}</div>
+            </div>
+            ${feeNote}
+            <div style="margin-top:20px">
+              <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View in Dashboard →</a>
+            </div>
+          `,
+        });
+      } else if (canceledBy === 'owner' && booking.contact_email) {
+        // Owner canceled → Notify client
+        await sendEmail({
+          to: booking.contact_email,
+          subject: `Booking Canceled — ${safeService} — Housley Happy Paws`,
+          title: 'Booking Canceled',
+          bodyHTML: `
+            <p>Hi ${safeName}!</p>
+            <p>Your <strong>${safeService}</strong> booking has been canceled by Rachel.</p>
+            <div style="background:#fef2f2;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c62828">
+              <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService}</div>
+              ${dateFmt !== 'TBD' ? `<div style="margin-bottom:4px">📅 ${dateFmt}</div>` : ''}
+              ${timeFmt ? `<div style="margin-bottom:4px">🕐 ${timeFmt}</div>` : ''}
+            </div>
+            ${feeNote}
+            <p>If you have any questions, please don't hesitate to reach out.</p>
+            <div style="margin-top:20px">
+              <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View in Your Portal →</a>
+            </div>
+            <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Questions? Reply to this email or call 717-715-7595</p>
+          `,
+        });
+      }
+    } catch (emailErr) {
+      console.error('Failed to send cancellation email:', emailErr.message);
+      // Don't fail the cancellation if email fails
+    }
+
+    // 8. Return success response
     res.status(200).json({
       success: true,
       cancellationType,

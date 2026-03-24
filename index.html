@@ -2881,7 +2881,7 @@ try {
 
 
 <!-- Review Submission Modal (Client) -->
-<div class="overlay" id="reviewModal" style="display:none" onclick="if(event.target===this)closeModal('reviewModal')">
+<div class="overlay" id="reviewModal" onclick="if(event.target===this)closeModal('reviewModal')">
   <div class="modal" style="max-width:480px">
     <div class="modal-head">
       <div>
@@ -2915,7 +2915,7 @@ try {
 </div>
 
 <!-- Owner Review Response Modal -->
-<div class="overlay" id="reviewResponseModal" style="display:none" onclick="if(event.target===this)closeModal('reviewResponseModal')">
+<div class="overlay" id="reviewResponseModal" onclick="if(event.target===this)closeModal('reviewResponseModal')">
   <div class="modal" style="max-width:440px">
     <div class="modal-head">
       <div class="modal-title">💬 Respond to Review</div>
@@ -2932,7 +2932,7 @@ try {
 </div>
 
 <!-- Add Past Review Modal (Owner) -->
-<div class="overlay" id="addPastReviewModal" style="display:none" onclick="if(event.target===this)closeModal('addPastReviewModal')">
+<div class="overlay" id="addPastReviewModal" onclick="if(event.target===this)closeModal('addPastReviewModal')">
   <div class="modal" style="max-width:480px">
     <div class="modal-head">
       <div class="modal-title">+ Add Past Review</div>
@@ -3046,7 +3046,7 @@ try {
 
 
 <!-- CANCEL BOOKING MODAL -->
-<div class="overlay" id="cancelBookingModal" style="display:none" onclick="if(event.target===this)closeModal('cancelBookingModal')">
+<div class="overlay" id="cancelBookingModal" onclick="if(event.target===this)closeModal('cancelBookingModal')">
   <div class="modal" style="max-width:520px">
     <div class="modal-head">
       <div class="modal-title">Cancel Booking 🔴</div>
@@ -4736,7 +4736,7 @@ function openModal(id) {
     }
     return;
   }
-  const el=document.getElementById(id); if(!el) return; if(el.classList.contains('modal-overlay')){el.style.display='flex';}else{el.classList.add('open');}
+  const el=document.getElementById(id); if(!el) return; if(el.classList.contains('modal-overlay')||el.classList.contains('overlay')){el.style.display='flex';el.classList.add('open');}else{el.classList.add('open');}
   // Load M&G data when modal opens
   if (id === 'mgModal' && typeof loadMGData === 'function') loadMGData();
 }
@@ -6139,28 +6139,37 @@ async function requestRecurringChange(bookingId) {
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
 
-  var reason = prompt('What would you like to change about this recurring service?\n\n(e.g. different day, different time, add/remove a pet, pause for a week)');
-  if (!reason || !reason.trim()) return;
-
   try {
-    // Find the booking for context
-    var { data: booking } = await sb.from('booking_requests').select('service, pet_names').eq('id', bookingId).maybeSingle();
+    // Find the booking for context + check 48hr policy
+    var { data: booking } = await sb.from('booking_requests').select('service, pet_names, scheduled_date, preferred_date').eq('id', bookingId).maybeSingle();
     var svcName = booking ? booking.service : 'recurring service';
+
+    var svcDate = booking ? (booking.scheduled_date || booking.preferred_date) : '';
+    var promptNote = '(e.g. different day, different time, add/remove a pet, pause for a week)';
+    if (svcDate) {
+      var hoursUntil = Math.floor((new Date(svcDate + 'T00:00:00') - new Date()) / 3600000);
+      if (hoursUntil < 48) {
+        promptNote = '⚠️ Next visit is within 48 hours — can only change to a different time on the same day.\n\n(e.g. move to 2pm instead of 10am)';
+      }
+    }
+
+    var reason = prompt('What would you like to change about this recurring service?\n\n' + promptNote);
+    if (!reason || !reason.trim()) return;
 
     // Send as a message to the owner
     var { error } = await sb.from('messages').insert([{
       sender_id: user.id,
       sender_name: (user.profile && user.profile.full_name) || user.email,
       recipient_role: 'owner',
-      subject: 'Change Request: ' + svcName,
-      body: '📝 Change request for recurring ' + svcName + (booking && booking.pet_names ? ' (' + booking.pet_names + ')' : '') + ':\n\n' + reason.trim(),
+      subject: 'Reschedule Request: ' + svcName,
+      body: '📝 Reschedule request for recurring ' + svcName + (booking && booking.pet_names ? ' (' + booking.pet_names + ')' : '') + ':\n\n' + reason.trim(),
       is_read: false
     }]);
 
     if (error) throw error;
-    if (typeof toast === 'function') toast('📨 Change request sent to Rachel!');
+    if (typeof toast === 'function') toast('📨 Reschedule request sent to Rachel!');
   } catch(e) {
-    console.error('Change request error:', e);
+    console.error('Reschedule request error:', e);
     alert('Sorry, there was an error sending your request. Please try messaging Rachel directly.');
   }
 }
@@ -6449,6 +6458,12 @@ async function showBookingDetail(bookingId, role, source) {
           h += '<strong>Late cancellation</strong> — Less than 48 hours before service. Canceling now will still result in the full charge per our cancellation policy.';
         }
         h += '</div>';
+        // Reschedule policy note
+        if (!isFreeCancel) {
+          h += '<div style="padding:10px 14px;background:#fffbeb;border-radius:10px;margin-top:6px;font-size:0.8rem;color:#92400e">';
+          h += '<strong>Reschedule policy</strong> — Within 48 hours, you can only reschedule to a different time on the same day.';
+          h += '</div>';
+        }
       }
     }
 
@@ -7419,9 +7434,26 @@ async function confirmCancelBooking() {
 }
 
 // ── Request Booking Change (client sends message to owner) ──
-function requestBookingChange(bookingId) {
-  // Open messaging and pre-fill with reschedule request
-  var msg = 'Hi Rachel! I would like to reschedule my booking (ID: ' + bookingId.slice(0, 8) + '). ';
+async function requestBookingChange(bookingId) {
+  // Check 48hr policy before pre-filling message
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var policyNote = '';
+  if (sb) {
+    try {
+      var { data: bk } = await sb.from('booking_requests').select('scheduled_date, preferred_date, service').eq('id', bookingId).maybeSingle();
+      if (bk) {
+        var svcDate = bk.scheduled_date || bk.preferred_date;
+        if (svcDate) {
+          var hoursUntil = Math.floor((new Date(svcDate + 'T00:00:00') - new Date()) / 3600000);
+          if (hoursUntil < 48) {
+            policyNote = '\n\n⚠️ Note: This booking is within 48 hours, so it can only be rescheduled to another time on the same day (' + new Date(svcDate + 'T12:00:00').toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'}) + ').';
+          }
+        }
+      }
+    } catch(e) { /* ignore */ }
+  }
+
+  var msg = 'Hi Rachel! I would like to reschedule my booking (ID: ' + bookingId.slice(0, 8) + '). ' + policyNote;
   // Switch to messages panel
   var portal = window.HHP_Auth && window.HHP_Auth.currentRole;
   if (portal === 'client') {
