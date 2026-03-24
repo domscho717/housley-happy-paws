@@ -5941,7 +5941,7 @@ async function loadClientAppts(filter, tabBtn) {
         // Action buttons
         html += '<div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border)">';
         html += '<button onclick="event.stopPropagation();showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:white;font-size:0.78rem;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">View Details</button>';
-        html += '<button onclick="event.stopPropagation();requestRecurringChange(\'' + b.id + '\')" style="flex:1;padding:8px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold-pale);font-size:0.78rem;font-weight:600;color:var(--gold-deep);cursor:pointer;font-family:inherit">Request Change</button>';
+        html += '<button onclick="event.stopPropagation();requestRecurringChange(\'' + b.id + '\')" style="flex:1;padding:8px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold-pale);font-size:0.78rem;font-weight:600;color:var(--gold-deep);cursor:pointer;font-family:inherit">Reschedule</button>';
         html += '<button onclick="event.stopPropagation();requestRecurringCancel(\'' + b.id + '\')" style="padding:8px 12px;border:1.5px solid #f8d7da;border-radius:8px;background:#fef2f2;font-size:0.78rem;font-weight:600;color:#c62828;cursor:pointer;font-family:inherit">Cancel</button>';
         html += '</div>';
 
@@ -6046,34 +6046,28 @@ async function requestRecurringChange(bookingId) {
   }
 }
 
-// ── Recurring: Request Cancellation ──
+// ── Recurring: Cancel directly (uses the cancel modal with 48hr policy) ──
 async function requestRecurringCancel(bookingId) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
 
-  var confirmed = confirm('Are you sure you want to request cancellation of this recurring service?\n\nRachel will review your request and confirm.');
-  if (!confirmed) return;
-
   try {
-    var { data: booking } = await sb.from('booking_requests').select('service, pet_names').eq('id', bookingId).maybeSingle();
-    var svcName = booking ? booking.service : 'recurring service';
+    var { data: booking } = await sb.from('booking_requests').select('service, pet_names, preferred_date, scheduled_date, recurrence_pattern').eq('id', bookingId).maybeSingle();
+    if (!booking) { toast('Booking not found.'); return; }
 
-    // Send cancellation request as message
-    var { error } = await sb.from('messages').insert([{
-      sender_id: user.id,
-      sender_name: (user.profile && user.profile.full_name) || user.email,
-      recipient_role: 'owner',
-      subject: 'Cancellation Request: ' + svcName,
-      body: '🚫 Cancellation request for recurring ' + svcName + (booking && booking.pet_names ? ' (' + booking.pet_names + ')' : '') + '.\n\nThe client has requested to cancel this recurring service.',
-      is_read: false
-    }]);
+    var svcName = booking.service || 'Pet Care';
+    var dateVal = booking.scheduled_date || booking.preferred_date || '';
+    var clientName = (user.profile && user.profile.full_name) || user.email || 'Client';
+    var isRecurring = !!booking.recurrence_pattern;
 
-    if (error) throw error;
-    if (typeof toast === 'function') toast('📨 Cancellation request sent to Rachel. She\'ll confirm shortly.');
+    // Open the cancel modal directly — client can cancel whenever, 48hr policy applies
+    if (typeof openCancelModal === 'function') {
+      openCancelModal(bookingId, svcName, dateVal, clientName, isRecurring, 'client');
+    }
   } catch(e) {
-    console.error('Cancel request error:', e);
-    alert('Sorry, there was an error sending your request. Please try messaging Rachel directly.');
+    console.error('Cancel error:', e);
+    alert('Sorry, there was an error. Please try again.');
   }
 }
 
@@ -6315,10 +6309,10 @@ async function showBookingDetail(bookingId, role, source) {
       var cancelRole = role;
       var cancelName = (role === 'client') ? ((window.HHP_Auth && window.HHP_Auth.currentUser) ? (window.HHP_Auth.currentUser.full_name || window.HHP_Auth.currentUser.email) : 'Client') : (b.contact_name || 'Client');
 
-      // Client: Request Change button
+      // Client: Request Reschedule button (sends message to owner for time/date changes)
       if (role === 'client') {
         h += '<button onclick="closeBookingDetail();requestBookingChange(\'' + bookingId + '\')" style="width:100%;padding:12px;background:var(--gold,#c8963e);color:white;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px">';
-        h += '✏️ Request Change</button>';
+        h += '✏️ Request Reschedule</button>';
       }
 
       h += '<button onclick="closeBookingDetail();openCancelModal(\'' + bookingId + '\',\'' + svc.replace(/'/g, "\\'") + '\',\'' + dateVal + '\',\'' + cancelName.replace(/'/g, "\\'") + '\',false,\'' + cancelRole + '\')" style="width:100%;padding:12px;background:transparent;color:var(--rose,#c25656);border:1.5px solid var(--rose,#c25656);border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit">';
@@ -7257,19 +7251,17 @@ async function confirmCancelBooking() {
   try {
     var cancelOption = document.querySelector('input[name="cancelOption"]:checked');
     var option = cancelOption ? cancelOption.value : 'this';
+    var isSingleCancel = _cancelData.isRecurring && option === 'this';
 
     // Call the backend API
-    var response = await fetch('/api/cancel-booking.js', {
+    var response = await fetch('/api/cancel-booking', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         bookingRequestId: _cancelData.bookingRequestId,
-        service: _cancelData.service,
-        date: _cancelData.date,
-        clientName: _cancelData.clientName,
-        isRecurring: _cancelData.isRecurring,
         canceledBy: _cancelData.canceledBy,
-        cancelOption: option
+        cancelSingle: isSingleCancel,
+        cancelDate: isSingleCancel ? _cancelData.date : undefined
       })
     });
 
@@ -7309,8 +7301,8 @@ async function confirmCancelBooking() {
 
 // ── Request Booking Change (client sends message to owner) ──
 function requestBookingChange(bookingId) {
-  // Open messaging and pre-fill with change request
-  var msg = 'Hi Rachel! I would like to request a change to my booking (ID: ' + bookingId.slice(0, 8) + '). ';
+  // Open messaging and pre-fill with reschedule request
+  var msg = 'Hi Rachel! I would like to reschedule my booking (ID: ' + bookingId.slice(0, 8) + '). ';
   // Switch to messages panel
   var portal = window.HHP_Auth && window.HHP_Auth.currentRole;
   if (portal === 'client') {

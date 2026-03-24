@@ -2619,6 +2619,14 @@
           actionsHTML = '<div class="arc-actions"><button class="arc-btn accept" onclick="if(typeof reopenLiveServicePanel===\'function\')reopenLiveServicePanel();" style="background:#2196F3">▶ View Live Report</button></div>';
         } else if (r.status === 'completed') {
           actionsHTML = '<div class="arc-actions"><button class="arc-btn accept" onclick="if(typeof viewCompletedReport===\'function\')viewCompletedReport(\'' + r.id + '\');" style="background:#4caf50">📋 View Report</button></div>';
+        } else if (r.status === 'accepted' || r.status === 'confirmed') {
+          var cancelDate = r.scheduled_date || r.preferred_date || '';
+          var cancelName = r.contact_name || 'Client';
+          actionsHTML = [
+            '<div class="arc-actions">',
+            '  <button class="arc-btn decline" onclick="if(typeof openCancelModal===\'function\')openCancelModal(\'' + r.id + '\',\'' + (r.service || '').replace(/'/g, "\\'") + '\',\'' + cancelDate + '\',\'' + cancelName.replace(/'/g, "\\'") + '\',' + (!!r.recurrence_pattern) + ',\'owner\')">Cancel Booking</button>',
+            '</div>',
+          ].join('');
         } else if (r.status === 'payment_hold') {
           actionsHTML = [
             '<div class="arc-actions">',
