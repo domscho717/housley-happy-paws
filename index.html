@@ -6292,51 +6292,98 @@ async function loadClientAppts(filter, tabBtn) {
 }
 
 // ── Client: Accept Time Change (whole booking) ──
-window.clientAcceptTimeChange = async function(bookingId) {
+async function clientAcceptTimeChange(bookingId) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
   try {
-    // Get the booking to read the suggested date/time
-    var { data: bk } = await sb.from('booking_requests').select('scheduled_date, scheduled_time, service, admin_notes').eq('id', bookingId).maybeSingle();
+    // Get the full booking to read all relevant fields
+    var { data: bk } = await sb.from('booking_requests').select('*').eq('id', bookingId).maybeSingle();
     if (!bk || !bk.scheduled_date) { if (typeof toast === 'function') toast('Could not find time change details'); return; }
 
-    // Update booking: move suggested time to preferred, set status back to accepted
-    await sb.from('booking_requests').update({
-      preferred_date: bk.scheduled_date,
-      preferred_time: bk.scheduled_time || '',
+    var newDate = bk.scheduled_date;
+    var newTime = bk.scheduled_time || '';
+
+    // Update booking: apply the new date/time everywhere, set status to accepted
+    var updatePayload = {
+      preferred_date: newDate,
+      preferred_time: newTime,
+      scheduled_date: newDate,
+      scheduled_time: newTime,
       status: 'accepted',
       admin_notes: (bk.admin_notes || '') + '\nClient accepted time change on ' + new Date().toLocaleDateString()
-    }).eq('id', bookingId);
+    };
 
-    // Notify owner via in-app message
+    // Also update booking_dates array if it exists
+    if (bk.booking_dates && Array.isArray(bk.booking_dates)) {
+      var newDates = bk.booking_dates.map(function() { return newDate; });
+      updatePayload.booking_dates = newDates;
+    }
+
+    // Update date_details if present — set all to accepted with new date
+    if (bk.date_details && Array.isArray(bk.date_details)) {
+      var updatedDD = bk.date_details.map(function(dd) {
+        dd.date = newDate;
+        dd.time = newTime;
+        dd.status = 'accepted';
+        delete dd.suggested_date;
+        delete dd.suggested_time;
+        delete dd.admin_message;
+        return dd;
+      });
+      updatePayload.date_details = updatedDD;
+    }
+
+    await sb.from('booking_requests').update(updatePayload).eq('id', bookingId);
+
+    // Notify owner — in-app message
     var clientName = '';
     try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
     var ownerIds = [];
     try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
-    var newDateFmt = new Date(bk.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    var newDateFmt = new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    var timeFmt = newTime ? ((typeof fmt12h === 'function') ? fmt12h(newTime) : newTime) : '';
     for (var oi = 0; oi < ownerIds.length; oi++) {
       await sb.from('messages').insert({
         sender_id: user.id,
         sender_name: clientName || 'Client',
         recipient_id: ownerIds[oi],
-        body: '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their booking') + '. New date: ' + newDateFmt + (bk.scheduled_time ? ' at ' + bk.scheduled_time : ''),
+        body: '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their booking') + '. Confirmed: ' + newDateFmt + (timeFmt ? ' at ' + timeFmt : ''),
         is_alert: true,
       });
     }
 
-    if (typeof toast === 'function') toast('✓ New time accepted! You\'re all set.');
-    // Refresh the list
+    // Send email notification to owner
+    try {
+      await fetch('/api/booking-status-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'rlhousley05@gmail.com',
+          name: 'Rachel',
+          service: bk.service || 'Booking',
+          status: 'accepted',
+          scheduledDate: newDate,
+          scheduledTime: newTime,
+          adminNotes: (clientName || 'Client') + ' accepted the time change.',
+        }),
+      });
+    } catch(e) { console.warn('Email notification failed:', e); }
+
+    if (typeof toast === 'function') toast('✓ New time accepted! Your booking is confirmed.');
+    // Refresh everything
     loadClientAppts('all');
+    if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+    if (typeof loadDashboardStats === 'function') loadDashboardStats();
   } catch (e) {
     console.error('Accept time change error:', e);
     if (typeof toast === 'function') toast('Error accepting time change');
   }
-};
+}
 
 // ── Client: Decline Time Change (whole booking) ──
-window.clientDeclineTimeChange = async function(bookingId) {
+async function clientDeclineTimeChange(bookingId) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
@@ -6369,15 +6416,16 @@ window.clientDeclineTimeChange = async function(bookingId) {
 
     if (typeof toast === 'function') toast('Time change declined. Original time kept.');
     loadClientAppts('all');
+    if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
   } catch (e) {
     console.error('Decline time change error:', e);
     if (typeof toast === 'function') toast('Error declining time change');
   }
-};
+}
 
 // ── Client: Accept per-appointment Time Change (date_details) ──
-window.clientAcceptApptTimeChange = async function(bookingId, apptIdx) {
+async function clientAcceptApptTimeChange(bookingId, apptIdx) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
@@ -6416,10 +6464,10 @@ window.clientAcceptApptTimeChange = async function(bookingId, apptIdx) {
     console.error('Accept appt time change error:', e);
     if (typeof toast === 'function') toast('Error accepting time change');
   }
-};
+}
 
 // ── Client: Decline per-appointment Time Change (date_details) ──
-window.clientDeclineApptTimeChange = async function(bookingId, apptIdx) {
+async function clientDeclineApptTimeChange(bookingId, apptIdx) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
@@ -6456,7 +6504,7 @@ window.clientDeclineApptTimeChange = async function(bookingId, apptIdx) {
     console.error('Decline appt time change error:', e);
     if (typeof toast === 'function') toast('Error declining time change');
   }
-};
+}
 
 // ── Recurring: Request Change (sends message to owner) ──
 async function requestRecurringChange(bookingId) {
