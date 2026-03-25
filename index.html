@@ -3150,6 +3150,24 @@ try {
       </div>
     </div>
 
+    <!-- Refund Option (shown only for owner/staff canceling a PAID booking) -->
+    <div id="cancelModal_refundGroup" style="display:none;margin-bottom:16px">
+      <div style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:10px;padding:14px 16px;border-left:4px solid #4caf50">
+        <div style="font-size:0.72rem;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">💳 Payment Detected</div>
+        <div style="font-size:0.84rem;color:#2e7d32;line-height:1.4;margin-bottom:10px">This booking has been paid (<strong id="cancelModal_paidAmount">$0.00</strong>). Since you're canceling on your end, would you like to issue a full refund to the client?</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:white;border-radius:8px;border:1.5px solid #4caf50;transition:all 0.2s">
+            <input type="radio" name="refundOption" value="refund" checked style="cursor:pointer;accent-color:#4caf50">
+            <span style="font-size:0.85rem;color:var(--ink);font-weight:600">Yes, issue full refund</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:white;border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
+            <input type="radio" name="refundOption" value="no_refund" style="cursor:pointer">
+            <span style="font-size:0.85rem;color:var(--ink)">No refund (late cancel by client)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
     <!-- Buttons -->
     <div style="display:flex;gap:10px">
       <button class="submit-btn" onclick="closeModal('cancelBookingModal')" style="background:var(--mid);color:white">Go Back</button>
@@ -7422,7 +7440,7 @@ function getCancelType(bookingDate) {
   return now <= cutoff ? 'free' : 'late';
 }
 
-function openCancelModal(bookingRequestId, service, date, clientName, isRecurring, canceledBy) {
+async function openCancelModal(bookingRequestId, service, date, clientName, isRecurring, canceledBy) {
   // Store data for confirm action
   _cancelData.bookingRequestId = bookingRequestId;
   _cancelData.service = service;
@@ -7430,6 +7448,8 @@ function openCancelModal(bookingRequestId, service, date, clientName, isRecurrin
   _cancelData.clientName = clientName;
   _cancelData.isRecurring = isRecurring;
   _cancelData.canceledBy = canceledBy;
+  _cancelData.paymentIntentId = null;
+  _cancelData.paidAmount = 0;
 
   // Populate modal with booking details
   var dateDisplay = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
@@ -7455,6 +7475,27 @@ function openCancelModal(bookingRequestId, service, date, clientName, isRecurrin
     recurringGroup.style.display = 'none';
   }
 
+  // Show/hide refund option — only for owner/staff canceling a paid booking
+  var refundGroup = document.getElementById('cancelModal_refundGroup');
+  refundGroup.style.display = 'none';
+  if (canceledBy === 'owner' || canceledBy === 'staff') {
+    try {
+      var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+      if (sb) {
+        var { data: bk } = await sb.from('booking_requests').select('payment_intent_id, estimated_total').eq('id', bookingRequestId).maybeSingle();
+        if (bk && bk.payment_intent_id) {
+          _cancelData.paymentIntentId = bk.payment_intent_id;
+          _cancelData.paidAmount = bk.estimated_total || 0;
+          document.getElementById('cancelModal_paidAmount').textContent = '$' + Number(_cancelData.paidAmount).toFixed(2);
+          refundGroup.style.display = '';
+          // Default to refund for owner/staff cancels
+          var refundRadio = document.querySelector('input[name="refundOption"][value="refund"]');
+          if (refundRadio) refundRadio.checked = true;
+        }
+      }
+    } catch(e) { console.warn('Could not check payment status:', e); }
+  }
+
   // Open modal
   openModal('cancelBookingModal');
 }
@@ -7472,6 +7513,13 @@ async function confirmCancelBooking() {
     var option = cancelOption ? cancelOption.value : 'this';
     var isSingleCancel = _cancelData.isRecurring && option === 'this';
 
+    // Check refund selection (only present for owner/staff paid cancels)
+    var refundOption = document.querySelector('input[name="refundOption"]:checked');
+    var issueRefund = false;
+    if (_cancelData.paymentIntentId && refundOption && refundOption.value === 'refund') {
+      issueRefund = true;
+    }
+
     // Call the backend API
     var response = await fetch('/api/cancel-booking', {
       method: 'POST',
@@ -7480,14 +7528,20 @@ async function confirmCancelBooking() {
         bookingRequestId: _cancelData.bookingRequestId,
         canceledBy: _cancelData.canceledBy,
         cancelSingle: isSingleCancel,
-        cancelDate: isSingleCancel ? _cancelData.date : undefined
+        cancelDate: isSingleCancel ? _cancelData.date : undefined,
+        issueRefund: issueRefund
       })
     });
 
     var result = await response.json();
     if (result.success) {
-      toast('✅ Booking canceled successfully 🐾');
+      var toastMsg = '✅ Booking canceled successfully 🐾';
+      if (result.refunded) toastMsg = '✅ Booking canceled & refund issued 🐾';
+      toast(toastMsg);
       closeModal('cancelBookingModal');
+      // Invalidate cache & refresh widgets
+      if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+      if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
       // Refresh the relevant portal view
       if (_cancelData.canceledBy === 'client') {
         if (typeof loadClientAppts === 'function') {

@@ -13,7 +13,7 @@ module.exports = async function handler(req, res) {
   );
 
   try {
-    const { bookingRequestId, canceledBy, cancelSingle, cancelDate } = req.body;
+    const { bookingRequestId, canceledBy, cancelSingle, cancelDate, issueRefund } = req.body;
 
     if (!bookingRequestId || !canceledBy) {
       return res.status(400).json({ error: 'bookingRequestId and canceledBy are required' });
@@ -114,6 +114,36 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // 4b. REFUND — Owner/staff chose to refund a paid booking
+    let refundResult = null;
+    if (issueRefund && booking.payment_intent_id && (canceledBy === 'owner' || canceledBy === 'staff')) {
+      try {
+        const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
+
+        if (intent.status === 'succeeded') {
+          // Payment was captured — issue a full refund
+          const refund = await stripe.refunds.create({
+            payment_intent: booking.payment_intent_id,
+            reason: 'requested_by_customer',
+          });
+          refunded = true;
+          refundResult = { action: 'refunded', refundId: refund.id, amount: refund.amount / 100 };
+          console.log('Refund issued:', refund.id, 'Amount:', refund.amount / 100);
+        } else if (intent.status === 'requires_capture') {
+          // Payment was only authorized (held) — cancel instead of refund
+          await stripe.paymentIntents.cancel(booking.payment_intent_id);
+          refunded = true;
+          refundResult = { action: 'canceled_hold', paymentIntentId: booking.payment_intent_id };
+          console.log('Payment hold canceled:', booking.payment_intent_id);
+        } else {
+          refundResult = { action: 'no_refund_needed', intentStatus: intent.status };
+        }
+      } catch (refundErr) {
+        console.error('Refund failed:', refundErr.message);
+        refundResult = { action: 'refund_failed', error: refundErr.message };
+      }
+    }
+
     // 5. Update booking_requests
     const updateData = {
       canceled_at: new Date().toISOString(),
@@ -183,9 +213,13 @@ module.exports = async function handler(req, res) {
       : 'TBD';
     const timeFmt = booking.preferred_time ? fmt12(booking.preferred_time) : '';
     const cancelLabel = isSingleCancel ? 'a single visit' : 'the booking';
-    const feeNote = cancellationType === 'late'
+    const refundAmount = refundResult && refundResult.amount ? '$' + refundResult.amount.toFixed(2) : (booking.estimated_total ? '$' + Number(booking.estimated_total).toFixed(2) : '');
+    const refundNote = refunded && issueRefund
+      ? `<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">💳 A full refund of ${refundAmount} has been issued to your card on file. Please allow 5-10 business days for it to appear.</div>`
+      : '';
+    const feeNote = cancellationType === 'late' && !refunded
       ? '<div style="background:#fff3cd;border-radius:8px;padding:12px;margin:12px 0;color:#856404;font-weight:600">⚠️ Late cancellation — the cancellation fee will be charged per policy.</div>'
-      : '<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">✅ Canceled before the 48-hour window — no charge.</div>';
+      : (refundNote || '<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">✅ Canceled before the 48-hour window — no charge.</div>');
 
     try {
       if (canceledBy === 'client') {
@@ -207,15 +241,16 @@ module.exports = async function handler(req, res) {
             </div>
           `,
         });
-      } else if (canceledBy === 'owner' && booking.contact_email) {
-        // Owner canceled → Notify client
+      } else if ((canceledBy === 'owner' || canceledBy === 'staff') && booking.contact_email) {
+        // Owner/Staff canceled → Notify client (email)
+        const canceledByName = canceledBy === 'owner' ? 'Rachel' : 'your pet care provider';
         await sendEmail({
           to: booking.contact_email,
-          subject: `Booking Canceled — ${safeService} — Housley Happy Paws`,
-          title: 'Booking Canceled',
+          subject: `Booking Canceled${refunded ? ' — Refund Issued' : ''} — ${safeService} — Housley Happy Paws`,
+          title: refunded ? 'Booking Canceled — Refund Issued' : 'Booking Canceled',
           bodyHTML: `
             <p>Hi ${safeName}!</p>
-            <p>Your <strong>${safeService}</strong> booking has been canceled by Rachel.</p>
+            <p>Your <strong>${safeService}</strong> booking has been canceled by ${canceledByName}. We sincerely apologize for any inconvenience.</p>
             <div style="background:#fef2f2;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c62828">
               <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService}</div>
               ${dateFmt !== 'TBD' ? `<div style="margin-bottom:4px">📅 ${dateFmt}</div>` : ''}
@@ -229,6 +264,44 @@ module.exports = async function handler(req, res) {
             <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Questions? Reply to this email or call 717-715-7595</p>
           `,
         });
+
+        // Also notify Rachel when STAFF cancels so she's in the loop
+        if (canceledBy === 'staff') {
+          try {
+            await sendToRachel({
+              subject: `🔴 Staff Canceled: ${safeService} — ${safeName}${refunded ? ' (Refund Issued)' : ''}`,
+              title: 'Booking Canceled by Staff',
+              bodyHTML: `
+                <p>A staff member has canceled ${cancelLabel} for <strong>${safeName}</strong>'s <strong>${safeService}</strong>.</p>
+                <div style="background:#fef2f2;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c62828">
+                  <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService}</div>
+                  ${dateFmt !== 'TBD' ? `<div style="margin-bottom:4px">📅 ${dateFmt}</div>` : ''}
+                  ${timeFmt ? `<div style="margin-bottom:4px">🕐 ${timeFmt}</div>` : ''}
+                </div>
+                ${refunded ? `<div style="background:#e8f5e9;border-radius:8px;padding:12px;margin:12px 0;color:#2e7d32;font-weight:600">💳 Full refund of ${refundAmount} was issued to the client.</div>` : ''}
+                <div style="margin-top:20px">
+                  <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View in Dashboard →</a>
+                </div>
+              `,
+            });
+          } catch(e) { console.error('Failed to notify owner of staff cancel:', e.message); }
+        }
+      }
+
+      // 7b. In-app notification to client
+      if (booking.client_id && (canceledBy === 'owner' || canceledBy === 'staff')) {
+        try {
+          const msgBody = refunded
+            ? `Your ${safeService} booking has been canceled and a full refund of ${refundAmount} has been issued to your card.`
+            : `Your ${safeService} booking has been canceled.`;
+          await supabase.from('messages').insert({
+            sender_id: null,
+            sender_name: 'Rachel Housley',
+            recipient_id: booking.client_id,
+            body: msgBody,
+            is_alert: true,
+          });
+        } catch(e) { console.error('Failed to send in-app notification:', e.message); }
       }
     } catch (emailErr) {
       console.error('Failed to send cancellation email:', emailErr.message);
@@ -236,17 +309,21 @@ module.exports = async function handler(req, res) {
     }
 
     // 8. Return success response
+    let message = 'Booking canceled.';
+    if (refunded && issueRefund) message = 'Booking canceled. Full refund issued to client.';
+    else if (cancellationType === 'free') message = 'Booking canceled. No charge applied.';
+    else if (cancellationType === 'late' && !refunded) message = 'Booking canceled. Late cancellation fee applied.';
+
     res.status(200).json({
       success: true,
       cancellationType,
       refunded,
-      message: cancellationType === 'free'
-        ? 'Booking canceled. No charge applied.'
-        : 'Booking canceled. Late cancellation fee applied.',
+      message,
       details: {
         isSingleCancel,
         cancelDate: isSingleCancel ? cancelDate : null,
         stripeAction: stripeActionResult,
+        refund: refundResult,
       },
     });
   } catch (err) {

@@ -3602,25 +3602,31 @@
   };
 
   window.cancelBooking = async function(requestId, service) {
-    if (!confirm('Are you sure you want to cancel this booking?')) return;
-    var sb = getSB();
-    if (!sb) return;
+    // Route through the cancel modal so refund prompt appears for paid bookings
+    var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
+    var portal = _bookingPanelState.portal || 'owner';
+    var canceledBy = portal === 'staff' ? 'staff' : 'owner';
+    var cancelDate = req ? (req.scheduled_date || req.preferred_date || '') : '';
+    var cancelName = req ? (req.contact_name || 'Client') : 'Client';
+    var isRecurring = req ? !!req.recurrence_pattern : false;
 
-    try {
-      var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
-      _optimisticCard(requestId, 'declined');
-      if (typeof toast === 'function') toast('Booking cancelled. Client notified.');
-
-      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
-      _optimisticDone(requestId, true);
-      _sendBookingNotification(req, 'declined');
-      _afterBookingAction();
-      window.loadBookingRequestsPanel(_bookingPanelState.portal);
-    } catch (e) {
-      _optimisticDone(requestId, false);
-      console.error('Failed to cancel booking:', e);
-      if (typeof toast === 'function') toast('Error cancelling booking');
-      window.loadBookingRequestsPanel(_bookingPanelState.portal);
+    if (typeof openCancelModal === 'function') {
+      openCancelModal(requestId, service || (req ? req.service : ''), cancelDate, cancelName, isRecurring, canceledBy);
+    } else {
+      // Fallback: simple cancel if modal not available
+      if (!confirm('Are you sure you want to cancel this booking?')) return;
+      var sb = getSB();
+      if (!sb) return;
+      try {
+        await sb.from('booking_requests').update({ status: 'canceled', canceled_at: new Date().toISOString(), canceled_by: canceledBy }).eq('id', requestId);
+        _sendBookingNotification(req, 'declined');
+        _afterBookingAction();
+        if (typeof toast === 'function') toast('Booking cancelled.');
+        window.loadBookingRequestsPanel(portal);
+      } catch (e) {
+        console.error('Failed to cancel booking:', e);
+        if (typeof toast === 'function') toast('Error cancelling booking');
+      }
     }
   };
 
