@@ -6202,8 +6202,8 @@ async function loadClientAppts(filter, tabBtn) {
         var shortId = b.id ? b.id.slice(0, 8) : '';
         var isPaid = paidSet.has(shortId) || paidSet.has(user.email.toLowerCase() + '|' + b.estimated_total);
 
-        var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
-        var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
+        var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'payment_hold' ? '#fde8e8' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
+        var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'payment_hold' ? 'Payment Needed' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
         var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Paid</span>' : '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Unpaid</span>') : '';
 
         // Detect time change request — owner/staff suggested a new time
@@ -6219,7 +6219,7 @@ async function loadClientAppts(filter, tabBtn) {
         var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
         var timeDisplay = fmt12h(b.preferred_time) || '';
 
-        var borderColor = b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
+        var borderColor = b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'payment_hold' ? '#c62828' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
 
         // ── Time change banner (whole booking) ──
         if (isTimeChange) {
@@ -6435,11 +6435,30 @@ async function clientAcceptTimeChange(bookingId) {
       });
     } catch(e) { console.warn('Email notification failed:', e); }
 
-    // ── CLIENT TOAST ──
+    // ── CLIENT CONFIRMATION MESSAGE ──
+    // Show a prominent confirmation banner instead of just a toast
+    var confirmMsg = '';
     if (paymentFailed) {
-      if (typeof toast === 'function') toast('Time accepted but payment could not be processed. Please update your payment method.');
+      confirmMsg = '⚠️ Time accepted but payment could not be processed. Please update your payment method or contact Rachel to arrange payment.';
+    } else if (autoCharged) {
+      confirmMsg = '✅ Booking confirmed! Your card has been charged $' + Number(bk.estimated_total).toFixed(2) + '. You\'re all set!';
     } else {
-      if (typeof toast === 'function') toast('✓ New time accepted!' + (autoCharged ? ' Payment confirmed.' : ' Your booking is confirmed.'));
+      // Within 48hrs or no charge needed
+      confirmMsg = '✅ Booking confirmed at the new time! Note: Cancellations within 48 hours of your appointment are subject to the full service charge.';
+    }
+    if (typeof toast === 'function') toast(confirmMsg);
+
+    // Also inject a brief confirmation banner at the top of the appointments list
+    var confirmBanner = document.getElementById('clientApptsList');
+    if (confirmBanner) {
+      var bannerColor = paymentFailed ? '#fde8e8' : '#d4edda';
+      var bannerTextColor = paymentFailed ? '#c62828' : '#155724';
+      var bannerHTML = '<div id="tc-confirm-banner" style="padding:14px 16px;background:' + bannerColor + ';border-radius:10px;margin-bottom:10px;font-size:0.88rem;color:' + bannerTextColor + ';font-weight:600;display:flex;align-items:center;gap:8px">';
+      bannerHTML += '<span style="font-size:1.2rem">' + (paymentFailed ? '⚠️' : '✅') + '</span>';
+      bannerHTML += '<div>' + confirmMsg + '</div>';
+      bannerHTML += '<button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:' + bannerTextColor + '">✕</button>';
+      bannerHTML += '</div>';
+      confirmBanner.insertAdjacentHTML('afterbegin', bannerHTML);
     }
 
     // Refresh everything
@@ -6700,8 +6719,8 @@ async function showBookingDetail(bookingId, role, source) {
     else if (svcLower.indexOf('day care') !== -1) icon = '☀️';
 
     // Status badge
-    var statusColors = { pending: '#e0a800', accepted: '#28a745', confirmed: '#28a745', completed: '#17a2b8', canceled: '#dc3545', rejected: '#6c757d' };
-    var statusLabels = { pending: 'Pending', accepted: 'Confirmed', confirmed: 'Confirmed', completed: 'Completed', canceled: 'Canceled', rejected: 'Declined' };
+    var statusColors = { pending: '#e0a800', accepted: '#28a745', confirmed: '#28a745', completed: '#17a2b8', canceled: '#dc3545', rejected: '#6c757d', modified: '#e67e22', payment_hold: '#c62828' };
+    var statusLabels = { pending: 'Pending', accepted: 'Confirmed', confirmed: 'Confirmed', completed: 'Completed', canceled: 'Canceled', rejected: 'Declined', modified: 'Time Change', payment_hold: 'Payment Needed' };
     var st = b.status || 'pending';
     var stColor = statusColors[st] || '#6c757d';
     var stLabel = statusLabels[st] || st;
@@ -6821,8 +6840,18 @@ async function showBookingDetail(bookingId, role, source) {
       if (b.deal_discount && b.deal_discount > 0) {
         h += '<div style="font-size:0.78rem;color:#2e7d32;font-weight:600">🏷️ You saved $' + Number(b.deal_discount).toFixed(2) + ' with a deal!</div>';
       }
+      if (b.price_breakdown) {
+        h += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">' + b.price_breakdown.split(' | ').join(' · ') + '</div>';
+      }
       h += '<div style="font-size:0.78rem;color:var(--mid)">' + (isPaid ? '✅ Paid' : '⏳ Payment pending') + '</div>';
       h += '</div></div>';
+    }
+
+    // 48-hour cancellation policy (client view only, for active bookings)
+    if (role === 'client' && (st === 'accepted' || st === 'confirmed' || st === 'pending' || st === 'modified' || st === 'payment_hold')) {
+      h += '<div style="background:#fff8e1;border:1px solid #e0d5c5;border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:0.78rem;color:#6b5c4d;line-height:1.5">';
+      h += '<strong style="color:#bf5d00">Cancellation Policy:</strong> Cancellations made within 48 hours of your scheduled appointment will be charged the full service fee. Cancellations made more than 48 hours in advance are fully refundable.';
+      h += '</div>';
     }
 
     h += '</div>'; // end info rows
@@ -12540,9 +12569,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
       // Query booking_requests for today — exclude completed (they go to activity log)
+      // Check both scheduled_date AND preferred_date since some bookings may only have preferred_date set
       var { data: bookings, error } = await sb.from('booking_requests').select('*')
-        .eq('scheduled_date', todayStr).in('status', ['accepted', 'confirmed', 'in_progress'])
+        .eq('scheduled_date', todayStr).in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold'])
         .order('scheduled_time', { ascending: true });
+      // Also get bookings that only have preferred_date (no scheduled_date set)
+      var { data: prefDateBookings } = await sb.from('booking_requests').select('*')
+        .eq('preferred_date', todayStr).is('scheduled_date', null).in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']);
+      if (prefDateBookings) {
+        prefDateBookings.forEach(function(pb) {
+          var alreadyIn = (bookings || []).some(function(b) { return b.id === pb.id; });
+          if (!alreadyIn) { if (!bookings) bookings = []; bookings.push(pb); }
+        });
+      }
 
       if (error) { console.warn('Owner today schedule error:', error); }
       bookings = bookings || [];
@@ -12668,8 +12707,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var filter = (document.getElementById('masterSchedFilter') || {}).value || 'all';
 
     try {
-      // Get all accepted booking_requests in this month range
-      var query = sb.from('booking_requests').select('*').eq('status', 'accepted')
+      // Get all accepted/confirmed booking_requests in this month range
+      // Query by scheduled_date first
+      var query = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'payment_hold'])
         .gte('scheduled_date', startStr).lte('scheduled_date', endStr)
         .order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true });
 
@@ -12679,9 +12719,27 @@ document.addEventListener('DOMContentLoaded', function() {
       if (error) console.warn('Master schedule error:', error);
       bookings = bookings || [];
 
+      // Also get bookings that only have preferred_date (no scheduled_date)
+      var prefQuery = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'payment_hold'])
+        .is('scheduled_date', null).gte('preferred_date', startStr).lte('preferred_date', endStr);
+      if (filter !== 'all') prefQuery = prefQuery.ilike('service', '%' + filter + '%');
+      var { data: prefBookings } = await prefQuery;
+      if (prefBookings) {
+        prefBookings.forEach(function(pb) {
+          pb.scheduled_date = pb.preferred_date; // normalize for display
+          pb.scheduled_time = pb.preferred_time;
+          var alreadyIn = bookings.some(function(b) { return b.id === pb.id; });
+          if (!alreadyIn) bookings.push(pb);
+        });
+        bookings.sort(function(a, b) {
+          if ((a.scheduled_date || '') !== (b.scheduled_date || '')) return (a.scheduled_date || '') < (b.scheduled_date || '') ? -1 : 1;
+          return (a.scheduled_time || '') < (b.scheduled_time || '') ? -1 : 1;
+        });
+      }
+
       // Also include multi-date bookings that fall in this month
       var { data: multiDate } = await sb.from('booking_requests').select('*')
-        .eq('status', 'accepted').not('booking_dates', 'is', null);
+        .in('status', ['accepted', 'confirmed']).not('booking_dates', 'is', null);
       if (multiDate) {
         multiDate.forEach(function(br) {
           if (!br.booking_dates || !Array.isArray(br.booking_dates)) return;
@@ -13057,11 +13115,11 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260325e" defer></script>
+  <script src="/js/booking-system.js?v=20260325h" defer></script>
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260325g" defer></script>
+  <script src="/js/customizer.js?v=20260325h" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>
