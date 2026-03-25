@@ -912,10 +912,14 @@
 
   // ── OWNER ──
   _R._rwOwnerBanner=async function(sz){
+    var _bH=new Date().getHours();
+    var _bGreet=_bH<12?'Good morning':_bH<17?'Good afternoon':'Good evening';
+    var _bName='Rachel';
+    try{if(window.HHP_Auth&&HHP_Auth.currentUser&&HHP_Auth.currentUser.profile&&HHP_Auth.currentUser.profile.full_name)_bName=HHP_Auth.currentUser.profile.full_name.split(' ')[0];}catch(e){}
     if(sz==='half'){
       // Small: greeting + 3 key stats + announcement button
       return '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">'+
-        '<div style="flex:1"><div style="font-family:\'Cormorant Garamond\',serif;font-size:0.95rem;font-weight:700;color:var(--ink)">Good morning, Rachel 🐾</div></div>'+
+        '<div style="flex:1"><div style="font-family:\'Cormorant Garamond\',serif;font-size:0.95rem;font-weight:700;color:var(--ink)">'+_bGreet+', '+_bName+' 🐾</div></div>'+
         '<button class="btn btn-gold btn-sm" onclick="openModal(\'announceModal\')" style="padding:4px 8px;font-size:0.7rem;white-space:nowrap;flex-shrink:0">📢</button></div>'+
         '<div style="display:flex;gap:5px;flex-wrap:wrap">'+
           '<div style="flex:1;min-width:45px;text-align:center;background:var(--warm);border-radius:6px;padding:5px;cursor:pointer" onclick="sTab(\'o\',\'o-clients\')" style="transition:background 0.15s" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\'var(--warm)\'"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1rem;font-weight:700" id="stat-activeClients">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">Clients</div></div>'+
@@ -925,7 +929,7 @@
     }
     // Full: greeting + announcement button + 4 key stats (Clients, Sign-ups, Reports, Today)
     return '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'+
-      '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700;color:var(--ink)">Good morning, Rachel 🐾</div>'+
+      '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700;color:var(--ink)">'+_bGreet+', '+_bName+' 🐾</div>'+
       '<div style="font-size:0.82rem;color:var(--mid)">Your business is growing beautifully.</div></div>'+
       '<button class="btn btn-gold btn-sm" onclick="openModal(\'announceModal\')">📢 Post Announcement</button></div>'+
       '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">'+
