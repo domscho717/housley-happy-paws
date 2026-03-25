@@ -17,11 +17,18 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Check if connected account already exists
+    // If connected account already exists, generate a new onboarding link for it
     if (process.env.STRIPE_CONNECTED_ACCOUNT_ID) {
+      const accountLink = await stripe.accountLinks.create({
+        account: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+        refresh_url: `${siteUrl}?connect=refresh`,
+        return_url: `${siteUrl}?connect=success&account_id=${process.env.STRIPE_CONNECTED_ACCOUNT_ID}`,
+        type: 'account_onboarding',
+      });
       return res.status(200).json({
-        message: 'Connected account already configured',
+        message: 'Onboarding link generated for existing connected account',
         accountId: process.env.STRIPE_CONNECTED_ACCOUNT_ID,
+        onboardingUrl: accountLink.url,
       });
     }
 
