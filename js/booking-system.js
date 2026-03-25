@@ -3192,5 +3192,295 @@
     setTimeout(initBookingSystem, 100);
   }
 
+  // ════════════════════════════════════════════════════════════
+  // BOOKING REQUESTS PANEL — Owner + Staff Views
+  // ════════════════════════════════════════════════════════════
+  var _bookingPanelState = { portal: null, currentFilter: 'pending', requests: [] };
+
+  window.loadBookingRequestsPanel = async function(portal) {
+    var sb = getSB();
+    if (!sb) {
+      setTimeout(function() { window.loadBookingRequestsPanel(portal); }, 2000);
+      return;
+    }
+
+    var containerId = portal === 'owner' ? 'ownerRequestsList' : 'staffRequestsList';
+    var container = document.getElementById(containerId);
+    if (!container) return;
+
+    _bookingPanelState.portal = portal;
+
+    try {
+      var query = sb.from('booking_requests').select('*').order('created_at', { ascending: false });
+
+      // For staff: only fetch requests assigned to them
+      if (portal === 'staff') {
+        var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+        if (user) {
+          var { data: staffAssignments } = await sb.from('staff_assignments').select('client_id').eq('staff_id', user.id);
+          var clientIds = (staffAssignments || []).map(function(a) { return a.client_id; });
+          if (clientIds.length > 0) {
+            query = query.in('client_id', clientIds);
+          } else {
+            // No clients assigned
+            _bookingPanelState.requests = [];
+            _renderBookingRequestsList(container, portal);
+            return;
+          }
+        }
+      }
+
+      // Apply filter
+      if (_bookingPanelState.currentFilter !== 'all') {
+        query = query.eq('status', _bookingPanelState.currentFilter);
+      }
+
+      var { data, error } = await query;
+      if (error) throw error;
+
+      _bookingPanelState.requests = data || [];
+
+      // Batch-fetch avatars
+      var clientIds = _bookingPanelState.requests.map(function(r) { return r.client_id; }).filter(Boolean);
+      if (clientIds.length > 0) {
+        try {
+          var uniqueIds = clientIds.filter(function(v, i, a) { return a.indexOf(v) === i; });
+          var { data: profiles } = await sb.from('profiles').select('user_id, avatar_url').in('user_id', uniqueIds);
+          if (profiles) {
+            var avatarMap = {};
+            profiles.forEach(function(p) { if (p.avatar_url) avatarMap[p.user_id] = p.avatar_url; });
+            _bookingPanelState.requests.forEach(function(r) {
+              if (r.client_id && avatarMap[r.client_id]) r.avatar_url = avatarMap[r.client_id];
+            });
+          }
+        } catch(e) { /* no avatars */ }
+      }
+
+      _renderBookingRequestsList(container, portal);
+    } catch (err) {
+      console.error('Failed to load booking requests:', err);
+      container.innerHTML = '<div style="padding:12px;color:#c00;font-size:0.85rem">Failed to load requests. Please refresh.</div>';
+    }
+  };
+
+  function _renderBookingRequestsList(container, portal) {
+    if (!container) return;
+
+    if (_bookingPanelState.requests.length === 0) {
+      container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No ' + _bookingPanelState.currentFilter + ' requests</div>';
+      return;
+    }
+
+    container.innerHTML = _bookingPanelState.requests.map(function(r) {
+      var dateStr = r.preferred_date ? new Date(r.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+      var isHS = (r.service || '').toLowerCase().indexOf('house sitting') !== -1;
+      var endDateStr = '';
+      if (isHS && r.preferred_end_date) {
+        endDateStr = new Date(r.preferred_end_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        var hsNights = Math.round((new Date(r.preferred_end_date + 'T12:00:00') - new Date(r.preferred_date + 'T12:00:00')) / (1000*60*60*24));
+        dateStr = dateStr + ' → ' + endDateStr + ' (' + hsNights + ' night' + (hsNights !== 1 ? 's' : '') + ')';
+      }
+
+      var clientAvaHTML = '';
+      if (r.avatar_url) {
+        clientAvaHTML = '<img src="' + r.avatar_url + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid #e0d5c5;flex-shrink:0">';
+      } else {
+        var initials = (r.contact_name || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
+        clientAvaHTML = '<div style="width:40px;height:40px;border-radius:50%;background:var(--gold-light,#f5e6c8);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--ink,#1e1409);flex-shrink:0;border:2px solid #e0d5c5">' + initials + '</div>';
+      }
+
+      var actionsHTML = '';
+      if (r.status === 'pending') {
+        actionsHTML = [
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">',
+          '  <button class="btn btn-forest btn-sm" onclick="acceptBookingRequest(\'' + r.id + '\')">✓ Accept</button>',
+          '  <button class="btn btn-gold btn-sm" onclick="suggestTimeChange(\'' + r.id + '\')">↻ Suggest Time</button>',
+          '  <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="declineBookingRequest(\'' + r.id + '\')">✕ Decline</button>',
+          '</div>',
+        ].join('');
+      } else if (r.status === 'modified') {
+        actionsHTML = '<div style="margin-top:12px;padding:8px 12px;background:var(--gold-pale);border-radius:6px;font-size:0.83rem;color:var(--gold-deep)"><strong>⏱ Awaiting client response</strong> to your time suggestion</div>';
+      } else if (r.status === 'accepted') {
+        actionsHTML = '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="cancelBooking(\'' + r.id + '\',\'' + (r.service || '').replace(/'/g, "\\'") + '\')">✕ Cancel</button></div>';
+      } else if (r.status === 'in_progress') {
+        actionsHTML = '<div style="margin-top:12px;padding:8px 12px;background:var(--forest-pale);border-radius:6px;font-size:0.83rem;color:var(--forest)"><strong>⚙ In Progress</strong></div>';
+      } else if (r.status === 'completed') {
+        actionsHTML = '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-forest btn-sm" onclick="viewBookingReport(\'' + r.id + '\')">📋 View Report</button></div>';
+      }
+
+      return [
+        '<div class="card" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + '">',
+        '  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">',
+        '    <div><strong style="font-size:1rem">' + (r.service || 'Service') + '</strong><div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</div></div>',
+        '    <span class="badge" style="background:' + (r.status === 'pending' ? 'var(--gold-light)' : r.status === 'accepted' ? 'var(--forest-light)' : r.status === 'completed' ? '#d4edda' : 'var(--rose-light)') + ';color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">' + r.status + '</span>',
+        '  </div>',
+        '  <div style="display:flex;gap:12px;align-items:start;margin-bottom:12px">',
+        '    ' + clientAvaHTML,
+        '    <div style="flex:1;min-width:0">',
+        '      <div style="font-weight:600;margin-bottom:4px">' + (r.contact_name || 'Client') + '</div>',
+        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:6px">📅 ' + dateStr + ' at ' + fmt12(r.preferred_time || '') + '</div>',
+        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">🐾 ' + (r.pet_names || 'Pets') + '</div>',
+        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">📍 ' + (r.address || 'Address') + '</div>',
+        (r.estimated_total ? '      <div style="font-weight:600;color:var(--gold-deep);margin-top:6px">💰 $' + Number(r.estimated_total).toFixed(2) + '</div>' : ''),
+        '    </div>',
+        '  </div>',
+        (r.special_notes ? '  <div style="background:var(--gold-pale);padding:8px 10px;border-radius:6px;font-size:0.82rem;margin-bottom:12px"><strong>Notes:</strong> ' + r.special_notes + '</div>' : ''),
+        actionsHTML,
+        '</div>',
+      ].join('');
+    }).join('');
+  }
+
+  window.filterOwnerRequests = function(status, btn) {
+    _bookingPanelState.currentFilter = status;
+    document.querySelectorAll('#ownerRequestsList .card').parentNode.querySelectorAll('.admin-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    window.loadBookingRequestsPanel('owner');
+  };
+
+  window.filterStaffRequests = function(status, btn) {
+    _bookingPanelState.currentFilter = status;
+    document.querySelectorAll('#staffRequestsList .card').parentNode.querySelectorAll('.admin-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    window.loadBookingRequestsPanel('staff');
+  };
+
+  window.acceptBookingRequest = async function(requestId) {
+    var sb = getSB();
+    if (!sb) return;
+    try {
+      var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
+      if (!req) return;
+
+      await sb.from('booking_requests').update({
+        status: 'accepted',
+        scheduled_date: req.preferred_date,
+        scheduled_time: req.preferred_time
+      }).eq('id', requestId);
+
+      if (typeof toast === 'function') toast('✓ Booking accepted!');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
+    } catch (e) {
+      console.error('Failed to accept booking:', e);
+      if (typeof toast === 'function') toast('Error accepting booking');
+    }
+  };
+
+  window.declineBookingRequest = async function(requestId) {
+    var sb = getSB();
+    if (!sb) return;
+    if (!confirm('Are you sure you want to decline this booking request?')) return;
+
+    try {
+      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
+      if (typeof toast === 'function') toast('Booking declined');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
+    } catch (e) {
+      console.error('Failed to decline booking:', e);
+      if (typeof toast === 'function') toast('Error declining booking');
+    }
+  };
+
+  window.suggestTimeChange = function(requestId) {
+    var container = document.createElement('div');
+    container.innerHTML = [
+      '<div style="background:var(--gold-pale);border-radius:8px;padding:14px;margin-top:12px;border:1px solid var(--gold)">',
+      '  <div style="font-weight:600;margin-bottom:10px">Suggest Different Time</div>',
+      '  <div style="margin-bottom:10px">',
+      '    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px">New Date</label>',
+      '    <input type="date" id="tc-date-' + requestId + '" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-size:0.85rem">',
+      '  </div>',
+      '  <div style="margin-bottom:10px">',
+      '    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px">New Time</label>',
+      '    <select id="tc-time-' + requestId + '" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:0.85rem">',
+    ].join('');
+
+    for (var h = 5; h <= 22; h++) {
+      for (var m = 0; m < 60; m += 30) {
+        var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+        var ampm = h >= 12 ? 'PM' : 'AM';
+        var mm = m === 0 ? '00' : '30';
+        container.innerHTML += '      <option value="' + ((h<10?'0':'')+h) + ':' + mm + '">' + hr12 + ':' + mm + ' ' + ampm + '</option>';
+      }
+    }
+
+    container.innerHTML += [
+      '    </select>',
+      '  </div>',
+      '  <div style="margin-bottom:10px">',
+      '    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px">Message to Client</label>',
+      '    <textarea id="tc-msg-' + requestId + '" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-family:inherit;font-size:0.85rem;min-height:60px" placeholder="e.g., That day works but I can only do mornings..."></textarea>',
+      '  </div>',
+      '  <div style="display:flex;gap:8px">',
+      '    <button class="btn btn-gold btn-sm" onclick="submitTimeChange(\'' + requestId + '\')" style="flex:1;justify-content:center">Send Suggestion</button>',
+      '    <button class="btn btn-outline btn-sm" onclick="this.closest(\'.card\').querySelector(\'.time-change-form\').style.display=\'none\'" style="flex:1;justify-content:center">Cancel</button>',
+      '  </div>',
+      '</div>',
+    ].join('');
+
+    var cardEl = document.querySelector('[data-request-id="' + requestId + '"]');
+    if (!cardEl) {
+      // Find the card by checking content
+      var allCards = document.querySelectorAll('.card');
+      for (var i = 0; i < allCards.length; i++) {
+        if (allCards[i].textContent.indexOf(requestId) !== -1) {
+          cardEl = allCards[i];
+          break;
+        }
+      }
+    }
+
+    if (cardEl) {
+      var existingForm = cardEl.querySelector('.time-change-form');
+      if (existingForm) existingForm.remove();
+      cardEl.appendChild(container.firstElementChild);
+    }
+  };
+
+  window.submitTimeChange = async function(requestId) {
+    var dateEl = document.getElementById('tc-date-' + requestId);
+    var timeEl = document.getElementById('tc-time-' + requestId);
+    var msgEl = document.getElementById('tc-msg-' + requestId);
+
+    if (!dateEl || !dateEl.value) { alert('Please select a new date.'); return; }
+
+    var sb = getSB();
+    if (!sb) return;
+
+    try {
+      await sb.from('booking_requests').update({
+        status: 'modified',
+        scheduled_date: dateEl.value,
+        scheduled_time: timeEl ? timeEl.value : '',
+        admin_notes: msgEl ? msgEl.value : ''
+      }).eq('id', requestId);
+
+      if (typeof toast === 'function') toast('✓ Time suggestion sent!');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
+    } catch (e) {
+      console.error('Failed to submit time change:', e);
+      if (typeof toast === 'function') toast('Error sending suggestion');
+    }
+  };
+
+  window.cancelBooking = async function(requestId, service) {
+    if (!confirm('Are you sure you want to cancel this booking?')) return;
+    var sb = getSB();
+    if (!sb) return;
+
+    try {
+      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
+      if (typeof toast === 'function') toast('Booking cancelled');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
+    } catch (e) {
+      console.error('Failed to cancel booking:', e);
+      if (typeof toast === 'function') toast('Error cancelling booking');
+    }
+  };
+
+  window.viewBookingReport = function(requestId) {
+    if (typeof toast === 'function') toast('📋 Report viewing coming soon');
+  };
+
 })();
 
