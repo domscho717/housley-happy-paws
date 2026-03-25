@@ -3437,6 +3437,29 @@
     }
   }
 
+  // Optimistic UI helper: fade card and show status instantly
+  function _optimisticCard(requestId, newStatus) {
+    var card = document.querySelector('[data-request-id="' + requestId + '"]');
+    if (!card) return;
+    card.classList.add('opt-pending');
+    var badge = card.querySelector('.status-badge');
+    if (badge) {
+      badge.textContent = newStatus;
+      badge.style.color = newStatus === 'accepted' ? 'var(--forest)' : newStatus === 'declined' ? '#c00' : '#c8963e';
+    }
+  }
+  function _optimisticDone(requestId, success) {
+    var card = document.querySelector('[data-request-id="' + requestId + '"]');
+    if (!card) return;
+    card.classList.remove('opt-pending');
+    if (success) { card.classList.add('opt-success'); setTimeout(function(){ card.classList.remove('opt-success'); }, 500); }
+  }
+  // Invalidate cache and refresh widgets after booking action
+  function _afterBookingAction() {
+    if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+  }
+
   window.acceptBookingRequest = async function(requestId) {
     var sb = getSB();
     if (!sb) return;
@@ -3444,18 +3467,25 @@
       var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
       if (!req) return;
 
+      // Optimistic: update card instantly
+      _optimisticCard(requestId, 'accepted');
+      if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
+
       await sb.from('booking_requests').update({
         status: 'accepted',
         scheduled_date: req.preferred_date,
         scheduled_time: req.preferred_time
       }).eq('id', requestId);
 
-      await _sendBookingNotification(req, 'accepted');
-      if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
+      _optimisticDone(requestId, true);
+      _sendBookingNotification(req, 'accepted');
+      _afterBookingAction();
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
+      _optimisticDone(requestId, false);
       console.error('Failed to accept booking:', e);
       if (typeof toast === 'function') toast('Error accepting booking');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
     }
   };
 
@@ -3466,13 +3496,19 @@
 
     try {
       var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
-      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
-      await _sendBookingNotification(req, 'declined');
+      _optimisticCard(requestId, 'declined');
       if (typeof toast === 'function') toast('Booking declined. Client notified.');
+
+      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
+      _optimisticDone(requestId, true);
+      _sendBookingNotification(req, 'declined');
+      _afterBookingAction();
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
+      _optimisticDone(requestId, false);
       console.error('Failed to decline booking:', e);
       if (typeof toast === 'function') toast('Error declining booking');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
     }
   };
 
@@ -3551,12 +3587,13 @@
         admin_notes: msgEl ? msgEl.value : ''
       }).eq('id', requestId);
 
-      await _sendBookingNotification(req, 'modified', {
+      _sendBookingNotification(req, 'modified', {
         scheduledDate: dateEl.value,
         scheduledTime: timeEl ? timeEl.value : '',
         adminNotes: msgEl ? msgEl.value : ''
       });
       if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
+      _afterBookingAction();
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
       console.error('Failed to submit time change:', e);
@@ -3571,13 +3608,19 @@
 
     try {
       var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
-      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
-      await _sendBookingNotification(req, 'declined');
+      _optimisticCard(requestId, 'declined');
       if (typeof toast === 'function') toast('Booking cancelled. Client notified.');
+
+      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
+      _optimisticDone(requestId, true);
+      _sendBookingNotification(req, 'declined');
+      _afterBookingAction();
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
+      _optimisticDone(requestId, false);
       console.error('Failed to cancel booking:', e);
       if (typeof toast === 'function') toast('Error cancelling booking');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
     }
   };
 
@@ -3604,6 +3647,7 @@
           await _sendBookingNotification(booking, notifyStatus, { adminNotes: noteMsg });
         }
         if (typeof HHP_BookingAdmin !== 'undefined' && HHP_BookingAdmin.loadRequests) HHP_BookingAdmin.loadRequests();
+        _afterBookingAction();
         if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
       }
     } catch (e) {

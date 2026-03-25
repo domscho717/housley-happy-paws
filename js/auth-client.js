@@ -272,7 +272,9 @@ const HHP_Auth = window.HHP_Auth = {
 
     // ── Logout ──
     async logout() {
-        // Clean up realtime subscriptions before signing out
+        // Clean up realtime subscriptions and cache before signing out
+        try { if (window.HHP_Realtime) window.HHP_Realtime.destroy(); } catch(e) { console.warn('Realtime cleanup:', e); }
+        try { if (window.HHP_Cache) window.HHP_Cache.clear(); } catch(e) { console.warn('Cache cleanup:', e); }
         try { if (window.HHP_Messaging && window.HHP_Messaging.cleanup) window.HHP_Messaging.cleanup(); } catch(e) { console.warn('Messaging cleanup:', e); }
         try { if (window.HHP_Notif && window.HHP_Notif.cleanup) window.HHP_Notif.cleanup(); } catch(e) { console.warn('Notif cleanup:', e); }
         try { if (window.HHP_ServiceTimer) window.HHP_ServiceTimer.stopTimer(); } catch(e) {}

@@ -954,6 +954,24 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .admin-filter-btn{padding:5px 10px;font-size:0.72rem}
 }
 
+/* ── Skeleton shimmer loading states ── */
+@keyframes hhpShimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}
+.sk{background:linear-gradient(90deg,#f0ebe3 25%,#e8e0d4 50%,#f0ebe3 75%);background-size:600px 100%;animation:hhpShimmer 1.5s ease infinite;border-radius:6px}
+.sk-text{height:14px;margin-bottom:8px;width:70%}
+.sk-text.w40{width:40%}.sk-text.w60{width:60%}.sk-text.w90{width:90%}.sk-text.w100{width:100%}
+.sk-card{height:60px;margin-bottom:8px;border-radius:8px}
+.sk-stat{height:52px;border-radius:8px;flex:1;min-width:60px}
+.sk-avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0}
+.sk-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.sk-grid{display:flex;gap:8px;flex-wrap:wrap}
+/* Fade in when data loads */
+.cust-widget .cw-body{transition:opacity 0.2s ease}
+.cust-widget[data-loaded="true"] .cw-body{opacity:1}
+/* Optimistic UI states */
+.opt-pending{opacity:0.6;pointer-events:none;transition:opacity 0.2s}
+.opt-success{animation:optFlash 0.4s ease}
+@keyframes optFlash{0%{background:var(--forest-pale)}100%{background:transparent}}
+
 /* ── iOS safe-area support (notch / Dynamic Island) ── */
 @supports(padding:env(safe-area-inset-top)){
   .navbar,.nav{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
@@ -12550,11 +12568,12 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/profiles.js" defer></script>
   <script src="/js/employee-mgmt.js" defer></script>
 
-  <script src="/js/booking-system.js?v=20260325b" defer></script>
+  <script src="/js/realtime-cache.js?v=20260325" defer></script>
+  <script src="/js/booking-system.js?v=20260325c" defer></script>
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260325c" defer></script>
+  <script src="/js/customizer.js?v=20260325d" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>

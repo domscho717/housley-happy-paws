@@ -267,24 +267,75 @@
     el.appendChild(tb); el.appendChild(grid);
   }
 
+  // Skeleton placeholder for a widget body based on size
+  function _skeletonFor(wid,size){
+    if(window.HHP_Skeleton){
+      if(wid.indexOf('-stats')>-1||wid.indexOf('-weekstats')>-1||wid.indexOf('-banner')>-1) return HHP_Skeleton.stats(size==='full'?4:2);
+      if(size==='full') return HHP_Skeleton.cards(3);
+      return HHP_Skeleton.lines(2);
+    }
+    return '<div style="height:40px;background:var(--warm);border-radius:6px;animation:hhpShimmer 1.5s ease infinite"></div>';
+  }
+
+  // Render widgets with instant skeletons, then fill async
   async function _renderWidgets(portal){
     var grid=document.getElementById('cust-grid-'+portal);
     if(!grid) return;
     var active=_getActive(portal), allW=WIDGETS[portal]||[];
+
+    // Phase 1: show skeleton placeholders instantly
     var html='';
     for(var i=0;i<active.length;i++){
       var w=allW.find(function(x){return x.wid===active[i];}); if(!w) continue;
       var size=_getSize(portal,w.wid);
-      var renderer=_R[w.renderFn];
-      var body='';
-      // Pass size to renderer so it can adapt content for small vs full
-      if(renderer){try{body=await renderer(size);}catch(e){body='<div style="color:var(--mid);font-size:0.82rem">Could not load</div>';}}
-      html+=_card(portal,w,body,size);
+      html+=_card(portal,w,_skeletonFor(w.wid,size),size);
     }
     if(!html) html='<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--mid);font-size:0.85rem;background:var(--warm);border-radius:12px;border:1.5px dashed var(--border)">No widgets visible. Click <strong>✏️ Customize</strong> to add sections.</div>';
     grid.innerHTML=html;
-    // Fade in
     requestAnimationFrame(function(){grid.style.opacity='1';});
+
+    // Phase 2: fill each widget async in parallel (no waiting sequentially)
+    active.forEach(function(wid){
+      var w=allW.find(function(x){return x.wid===wid;}); if(!w) return;
+      var size=_getSize(portal,w.wid);
+      var renderer=_R[w.renderFn];
+      if(!renderer) return;
+      (async function(){
+        try{
+          var body=await renderer(size);
+          var el=grid.querySelector('[data-wid="'+wid+'"] .cw-body');
+          if(el) el.innerHTML=body;
+        }catch(e){
+          var el=grid.querySelector('[data-wid="'+wid+'"] .cw-body');
+          if(el) el.innerHTML='<div style="color:var(--mid);font-size:0.82rem">Could not load</div>';
+        }
+      })();
+    });
+  }
+
+  // Refresh a single widget in-place (for realtime updates)
+  function _refreshWidget(portal,wid){
+    var grid=document.getElementById('cust-grid-'+portal);
+    if(!grid) return;
+    var allW=WIDGETS[portal]||[];
+    var w=allW.find(function(x){return x.wid===wid;});
+    if(!w) return;
+    var size=_getSize(portal,w.wid);
+    var renderer=_R[w.renderFn];
+    if(!renderer) return;
+    (async function(){
+      try{
+        var body=await renderer(size);
+        var el=grid.querySelector('[data-wid="'+wid+'"] .cw-body');
+        if(el) el.innerHTML=body;
+      }catch(e){}
+    })();
+  }
+
+  // Refresh all widgets for a portal
+  function _refreshAll(portal){
+    var active=_getActive(portal);
+    active.forEach(function(wid){ _refreshWidget(portal,wid); });
   }
 
   function _card(portal,w,body,size){
@@ -299,7 +350,7 @@
         (canResize?'<button onclick="event.stopPropagation();HHP_Customizer.setSize(\''+portal+'\',\''+w.wid+'\',\''+otherSize+'\')" title="'+(full?'Shrink':'Expand full width')+'" style="background:none;border:none;cursor:pointer;font-size:1rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">'+sIcon+'</button>':'')+
         (nav?'<button onclick="event.stopPropagation();HHP_Customizer.detail(\''+portal+'\',\''+w.wid+'\')" title="Detail view" style="background:none;border:none;cursor:pointer;font-size:0.85rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">🔍</button>':'')+
         (nav?'<button onclick="event.stopPropagation();'+nav+'" title="Go to panel" style="background:none;border:none;cursor:pointer;font-size:0.7rem;color:var(--gold);font-weight:700;padding:2px 6px;opacity:0.5;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">View →</button>':'')+
-      '</div><div style="padding:10px 14px 14px">'+body+'</div></div>';
+      '</div><div class="cw-body" style="padding:10px 14px 14px">'+body+'</div></div>';
   }
 
   // ══════════════════════════════════════
@@ -1253,6 +1304,9 @@
     if(!portal) return;
     console.log('Customizer: init',portal);
 
+    // Kick off preload in background (parallel data fetch)
+    if(window.HHP_Preload) HHP_Preload.forPortal(portal);
+
     // Load prefs in parallel with DOM setup
     var prefsPromise=_loadPrefs();
     _setupOverview(portal);
@@ -1260,13 +1314,41 @@
     await prefsPromise;
     _applySidebarOrder(portal);
 
-    // Render widgets, then retrigger data loaders after DOM is ready
+    // Render widgets with skeletons first, then fill async
     await _renderWidgets(portal);
     // Give DOM time to paint before firing data loaders to populate widget content
     setTimeout(function(){_retrigger(portal);},300);
     // Safety: retrigger again after a bit in case some loaders weren't ready yet
     setTimeout(function(){_retrigger(portal);},1500);
+
+    // Register realtime callbacks to auto-refresh widgets on data changes
+    _hookRealtime(portal);
+
     console.log('Customizer: ready');
+  }
+
+  // Map tables to widgets that need refreshing
+  var _tableWidgets={
+    booking_requests:{owner:['ow-requests','ow-today','ow-weekstats','ow-banner','ow-activity'],staff:['sw-requests','sw-jobs','sw-stats','sw-cal'],client:['cw-upcoming','cw-stats']},
+    messages:{owner:['ow-alerts'],staff:['sw-msgs'],client:['cw-notif','cw-msgs']},
+    deals:{owner:['ow-deals'],staff:[],client:[]},
+    announcements:{owner:[],staff:[],client:[]},
+    payments:{owner:['ow-payments','ow-weekstats'],staff:['sw-earnings'],client:['cw-billing']},
+    reviews:{owner:['ow-reviews'],staff:[],client:['cw-reviews']},
+    pets:{owner:['ow-clients'],staff:[],client:['cw-pets']},
+    profiles:{owner:['ow-clients','ow-staff'],staff:['sw-clients'],client:[]}
+  };
+
+  function _hookRealtime(portal){
+    if(!window.HHP_Realtime) return;
+    // Listen to all table changes and refresh the relevant widgets
+    HHP_Realtime.on('*', function(table){
+      var wids=(_tableWidgets[table]||{})[portal]||[];
+      wids.forEach(function(wid){ _refreshWidget(portal,wid); });
+      // Also retrigger stat loaders (they populate by element ID)
+      setTimeout(function(){_retrigger(portal);},200);
+    });
+    console.log('[RT] Customizer hooked for',portal);
   }
 
   // Hook into auth callback system for fastest possible init
@@ -1379,6 +1461,8 @@
     openPetProfile:_openPetProfile,
     togglePets:_togglePets,
     refresh:function(){var p=_getPortal();if(p)_renderWidgets(p).then(function(){_retrigger(p);});},
+    refreshWidget:function(wid){var p=_getPortal();if(p)_refreshWidget(p,wid);},
+    refreshAll:function(){var p=_getPortal();if(p){_refreshAll(p);setTimeout(function(){_retrigger(p);},200);}},
     // Mobile drawer edit mode — reorder portal sidebar items only
     _toggleSidebarEditMobile:function(portal,drawer){
       var btn=document.getElementById('mob-sb-edit-btn');
