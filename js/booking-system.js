@@ -83,13 +83,21 @@
     });
   };
 
-  // Load deals on startup (after a brief delay for auth)
-  setTimeout(function() {
-    _fetchActiveDeals();
+  // Load deals on startup — retry until auth is ready so _clientUsedDealIds is accurate
+  function _initDeals() {
+    _fetchActiveDeals().then(function() {
+      // If clientId was null (auth not ready), retry once auth resolves
+      var clientId = window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null;
+      if (!clientId) {
+        // Auth not ready — schedule retries
+        setTimeout(_initDeals, 2000);
+      }
+    });
     // Subscribe to realtime deal changes so pricing updates everywhere automatically
     var sb = getSB();
-    if (sb && sb.channel) {
+    if (sb && sb.channel && !window._dealsRealtimeSubscribed) {
       try {
+        window._dealsRealtimeSubscribed = true;
         sb.channel('deals-realtime')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, function() {
             _fetchActiveDeals();
@@ -97,7 +105,12 @@
           .subscribe();
       } catch(e) { console.warn('Deals realtime sub:', e); }
     }
-  }, 1200);
+  }
+  setTimeout(_initDeals, 1200);
+  // Also re-fetch deals whenever auth state changes (login/logout)
+  if (typeof window.onHHPAuthReady === 'function') {
+    window.onHHPAuthReady(function() { _fetchActiveDeals(); });
+  }
 
   // Find the best matching deal for a service name (basePrice used to compare % vs $ fairly)
   function _findDealForService(serviceName, basePrice) {
@@ -1809,6 +1822,8 @@
       if (authOverlay) { authOverlay.classList.add('open'); if (typeof toggleAuthMode === 'function') toggleAuthMode('signup'); }
       return;
     }
+    // Refresh deals + used-deal list right when modal opens (catches stale cache)
+    _fetchActiveDeals();
     createBookingModal();
     var modal = document.getElementById('bookingRequestModal');
     if (modal) {

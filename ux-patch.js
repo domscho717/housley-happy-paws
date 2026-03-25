@@ -144,7 +144,7 @@
     var ownerGreet = document.querySelector('#o-overview .ob-h');
     if (ownerGreet) {
       var text = ownerGreet.textContent;
-      if (text.includes('Good morning') || text.includes('Good afternoon') || text.includes('Good evening') || text.includes('Happy Birthday')) {
+      if (text.includes('Good morning') || text.includes('Good afternoon') || text.includes('Good evening') || text.includes('Happy Birthday') || text.includes('Welcome')) {
         var nameMatch = text.match(/,\s*([A-Za-z]+)(?:\s|!|$)/);
         var name = nameMatch ? nameMatch[1] : 'Rachel';
         // Owner sees birthday pets across all clients
