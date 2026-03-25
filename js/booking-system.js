@@ -3750,7 +3750,7 @@
       dd[idx].status = 'modified';
       dd[idx].admin_message = msgEl ? msgEl.value : '';
       if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
-      return { date_details: dd, status: 'pending', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
+      return { date_details: dd, status: 'modified', scheduled_date: dateEl.value, scheduled_time: timeEl ? timeEl.value : '', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
     }, 'modified');
   };
 
