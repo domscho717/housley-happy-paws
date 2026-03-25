@@ -5688,8 +5688,9 @@ async function loadCalendarBookings(year, month) {
         }
       }
 
-      // Handle recurring bookings — generate all recurring dates for this month
-      if (b.recurrence_pattern && b.status !== 'canceled') {
+      // Handle recurring bookings — generate all recurring dates for this month (only active bookings)
+      var _calRecurActive = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1 };
+      if (b.recurrence_pattern && _calRecurActive[b.status]) {
         var cur = new Date(firstDay + 'T12:00:00');
         var last = new Date(lastDay + 'T12:00:00');
         while (cur <= last) {
@@ -6041,7 +6042,8 @@ async function loadClientAppts(filter, tabBtn) {
     // ── Helper: get next N upcoming dates for a recurring booking ──
     function getNextRecurringDates(booking, count) {
       var dates = [];
-      if (!booking.recurrence_pattern || booking.status === 'canceled') return dates;
+      var _activeStatuses = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1 };
+      if (!booking.recurrence_pattern || !_activeStatuses[booking.status]) return dates;
       var d = new Date();
       d.setHours(12, 0, 0, 0);
       var limit = new Date(d);
@@ -6058,10 +6060,12 @@ async function loadClientAppts(filter, tabBtn) {
     }
 
     // Separate recurring from one-time
+    // Only show recurring services that are actively scheduled (not completed/declined/canceled)
+    var _recurringActiveStatuses = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1 };
     var recurringAppts = [];
     var oneTimeAppts = [];
     appts.forEach(function(b) {
-      if (b.recurrence_pattern && b.status !== 'canceled') {
+      if (b.recurrence_pattern && _recurringActiveStatuses[b.status]) {
         recurringAppts.push(b);
       } else {
         oneTimeAppts.push(b);
