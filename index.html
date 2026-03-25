@@ -940,6 +940,20 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .portal-main{padding:8px 6px!important}
 }
 
+/* ── Booking Request Panel Mobile Fixes ── */
+.admin-filter-btn{white-space:nowrap;padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:white;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s;color:var(--mid)}
+.admin-filter-btn.active{background:var(--gold);color:white;border-color:var(--gold)}
+.admin-filter-btn:hover{border-color:var(--gold)}
+.filter-scroll{-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.filter-scroll::-webkit-scrollbar{display:none}
+@media(max-width:600px){
+  #o-requests .card,#s-requests .card{padding:10px!important}
+  #ownerRequestsList .card,#staffRequestsList .card{padding:12px 10px!important}
+  #ownerRequestsList .card>div:first-child,#staffRequestsList .card>div:first-child{flex-direction:column;gap:6px}
+  #ownerRequestsList .badge,#staffRequestsList .badge{align-self:flex-start}
+  .admin-filter-btn{padding:5px 10px;font-size:0.72rem}
+}
+
 /* ── iOS safe-area support (notch / Dynamic Island) ── */
 @supports(padding:env(safe-area-inset-top)){
   .navbar,.nav{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
@@ -12540,7 +12554,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260325" defer></script>
+  <script src="/js/customizer.js?v=20260325b" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>

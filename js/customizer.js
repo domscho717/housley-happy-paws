@@ -730,6 +730,35 @@
     }catch(e){return '<div id="staffDashJobs" style="color:var(--mid);font-size:0.78rem">Loading...</div>';}
   };
 
+  _R._rwStaffRequests=async function(sz){
+    if(sz!=='full') return'<div style="font-size:0.75rem;color:var(--mid)">Booking requests</div>';
+    var sb=_getSB();if(!sb){
+      return '<div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div>';
+    }
+    try{
+      var user=_getUser();
+      var query=sb.from('booking_requests').select('id,service,contact_name,preferred_date,preferred_time,status,pet_names,estimated_total').order('created_at',{ascending:false}).limit(50);
+      // Staff: filter by assigned clients
+      if(user){
+        try{
+          var{data:sa}=await sb.from('staff_assignments').select('client_id').eq('staff_id',user.id);
+          var cids=(sa||[]).map(function(a){return a.client_id;}).filter(Boolean);
+          if(cids.length>0) query=query.in('client_id',cids);
+        }catch(e){}
+      }
+      var{data}=await query;
+      var h='<div><div style="margin-bottom:10px"><select id="staff-req-filter" onchange="HHP_Customizer.refresh()" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;cursor:pointer"><option value="pending">Pending (Default)</option><option value="accepted">Accepted</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="declined">Declined</option></select></div>';
+      var filter=document.getElementById('staff-req-filter')?document.getElementById('staff-req-filter').value:'pending';
+      var filtered=(data||[]).filter(function(b){return b.status===filter;});
+      if(filtered&&filtered.length){filtered.slice(0,4).forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var sCol=b.status==='pending'?'#c8963e':b.status==='in_progress'?'var(--forest)':'var(--mid)';
+        h+='<div style="display:flex;gap:8px;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'s\',\'s-requests\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:0.72rem;color:var(--mid)">'+d+(t?' '+t:'')+'</div><div style="font-size:0.68rem;font-weight:700;color:'+sCol+';text-transform:uppercase;margin-top:2px">'+b.status+'</div>'+(b.estimated_total?'<div style="font-size:0.72rem;color:var(--forest);font-weight:600;margin-top:2px">$'+b.estimated_total.toFixed(2)+'</div>':'')+'</div></div>';});}
+      else{h+='<div style="padding:12px 0;text-align:center;color:var(--mid);font-size:0.82rem">No '+filter+' requests</div>';}
+      return h+'</div>';
+    }catch(e){
+      return '<div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Error loading</div>';
+    }
+  };
+
   _R._rwStaffClients=async function(sz){
     var sb=_getSB();if(!sb)return'';
     if(sz!=='full') return _bigNum(0,'clients',sz);
@@ -920,7 +949,7 @@
       var filter=document.getElementById('req-filter')?document.getElementById('req-filter').value:'pending';
       var filtered=(data||[]).filter(function(b){return b.status===filter;});
       if(filtered&&filtered.length){filtered.slice(0,4).forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var sCol=b.status==='pending'?'#c8963e':b.status==='in_progress'?'var(--forest)':'var(--mid)';
-        h+='<div style="display:flex;gap:8px;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'o\',\'o-sched\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:0.72rem;color:var(--mid)">'+d+(t?' '+t:'')+'</div><div style="font-size:0.68rem;font-weight:700;color:'+sCol+';text-transform:uppercase;margin-top:2px">'+b.status+'</div>'+(b.estimated_total?'<div style="font-size:0.72rem;color:var(--forest);font-weight:600;margin-top:2px">$'+b.estimated_total.toFixed(2)+'</div>':'')+'</div></div>';});}
+        h+='<div style="display:flex;gap:8px;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'o\',\'o-requests\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:0.72rem;color:var(--mid)">'+d+(t?' '+t:'')+'</div><div style="font-size:0.68rem;font-weight:700;color:'+sCol+';text-transform:uppercase;margin-top:2px">'+b.status+'</div>'+(b.estimated_total?'<div style="font-size:0.72rem;color:var(--forest);font-weight:600;margin-top:2px">$'+b.estimated_total.toFixed(2)+'</div>':'')+'</div></div>';});}
       else{h+='<div style="padding:12px 0;text-align:center;color:var(--mid);font-size:0.82rem">No '+filter+' requests</div>';}
       return h+'</div>';
     }catch(e){
