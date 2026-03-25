@@ -6202,14 +6202,68 @@ async function loadClientAppts(filter, tabBtn) {
         var shortId = b.id ? b.id.slice(0, 8) : '';
         var isPaid = paidSet.has(shortId) || paidSet.has(user.email.toLowerCase() + '|' + b.estimated_total);
 
-        var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
-        var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
+        var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
+        var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
         var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Paid</span>' : '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Unpaid</span>') : '';
+
+        // Detect time change request — owner/staff suggested a new time
+        var isTimeChange = b.status === 'modified' && b.scheduled_date;
+        // Also check date_details for per-appointment time changes
+        var ddTimeChanges = [];
+        if (b.date_details && Array.isArray(b.date_details)) {
+          b.date_details.forEach(function(dd, di) {
+            if (dd.status === 'modified' && dd.suggested_date) ddTimeChanges.push({ idx: di, date: dd.suggested_date, time: dd.suggested_time || '', msg: dd.admin_message || '' });
+          });
+        }
 
         var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
         var timeDisplay = fmt12h(b.preferred_time) || '';
 
-        html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)') + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
+        var borderColor = b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
+
+        // ── Time change banner (whole booking) ──
+        if (isTimeChange) {
+          var newDateFmt = new Date(b.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          var newTimeFmt = b.scheduled_time ? ((typeof fmt12h === 'function') ? fmt12h(b.scheduled_time) : b.scheduled_time) : '';
+          var tcNote = b.admin_notes || '';
+          html += '<div style="background:#fff8e1;border:1.5px solid #e67e22;border-radius:12px;overflow:hidden;margin-bottom:4px" data-tc-booking="' + b.id + '">';
+          html += '<div style="background:#ffecd2;padding:12px 14px;display:flex;align-items:center;gap:8px">';
+          html += '<span style="font-size:1.2rem">⏰</span>';
+          html += '<div style="flex:1"><div style="font-weight:700;font-size:0.88rem;color:#bf5d00">Time Change Requested</div>';
+          html += '<div style="font-size:0.78rem;color:#8a4400">Rachel suggested a new time for your appointment</div></div></div>';
+          html += '<div style="padding:12px 14px">';
+          html += '<div style="display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap">';
+          html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:var(--mid);font-weight:600;margin-bottom:2px">Originally</div>';
+          html += '<div style="font-size:0.85rem;color:var(--mid);text-decoration:line-through">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div></div>';
+          html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:#bf5d00;font-weight:600;margin-bottom:2px">New Time</div>';
+          html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00">' + newDateFmt + (newTimeFmt ? ' at ' + newTimeFmt : '') + '</div></div></div>';
+          if (tcNote) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:10px;padding:8px;background:white;border-radius:6px">"' + tcNote + '"</div>';
+          html += '<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px">' + (b.service || 'Appointment') + '</div>';
+          if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid);margin-bottom:10px">Pets: ' + b.pet_names + '</div>';
+          html += '<div style="display:flex;gap:8px">';
+          html += '<button onclick="event.stopPropagation();clientAcceptTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept New Time</button>';
+          html += '<button onclick="event.stopPropagation();clientDeclineTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline</button>';
+          html += '</div></div></div>';
+        }
+        // ── Per-appointment time changes (date_details) ──
+        else if (ddTimeChanges.length > 0) {
+          ddTimeChanges.forEach(function(tc) {
+            var tcDateFmt = new Date(tc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var tcTimeFmt = tc.time ? ((typeof fmt12h === 'function') ? fmt12h(tc.time) : tc.time) : '';
+            html += '<div style="background:#fff8e1;border:1.5px solid #e67e22;border-radius:12px;overflow:hidden;margin-bottom:4px">';
+            html += '<div style="background:#ffecd2;padding:10px 14px;display:flex;align-items:center;gap:8px">';
+            html += '<span style="font-size:1.1rem">⏰</span><div style="font-weight:700;font-size:0.84rem;color:#bf5d00">Time Change — ' + (b.service || 'Appointment') + '</div></div>';
+            html += '<div style="padding:10px 14px">';
+            html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00;margin-bottom:4px">New: ' + tcDateFmt + (tcTimeFmt ? ' at ' + tcTimeFmt : '') + '</div>';
+            if (tc.msg) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:8px">"' + tc.msg + '"</div>';
+            html += '<div style="display:flex;gap:8px">';
+            html += '<button onclick="event.stopPropagation();clientAcceptApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept</button>';
+            html += '<button onclick="event.stopPropagation();clientDeclineApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline</button>';
+            html += '</div></div></div>';
+          });
+        }
+
+        html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + borderColor + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
         html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
         html += '<div style="flex:1;min-width:0">';
         html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + '</div>';
@@ -6236,6 +6290,174 @@ async function loadClientAppts(filter, tabBtn) {
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
   }
 }
+
+// ── Client: Accept Time Change (whole booking) ──
+async function clientAcceptTimeChange(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  try {
+    // Get the booking to read the suggested date/time
+    var { data: bk } = await sb.from('booking_requests').select('scheduled_date, scheduled_time, service, admin_notes').eq('id', bookingId).maybeSingle();
+    if (!bk || !bk.scheduled_date) { if (typeof toast === 'function') toast('Could not find time change details'); return; }
+
+    // Update booking: move suggested time to preferred, set status back to accepted
+    await sb.from('booking_requests').update({
+      preferred_date: bk.scheduled_date,
+      preferred_time: bk.scheduled_time || '',
+      status: 'accepted',
+      admin_notes: (bk.admin_notes || '') + '\nClient accepted time change on ' + new Date().toLocaleDateString()
+    }).eq('id', bookingId);
+
+    // Notify owner via in-app message
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    var newDateFmt = new Date(bk.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({
+        sender_id: user.id,
+        sender_name: clientName || 'Client',
+        recipient_id: ownerIds[oi],
+        body: '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their booking') + '. New date: ' + newDateFmt + (bk.scheduled_time ? ' at ' + bk.scheduled_time : ''),
+        is_alert: true,
+      });
+    }
+
+    if (typeof toast === 'function') toast('✓ New time accepted! You\'re all set.');
+    // Refresh the list
+    loadClientAppts('all');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+  } catch (e) {
+    console.error('Accept time change error:', e);
+    if (typeof toast === 'function') toast('Error accepting time change');
+  }
+}
+
+// ── Client: Decline Time Change (whole booking) ──
+async function clientDeclineTimeChange(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('scheduled_date, scheduled_time, service, preferred_date, preferred_time').eq('id', bookingId).maybeSingle();
+    if (!bk) return;
+
+    // Revert to original date, set status back to accepted
+    await sb.from('booking_requests').update({
+      status: 'accepted',
+      scheduled_date: null,
+      scheduled_time: null,
+      admin_notes: 'Client declined the suggested time change on ' + new Date().toLocaleDateString() + '. Keeping original date.'
+    }).eq('id', bookingId);
+
+    // Notify owner
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({
+        sender_id: user.id,
+        sender_name: clientName || 'Client',
+        recipient_id: ownerIds[oi],
+        body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their booking') + '. The original date is kept.',
+        is_alert: true,
+      });
+    }
+
+    if (typeof toast === 'function') toast('Time change declined. Original time kept.');
+    loadClientAppts('all');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+  } catch (e) {
+    console.error('Decline time change error:', e);
+    if (typeof toast === 'function') toast('Error declining time change');
+  }
+}
+
+// ── Client: Accept per-appointment Time Change (date_details) ──
+async function clientAcceptApptTimeChange(bookingId, apptIdx) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('date_details, service').eq('id', bookingId).maybeSingle();
+    if (!bk || !bk.date_details || !bk.date_details[apptIdx]) return;
+
+    var dd = bk.date_details;
+    // Move suggested date/time to main date, set status to accepted
+    dd[apptIdx].date = dd[apptIdx].suggested_date || dd[apptIdx].date;
+    dd[apptIdx].time = dd[apptIdx].suggested_time || dd[apptIdx].time;
+    dd[apptIdx].status = 'accepted';
+    delete dd[apptIdx].suggested_date;
+    delete dd[apptIdx].suggested_time;
+    delete dd[apptIdx].admin_message;
+
+    var allAccepted = dd.every(function(d) { return d.status === 'accepted'; });
+    await sb.from('booking_requests').update({
+      date_details: dd,
+      status: allAccepted ? 'accepted' : 'pending'
+    }).eq('id', bookingId);
+
+    // Notify owner
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their appointment') + '.', is_alert: true });
+    }
+
+    if (typeof toast === 'function') toast('✓ New time accepted!');
+    loadClientAppts('all');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+  } catch (e) {
+    console.error('Accept appt time change error:', e);
+    if (typeof toast === 'function') toast('Error accepting time change');
+  }
+}
+
+// ── Client: Decline per-appointment Time Change (date_details) ──
+async function clientDeclineApptTimeChange(bookingId, apptIdx) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('date_details, service').eq('id', bookingId).maybeSingle();
+    if (!bk || !bk.date_details || !bk.date_details[apptIdx]) return;
+
+    var dd = bk.date_details;
+    // Revert: remove suggested fields, keep original date, set status back to accepted
+    dd[apptIdx].status = 'accepted';
+    delete dd[apptIdx].suggested_date;
+    delete dd[apptIdx].suggested_time;
+    delete dd[apptIdx].admin_message;
+
+    var allAccepted = dd.every(function(d) { return d.status === 'accepted'; });
+    await sb.from('booking_requests').update({
+      date_details: dd,
+      status: allAccepted ? 'accepted' : 'pending'
+    }).eq('id', bookingId);
+
+    // Notify owner
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their appointment') + '.', is_alert: true });
+    }
+
+    if (typeof toast === 'function') toast('Time change declined. Original time kept.');
+    loadClientAppts('all');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+  } catch (e) {
+    console.error('Decline appt time change error:', e);
+    if (typeof toast === 'function') toast('Error declining time change');
+  }
+}
+
 // ── Recurring: Request Change (sends message to owner) ──
 async function requestRecurringChange(bookingId) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
@@ -12716,11 +12938,11 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260325d" defer></script>
+  <script src="/js/booking-system.js?v=20260325e" defer></script>
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260325e" defer></script>
+  <script src="/js/customizer.js?v=20260325f" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>
