@@ -298,7 +298,7 @@ module.exports = async function handler(req, res) {
             sender_id: null,
             sender_name: 'Rachel Housley',
             recipient_id: booking.client_id,
-            body: msgBody,
+            body: '📋 ' + msgBody,
             is_alert: true,
           });
         } catch(e) { console.error('Failed to send in-app notification:', e.message); }

@@ -3419,16 +3419,22 @@
         }),
       });
     } catch (e) { console.warn('Email notification failed:', e); }
-    // 2. Insert in-app message
+    // 2. Insert in-app message/alert for the client
     if (sb && req.client_id) {
       try {
         var owner = window.HHP_Auth && window.HHP_Auth.currentUser;
+        var ownerName = 'Rachel Housley';
+        try { if (owner && owner.profile && owner.profile.full_name) ownerName = owner.profile.full_name; } catch(e){}
         var statusLabel = newStatus === 'accepted' ? 'confirmed' : newStatus === 'declined' ? 'declined' : newStatus === 'modified' ? 'updated with a new suggested time' : newStatus;
-        var msgBody = 'Your ' + (req.service || 'booking') + ' request has been ' + statusLabel + '.';
-        if (extraOpts.adminNotes) msgBody += ' Note: ' + extraOpts.adminNotes;
+        var msgBody = '📋 Your ' + (req.service || 'booking') + ' request has been ' + statusLabel + '.';
+        if (extraOpts.adminNotes) msgBody += '\n' + extraOpts.adminNotes;
+        if (newStatus === 'modified' && extraOpts.scheduledDate) {
+          msgBody += '\n📅 New suggested date: ' + extraOpts.scheduledDate;
+          if (extraOpts.scheduledTime) msgBody += ' at ' + extraOpts.scheduledTime;
+        }
         await sb.from('messages').insert({
           sender_id: owner ? owner.id : null,
-          sender_name: 'Rachel Housley',
+          sender_name: ownerName,
           recipient_id: req.client_id,
           body: msgBody,
           is_alert: true,
