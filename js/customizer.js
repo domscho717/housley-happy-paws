@@ -97,7 +97,7 @@
   }
 
   function _getActive(p){return _prefs[p]&&_prefs[p].widgets&&_prefs[p].widgets.length>0?_prefs[p].widgets:_defaults(p);}
-  function _getSize(p,wid){if(_prefs[p]&&_prefs[p].sizes&&_prefs[p].sizes[wid])return _prefs[p].sizes[wid];var d=(WIDGETS[p]||[]).find(function(w){return w.wid===wid;});return d?d.size:'half';}
+  function _getSize(p,wid){var d=(WIDGETS[p]||[]).find(function(w){return w.wid===wid;});if(d&&d.fixed)return d.size;if(_prefs[p]&&_prefs[p].sizes&&_prefs[p].sizes[wid])return _prefs[p].sizes[wid];return d?d.size:'half';}
 
   // ══════════════════════════════════════
   //  SIDEBAR: Edit/Save toggle + drag reorder
