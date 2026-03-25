@@ -9958,6 +9958,22 @@ async function submitAnnouncement() {
       toast('Failed to send announcement. Please try again.');
     } else {
       toast('📢 Announcement sent to ' + recipientIds.length + ' recipient(s)!');
+
+      // Also send email to all recipients
+      try {
+        var emailRes = await fetch('/api/send-announcement-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: messageText.trim(), sendTo: sendTo, dealName: dealName || '', dealDetails: dealDetails || '' })
+        });
+        var emailData = await emailRes.json();
+        if (emailData.sent > 0) {
+          toast('📧 Email sent to ' + emailData.sent + ' recipient(s)!');
+        }
+      } catch (emailErr) {
+        console.warn('Announcement email send failed (non-blocking):', emailErr);
+      }
+
       closeModal('announceModal');
       document.getElementById('announce-text').value = '';
       if (document.getElementById('announce-deal-name')) document.getElementById('announce-deal-name').value = '';

@@ -2300,6 +2300,20 @@
         clientId = window.HHP_Auth.currentUser.id;
       }
 
+      // Re-validate deal usage right before submission (prevents multi-tab bypass)
+      if (window._brmDealDiscount && clientId) {
+        var dealToCheck = window._brmDealDiscount.deal;
+        if (dealToCheck && dealToCheck.usage_limit === 'once_per_client') {
+          var { data: priorUse } = await sb.from('booking_requests')
+            .select('id').eq('client_id', clientId).eq('deal_id', dealToCheck.id)
+            .neq('status', 'canceled').limit(1);
+          if (priorUse && priorUse.length > 0) {
+            window._brmDealDiscount = null;
+            if (typeof toast === 'function') toast('Discount already used — booking will be submitted at full price.');
+          }
+        }
+      }
+
       var { data, error } = await sb
         .from('booking_requests')
         .insert({
@@ -2503,6 +2517,16 @@
       ].join('');
 
       await this.loadRequests();
+
+      // Auto-refresh every 30 seconds so new bookings appear without reload
+      if (this._refreshInterval) clearInterval(this._refreshInterval);
+      this._refreshInterval = setInterval(function() {
+        if (document.getElementById('adminRequestsList')) {
+          HHP_BookingAdmin.loadRequests();
+        } else {
+          clearInterval(HHP_BookingAdmin._refreshInterval);
+        }
+      }, 30000);
     },
 
     async loadRequests() {

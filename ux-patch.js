@@ -1270,19 +1270,11 @@
     if (!supabase) return;
 
     supabase
-      .from('profiles')
+      .from('booking_requests')
       .select('id')
-      .eq('user_id', userId)
-      .single()
-      .then(function(profileResult) {
-        if (!profileResult.data || profileResult.error) return;
-        var profileId = profileResult.data.id;
-        return supabase
-          .from('bookings')
-          .select('id')
-          .eq('client_id', profileId)
-          .limit(1);
-      })
+      .eq('client_id', userId)
+      .not('status', 'eq', 'canceled')
+      .limit(1)
       .then(function(result) {
         if (result && result.data && result.data.length > 0) {
           hideMeetGreetButtons();
