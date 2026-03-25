@@ -42,7 +42,7 @@ const HHP_Auth = window.HHP_Auth = {
                 this.currentRole = null;
                 this.session = null;
                 this._handledSessionId = null;
-                try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
+                try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_cached_profile'); sessionStorage.removeItem('hhp_cached_stats'); sessionStorage.removeItem('hhp_avatar_url'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
                 this.showLoginScreen();
             }
         });
@@ -108,10 +108,11 @@ const HHP_Auth = window.HHP_Auth = {
             } else if (profile) {
                 this.currentRole = profile.role || 'client';
                 this.currentUser.profile = profile;
-                // Cache avatar for instant display
-                if (profile.avatar_url) {
-                    try { sessionStorage.setItem('hhp_avatar_url', profile.avatar_url); } catch(e) {}
-                }
+                // Cache full profile for instant hydration on next load
+                try {
+                    sessionStorage.setItem('hhp_cached_profile', JSON.stringify(profile));
+                    if (profile.avatar_url) sessionStorage.setItem('hhp_avatar_url', profile.avatar_url);
+                } catch(e) {}
                 // Load user preferences from DB into settings
                 if (profile.preferences && typeof profile.preferences === 'object') {
                     try {
@@ -283,7 +284,7 @@ const HHP_Auth = window.HHP_Auth = {
         this.currentRole = null;
         this.session = null;
         this._handledSessionId = null;
-        try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
+        try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_cached_profile'); sessionStorage.removeItem('hhp_cached_stats'); sessionStorage.removeItem('hhp_avatar_url'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
         if (typeof switchView === 'function') switchView('public');
         this.showLoginScreen();
     },

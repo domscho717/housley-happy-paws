@@ -11580,6 +11580,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
   window._hhpAuthReady = false;
+  window._hhpEarlyHydrated = false;
   window.onHHPAuthReady = function(fn) {
     if (window._hhpAuthReady) { fn(); } else { window._hhpAuthCallbacks.push(fn); }
   };
@@ -11589,6 +11590,72 @@ document.addEventListener('DOMContentLoaded', function() {
     window._hhpAuthCallbacks = [];
     for (var i = 0; i < cbs.length; i++) { try { cbs[i](); } catch(e) { console.error('Auth callback error:', e); } }
   }
+
+  // ── EARLY HYDRATION: Instant UI from cached session ──
+  // Before Supabase SDK even loads, hydrate the portal from sessionStorage
+  // so the user sees their dashboard immediately on refresh.
+  (function _earlyHydrate() {
+    try {
+      var cachedRole = sessionStorage.getItem('hhp_cached_role');
+      var cachedProfile = sessionStorage.getItem('hhp_cached_profile');
+      if (!cachedRole) return; // No cached session — first visit or logged out
+
+      var profile = cachedProfile ? JSON.parse(cachedProfile) : null;
+
+      // Populate HHP_Auth with cached data so modules can start immediately
+      if (typeof HHP_Auth !== 'undefined') {
+        HHP_Auth.currentRole = cachedRole;
+        // Create a minimal currentUser from cache so _getUser() and _getPortal() work
+        HHP_Auth.currentUser = HHP_Auth.currentUser || { id: 'cached', profile: profile };
+        if (profile) HHP_Auth.currentUser.profile = profile;
+      }
+
+      // Update nav buttons instantly
+      var loginBtn = document.getElementById('navLoginBtn');
+      var logoutBtn = document.getElementById('navLogoutBtn');
+      if (loginBtn) loginBtn.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+
+      // Fill in user name instantly from cache
+      if (profile && profile.full_name) {
+        var nameEls = document.querySelectorAll('.sb-name');
+        nameEls.forEach(function(el) { el.textContent = profile.full_name; });
+      }
+
+      // Restore view from cache
+      var lastView = sessionStorage.getItem('hhp_last_view');
+      var lastPanel = sessionStorage.getItem('hhp_last_panel');
+      var lastPortal = sessionStorage.getItem('hhp_last_portal');
+      if (lastView && typeof switchView === 'function') {
+        switchView(lastView);
+        if (lastPanel && lastPortal && typeof sTab === 'function') {
+          setTimeout(function() { sTab(lastPortal, lastPanel); }, 30);
+        }
+      } else if (typeof switchView === 'function') {
+        switchView(cachedRole === 'owner' ? 'owner' : cachedRole === 'staff' ? 'staff' : 'client');
+      }
+
+      // Pre-fill cached stats instantly (fills in the "—" placeholders)
+      try {
+        var cachedStats = sessionStorage.getItem('hhp_cached_stats');
+        if (cachedStats) {
+          var stats = JSON.parse(cachedStats);
+          // Use requestAnimationFrame to fill once DOM is painted
+          requestAnimationFrame(function() {
+            Object.keys(stats).forEach(function(id) {
+              var el = document.getElementById(id);
+              if (el && (el.textContent === '—' || el.textContent === '')) el.textContent = stats[id];
+            });
+          });
+        }
+      } catch(e) {}
+
+      // Fire auth-ready early so customizer + realtime start immediately
+      window._hhpEarlyHydrated = true;
+      _fireAuthReady();
+      console.log('[Early Hydrate] Portal rendered from cache in <50ms');
+    } catch(e) { console.warn('Early hydrate skipped:', e); }
+  })();
 
     // Wait for Supabase SDK to load (async script)
   function waitForSupabase(cb, maxWait) {
@@ -11600,7 +11667,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 50);
   }
 
-    // Initialize auth when page loads
+    // Initialize auth when page loads — verifies cached session with real Supabase
   document.addEventListener('DOMContentLoaded', function() {
     waitForSupabase(async function() {
     if (typeof HHP_Auth !== 'undefined' && HHP_Auth.SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
@@ -11608,21 +11675,31 @@ document.addEventListener('DOMContentLoaded', function() {
       // Set global alias so all functions can access the same Supabase client
       if (ok && HHP_Auth.supabase) window.HHP_supabase = HHP_Auth.supabase;
       if (ok && !HHP_Auth.isAuthenticated()) {
-        // Not logged in — show public site, hide login overlay for now
-        // Login overlay shows when they try to access a portal
+        // Not logged in — clear stale cache and show public site
+        if (window._hhpEarlyHydrated) {
+          // Early hydration was wrong — user is actually logged out
+          try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_cached_profile'); } catch(e) {}
+          if (typeof switchView === 'function') switchView('public');
+        }
         document.getElementById('navLoginBtn').style.display = 'inline-flex';
+        document.getElementById('navLogoutBtn').style.display = 'none';
       } else if (ok && HHP_Auth.isAuthenticated()) {
         document.getElementById('navLoginBtn').style.display = 'none';
         document.getElementById('navLogoutBtn').style.display = 'inline-flex';
-        // Load dashboard stats on initial page load
+        // Load dashboard stats
         if (typeof loadDashboardStats === 'function') loadDashboardStats();
         if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+        // If early hydration already fired auth-ready, refresh widgets with real data
+        if (window._hhpEarlyHydrated && window.HHP_Customizer && HHP_Customizer.refreshAll) {
+          HHP_Customizer.refreshAll();
+        }
       }
-      // Signal auth is ready — all waiting modules fire immediately
-      _fireAuthReady();
+      // Signal auth is ready — if early hydration already fired, this is a no-op
+      // (callbacks array was already drained)
+      if (!window._hhpEarlyHydrated) _fireAuthReady();
     } else {
       // Auth not configured — dev mode
-      _fireAuthReady();
+      if (!window._hhpEarlyHydrated) _fireAuthReady();
     }
     }); // end waitForSupabase
   });
@@ -12034,6 +12111,18 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
     }
+
+    // Cache all stat values for instant hydration on next page load
+    try {
+      var statEls = document.querySelectorAll('[id^="stat-"]');
+      var statCache = {};
+      statEls.forEach(function(el) {
+        if (el.textContent && el.textContent !== '—' && el.textContent !== '') {
+          statCache[el.id] = el.textContent;
+        }
+      });
+      sessionStorage.setItem('hhp_cached_stats', JSON.stringify(statCache));
+    } catch(e) {}
   }
 
   // ---- OWNER TODAY'S SCHEDULE WITH START/END WALK BUTTONS ----
