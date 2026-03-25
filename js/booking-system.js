@@ -2610,16 +2610,27 @@
         // Multi-date / recurring display
         var multiDateHTML = '';
         if (r.date_details && Array.isArray(r.date_details) && r.date_details.length > 0) {
-          // New format: date cards with per-date time + pets
-          var cardEntries = r.date_details.map(function(dc) {
+          // New format: date cards with per-date time + pets + per-appointment actions
+          var cardEntries = r.date_details.map(function(dc, idx) {
             var dStr = new Date(dc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             var tStr = dc.time ? ' @ ' + fmt12(dc.time) : '';
             var pStr = (dc.pets && dc.pets.length > 0) ? ' — ' + dc.pets.map(function(p) { return p.name; }).join(', ') : '';
-            return '<div style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:8px;padding:6px 10px;font-size:0.82rem">' +
-              '<strong>' + dStr + '</strong>' + tStr + pStr + '</div>';
+            var apptStatus = dc.status || r.status || 'pending';
+            var statusColor = apptStatus === 'accepted' ? '#4caf50' : apptStatus === 'declined' ? '#c00' : apptStatus === 'modified' ? '#c8963e' : '#888';
+            var statusBadge = (r.date_details.length > 1 && dc.status) ? '<span style="font-size:0.7rem;font-weight:700;color:' + statusColor + ';text-transform:uppercase;margin-left:8px">' + apptStatus + '</span>' : '';
+            var perApptActions = '';
+            if (r.status === 'pending' && r.date_details.length > 1) {
+              perApptActions = '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">' +
+                '<button class="arc-btn accept" style="font-size:0.72rem;padding:4px 10px" onclick="event.stopPropagation();acceptSingleAppt(\'' + r.id + '\',' + idx + ')">✓ Accept</button>' +
+                '<button class="arc-btn modify" style="font-size:0.72rem;padding:4px 10px" onclick="event.stopPropagation();suggestTimeSingleAppt(\'' + r.id + '\',' + idx + ')">↻ Time</button>' +
+                '<button class="arc-btn decline" style="font-size:0.72rem;padding:4px 10px" onclick="event.stopPropagation();declineSingleAppt(\'' + r.id + '\',' + idx + ')">✕ Decline</button>' +
+                '</div>';
+            }
+            return '<div style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:8px;padding:8px 10px;font-size:0.82rem" data-appt-idx="' + idx + '">' +
+              '<strong>' + dStr + '</strong>' + tStr + pStr + statusBadge + perApptActions + '</div>';
           });
-          multiDateHTML = '<div class="arc-detail"><strong>' + (r.date_details.length + 1) + ' Appointments:</strong>' +
-            '<div style="display:flex;flex-direction:column;gap:4px;margin-top:4px">' + cardEntries.join('') + '</div></div>';
+          multiDateHTML = '<div class="arc-detail"><strong>' + r.date_details.length + ' Appointments:</strong>' +
+            '<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">' + cardEntries.join('') + '</div></div>';
         } else if (r.booking_dates && Array.isArray(r.booking_dates) && r.booking_dates.length > 1) {
           // Legacy format: just date strings
           var formattedDates = r.booking_dates.map(function(d) {
@@ -3289,15 +3300,50 @@
         clientAvaHTML = '<div style="width:40px;height:40px;border-radius:50%;background:var(--gold-light,#f5e6c8);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--ink,#1e1409);flex-shrink:0;border:2px solid #e0d5c5">' + initials + '</div>';
       }
 
+      // Multi-date panel rendering with per-appointment actions
+      var panelMultiDateHTML = '';
+      if (r.date_details && Array.isArray(r.date_details) && r.date_details.length > 1) {
+        var panelApptCards = r.date_details.map(function(dc, idx) {
+          var dStr = new Date(dc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          var tStr = dc.time ? ' @ ' + fmt12(dc.time) : '';
+          var pStr = (dc.pets && dc.pets.length > 0) ? ' — ' + dc.pets.map(function(p) { return p.name; }).join(', ') : '';
+          var apptStatus = dc.status || 'pending';
+          var statusColor = apptStatus === 'accepted' ? '#4caf50' : apptStatus === 'declined' ? '#c00' : apptStatus === 'modified' ? '#c8963e' : 'var(--mid)';
+          var statusBadge = dc.status ? '<span style="font-size:0.7rem;font-weight:700;color:' + statusColor + ';text-transform:uppercase;margin-left:8px">' + apptStatus + '</span>' : '';
+          var perActions = '';
+          if (r.status === 'pending') {
+            perActions = '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">' +
+              '<button class="btn btn-forest btn-sm" style="font-size:0.72rem;padding:4px 10px" onclick="event.stopPropagation();acceptSingleAppt(\'' + r.id + '\',' + idx + ')">✓ Accept</button>' +
+              '<button class="btn btn-gold btn-sm" style="font-size:0.72rem;padding:4px 10px" onclick="event.stopPropagation();suggestTimeSingleAppt(\'' + r.id + '\',' + idx + ')">↻ Time</button>' +
+              '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 10px;color:#c00;border-color:#c00" onclick="event.stopPropagation();declineSingleAppt(\'' + r.id + '\',' + idx + ')">✕ Decline</button>' +
+              '</div>';
+          }
+          return '<div style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:8px;padding:8px 12px;font-size:0.82rem" data-appt-idx="' + idx + '" id="arc-' + r.id + '">' +
+            '<strong>' + dStr + '</strong>' + tStr + pStr + statusBadge + perActions + '</div>';
+        });
+        panelMultiDateHTML = '<div style="margin-top:8px"><strong style="font-size:0.85rem">' + r.date_details.length + ' Appointments:</strong>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">' + panelApptCards.join('') + '</div></div>';
+      }
+
       var actionsHTML = '';
       if (r.status === 'pending') {
-        actionsHTML = [
-          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">',
-          '  <button class="btn btn-forest btn-sm" onclick="acceptBookingRequest(\'' + r.id + '\')">✓ Accept</button>',
-          '  <button class="btn btn-gold btn-sm" onclick="suggestTimeChange(\'' + r.id + '\')">↻ Suggest Time</button>',
-          '  <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="declineBookingRequest(\'' + r.id + '\')">✕ Decline</button>',
-          '</div>',
-        ].join('');
+        // Only show whole-booking buttons if single appointment
+        var hasMultiDates = r.date_details && Array.isArray(r.date_details) && r.date_details.length > 1;
+        if (hasMultiDates) {
+          actionsHTML = '<div style="margin-top:12px;padding:8px 12px;background:var(--gold-pale);border-radius:6px;font-size:0.82rem;color:var(--gold-deep)">Use the buttons on each appointment above to accept or decline individually, or:</div>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' +
+            '<button class="btn btn-forest btn-sm" onclick="acceptBookingRequest(\'' + r.id + '\')">✓ Accept All</button>' +
+            '<button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="declineBookingRequest(\'' + r.id + '\')">✕ Decline All</button>' +
+            '</div>';
+        } else {
+          actionsHTML = [
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">',
+            '  <button class="btn btn-forest btn-sm" onclick="acceptBookingRequest(\'' + r.id + '\')">✓ Accept</button>',
+            '  <button class="btn btn-gold btn-sm" onclick="suggestTimeChange(\'' + r.id + '\')">↻ Suggest Time</button>',
+            '  <button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="declineBookingRequest(\'' + r.id + '\')">✕ Decline</button>',
+            '</div>',
+          ].join('');
+        }
       } else if (r.status === 'modified') {
         actionsHTML = '<div style="margin-top:12px;padding:8px 12px;background:var(--gold-pale);border-radius:6px;font-size:0.83rem;color:var(--gold-deep)"><strong>⏱ Awaiting client response</strong> to your time suggestion</div>';
       } else if (r.status === 'accepted') {
@@ -3309,7 +3355,7 @@
       }
 
       return [
-        '<div class="card" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + '">',
+        '<div class="card" data-request-id="' + r.id + '" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + '">',
         '  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">',
         '    <div><strong style="font-size:1rem">' + (r.service || 'Service') + '</strong><div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</div></div>',
         '    <span class="badge" style="background:' + (r.status === 'pending' ? 'var(--gold-light)' : r.status === 'accepted' ? 'var(--forest-light)' : r.status === 'completed' ? '#d4edda' : 'var(--rose-light)') + ';color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">' + r.status + '</span>',
@@ -3325,6 +3371,7 @@
         '    </div>',
         '  </div>',
         (r.special_notes ? '  <div style="background:var(--gold-pale);padding:8px 10px;border-radius:6px;font-size:0.82rem;margin-bottom:12px"><strong>Notes:</strong> ' + r.special_notes + '</div>' : ''),
+        panelMultiDateHTML,
         actionsHTML,
         '</div>',
       ].join('');
@@ -3480,6 +3527,119 @@
 
   window.viewBookingReport = function(requestId) {
     if (typeof toast === 'function') toast('📋 Report viewing coming soon');
+  };
+
+  // ── Per-appointment actions (for multi-date bookings) ──
+  async function _getBookingAndUpdate(requestId, apptIdx, updateFn) {
+    var sb = getSB();
+    if (!sb) return;
+    try {
+      var { data: booking, error } = await sb.from('booking_requests').select('*').eq('id', requestId).single();
+      if (error || !booking) { if (typeof toast === 'function') toast('Could not find booking'); return; }
+      var dd = booking.date_details;
+      if (!dd || !Array.isArray(dd) || !dd[apptIdx]) { if (typeof toast === 'function') toast('Appointment not found'); return; }
+      var result = updateFn(booking, dd, apptIdx);
+      if (result) {
+        await sb.from('booking_requests').update(result).eq('id', requestId);
+        if (typeof HHP_BookingAdmin !== 'undefined' && HHP_BookingAdmin.loadRequests) HHP_BookingAdmin.loadRequests();
+        if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
+      }
+    } catch (e) {
+      console.error('Per-appt action error:', e);
+      if (typeof toast === 'function') toast('Error updating appointment');
+    }
+  }
+
+  window.acceptSingleAppt = function(requestId, apptIdx) {
+    _getBookingAndUpdate(requestId, apptIdx, function(booking, dd, idx) {
+      dd[idx].status = 'accepted';
+      // Check if all appointments now have a status
+      var allDecided = dd.every(function(d) { return d.status === 'accepted' || d.status === 'declined'; });
+      var anyAccepted = dd.some(function(d) { return d.status === 'accepted'; });
+      var allDeclined = dd.every(function(d) { return d.status === 'declined'; });
+      var newStatus = allDecided ? (allDeclined ? 'declined' : 'accepted') : 'pending';
+      // Update booking_dates to only include accepted dates
+      var acceptedDates = dd.filter(function(d) { return d.status === 'accepted'; }).map(function(d) { return d.date; });
+      if (typeof toast === 'function') toast('✓ Appointment accepted!');
+      return { date_details: dd, status: newStatus, booking_dates: acceptedDates.length > 0 ? acceptedDates : booking.booking_dates };
+    });
+  };
+
+  window.declineSingleAppt = function(requestId, apptIdx) {
+    var apptDate = '';
+    _getBookingAndUpdate(requestId, apptIdx, function(booking, dd, idx) {
+      apptDate = dd[idx].date;
+      dd[idx].status = 'declined';
+      var allDecided = dd.every(function(d) { return d.status === 'accepted' || d.status === 'declined'; });
+      var allDeclined = dd.every(function(d) { return d.status === 'declined'; });
+      var newStatus = allDecided ? (allDeclined ? 'declined' : 'accepted') : 'pending';
+      var acceptedDates = dd.filter(function(d) { return d.status !== 'declined'; }).map(function(d) { return d.date; });
+      if (typeof toast === 'function') toast('Appointment declined');
+      return { date_details: dd, status: newStatus, booking_dates: acceptedDates.length > 0 ? acceptedDates : [booking.preferred_date] };
+    });
+  };
+
+  window.suggestTimeSingleAppt = function(requestId, apptIdx) {
+    // Find the appointment card and inject a time change form
+    var cards = document.querySelectorAll('[data-appt-idx="' + apptIdx + '"]');
+    var card = null;
+    cards.forEach(function(c) {
+      if (c.closest('#arc-' + requestId) || c.closest('[data-request-id="' + requestId + '"]')) card = c;
+      // Fallback: just use the card if only one found
+      if (!card) card = c;
+    });
+    if (!card) { if (typeof toast === 'function') toast('Could not find appointment'); return; }
+
+    // Remove existing form if any
+    var existing = card.querySelector('.appt-time-form');
+    if (existing) { existing.remove(); return; }
+
+    var formId = 'atf-' + requestId + '-' + apptIdx;
+    var formHTML = '<div class="appt-time-form" style="background:var(--gold-pale,#fdf6e3);border-radius:6px;padding:10px;margin-top:8px;border:1px solid var(--gold,#c8963e)">' +
+      '<div style="font-weight:600;font-size:0.78rem;margin-bottom:6px">Suggest Different Time</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
+      '<input type="date" id="' + formId + '-date" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;flex:1;min-width:120px">' +
+      '<select id="' + formId + '-time" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;flex:1;min-width:100px"></select>' +
+      '</div>' +
+      '<textarea id="' + formId + '-msg" placeholder="Message to client..." style="width:100%;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;font-family:inherit;min-height:40px;box-sizing:border-box;margin-bottom:6px"></textarea>' +
+      '<div style="display:flex;gap:6px">' +
+      '<button class="arc-btn accept" style="font-size:0.72rem;padding:4px 10px" onclick="submitSingleApptTime(\'' + requestId + '\',' + apptIdx + ',\'' + formId + '\')">Send</button>' +
+      '<button class="arc-btn decline" style="font-size:0.72rem;padding:4px 10px;background:#999" onclick="this.closest(\'.appt-time-form\').remove()">Cancel</button>' +
+      '</div></div>';
+    card.insertAdjacentHTML('beforeend', formHTML);
+
+    // Populate time options
+    var sel = document.getElementById(formId + '-time');
+    if (sel) {
+      for (var h = 5; h <= 22; h++) {
+        for (var m = 0; m < 60; m += 30) {
+          var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+          var ampm = h >= 12 ? 'PM' : 'AM';
+          var mm = m === 0 ? '00' : '30';
+          var opt = document.createElement('option');
+          opt.value = (h < 10 ? '0' : '') + h + ':' + mm;
+          opt.textContent = hr12 + ':' + mm + ' ' + ampm;
+          sel.appendChild(opt);
+        }
+      }
+    }
+  };
+
+  window.submitSingleApptTime = function(requestId, apptIdx, formId) {
+    var dateEl = document.getElementById(formId + '-date');
+    var timeEl = document.getElementById(formId + '-time');
+    var msgEl = document.getElementById(formId + '-msg');
+    if (!dateEl || !dateEl.value) { alert('Please select a new date.'); return; }
+
+    _getBookingAndUpdate(requestId, apptIdx, function(booking, dd, idx) {
+      dd[idx].suggested_date = dateEl.value;
+      dd[idx].suggested_time = timeEl ? timeEl.value : '';
+      dd[idx].status = 'modified';
+      dd[idx].admin_message = msgEl ? msgEl.value : '';
+      if (typeof toast === 'function') toast('✓ Time suggestion sent!');
+      // If any appointment is modified, keep overall status as pending so it stays visible
+      return { date_details: dd, status: 'pending', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
+    });
   };
 
 })();
