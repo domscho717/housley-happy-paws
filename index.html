@@ -11494,7 +11494,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Cloudinary Photo Manager -->
 <script src="/js/cloudinary-client.js" defer></script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
-    <script src="/ux-patch.js?v=20260324c" defer></script>
+    <script src="/ux-patch.js?v=20260324d" defer></script>
 <script>
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
@@ -11539,6 +11539,17 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       // Signal auth is ready — all waiting modules fire immediately
       _fireAuthReady();
+
+      // Re-run greeting + booking admin AFTER auth is fully ready (profile loaded)
+      // This catches the race condition where cached-role path runs loadDashboardStats
+      // before the profile query finishes
+      setTimeout(function() {
+        if (typeof loadDashboardStats === 'function') loadDashboardStats();
+        if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function' &&
+            window.HHP_Auth && window.HHP_Auth.currentRole === 'owner') {
+          window.HHP_BookingAdmin.init();
+        }
+      }, 500);
     } else {
       // Auth not configured — dev mode
       _fireAuthReady();
@@ -11631,7 +11642,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Exposed globally so customizer.js can re-trigger after widget DOM swap
   window.loadDashboardStats = loadDashboardStats;
   async function loadDashboardStats() {
-    // Instant greeting — runs BEFORE any Supabase calls so users see correct time-of-day immediately
+    // Instant greeting — set time-of-day + name from auth profile
     try {
       var _h = new Date().getHours();
       var _tg = _h < 12 ? 'Good morning' : _h < 17 ? 'Good afternoon' : 'Good evening';
@@ -11641,7 +11652,22 @@ document.addEventListener('DOMContentLoaded', function() {
       if (_cEl) {
         var _cn = '';
         try { _cn = (window.HHP_Auth.currentUser.profile.full_name || '').split(' ')[0]; } catch(e){}
-        _cEl.textContent = _tg + (_cn ? ', ' + _cn : '') + ' 🐾';
+        if (_cn) {
+          _cEl.textContent = _tg + ', ' + _cn + ' 🐾';
+        } else {
+          // Profile not loaded yet — set time-of-day only, retry with name later
+          _cEl.textContent = _tg + ' 🐾';
+          setTimeout(function() {
+            try {
+              var name = (window.HHP_Auth.currentUser.profile.full_name || '').split(' ')[0];
+              if (name) {
+                var h2 = new Date().getHours();
+                var tg2 = h2 < 12 ? 'Good morning' : h2 < 17 ? 'Good afternoon' : 'Good evening';
+                _cEl.textContent = tg2 + ', ' + name + ' 🐾';
+              }
+            } catch(e2) {}
+          }, 2000);
+        }
       }
     } catch(e){}
 

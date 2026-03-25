@@ -119,99 +119,37 @@
     return { text: 'Happy Birthday, ' + petList + '!', icon: cakeIcon };
   }
 
-  // Helper: get current user's first name from auth system
-  function _getUserFirstName() {
-    try {
-      // Try HHP_Auth first (most reliable)
-      if (window.HHP_Auth && window.HHP_Auth.currentUser && window.HHP_Auth.currentUser.profile) {
-        var fn = window.HHP_Auth.currentUser.profile.full_name;
-        if (fn) return fn.split(' ')[0];
-      }
-      // Try viewingAsClient
-      if (window._viewingAsClient && window._viewingAsClient.fullName) {
-        return window._viewingAsClient.fullName.split(' ')[0];
-      }
-      // Fallback: try parsing from existing greeting text on page
-      var greetEl = document.getElementById('clientDashGreeting') || document.getElementById('ownerDashGreeting');
-      if (greetEl) {
-        var m = greetEl.textContent.match(/,\s*([A-Za-z]+)/);
-        if (m && m[1] !== 'there') return m[1];
-      }
-    } catch(e) {}
-    return null;
-  }
-
+  // ── Greeting: only handles birthday override. Name + time-of-day is set by
+  //    loadDashboardStats() in index.html which has direct access to auth/profile. ──
   async function fixGreetings() {
-    // Set a flag so ux-upgrades.js initGreetings() defers to us
     window._hhpGreetingHandled = true;
 
-    var hour = new Date().getHours();
-    var greeting, iconHTML;
-
-    if (hour >= 5 && hour < 12) {
-      greeting = 'Good morning';
-      iconHTML = '<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f305.png" alt="sunrise" style="width:32px;height:32px;vertical-align:middle;margin-left:8px;display:inline-block;">';
-    } else if (hour >= 12 && hour < 17) {
-      greeting = 'Good afternoon';
-      iconHTML = '<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2600.png" alt="sun" style="width:32px;height:32px;vertical-align:middle;margin-left:8px;display:inline-block;">';
-    } else {
-      greeting = 'Good evening';
-      iconHTML = '<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f319.png" alt="moon" style="width:32px;height:32px;vertical-align:middle;margin-left:8px;display:inline-block;">';
-    }
-
-    // Get user's actual name from auth system
-    var userName = _getUserFirstName();
-
-    // If auth isn't ready yet and we can't get a name, retry in 2 seconds
-    if (!userName) {
-      setTimeout(fixGreetings, 2000);
+    // Only run birthday check if auth is ready
+    if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
+      setTimeout(fixGreetings, 3000);
       return;
     }
 
-    // Check for pet birthdays today
     var bdayPets = await _checkBirthdayPets();
+    if (!bdayPets || bdayPets.length === 0) {
+      // No birthdays — nothing for ux-patch to do, inline JS handles greeting
+      return;
+    }
 
-    // Fix owner portal greeting
+    // Birthday override — replace greeting with birthday message
     var ownerGreet = document.querySelector('#o-overview .ob-h') || document.getElementById('ownerDashGreeting');
     if (ownerGreet) {
-      var ownerName = 'Rachel'; // Owner is always Rachel
-      var ownerBday = _buildBirthdayGreeting(bdayPets, ownerName);
-      if (ownerBday) {
-        ownerGreet.innerHTML = ownerBday.text + ' ' + ownerBday.icon;
-      } else {
-        ownerGreet.innerHTML = greeting + ', ' + ownerName + ' ' + iconHTML;
-      }
+      var ownerBday = _buildBirthdayGreeting(bdayPets, 'Rachel');
+      if (ownerBday) ownerGreet.innerHTML = ownerBday.text + ' ' + ownerBday.icon;
     }
 
-    // Fix client portal greeting
     var clientGreet = document.getElementById('clientDashGreeting');
     if (clientGreet) {
-      var clientBday = _buildBirthdayGreeting(bdayPets, userName);
-      if (clientBday) {
-        clientGreet.innerHTML = clientBday.text + ' ' + clientBday.icon;
-      } else {
-        clientGreet.innerHTML = greeting + ', ' + userName + '! ' + iconHTML;
-      }
+      var clientName = 'there';
+      try { clientName = (window.HHP_Auth.currentUser.profile.full_name || '').split(' ')[0] || 'there'; } catch(e) {}
+      var clientBday = _buildBirthdayGreeting(bdayPets, clientName);
+      if (clientBday) clientGreet.innerHTML = clientBday.text + ' ' + clientBday.icon;
     }
-
-    // Fix staff portal greeting
-    var staffPortal = document.getElementById('pg-staff');
-    if (staffPortal) {
-      staffPortal.querySelectorAll('h1, h2, .p-title, .ob-h, .hhp-staff-greet div').forEach(function(el) {
-        var t = el.textContent;
-        if (t.includes('Good morning') || t.includes('Good afternoon') || t.includes('Good evening') || t.includes('Happy Birthday') || t.includes('Welcome')) {
-          var staffBday = _buildBirthdayGreeting(bdayPets, userName);
-          if (staffBday) {
-            el.innerHTML = staffBday.text + ' ' + staffBday.icon;
-          } else {
-            el.innerHTML = greeting + ', ' + userName + '! ' + iconHTML;
-          }
-        }
-      });
-    }
-
-    // Re-run every 60 seconds to keep time-of-day accurate
-    setTimeout(fixGreetings, 60000);
   }
 
   // ─────────────────────────────────────────────
