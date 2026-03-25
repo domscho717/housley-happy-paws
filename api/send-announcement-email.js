@@ -28,31 +28,48 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Build recipient query based on sendTo
-    let query = supabase.from('profiles').select('email, full_name, role');
+    let validRecipients = [];
 
-    if (sendTo === 'all_clients' || sendTo === 'active_clients') {
-      query = query.eq('role', 'client');
-    } else if (sendTo === 'staff') {
-      query = query.eq('role', 'staff');
+    if (sendTo === 'active_clients') {
+      // Active clients = clients with a booking in the last 90 days
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: activeBookings } = await supabase.from('booking_requests')
+        .select('client_id')
+        .not('client_id', 'is', null)
+        .gte('created_at', ninetyDaysAgo);
+
+      if (activeBookings && activeBookings.length > 0) {
+        const uniqueClientIds = [...new Set(activeBookings.map(b => b.client_id))];
+        const { data: profiles } = await supabase.from('profiles')
+          .select('email, full_name, role')
+          .in('user_id', uniqueClientIds);
+        validRecipients = (profiles || []).filter(r => r.email && r.email.includes('@'));
+      }
     } else {
-      // 'everyone' = clients + staff
-      query = query.in('role', ['client', 'staff']);
+      let query = supabase.from('profiles').select('email, full_name, role');
+
+      if (sendTo === 'all_clients') {
+        query = query.eq('role', 'client');
+      } else if (sendTo === 'staff') {
+        query = query.eq('role', 'staff');
+      } else {
+        // 'everyone' = clients + staff
+        query = query.in('role', ['client', 'staff']);
+      }
+
+      const { data: recipients, error: fetchErr } = await query;
+
+      if (fetchErr) {
+        console.error('[announcement-email] Fetch recipients error:', fetchErr.message);
+        return res.status(500).json({ error: 'Failed to fetch recipients' });
+      }
+
+      validRecipients = (recipients || []).filter(r => r.email && r.email.includes('@'));
     }
 
-    const { data: recipients, error: fetchErr } = await query;
-
-    if (fetchErr) {
-      console.error('[announcement-email] Fetch recipients error:', fetchErr.message);
-      return res.status(500).json({ error: 'Failed to fetch recipients' });
-    }
-
-    if (!recipients || recipients.length === 0) {
+    if (validRecipients.length === 0) {
       return res.status(200).json({ sent: 0, message: 'No recipients found' });
     }
-
-    // Filter to only recipients with valid emails
-    const validRecipients = recipients.filter(r => r.email && r.email.includes('@'));
 
     // Build the email body
     let bodyHTML = `<p style="margin:0 0 16px">${escHtml(message.trim()).replace(/\n/g, '<br>')}</p>`;

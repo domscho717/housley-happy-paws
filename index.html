@@ -9918,30 +9918,48 @@ async function submitAnnouncement() {
     var ownerId = ownerProfile.data.user_id;
 
     // Determine recipients based on sendTo
-    var recipientQuery = sb.from('profiles').select('user_id');
-    if (sendTo === 'all_clients' || sendTo === 'active_clients') {
-      recipientQuery = recipientQuery.eq('role', 'client');
-    } else if (sendTo === 'staff') {
-      recipientQuery = recipientQuery.eq('role', 'staff');
+    var recipientIds = [];
+    if (sendTo === 'active_clients') {
+      // Active clients = clients who have a booking in the last 90 days
+      var ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      var { data: activeBookings } = await sb.from('booking_requests')
+        .select('client_id')
+        .not('client_id', 'is', null)
+        .gte('created_at', ninetyDaysAgo);
+      if (activeBookings && activeBookings.length > 0) {
+        var uniqueIds = activeBookings.map(function(b) { return b.client_id; }).filter(function(v, i, a) { return a.indexOf(v) === i; });
+        recipientIds = uniqueIds;
+      }
     } else {
-      // everyone = clients + staff
-      recipientQuery = recipientQuery.in('role', ['client', 'staff']);
+      var recipientQuery = sb.from('profiles').select('user_id');
+      if (sendTo === 'all_clients') {
+        recipientQuery = recipientQuery.eq('role', 'client');
+      } else if (sendTo === 'staff') {
+        recipientQuery = recipientQuery.eq('role', 'staff');
+      } else {
+        // everyone = clients + staff
+        recipientQuery = recipientQuery.in('role', ['client', 'staff']);
+      }
+      var recipientsResult = await recipientQuery;
+      if (recipientsResult.data) {
+        recipientIds = recipientsResult.data.map(function(r) { return r.user_id; });
+      }
     }
 
-    var recipientsResult = await recipientQuery;
-    if (!recipientsResult.data || recipientsResult.data.length === 0) {
+    if (recipientIds.length === 0) {
       toast('No recipients found.');
       btn.textContent = originalText;
       btn.disabled = false;
       return;
     }
 
+    // Filter out the owner from recipients (don't send announcement to yourself)
+    recipientIds = recipientIds.filter(function(uid) { return uid !== ownerId; });
     // Build announcement body
     var body = '📢 ' + messageText.trim();
     if (dealName) body += '\n🏷️ ' + dealName + (dealDetails ? ' — ' + dealDetails : '');
 
-    // Send message to each recipient
-    var recipientIds = recipientsResult.data.map(function(r) { return r.user_id; });
+    // Send in-app message to each recipient
     var messagesToInsert = recipientIds.map(function(uid) {
       return { sender_id: ownerId, recipient_id: uid, body: body };
     });
@@ -9959,19 +9977,21 @@ async function submitAnnouncement() {
     } else {
       toast('📢 Announcement sent to ' + recipientIds.length + ' recipient(s)!');
 
-      // Also send email to all recipients
-      try {
-        var emailRes = await fetch('/api/send-announcement-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: messageText.trim(), sendTo: sendTo, dealName: dealName || '', dealDetails: dealDetails || '' })
-        });
-        var emailData = await emailRes.json();
-        if (emailData.sent > 0) {
-          toast('📧 Email sent to ' + emailData.sent + ' recipient(s)!');
+      // Also send email if "In-App + Email" was selected
+      if (via === 'in_app_email') {
+        try {
+          var emailRes = await fetch('/api/send-announcement-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: messageText.trim(), sendTo: sendTo, dealName: dealName || '', dealDetails: dealDetails || '' })
+          });
+          var emailData = await emailRes.json();
+          if (emailData.sent > 0) {
+            toast('📧 Email sent to ' + emailData.sent + ' recipient(s)!');
+          }
+        } catch (emailErr) {
+          console.warn('Announcement email send failed (non-blocking):', emailErr);
         }
-      } catch (emailErr) {
-        console.warn('Announcement email send failed (non-blocking):', emailErr);
       }
 
       closeModal('announceModal');
