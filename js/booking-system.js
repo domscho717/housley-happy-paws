@@ -3392,6 +3392,51 @@
     window.loadBookingRequestsPanel('staff');
   };
 
+  // Shared: send email + in-app notification for booking status changes
+  async function _sendBookingNotification(req, newStatus, extraOpts) {
+    if (!req || !req.contact_email) return;
+    var sb = getSB();
+    extraOpts = extraOpts || {};
+    // 1. Send email notification
+    try {
+      await fetch('/api/booking-status-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: req.contact_email,
+          name: req.contact_name || 'Client',
+          service: req.service || 'Service',
+          status: newStatus,
+          scheduledDate: extraOpts.scheduledDate || req.preferred_date,
+          scheduledTime: extraOpts.scheduledTime || req.preferred_time,
+          adminNotes: extraOpts.adminNotes || '',
+          paymentLink: '',
+          estimatedTotal: req.estimated_total || null,
+          priceBreakdown: req.price_breakdown || '',
+          autoCharged: false,
+          recurrencePattern: req.recurrence_pattern || null,
+          dateDetails: req.date_details || null,
+        }),
+      });
+    } catch (e) { console.warn('Email notification failed:', e); }
+    // 2. Insert in-app message
+    if (sb && req.client_id) {
+      try {
+        var owner = window.HHP_Auth && window.HHP_Auth.currentUser;
+        var statusLabel = newStatus === 'accepted' ? 'confirmed' : newStatus === 'declined' ? 'declined' : newStatus === 'modified' ? 'updated with a new suggested time' : newStatus;
+        var msgBody = 'Your ' + (req.service || 'booking') + ' request has been ' + statusLabel + '.';
+        if (extraOpts.adminNotes) msgBody += ' Note: ' + extraOpts.adminNotes;
+        await sb.from('messages').insert({
+          sender_id: owner ? owner.id : null,
+          sender_name: 'Rachel Housley',
+          recipient_id: req.client_id,
+          body: msgBody,
+          is_alert: true,
+        });
+      } catch (e) { console.warn('In-app message failed:', e); }
+    }
+  }
+
   window.acceptBookingRequest = async function(requestId) {
     var sb = getSB();
     if (!sb) return;
@@ -3405,7 +3450,8 @@
         scheduled_time: req.preferred_time
       }).eq('id', requestId);
 
-      if (typeof toast === 'function') toast('✓ Booking accepted!');
+      await _sendBookingNotification(req, 'accepted');
+      if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
       console.error('Failed to accept booking:', e);
@@ -3419,8 +3465,10 @@
     if (!confirm('Are you sure you want to decline this booking request?')) return;
 
     try {
+      var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
       await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
-      if (typeof toast === 'function') toast('Booking declined');
+      await _sendBookingNotification(req, 'declined');
+      if (typeof toast === 'function') toast('Booking declined. Client notified.');
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
       console.error('Failed to decline booking:', e);
@@ -3495,6 +3543,7 @@
     if (!sb) return;
 
     try {
+      var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
       await sb.from('booking_requests').update({
         status: 'modified',
         scheduled_date: dateEl.value,
@@ -3502,7 +3551,12 @@
         admin_notes: msgEl ? msgEl.value : ''
       }).eq('id', requestId);
 
-      if (typeof toast === 'function') toast('✓ Time suggestion sent!');
+      await _sendBookingNotification(req, 'modified', {
+        scheduledDate: dateEl.value,
+        scheduledTime: timeEl ? timeEl.value : '',
+        adminNotes: msgEl ? msgEl.value : ''
+      });
+      if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
       console.error('Failed to submit time change:', e);
@@ -3516,8 +3570,10 @@
     if (!sb) return;
 
     try {
+      var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
       await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
-      if (typeof toast === 'function') toast('Booking cancelled');
+      await _sendBookingNotification(req, 'declined');
+      if (typeof toast === 'function') toast('Booking cancelled. Client notified.');
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
       console.error('Failed to cancel booking:', e);
@@ -3530,7 +3586,7 @@
   };
 
   // ── Per-appointment actions (for multi-date bookings) ──
-  async function _getBookingAndUpdate(requestId, apptIdx, updateFn) {
+  async function _getBookingAndUpdate(requestId, apptIdx, updateFn, notifyStatus) {
     var sb = getSB();
     if (!sb) return;
     try {
@@ -3541,6 +3597,12 @@
       var result = updateFn(booking, dd, apptIdx);
       if (result) {
         await sb.from('booking_requests').update(result).eq('id', requestId);
+        // Send notification for per-appointment action
+        if (notifyStatus && booking.contact_email) {
+          var apptDate = dd[apptIdx].date ? new Date(dd[apptIdx].date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+          var noteMsg = apptDate ? 'Regarding your ' + apptDate + ' appointment.' : '';
+          await _sendBookingNotification(booking, notifyStatus, { adminNotes: noteMsg });
+        }
         if (typeof HHP_BookingAdmin !== 'undefined' && HHP_BookingAdmin.loadRequests) HHP_BookingAdmin.loadRequests();
         if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
       }
@@ -3553,30 +3615,25 @@
   window.acceptSingleAppt = function(requestId, apptIdx) {
     _getBookingAndUpdate(requestId, apptIdx, function(booking, dd, idx) {
       dd[idx].status = 'accepted';
-      // Check if all appointments now have a status
       var allDecided = dd.every(function(d) { return d.status === 'accepted' || d.status === 'declined'; });
-      var anyAccepted = dd.some(function(d) { return d.status === 'accepted'; });
       var allDeclined = dd.every(function(d) { return d.status === 'declined'; });
       var newStatus = allDecided ? (allDeclined ? 'declined' : 'accepted') : 'pending';
-      // Update booking_dates to only include accepted dates
       var acceptedDates = dd.filter(function(d) { return d.status === 'accepted'; }).map(function(d) { return d.date; });
-      if (typeof toast === 'function') toast('✓ Appointment accepted!');
+      if (typeof toast === 'function') toast('✓ Appointment accepted! Client notified.');
       return { date_details: dd, status: newStatus, booking_dates: acceptedDates.length > 0 ? acceptedDates : booking.booking_dates };
-    });
+    }, 'accepted');
   };
 
   window.declineSingleAppt = function(requestId, apptIdx) {
-    var apptDate = '';
     _getBookingAndUpdate(requestId, apptIdx, function(booking, dd, idx) {
-      apptDate = dd[idx].date;
       dd[idx].status = 'declined';
       var allDecided = dd.every(function(d) { return d.status === 'accepted' || d.status === 'declined'; });
       var allDeclined = dd.every(function(d) { return d.status === 'declined'; });
       var newStatus = allDecided ? (allDeclined ? 'declined' : 'accepted') : 'pending';
       var acceptedDates = dd.filter(function(d) { return d.status !== 'declined'; }).map(function(d) { return d.date; });
-      if (typeof toast === 'function') toast('Appointment declined');
+      if (typeof toast === 'function') toast('Appointment declined. Client notified.');
       return { date_details: dd, status: newStatus, booking_dates: acceptedDates.length > 0 ? acceptedDates : [booking.preferred_date] };
-    });
+    }, 'declined');
   };
 
   window.suggestTimeSingleAppt = function(requestId, apptIdx) {
@@ -3636,10 +3693,9 @@
       dd[idx].suggested_time = timeEl ? timeEl.value : '';
       dd[idx].status = 'modified';
       dd[idx].admin_message = msgEl ? msgEl.value : '';
-      if (typeof toast === 'function') toast('✓ Time suggestion sent!');
-      // If any appointment is modified, keep overall status as pending so it stays visible
+      if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
       return { date_details: dd, status: 'pending', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
-    });
+    }, 'modified');
   };
 
 })();
