@@ -6292,7 +6292,7 @@ async function loadClientAppts(filter, tabBtn) {
 }
 
 // ── Client: Accept Time Change (whole booking) ──
-async function clientAcceptTimeChange(bookingId) {
+window.clientAcceptTimeChange = async function(bookingId) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
@@ -6333,10 +6333,10 @@ async function clientAcceptTimeChange(bookingId) {
     console.error('Accept time change error:', e);
     if (typeof toast === 'function') toast('Error accepting time change');
   }
-}
+};
 
 // ── Client: Decline Time Change (whole booking) ──
-async function clientDeclineTimeChange(bookingId) {
+window.clientDeclineTimeChange = async function(bookingId) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
@@ -6374,10 +6374,10 @@ async function clientDeclineTimeChange(bookingId) {
     console.error('Decline time change error:', e);
     if (typeof toast === 'function') toast('Error declining time change');
   }
-}
+};
 
 // ── Client: Accept per-appointment Time Change (date_details) ──
-async function clientAcceptApptTimeChange(bookingId, apptIdx) {
+window.clientAcceptApptTimeChange = async function(bookingId, apptIdx) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
@@ -6416,10 +6416,10 @@ async function clientAcceptApptTimeChange(bookingId, apptIdx) {
     console.error('Accept appt time change error:', e);
     if (typeof toast === 'function') toast('Error accepting time change');
   }
-}
+};
 
 // ── Client: Decline per-appointment Time Change (date_details) ──
-async function clientDeclineApptTimeChange(bookingId, apptIdx) {
+window.clientDeclineApptTimeChange = async function(bookingId, apptIdx) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
@@ -6456,7 +6456,7 @@ async function clientDeclineApptTimeChange(bookingId, apptIdx) {
     console.error('Decline appt time change error:', e);
     if (typeof toast === 'function') toast('Error declining time change');
   }
-}
+};
 
 // ── Recurring: Request Change (sends message to owner) ──
 async function requestRecurringChange(bookingId) {
@@ -12942,7 +12942,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260325f" defer></script>
+  <script src="/js/customizer.js?v=20260325g" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>
