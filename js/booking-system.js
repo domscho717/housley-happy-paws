@@ -2546,7 +2546,12 @@
 
     async loadRequests() {
       var sb = getSB();
-      if (!sb) return;
+      if (!sb) {
+        // Supabase not ready yet — retry in 2s
+        var self = this;
+        setTimeout(function() { self.loadRequests(); }, 2000);
+        return;
+      }
 
       try {
         var query = sb.from('booking_requests').select('*').order('created_at', { ascending: false });
@@ -2579,6 +2584,8 @@
         this.render();
       } catch (err) {
         console.error('Failed to load booking requests:', err);
+        var container = document.getElementById('adminRequestsList');
+        if (container) container.innerHTML = '<div style="padding:12px;color:#c00;font-size:0.85rem">Failed to load requests. Pull down to refresh.</div>';
       }
     },
 
@@ -2989,29 +2996,38 @@
     // Load calendar bookings
     setTimeout(loadAcceptedBookingsToCalendar, 3000);
 
-    // Init admin dashboard — use auth-ready callback (no arbitrary delays)
-    function _initAdminWhenReady() {
+    // Init admin dashboard — multiple fallbacks to ensure it always loads
+    function _tryInitAdmin() {
       if (window.HHP_Auth && window.HHP_Auth.currentRole === 'owner') {
         HHP_BookingAdmin.init();
+        return true;
       }
+      return false;
+    }
+
+    function _initAdminWhenReady() {
+      _tryInitAdmin();
       // Also watch for auth state changes (fresh login while page is open)
       if (window.HHP_Auth && window.HHP_Auth.supabase) {
         window.HHP_Auth.supabase.auth.onAuthStateChange(function(event) {
           if (event === 'SIGNED_IN') {
-            setTimeout(function() {
-              if (window.HHP_Auth.currentRole === 'owner') {
-                HHP_BookingAdmin.init();
-              }
-            }, 200);
+            setTimeout(function() { _tryInitAdmin(); }, 200);
           }
         });
       }
     }
+
+    // Primary: fire on auth-ready callback
     if (window.onHHPAuthReady) {
       window.onHHPAuthReady(_initAdminWhenReady);
     } else {
       setTimeout(_initAdminWhenReady, 2000);
     }
+
+    // Fallback: retry at 2s, 4s, 8s in case auth-ready fired before booking-system loaded
+    setTimeout(function() { _tryInitAdmin(); }, 2000);
+    setTimeout(function() { _tryInitAdmin(); }, 4000);
+    setTimeout(function() { _tryInitAdmin(); }, 8000);
   }
 
   // ── Save booking form state before Stripe redirect ──

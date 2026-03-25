@@ -3821,7 +3821,17 @@ function sTab(portal, panelId) {
   // Reload alerts & booking requests when returning to overview
   if (panelId === 'o-overview') {
     if (window.HHP_Messaging && typeof window.HHP_Messaging.loadAlertMessages === 'function') window.HHP_Messaging.loadAlertMessages();
-    if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
+    if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') {
+      window.HHP_BookingAdmin.init();
+    } else {
+      // booking-system.js may not have loaded yet — retry
+      setTimeout(function() {
+        if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
+      }, 1500);
+      setTimeout(function() {
+        if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
+      }, 4000);
+    }
     if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
   }
   if (panelId === 'o-sched' && typeof loadMasterSchedule === 'function') loadMasterSchedule();
@@ -12487,7 +12497,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/profiles.js" defer></script>
   <script src="/js/employee-mgmt.js" defer></script>
 
-  <script src="/js/booking-system.js?v=20260324" defer></script>
+  <script src="/js/booking-system.js?v=20260325" defer></script>
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
