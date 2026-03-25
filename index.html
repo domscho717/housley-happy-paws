@@ -1702,6 +1702,7 @@ try {
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">My Work <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:300px">
         <button class="sb-item active" onclick="sTab('s','s-sched')"><span class="sb-item-icon">📅</span>My Schedule</button>
+        <button class="sb-item" onclick="sTab('s','s-requests')"><span class="sb-item-icon">📋</span>Booking Requests</button>
         <button class="sb-item" onclick="sTab('s','s-clients')"><span class="sb-item-icon">👥</span>My Clients</button>
         <button class="sb-item" onclick="sTab('s','s-jobs')"><span class="sb-item-icon">🦮</span>Job Queue</button>
         <button class="sb-item" onclick="sTab('s','s-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
@@ -1852,6 +1853,22 @@ try {
         </div>
       </div>
 
+      <div class="p-panel" id="s-requests">
+        <div class="p-header"><h2>📋 Booking Requests</h2><p>Requests assigned to you by Rachel.</p></div>
+        <div class="card">
+          <div style="display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:12px 0;margin-bottom:14px" class="filter-scroll">
+            <button class="admin-filter-btn active" data-filter="pending" onclick="filterStaffRequests('pending',this)">Pending</button>
+            <button class="admin-filter-btn" data-filter="accepted" onclick="filterStaffRequests('accepted',this)">Accepted</button>
+            <button class="admin-filter-btn" data-filter="in_progress" onclick="filterStaffRequests('in_progress',this)">In Progress</button>
+            <button class="admin-filter-btn" data-filter="completed" onclick="filterStaffRequests('completed',this)">Completed</button>
+            <button class="admin-filter-btn" data-filter="all" onclick="filterStaffRequests('all',this)">All</button>
+          </div>
+          <div id="staffRequestsList" style="display:flex;flex-direction:column;gap:12px">
+            <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading booking requests...</div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -1864,6 +1881,7 @@ try {
       <button class="sb-section-toggle" onclick="toggleSbGroup(this)">Menu <span class="sb-arrow">▼</span></button>
       <div class="sb-nav-group" style="max-height:1200px">
         <button class="sb-item active" onclick="sTab('o','o-overview')"><span class="sb-item-icon">📊</span>Overview</button>
+        <button class="sb-item" onclick="sTab('o','o-requests')"><span class="sb-item-icon">📋</span>Booking Requests</button>
         <button class="sb-item" onclick="sTab('o','o-clients')"><span class="sb-item-icon">👥</span>All Clients</button>
         <button class="sb-item" onclick="sTab('o','o-sched')"><span class="sb-item-icon">📅</span>Master Schedule</button>
         <button class="sb-item" onclick="sTab('o','o-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
@@ -1932,6 +1950,24 @@ try {
           <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
             <div style="font-size:0.8rem;color:var(--mid);display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span>Auto-notifications ON — clients receive start & end alerts automatically</div>
             <button class="btn btn-outline btn-sm" onclick="sTab('o','o-auto')" style="font-size:0.74rem;padding:5px 14px">Manage Notification Settings</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-panel" id="o-requests">
+        <div class="p-header"><h2>📋 Booking Requests</h2><p>Manage client requests and booking changes.</p></div>
+        <div class="card">
+          <div style="display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;padding:12px 0;margin-bottom:14px" class="filter-scroll">
+            <button class="admin-filter-btn active" data-filter="pending" onclick="filterOwnerRequests('pending',this)">Pending</button>
+            <button class="admin-filter-btn" data-filter="accepted" onclick="filterOwnerRequests('accepted',this)">Accepted</button>
+            <button class="admin-filter-btn" data-filter="in_progress" onclick="filterOwnerRequests('in_progress',this)">In Progress</button>
+            <button class="admin-filter-btn" data-filter="completed" onclick="filterOwnerRequests('completed',this)">Completed</button>
+            <button class="admin-filter-btn" data-filter="modified" onclick="filterOwnerRequests('modified',this)">Modified</button>
+            <button class="admin-filter-btn" data-filter="declined" onclick="filterOwnerRequests('declined',this)">Declined</button>
+            <button class="admin-filter-btn" data-filter="all" onclick="filterOwnerRequests('all',this)">All</button>
+          </div>
+          <div id="ownerRequestsList" style="display:flex;flex-direction:column;gap:12px">
+            <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading booking requests...</div>
           </div>
         </div>
       </div>
@@ -3792,6 +3828,9 @@ function sTab(portal, panelId) {
   if (panelId === 's-clients' && typeof loadStaffClients === 'function') loadStaffClients();
   if (panelId === 's-jobs' && typeof loadStaffJobs === 'function') loadStaffJobs();
   if (panelId === 's-earn' && typeof loadStaffEarnings === 'function') loadStaffEarnings();
+  // Booking request panels
+  if (panelId === 'o-requests' && typeof loadBookingRequestsPanel === 'function') loadBookingRequestsPanel('owner');
+  if (panelId === 's-requests' && typeof loadBookingRequestsPanel === 'function') loadBookingRequestsPanel('staff');
   // Client panels
   if (panelId === 'c-track') {
     // Lazy-load Leaflet + live-tracking.js on first open
@@ -12501,7 +12540,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js" defer></script>
+  <script src="/js/customizer.js?v=20260325" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>

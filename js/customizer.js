@@ -22,6 +22,7 @@
     staff: [
       { wid:'sw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:false,  renderFn:'_rwStaffStats' },
       { wid:'sw-jobs',     icon:'🦮', label:"This Week's Jobs",      size:'full',  preset:true,  fixed:false, renderFn:'_rwStaffJobs' },
+      { wid:'sw-requests', icon:'📋', label:'Booking Requests',      size:'full',  preset:true,  fixed:true,  renderFn:'_rwStaffRequests' },
       { wid:'sw-clients',  icon:'👥', label:'My Clients',            size:'full',  preset:false, fixed:true,  renderFn:'_rwStaffClients' },
       { wid:'sw-earnings', icon:'💰', label:'Earnings',              size:'full',  preset:false, fixed:true,  renderFn:'_rwStaffEarnings' },
       { wid:'sw-msgs',     icon:'💬', label:'Messages',              size:'half',  preset:false, fixed:false, renderFn:'_rwStaffMsgs' },
@@ -47,9 +48,9 @@
     'cw-upcoming':"sTab('c','c-appts')",'cw-pets':"sTab('c','c-pets')",'cw-tracking':"sTab('c','c-track')",
     'cw-photos':"sTab('c','c-photos')",'cw-reports':"sTab('c','c-reports')",'cw-reviews':"sTab('c','c-reviews')",
     'cw-msgs':"sTab('c','c-msgs')",'cw-billing':"sTab('c','c-bill')",
-    'sw-jobs':"sTab('s','s-jobs')",'sw-clients':"sTab('s','s-clients')",'sw-earnings':"sTab('s','s-earn')",
+    'sw-jobs':"sTab('s','s-jobs')",'sw-requests':"sTab('s','s-requests')",'sw-clients':"sTab('s','s-clients')",'sw-earnings':"sTab('s','s-earn')",
     'sw-msgs':"sTab('s','s-msgs')",'sw-cal':"sTab('s','s-cal')",
-    'ow-requests':"sTab('o','o-sched')",'ow-clients':"sTab('o','o-clients')",'ow-staff':"sTab('o','o-staff')",
+    'ow-requests':"sTab('o','o-requests')",'ow-clients':"sTab('o','o-clients')",'ow-staff':"sTab('o','o-staff')",
     'ow-reviews':"sTab('o','o-reviews')",'ow-payments':"sTab('o','o-payments')",'ow-deals':"sTab('o','o-deals')",
     'ow-photos':"sTab('o','o-photos')",'ow-activity':"sTab('o','o-activity')"
   };
