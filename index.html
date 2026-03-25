@@ -6336,24 +6336,87 @@ async function clientAcceptTimeChange(bookingId) {
 
     await sb.from('booking_requests').update(updatePayload).eq('id', bookingId);
 
-    // Notify owner — in-app message
+    // ── PAYMENT: Charge saved card (same flow as owner accept) ──
+    var autoCharged = false;
+    var paymentFailed = false;
+    if (bk.estimated_total > 0 && bk.client_id) {
+      try {
+        var chargeResp = await fetch('/api/charge-saved-card', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingRequestId: bookingId,
+            amount: bk.estimated_total,
+            service: bk.service,
+            clientProfileId: bk.client_id,
+          }),
+        });
+        var chargeData = await chargeResp.json();
+
+        if (chargeData.success) {
+          autoCharged = true;
+          if (typeof toast === 'function') toast('💳 Card charged $' + Number(bk.estimated_total).toFixed(2) + '!');
+        } else if (chargeData.error === 'no_card') {
+          // No saved card — put on payment_hold
+          paymentFailed = true;
+          await sb.from('booking_requests').update({
+            status: 'payment_hold',
+            admin_notes: (bk.admin_notes || '') + '\n⚠️ Client accepted time change but no card on file.'
+          }).eq('id', bookingId);
+        } else {
+          // Card declined or other error
+          paymentFailed = true;
+          await sb.from('booking_requests').update({
+            status: 'payment_hold',
+            admin_notes: (bk.admin_notes || '') + '\n⚠️ Client accepted time change but payment failed: ' + (chargeData.message || 'Unknown error')
+          }).eq('id', bookingId);
+        }
+      } catch (chargeErr) {
+        console.warn('Auto-charge failed:', chargeErr);
+        paymentFailed = true;
+      }
+    }
+
+    // ── NOTIFY OWNER + STAFF: in-app message ──
     var clientName = '';
     try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
-    var ownerIds = [];
-    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
     var newDateFmt = new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     var timeFmt = newTime ? ((typeof fmt12h === 'function') ? fmt12h(newTime) : newTime) : '';
+
+    var alertBody = '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their booking') + '. Confirmed: ' + newDateFmt + (timeFmt ? ' at ' + timeFmt : '');
+    if (autoCharged) alertBody += '\n💳 Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged automatically.';
+    else if (paymentFailed) alertBody += '\n⚠️ Payment failed — booking on hold. Please follow up with client.';
+
+    // Send to all owners
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
     for (var oi = 0; oi < ownerIds.length; oi++) {
       await sb.from('messages').insert({
         sender_id: user.id,
         sender_name: clientName || 'Client',
         recipient_id: ownerIds[oi],
-        body: '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their booking') + '. Confirmed: ' + newDateFmt + (timeFmt ? ' at ' + timeFmt : ''),
+        body: alertBody,
         is_alert: true,
       });
     }
 
-    // Send email notification to owner
+    // Send to assigned staff
+    try {
+      var { data: staffAssignments } = await sb.from('staff_assignments').select('staff_id').eq('client_id', bk.client_id);
+      if (staffAssignments && staffAssignments.length > 0) {
+        for (var si = 0; si < staffAssignments.length; si++) {
+          await sb.from('messages').insert({
+            sender_id: user.id,
+            sender_name: clientName || 'Client',
+            recipient_id: staffAssignments[si].staff_id,
+            body: alertBody,
+            is_alert: true,
+          });
+        }
+      }
+    } catch(e) {}
+
+    // ── EMAIL NOTIFICATION to owner ──
     try {
       await fetch('/api/booking-status-notification', {
         method: 'POST',
@@ -6365,12 +6428,20 @@ async function clientAcceptTimeChange(bookingId) {
           status: 'accepted',
           scheduledDate: newDate,
           scheduledTime: newTime,
-          adminNotes: (clientName || 'Client') + ' accepted the time change.',
+          adminNotes: (clientName || 'Client') + ' accepted the time change.' + (autoCharged ? ' Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged.' : '') + (paymentFailed ? ' ⚠️ Payment failed.' : ''),
+          estimatedTotal: bk.estimated_total || null,
+          autoCharged: autoCharged,
         }),
       });
     } catch(e) { console.warn('Email notification failed:', e); }
 
-    if (typeof toast === 'function') toast('✓ New time accepted! Your booking is confirmed.');
+    // ── CLIENT TOAST ──
+    if (paymentFailed) {
+      if (typeof toast === 'function') toast('Time accepted but payment could not be processed. Please update your payment method.');
+    } else {
+      if (typeof toast === 'function') toast('✓ New time accepted!' + (autoCharged ? ' Payment confirmed.' : ' Your booking is confirmed.'));
+    }
+
     // Refresh everything
     loadClientAppts('all');
     if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
