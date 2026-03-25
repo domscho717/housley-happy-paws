@@ -1303,12 +1303,17 @@
   }
 
   function hideMeetGreetButtons() {
-    document.querySelectorAll('a, button').forEach(function(el) {
-      var text = el.textContent.trim().toLowerCase();
-      if (text.includes('meet') && text.includes('greet')) {
-        el.style.display = 'none';
-      }
-    });
+    // Only hide M&G buttons inside the client portal, NOT on the public home/landing page
+    var clientPortal = document.getElementById('pg-client');
+    if (clientPortal) {
+      clientPortal.querySelectorAll('a, button').forEach(function(el) {
+        var text = el.textContent.trim().toLowerCase();
+        if (text.includes('meet') && text.includes('greet')) {
+          el.style.display = 'none';
+        }
+      });
+    }
+    // Also hide the floating book button if it says M&G (this floats over portal)
     var floatingBtn = document.getElementById('floatingBookBtn');
     if (floatingBtn) {
       var txt = floatingBtn.textContent.trim().toLowerCase();
