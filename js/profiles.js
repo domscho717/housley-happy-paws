@@ -192,7 +192,7 @@ async function showClientProfile(profileId) {
         (payments.length ? payments.map(function(pay) {
           return '<div style="padding:8px 12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;">' +
             '<span style="font-size:0.88rem">' + new Date(pay.created_at).toLocaleDateString() + ' \u2014 ' + (pay.description || pay.service || 'Payment') + '</span>' +
-            '<span style="color:var(--forest);font-weight:600;font-size:0.84rem">$' + ((pay.amount || 0)/100).toFixed(2) + '</span>' +
+            '<span style="color:var(--forest);font-weight:600;font-size:0.84rem">$' + ((pay.amount || 0)).toFixed(2) + '</span>' +
           '</div>';
         }).join('') : '<p style="color:#888;font-size:0.88rem">No payments recorded.</p>') +
       '</div>' +
