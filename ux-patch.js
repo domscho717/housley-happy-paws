@@ -1468,6 +1468,7 @@
         items: [
           { text: 'Overview', selector: 'o-overview' },
           { text: 'All Clients', selector: 'o-clients' },
+          { text: 'Gallery', selector: 'o-gallery' },
           { text: 'Staff Management', selector: 'o-staff' },
           { text: 'Calendar', selector: 'o-calendar' },
           { text: 'Payments & Bank', selector: 'o-payments' },

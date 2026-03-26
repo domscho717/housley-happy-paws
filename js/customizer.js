@@ -39,7 +39,6 @@
       { wid:'ow-reviews',   icon:'⭐', label:'Reviews',               size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerReviews' },
       { wid:'ow-payments',  icon:'💳', label:'Payments',              size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerPayments' },
       { wid:'ow-deals',     icon:'🏷️', label:'Specials & Deals',      size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerDeals' },
-      { wid:'ow-photos',    icon:'🖼️', label:'Photos & Media',        size:'full',  preset:false, fixed:true,  renderFn:'_rwOwnerPhotos' },
       { wid:'ow-activity',  icon:'📜', label:'Activity Log',          size:'full',  preset:false, fixed:true,  renderFn:'_rwOwnerActivity' }
     ]
   };
@@ -52,7 +51,7 @@
     'sw-msgs':"sTab('s','s-msgs')",'sw-cal':"sTab('s','s-cal')",
     'ow-requests':"sTab('o','o-requests')",'ow-clients':"sTab('o','o-clients')",'ow-staff':"sTab('o','o-staff')",
     'ow-reviews':"sTab('o','o-reviews')",'ow-payments':"sTab('o','o-payments')",'ow-deals':"sTab('o','o-deals')",
-    'ow-photos':"sTab('o','o-content');setTimeout(function(){showContentSection('photos')},50)",'ow-activity':"sTab('o','o-activity')"
+    'ow-activity':"sTab('o','o-activity')"
   };
 
   function _defaults(p) { return (WIDGETS[p]||[]).filter(function(w){return w.preset;}).map(function(w){return w.wid;}); }
@@ -86,6 +85,11 @@
           _prefs.client.widgets.push('cw-tracking');
           _savePrefs('client');
         }
+      }
+      // Migration: remove ow-photos widget (replaced by Gallery panel)
+      if(_prefs.owner&&_prefs.owner.widgets&&_prefs.owner.widgets.length>0){
+        var idx=_prefs.owner.widgets.indexOf('ow-photos');
+        if(idx!==-1){_prefs.owner.widgets.splice(idx,1);_savePrefs('owner');}
       }
     }catch(e){console.warn('Cust load:',e);}
   }

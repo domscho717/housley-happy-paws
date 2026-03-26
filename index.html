@@ -1957,6 +1957,7 @@ try {
         <button class="sb-item active" onclick="sTab('o','o-overview')"><span class="sb-item-icon">📊</span>Overview</button>
         <button class="sb-item" onclick="sTab('o','o-requests')"><span class="sb-item-icon">📋</span>Booking Requests</button>
         <button class="sb-item" onclick="sTab('o','o-clients')"><span class="sb-item-icon">👥</span>All Clients</button>
+        <button class="sb-item" onclick="sTab('o','o-gallery')"><span class="sb-item-icon">📸</span>Gallery</button>
         <button class="sb-item" onclick="sTab('o','o-sched')"><span class="sb-item-icon">📅</span>Master Schedule</button>
         <button class="sb-item" onclick="sTab('o','o-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
         <button class="sb-item" onclick="sTab('o','o-reviews')"><span class="sb-item-icon">⭐</span>Reviews & Ratings</button>
@@ -2567,6 +2568,30 @@ try {
 
       <!-- Legacy o-photos panel — hidden, redirects to Edit Website > Photos section -->
       <div class="p-panel" id="o-photos" style="display:none!important"></div>
+
+      <!-- ========== GALLERY (client photos by report) ========== -->
+      <div class="p-panel" id="o-gallery">
+        <div class="p-header"><h2>📸 Gallery</h2><p>Browse all client photos from past reports — perfect for social media & resending.</p></div>
+        <!-- Client list view -->
+        <div id="og-client-list">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+            <div style="font-size:0.85rem;color:var(--mid)" id="og-count">Loading clients...</div>
+            <input type="text" id="og-search" class="form-in" placeholder="Search clients..." style="max-width:240px;padding:8px 14px;font-size:0.85rem;border-radius:10px">
+          </div>
+          <div id="og-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px">
+            <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--mid);font-size:0.88rem">Loading...</div>
+          </div>
+        </div>
+        <!-- Client photo detail view (hidden by default) -->
+        <div id="og-detail" style="display:none">
+          <button onclick="ownerGalleryBack()" style="background:none;border:none;color:var(--gold);font-weight:700;cursor:pointer;font-size:0.9rem;padding:0 0 16px;font-family:inherit;display:flex;align-items:center;gap:6px">← All Clients</button>
+          <div id="og-detail-header" style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+            <div id="og-detail-avatar" style="width:52px;height:52px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:1.5rem">🐾</div>
+            <div><div id="og-detail-name" style="font-weight:700;font-size:1.1rem"></div><div id="og-detail-count" style="font-size:0.82rem;color:var(--mid)"></div></div>
+          </div>
+          <div id="og-detail-photos"></div>
+        </div>
+      </div>
 
       <!-- ========== PAYMENTS & BANK ========== -->
       <div class="p-panel" id="o-payments">
@@ -3945,6 +3970,7 @@ function sTab(portal, panelId) {
   // Deals panel — load from Supabase
   if (panelId === 'o-deals' && typeof loadDealsPanel === 'function') loadDealsPanel();
   if (panelId === 'o-activity' && typeof initActivityLog === 'function') initActivityLog();
+  if (panelId === 'o-gallery' && typeof loadOwnerGallery === 'function') loadOwnerGallery();
   // Staff panels — load real data
   if (panelId === 's-sched' && typeof loadStaffSchedule === 'function') loadStaffSchedule();
   if (panelId === 's-clients' && typeof loadStaffClients === 'function') loadStaffClients();
@@ -4013,7 +4039,7 @@ function switchGeneralTab(tabName) {
     if (typeof loadClientUpcomingCharges === 'function') loadClientUpcomingCharges();
     if (typeof loadClientPayments === 'function') loadClientPayments();
   }
-  if (tabName === 'photos' && window.HHP_Gallery) HHP_Gallery.render('client');
+  if (tabName === 'photos' && typeof loadClientPhotosByDate === 'function') loadClientPhotosByDate();
   if (tabName === 'reports' && typeof loadClientReports === 'function') loadClientReports();
   if (tabName === 'reviews' && typeof loadClientReviewsList === 'function') loadClientReviewsList();
   if (tabName === 'settings') {
@@ -13550,6 +13576,399 @@ document.addEventListener('DOMContentLoaded', function() {
       document.body.appendChild(js);
     };
   })();
+  // ═══════════════════════════════════════════════════════════════
+  // OWNER GALLERY — Client photo browser (by report date)
+  // ═══════════════════════════════════════════════════════════════
+  var _ogCache = { clients: null, ts: 0 };
+
+  async function loadOwnerGallery() {
+    var grid = document.getElementById('og-grid');
+    var countEl = document.getElementById('og-count');
+    var detail = document.getElementById('og-detail');
+    var list = document.getElementById('og-client-list');
+    if (!grid) return;
+
+    // Always show list view, hide detail
+    if (detail) detail.style.display = 'none';
+    if (list) list.style.display = '';
+
+    var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;
+    if (!sb) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--mid)">Database not available.</div>'; return; }
+
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--mid);font-size:0.88rem">Loading clients...</div>';
+
+    try {
+      // Fetch clients + reports with media in parallel
+      var [clientsRes, reportsRes, galleryRes] = await Promise.all([
+        sb.from('profiles').select('id, user_id, full_name, email, created_at').eq('role', 'client').order('full_name', { ascending: true }),
+        sb.from('service_reports').select('id, client_id, media, report_date, service, created_at').not('media', 'is', null).order('created_at', { ascending: false }),
+        sb.from('gallery_photos').select('id, client_id, client_name, url, thumbnail, public_id, created_at, caption').order('created_at', { ascending: false })
+      ]);
+
+      var clients = (clientsRes.data || []);
+      var reports = (reportsRes.data || []);
+      var galleryPhotos = (galleryRes.data || []);
+
+      // Build photo counts per client from reports
+      var photoCountMap = {};  // client_id -> { reportPhotos: N, galleryPhotos: N, firstThumb: url }
+      reports.forEach(function(r) {
+        if (!r.client_id || !r.media || !Array.isArray(r.media) || r.media.length === 0) return;
+        if (!photoCountMap[r.client_id]) photoCountMap[r.client_id] = { reportPhotos: 0, galleryPhotos: 0, firstThumb: '' };
+        photoCountMap[r.client_id].reportPhotos += r.media.length;
+        if (!photoCountMap[r.client_id].firstThumb && r.media[0]) {
+          photoCountMap[r.client_id].firstThumb = r.media[0].thumbnail || r.media[0].url || '';
+        }
+      });
+
+      // Add gallery_photos counts
+      galleryPhotos.forEach(function(p) {
+        if (!p.client_id) return;
+        if (!photoCountMap[p.client_id]) photoCountMap[p.client_id] = { reportPhotos: 0, galleryPhotos: 0, firstThumb: '' };
+        photoCountMap[p.client_id].galleryPhotos += 1;
+        if (!photoCountMap[p.client_id].firstThumb && (p.thumbnail || p.url)) {
+          photoCountMap[p.client_id].firstThumb = p.thumbnail || p.url;
+        }
+      });
+
+      // Only show clients that have at least one photo
+      var clientsWithPhotos = clients.filter(function(c) {
+        var k = c.user_id || c.id;
+        return photoCountMap[k] && (photoCountMap[k].reportPhotos + photoCountMap[k].galleryPhotos) > 0;
+      });
+
+      // Cache for detail view
+      _ogCache.clients = clients;
+      _ogCache.reports = reports;
+      _ogCache.galleryPhotos = galleryPhotos;
+      _ogCache.ts = Date.now();
+
+      if (countEl) countEl.textContent = clientsWithPhotos.length + ' client' + (clientsWithPhotos.length !== 1 ? 's' : '') + ' with photos';
+
+      if (clientsWithPhotos.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--mid)">' +
+          '<div style="font-size:2.5rem;margin-bottom:12px">📸</div>' +
+          '<div style="font-weight:600;margin-bottom:6px">No photos yet</div>' +
+          '<div style="font-size:0.84rem">Photos will appear here once service reports with photos are sent.</div></div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      clientsWithPhotos.forEach(function(c) {
+        var k = c.user_id || c.id;
+        var info = photoCountMap[k] || { reportPhotos: 0, galleryPhotos: 0, firstThumb: '' };
+        var totalPhotos = info.reportPhotos + info.galleryPhotos;
+        var initials = (c.full_name || 'U').split(' ').map(function(w) { return w[0]; }).join('').toUpperCase().substring(0, 2);
+
+        var card = document.createElement('div');
+        card.className = 'og-client-card';
+        card.style.cssText = 'border-radius:14px;overflow:hidden;cursor:pointer;background:var(--cream,#fdf7ee);border:1px solid var(--border,#e0d5c5);transition:transform 0.2s,box-shadow 0.2s;';
+        card.addEventListener('mouseenter', function() { this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.1)'; });
+        card.addEventListener('mouseleave', function() { this.style.transform = ''; this.style.boxShadow = ''; });
+
+        var thumbArea = info.firstThumb
+          ? '<div style="height:140px;background:url(' + info.firstThumb + ') center/cover;"></div>'
+          : '<div style="height:140px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:2.5rem">🐾</div>';
+
+        card.innerHTML = thumbArea +
+          '<div style="padding:14px">' +
+            '<div style="font-weight:700;font-size:0.92rem;margin-bottom:4px;color:var(--dark,#1e1409)">' + (c.full_name || 'Unknown Client') + '</div>' +
+            '<div style="font-size:0.78rem;color:var(--mid,#8c6b4a)">' + totalPhotos + ' photo' + (totalPhotos !== 1 ? 's' : '') + '</div>' +
+          '</div>';
+
+        card.setAttribute('data-name', (c.full_name || '').toLowerCase());
+        card.addEventListener('click', function() { openOwnerGalleryDetail(k, c.full_name || 'Unknown Client'); });
+        grid.appendChild(card);
+      });
+
+      // Wire search
+      var searchInput = document.getElementById('og-search');
+      if (searchInput) {
+        searchInput.oninput = function() {
+          var q = this.value.toLowerCase().trim();
+          grid.querySelectorAll('.og-client-card').forEach(function(card) {
+            card.style.display = (card.getAttribute('data-name') || '').indexOf(q) !== -1 ? '' : 'none';
+          });
+        };
+      }
+
+    } catch (e) {
+      console.error('Owner gallery load error:', e);
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--mid)">Error loading gallery.</div>';
+    }
+  }
+
+  async function openOwnerGalleryDetail(clientId, clientName) {
+    var list = document.getElementById('og-client-list');
+    var detail = document.getElementById('og-detail');
+    var nameEl = document.getElementById('og-detail-name');
+    var countEl = document.getElementById('og-detail-count');
+    var photosEl = document.getElementById('og-detail-photos');
+    if (!detail || !photosEl) return;
+
+    list.style.display = 'none';
+    detail.style.display = '';
+    if (nameEl) nameEl.textContent = clientName;
+    photosEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mid)">Loading photos...</div>';
+
+    var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;
+    if (!sb) return;
+
+    try {
+      // Fetch reports with media for this client + gallery photos
+      var [reportsRes, galleryRes] = await Promise.all([
+        sb.from('service_reports').select('id, client_id, media, report_date, service, created_at').eq('client_id', clientId).not('media', 'is', null).order('created_at', { ascending: false }),
+        sb.from('gallery_photos').select('id, url, thumbnail, public_id, created_at, caption').eq('client_id', clientId).order('created_at', { ascending: false })
+      ]);
+
+      var reports = (reportsRes.data || []);
+      var galleryPhotos = (galleryRes.data || []);
+
+      // Build grouped structure: date → photos
+      var dateGroups = {};  // "YYYY-MM-DD" → { label, service, photos[] }
+
+      reports.forEach(function(r) {
+        if (!r.media || !Array.isArray(r.media) || r.media.length === 0) return;
+        var dateKey = r.report_date || (r.created_at ? r.created_at.substring(0, 10) : 'unknown');
+        if (!dateGroups[dateKey]) dateGroups[dateKey] = { label: dateKey, service: r.service || '', photos: [], source: 'report' };
+        r.media.forEach(function(m) {
+          dateGroups[dateKey].photos.push({
+            url: m.url || m.thumbnail || '',
+            thumbnail: m.thumbnail || m.url || '',
+            public_id: m.public_id || '',
+            caption: m.caption || '',
+            source: 'report',
+            service: r.service || '',
+            reportId: r.id
+          });
+        });
+      });
+
+      // Add gallery photos grouped by date
+      galleryPhotos.forEach(function(p) {
+        var dateKey = p.created_at ? p.created_at.substring(0, 10) : 'unknown';
+        if (!dateGroups[dateKey]) dateGroups[dateKey] = { label: dateKey, service: '', photos: [], source: 'gallery' };
+        dateGroups[dateKey].photos.push({
+          url: p.url || '',
+          thumbnail: p.thumbnail || p.url || '',
+          public_id: p.public_id || '',
+          caption: p.caption || '',
+          source: 'gallery'
+        });
+      });
+
+      // Sort dates descending
+      var sortedDates = Object.keys(dateGroups).sort(function(a, b) { return b.localeCompare(a); });
+
+      var totalPhotos = 0;
+      sortedDates.forEach(function(k) { totalPhotos += dateGroups[k].photos.length; });
+      if (countEl) countEl.textContent = totalPhotos + ' photo' + (totalPhotos !== 1 ? 's' : '') + ' total';
+
+      if (sortedDates.length === 0) {
+        photosEl.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--mid)">' +
+          '<div style="font-size:2.5rem;margin-bottom:12px">📸</div>' +
+          '<div style="font-weight:600">No photos found</div></div>';
+        return;
+      }
+
+      photosEl.innerHTML = '';
+      sortedDates.forEach(function(dateKey) {
+        var group = dateGroups[dateKey];
+        var section = document.createElement('div');
+        section.style.cssText = 'margin-bottom:24px;';
+
+        // Format date nicely
+        var d = new Date(dateKey + 'T12:00:00');
+        var dateStr = isNaN(d.getTime()) ? dateKey : d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        var serviceLabel = group.service ? ' · ' + group.service : '';
+
+        section.innerHTML = '<div style="font-weight:700;font-size:0.88rem;color:var(--dark,#1e1409);margin-bottom:10px;display:flex;align-items:center;gap:8px">' +
+          '<span>📅 ' + dateStr + serviceLabel + '</span>' +
+          '<span style="font-size:0.75rem;font-weight:500;color:var(--mid)">' + group.photos.length + ' photo' + (group.photos.length !== 1 ? 's' : '') + '</span></div>';
+
+        var photoGrid = document.createElement('div');
+        photoGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;';
+
+        group.photos.forEach(function(photo) {
+          var card = document.createElement('div');
+          card.style.cssText = 'border-radius:10px;overflow:hidden;aspect-ratio:4/3;cursor:pointer;position:relative;background:var(--cream);transition:transform 0.2s;';
+          card.addEventListener('mouseenter', function() { this.style.transform = 'scale(1.03)'; });
+          card.addEventListener('mouseleave', function() { this.style.transform = ''; });
+
+          var img = document.createElement('img');
+          img.src = photo.thumbnail || photo.url;
+          img.alt = photo.caption || 'Pet photo';
+          img.loading = 'lazy';
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+          card.appendChild(img);
+
+          // Click to open full-size lightbox
+          card.addEventListener('click', function() {
+            _ogOpenLightbox(photo.url || photo.thumbnail, photo.caption, dateStr + (photo.service ? ' · ' + photo.service : ''));
+          });
+
+          photoGrid.appendChild(card);
+        });
+
+        section.appendChild(photoGrid);
+        photosEl.appendChild(section);
+      });
+
+    } catch (e) {
+      console.error('Gallery detail error:', e);
+      photosEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mid)">Error loading photos.</div>';
+    }
+  }
+
+  function ownerGalleryBack() {
+    var list = document.getElementById('og-client-list');
+    var detail = document.getElementById('og-detail');
+    if (list) list.style.display = '';
+    if (detail) detail.style.display = 'none';
+  }
+  window.ownerGalleryBack = ownerGalleryBack;
+
+  function _ogOpenLightbox(src, caption, dateStr) {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+
+    var img = document.createElement('img');
+    img.src = src;
+    img.style.cssText = 'max-width:90vw;max-height:85vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.4);';
+    overlay.appendChild(img);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = 'position:absolute;top:20px;right:24px;background:none;border:none;color:white;font-size:2.5rem;cursor:pointer;';
+    closeBtn.addEventListener('click', function() { document.body.removeChild(overlay); });
+    overlay.appendChild(closeBtn);
+
+    if (caption || dateStr) {
+      var label = document.createElement('div');
+      label.style.cssText = 'position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:white;font-size:0.85rem;text-align:center;opacity:0.8;';
+      label.textContent = (dateStr || '') + (caption ? ' — ' + caption : '');
+      overlay.appendChild(label);
+    }
+
+    var keyHandler = function(e) { if (e.key === 'Escape') { document.body.removeChild(overlay); document.removeEventListener('keydown', keyHandler); } };
+    document.addEventListener('keydown', keyHandler);
+    document.body.appendChild(overlay);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // CLIENT PHOTOS (General > Photos) — organized by date
+  // ═══════════════════════════════════════════════════════════════
+  async function loadClientPhotosByDate() {
+    var container = document.getElementById('cg-photos');
+    if (!container) return;
+
+    var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;
+    var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+    if (!sb || !user) return;
+
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mid);font-size:0.88rem">Loading your photos...</div>';
+
+    try {
+      var clientId = user.id;
+
+      // Fetch reports with media for this client + gallery photos
+      var [reportsRes, galleryRes] = await Promise.all([
+        sb.from('service_reports').select('id, client_id, media, report_date, service, created_at').eq('client_id', clientId).not('media', 'is', null).order('created_at', { ascending: false }),
+        sb.from('gallery_photos').select('id, url, thumbnail, public_id, created_at, caption').eq('client_id', clientId).order('created_at', { ascending: false })
+      ]);
+
+      var reports = (reportsRes.data || []);
+      var galleryPhotos = (galleryRes.data || []);
+
+      // Build grouped structure: date → photos
+      var dateGroups = {};
+
+      reports.forEach(function(r) {
+        if (!r.media || !Array.isArray(r.media) || r.media.length === 0) return;
+        var dateKey = r.report_date || (r.created_at ? r.created_at.substring(0, 10) : 'unknown');
+        if (!dateGroups[dateKey]) dateGroups[dateKey] = { service: r.service || '', photos: [] };
+        r.media.forEach(function(m) {
+          dateGroups[dateKey].photos.push({
+            url: m.url || m.thumbnail || '',
+            thumbnail: m.thumbnail || m.url || '',
+            caption: m.caption || '',
+            service: r.service || ''
+          });
+        });
+      });
+
+      galleryPhotos.forEach(function(p) {
+        var dateKey = p.created_at ? p.created_at.substring(0, 10) : 'unknown';
+        if (!dateGroups[dateKey]) dateGroups[dateKey] = { service: '', photos: [] };
+        dateGroups[dateKey].photos.push({
+          url: p.url || '',
+          thumbnail: p.thumbnail || p.url || '',
+          caption: p.caption || ''
+        });
+      });
+
+      var sortedDates = Object.keys(dateGroups).sort(function(a, b) { return b.localeCompare(a); });
+
+      var totalPhotos = 0;
+      sortedDates.forEach(function(k) { totalPhotos += dateGroups[k].photos.length; });
+
+      if (totalPhotos === 0) {
+        container.innerHTML = '<div class="card"><div style="padding:40px;text-align:center;color:var(--mid)">' +
+          '<div style="font-size:2.5rem;margin-bottom:12px">📸</div>' +
+          '<div style="font-weight:600;margin-bottom:6px">No photos yet</div>' +
+          '<div style="font-size:0.84rem">Photos from Rachel\'s visits will appear here organized by date.</div>' +
+          '</div></div>';
+        return;
+      }
+
+      container.innerHTML = '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:16px">' + totalPhotos + ' photo' + (totalPhotos !== 1 ? 's' : '') + ' from your visits</div>';
+
+      sortedDates.forEach(function(dateKey) {
+        var group = dateGroups[dateKey];
+        var section = document.createElement('div');
+        section.style.cssText = 'margin-bottom:24px;';
+
+        var d = new Date(dateKey + 'T12:00:00');
+        var dateStr = isNaN(d.getTime()) ? dateKey : d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        var serviceLabel = group.service ? ' · ' + group.service : '';
+
+        section.innerHTML = '<div style="font-weight:700;font-size:0.88rem;color:var(--dark,#1e1409);margin-bottom:10px;display:flex;align-items:center;gap:8px">' +
+          '<span>📅 ' + dateStr + serviceLabel + '</span>' +
+          '<span style="font-size:0.75rem;font-weight:500;color:var(--mid)">' + group.photos.length + ' photo' + (group.photos.length !== 1 ? 's' : '') + '</span></div>';
+
+        var photoGrid = document.createElement('div');
+        photoGrid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;';
+
+        group.photos.forEach(function(photo) {
+          var card = document.createElement('div');
+          card.style.cssText = 'border-radius:10px;overflow:hidden;aspect-ratio:4/3;cursor:pointer;position:relative;background:var(--cream);transition:transform 0.2s;';
+          card.addEventListener('mouseenter', function() { this.style.transform = 'scale(1.03)'; });
+          card.addEventListener('mouseleave', function() { this.style.transform = ''; });
+
+          var img = document.createElement('img');
+          img.src = photo.thumbnail || photo.url;
+          img.alt = photo.caption || 'Pet photo';
+          img.loading = 'lazy';
+          img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+          card.appendChild(img);
+
+          card.addEventListener('click', function() {
+            _ogOpenLightbox(photo.url || photo.thumbnail, photo.caption, dateStr + (photo.service ? ' · ' + photo.service : ''));
+          });
+
+          photoGrid.appendChild(card);
+        });
+
+        section.appendChild(photoGrid);
+        container.appendChild(section);
+      });
+
+    } catch (e) {
+      console.error('Client photos load error:', e);
+      container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mid)">Error loading photos.</div>';
+    }
+  }
+
   // Eagerly load Leaflet + live-tracking for owner/staff so GPS tracking works on service start
   (function() {
     var _eagerAttempts = 0;
