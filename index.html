@@ -1957,7 +1957,6 @@ try {
         <button class="sb-item active" onclick="sTab('o','o-overview')"><span class="sb-item-icon">📊</span>Overview</button>
         <button class="sb-item" onclick="sTab('o','o-requests')"><span class="sb-item-icon">📋</span>Booking Requests</button>
         <button class="sb-item" onclick="sTab('o','o-clients')"><span class="sb-item-icon">👥</span>All Clients</button>
-        <button class="sb-item" onclick="sTab('o','o-gallery')"><span class="sb-item-icon">📸</span>Gallery</button>
         <button class="sb-item" onclick="sTab('o','o-sched')"><span class="sb-item-icon">📅</span>Master Schedule</button>
         <button class="sb-item" onclick="sTab('o','o-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
         <button class="sb-item" onclick="sTab('o','o-reviews')"><span class="sb-item-icon">⭐</span>Reviews & Ratings</button>
@@ -1965,14 +1964,9 @@ try {
         <button class="sb-item" onclick="sTab('o','o-msgs')"><span class="sb-item-icon">💬</span>All Messages</button>
         <button class="sb-item" onclick="sTab('o','o-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
         <button class="sb-item" onclick="sTab('o','o-avail')"><span class="sb-item-icon">🗓️</span>Availability</button>
-        <button class="sb-item" onclick="sTab('o','o-auto')"><span class="sb-item-icon">🤖</span>Auto-Replies</button>
-        <button class="sb-item" onclick="sTab('o','o-studio')" style="background:linear-gradient(135deg,rgba(200,150,62,0.25),rgba(61,90,71,0.2));border:1px solid rgba(200,150,62,0.3);color:var(--gold-light)"><span class="sb-item-icon">✨</span>AI Owner Studio</button>
-        <button class="sb-item" onclick="sTab('o','o-content')"><span class="sb-item-icon">✏️</span>Edit Website</button>
-        <button class="sb-item" onclick="sTab('o','o-payments')"><span class="sb-item-icon">💳</span>Payments & Bank</button>
         <button class="sb-item" onclick="sTab('o','o-deals')"><span class="sb-item-icon">🏷️</span>Specials & Deals</button>
         <button class="sb-item" onclick="sTab('o','o-sendInvoice')"><span class="sb-item-icon">🧾</span>Send Invoice</button>
-        <button class="sb-item" onclick="sTab('o','o-linkpage')"><span class="sb-item-icon">🔗</span>Edit Link Page</button>
-        <button class="sb-item" onclick="sTab('o','o-activity')"><span class="sb-item-icon">📜</span>Activity Log</button>
+        <button class="sb-item" onclick="sTab('o','o-general')"><span class="sb-item-icon">📂</span>General</button>
       </div>
     </div>
     <div class="portal-main">
@@ -2301,6 +2295,30 @@ try {
             <button class="btn btn-forest btn-sm" onclick="unblockAvailRange()" style="flex:1;justify-content:center">Unblock These Dates</button>
           </div>
         </div>
+      </div>
+
+      <!-- ========== OWNER GENERAL (tab container) ========== -->
+      <div class="p-panel" id="o-general">
+        <div class="p-header"><h2>📂 General</h2><p>Website editing, payments, tools, and settings — all in one place.</p></div>
+        <div id="og-tabbar" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;padding:0 2px">
+          <button class="og-tab og-tab-active" data-ogtab="gallery" onclick="switchOwnerGeneralTab('gallery')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;border:2px solid var(--gold);background:var(--gold);color:white;border-radius:24px;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;font-family:inherit">📸 Gallery</button>
+          <button class="og-tab" data-ogtab="content" onclick="switchOwnerGeneralTab('content')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:24px;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;font-family:inherit">✏️ Edit Website</button>
+          <button class="og-tab" data-ogtab="payments" onclick="switchOwnerGeneralTab('payments')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:24px;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;font-family:inherit">💳 Payments</button>
+          <button class="og-tab" data-ogtab="auto" onclick="switchOwnerGeneralTab('auto')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:24px;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;font-family:inherit">🤖 Auto-Replies</button>
+          <button class="og-tab" data-ogtab="studio" onclick="switchOwnerGeneralTab('studio')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:24px;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;font-family:inherit">✨ AI Studio</button>
+          <button class="og-tab" data-ogtab="linkpage" onclick="switchOwnerGeneralTab('linkpage')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:24px;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;font-family:inherit">🔗 Link Page</button>
+          <button class="og-tab" data-ogtab="activity" onclick="switchOwnerGeneralTab('activity')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:24px;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;font-family:inherit">📜 Activity Log</button>
+          <button class="og-tab" data-ogtab="settings" onclick="switchOwnerGeneralTab('settings')" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 12px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:24px;font-size:0.88rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;font-family:inherit">⚙️ Settings</button>
+        </div>
+        <!-- Sub-content areas (shown/hidden by switchOwnerGeneralTab) -->
+        <div class="og-content" id="og-gallery" style="display:none"></div>
+        <div class="og-content" id="og-content" style="display:none"></div>
+        <div class="og-content" id="og-payments" style="display:none"></div>
+        <div class="og-content" id="og-auto" style="display:none"></div>
+        <div class="og-content" id="og-studio" style="display:none"></div>
+        <div class="og-content" id="og-linkpage" style="display:none"></div>
+        <div class="og-content" id="og-activity" style="display:none"></div>
+        <div class="og-content" id="og-settings" style="display:none"></div>
       </div>
 
       <div class="p-panel" id="o-auto">
@@ -3892,6 +3910,7 @@ function goBackPanel() {
 
 // ── General tab map: old panel ID → General sub-tab ──
 var _generalTabMap = { 'c-photos': 'photos', 'c-reports': 'reports', 'c-reviews': 'reviews', 'c-bill': 'billing' };
+var _ownerGeneralTabMap = { 'o-payments': 'payments', 'o-auto': 'auto', 'o-studio': 'studio', 'o-linkpage': 'linkpage', 'o-content': 'content', 'o-activity': 'activity', 'o-gallery': 'gallery' };
 
 function sTab(portal, panelId) {
   // Redirect o-photos to Edit Website > Photos section
@@ -3908,13 +3927,17 @@ function sTab(portal, panelId) {
       if (w) w.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 300);
   }
-  // Intercept old panel IDs that now live inside General
+  // Intercept old panel IDs that now live inside client General
   if (_generalTabMap[panelId]) {
     var subTab = _generalTabMap[panelId];
-    // Navigate to c-general instead, then switch to the right sub-tab
     panelId = 'c-general';
-    // Defer the sub-tab switch so it runs after panel is active
     setTimeout(function() { switchGeneralTab(subTab); }, 0);
+  }
+  // Intercept old panel IDs that now live inside owner General
+  if (_ownerGeneralTabMap[panelId]) {
+    var ownerSubTab = _ownerGeneralTabMap[panelId];
+    panelId = 'o-general';
+    setTimeout(function() { switchOwnerGeneralTab(ownerSubTab); }, 0);
   }
 
   const prefix = portal === 'c' ? 'c-' : portal === 's' ? 's-' : 'o-';
@@ -3955,6 +3978,11 @@ function sTab(portal, panelId) {
     switchGeneralTab(savedTab);
   }
   if (panelId === 'c-pets' && typeof loadMyPets === 'function') loadMyPets();
+  if (panelId === 'o-general') {
+    var savedOgTab = _currentOwnerGeneralTab || 'gallery';
+    try { var sot = sessionStorage.getItem('hhp_owner_general_tab'); if (sot) savedOgTab = sot; } catch(e) {}
+    switchOwnerGeneralTab(savedOgTab);
+  }
   if (panelId === 'o-clients' && typeof loadOwnerClients === 'function') loadOwnerClients();
   if ((panelId === 'c-cal' || panelId === 's-cal' || panelId === 'o-cal') && typeof loadCalendarBookings === 'function') {
     var now = new Date(); loadCalendarBookings(now.getFullYear(), now.getMonth());
@@ -4093,6 +4121,122 @@ function switchGeneralTab(tabName) {
   }
   // Save active sub-tab for reload
   try { sessionStorage.setItem('hhp_general_tab', tabName); } catch(e) {}
+}
+
+// ── Owner General Panel Tab Switching ──
+var _currentOwnerGeneralTab = 'gallery';
+var _ogMoved = {};  // Track which panels have been moved into General sub-containers
+
+function switchOwnerGeneralTab(tabName) {
+  _currentOwnerGeneralTab = tabName;
+
+  // Panel ID mapping: tab name → original standalone panel ID
+  var panelMap = {
+    gallery: 'o-gallery', content: 'o-content', payments: 'o-payments',
+    auto: 'o-auto', studio: 'o-studio', linkpage: 'o-linkpage', activity: 'o-activity'
+  };
+
+  // Hide all sub-content areas
+  document.querySelectorAll('.og-content').forEach(function(el) { el.style.display = 'none'; });
+
+  // Show selected sub-content
+  var target = document.getElementById('og-' + tabName);
+  if (target) target.style.display = '';
+
+  // Move content from standalone panel into sub-container (once)
+  if (panelMap[tabName] && !_ogMoved[tabName]) {
+    var sourcePanel = document.getElementById(panelMap[tabName]);
+    if (sourcePanel && target) {
+      // Move all children from the standalone panel into the General sub-container
+      while (sourcePanel.firstChild) {
+        target.appendChild(sourcePanel.firstChild);
+      }
+      // Hide the now-empty standalone panel permanently
+      sourcePanel.style.display = 'none';
+      sourcePanel.classList.remove('active');
+      _ogMoved[tabName] = true;
+    }
+  }
+
+  // Settings tab — render inline (like client settings)
+  if (tabName === 'settings') {
+    var settingsContainer = document.getElementById('og-settings');
+    if (settingsContainer && !_ogMoved['settings']) {
+      _ogMoved['settings'] = true;
+    }
+    _renderOwnerSettings();
+  }
+
+  // Update tab bar active states
+  document.querySelectorAll('.og-tab').forEach(function(btn) {
+    if (btn.getAttribute('data-ogtab') === tabName) {
+      btn.style.background = 'var(--gold)';
+      btn.style.color = 'white';
+      btn.style.borderColor = 'var(--gold)';
+      btn.classList.add('og-tab-active');
+    } else {
+      btn.style.background = 'var(--warm)';
+      btn.style.color = 'var(--ink)';
+      btn.style.borderColor = 'var(--border)';
+      btn.classList.remove('og-tab-active');
+    }
+  });
+
+  // Trigger data loading for sub-tabs
+  if (tabName === 'gallery' && typeof loadOwnerGallery === 'function') loadOwnerGallery();
+  if (tabName === 'content') {
+    if (window.HHP_Gallery) HHP_Gallery.render('owner');
+    if (window.HHP_Photos) { HHP_Photos.wireUploadSlots(); if (typeof initAboutPhotoGrid === 'function') initAboutPhotoGrid(); HHP_Photos.restoreAllPreviews(); }
+  }
+  if (tabName === 'linkpage') {
+    if (typeof loadLandingPageEditor === 'function') loadLandingPageEditor();
+    if (typeof loadQRScanStats === 'function') loadQRScanStats();
+  }
+  if (tabName === 'activity' && typeof initActivityLog === 'function') initActivityLog();
+
+  // Save active sub-tab for reload
+  try { sessionStorage.setItem('hhp_owner_general_tab', tabName); } catch(e) {}
+}
+
+function _renderOwnerSettings() {
+  var container = document.getElementById('og-settings');
+  if (!container || !window.HHP_Settings) return;
+  var s = HHP_Settings.getAll();
+  container.innerHTML =
+    '<div class="card" style="padding:20px;margin-bottom:14px">' +
+      '<div class="card-title" style="margin-bottom:14px">Appearance</div>' +
+      '<div style="display:flex;flex-direction:column;gap:14px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+          '<div><div style="font-weight:600;font-size:0.85rem">Theme</div><div style="font-size:0.75rem;color:var(--mid)">Light or dark mode</div></div>' +
+          '<div style="display:flex;gap:4px">' +
+            '<button onclick="HHP_Settings.set(\'theme\',\'light\');switchOwnerGeneralTab(\'settings\')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;font-weight:600;cursor:pointer;background:' + (s.theme==='light'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">☀️ Light</button>' +
+            '<button onclick="HHP_Settings.set(\'theme\',\'dark\');switchOwnerGeneralTab(\'settings\')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;font-weight:600;cursor:pointer;background:' + (s.theme==='dark'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">🌙 Dark</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+          '<div><div style="font-weight:600;font-size:0.85rem">Text Size</div><div style="font-size:0.75rem;color:var(--mid)">Adjust for readability</div></div>' +
+          '<div style="display:flex;gap:4px">' +
+            '<button onclick="HHP_Settings.set(\'textSize\',\'small\');switchOwnerGeneralTab(\'settings\')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);font-size:0.72rem;font-weight:600;cursor:pointer;background:' + (s.textSize==='small'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">A</button>' +
+            '<button onclick="HHP_Settings.set(\'textSize\',\'medium\');switchOwnerGeneralTab(\'settings\')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;font-weight:600;cursor:pointer;background:' + (s.textSize==='medium'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">A</button>' +
+            '<button onclick="HHP_Settings.set(\'textSize\',\'large\');switchOwnerGeneralTab(\'settings\')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);font-size:1.05rem;font-weight:600;cursor:pointer;background:' + (s.textSize==='large'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">A</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card" style="padding:20px;margin-bottom:14px">' +
+      '<div class="card-title" style="margin-bottom:14px">Notifications</div>' +
+      '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifBooking?'checked':'') + ' onchange="HHP_Settings.set(\'notifBooking\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Booking updates & confirmations</label>' +
+        '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifReminder?'checked':'') + ' onchange="HHP_Settings.set(\'notifReminder\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Appointment reminders</label>' +
+        '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifMessages?'checked':'') + ' onchange="HHP_Settings.set(\'notifMessages\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> New message alerts</label>' +
+        '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifReports?'checked':'') + ' onchange="HHP_Settings.set(\'notifReports\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Walk report notifications</label>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card" style="padding:20px">' +
+      '<div class="card-title" style="margin-bottom:14px">Account</div>' +
+      '<button onclick="HHP_Settings.goToProfile()" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--warm);cursor:pointer;text-align:left;font-size:0.85rem;font-family:inherit"><span style="font-size:1.2rem">👤</span><div style="flex:1"><div style="font-weight:600">My Profile</div><div style="font-size:0.75rem;color:var(--mid)">Edit your name, phone & photo</div></div><span style="opacity:0.4">→</span></button>' +
+      '<button onclick="if(typeof HHP_Auth!==\'undefined\')HHP_Auth.logout()" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--warm);cursor:pointer;text-align:left;font-size:0.85rem;margin-top:8px;color:var(--rose);font-family:inherit"><span style="font-size:1.2rem">🚪</span><div style="flex:1"><div style="font-weight:600">Sign Out</div></div></button>' +
+    '</div>';
 }
 
 // ---- ACTIVITY LOG ----
