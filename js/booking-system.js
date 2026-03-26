@@ -2465,42 +2465,46 @@
 
       // Send email notification to Rachel
       try {
-        var dateDisplay = isHouseSitting ? date + ' to ' + endDate : date;
         if (shouldSplit && dateCardDetails.length > 1) {
-          // Split bookings — list all dates in the email so Rachel sees them all
-          var dateParts = [];
-          dateCardDetails.forEach(function(dc) {
-            dateParts.push(dc.date + (dc.time ? ' @ ' + dc.time : ''));
-          });
-          dateDisplay = dateParts.join(', ') + ' (' + dateCardDetails.length + ' separate bookings)';
-        } else if (totalDates > 1 && !isHouseSitting) {
-          if (dateCardDetails.length > 0) {
-            var dateParts = [];
-            dateCardDetails.forEach(function(dc) {
-              dateParts.push(dc.date + (dc.time ? ' @ ' + dc.time : ''));
+          // Split bookings — send one email per booking so each has a valid date
+          for (var ei = 0; ei < dateCardDetails.length; ei++) {
+            var dc = dateCardDetails[ei];
+            await sendBookingNotification({
+              service: service,
+              date: dc.date,
+              time: dc.time || time,
+              name: name,
+              email: email,
+              phone: phone,
+              pets: pets,
+              address: address,
+              notes: (notes || '') + (dateCardDetails.length > 1 ? ' (Booking ' + (ei + 1) + ' of ' + dateCardDetails.length + ')' : ''),
+              estimatedTotal: data && data[ei] ? data[ei].estimated_total : null,
             });
-            dateDisplay = dateParts.join(', ') + ' (' + totalDates + ' visit' + (totalDates > 1 ? 's' : '') + ')';
-          } else {
-            dateDisplay = allBookingDates.join(', ') + ' (' + totalDates + ' dates)';
           }
-        }
-        if (isRecurring && recurrencePattern && recurrencePattern.schedules) {
-          var recurParts = recurrencePattern.schedules.map(function(s) {
-            return s.start_date + ' ' + s.frequency + ' until ' + s.end_date;
+        } else {
+          // Single booking or recurring — send one email
+          var dateDisplay = isHouseSitting ? date + ' to ' + endDate : date;
+          if (isRecurring && recurrencePattern && recurrencePattern.schedules) {
+            var recurParts = recurrencePattern.schedules.map(function(s) {
+              return s.start_date + ' ' + s.frequency + ' until ' + (s.ongoing ? 'ongoing' : s.end_date);
+            });
+            dateDisplay = date; // Keep parseable date for email
+          }
+          await sendBookingNotification({
+            service: service,
+            date: dateDisplay,
+            time: time,
+            name: name,
+            email: email,
+            phone: phone,
+            pets: pets,
+            address: address,
+            notes: isHouseSitting ? (notes ? notes + ' | ' + nights + ' night(s)' : nights + ' night(s)') : notes,
+            estimatedTotal: data && data[0] ? data[0].estimated_total : null,
+            isRecurring: isRecurring,
           });
-          dateDisplay += ' [Recurring: ' + recurParts.join('; ') + ']';
         }
-        await sendBookingNotification({
-          service: service,
-          date: dateDisplay,
-          time: time,
-          name: name,
-          email: email,
-          phone: phone,
-          pets: pets,
-          address: address,
-          notes: isHouseSitting ? (notes ? notes + ' | ' + nights + ' night(s)' : nights + ' night(s)') : notes,
-        });
       } catch (emailErr) {
         console.warn('Email notification failed:', emailErr);
         // Don't block the success - the request was saved

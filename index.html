@@ -4653,6 +4653,93 @@ async function showActivityDetail(index) {
 
 function _escH(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
+// ── Detect bathroom breaks (pee/poo) from report notes, optionally per-pet ──
+function detectBathroomBreaks(noteText, petNamesStr) {
+  if (!noteText) return null;
+  var lower = noteText.toLowerCase();
+  var peeWords = ['pee', 'peed', 'peeing', 'pees', 'potty', '#1', 'urinate', 'urinated', 'tinkle', 'tinkled', 'pee break', 'bathroom break'];
+  var pooWords = ['poo', 'pooed', 'poop', 'pooped', 'pooping', 'poops', '#2', 'bowel', 'did her business', 'did his business', 'went potty', 'number two', 'number 2'];
+  var hasPee = peeWords.some(function(w) { return lower.indexOf(w) !== -1; });
+  var hasPoo = pooWords.some(function(w) { return lower.indexOf(w) !== -1; });
+  if (!hasPee && !hasPoo) return null;
+
+  // Count occurrences
+  var peeCount = 0, pooCount = 0;
+  peeWords.forEach(function(w) {
+    var idx = 0;
+    while ((idx = lower.indexOf(w, idx)) !== -1) { peeCount++; idx += w.length; }
+  });
+  pooWords.forEach(function(w) {
+    var idx = 0;
+    while ((idx = lower.indexOf(w, idx)) !== -1) { pooCount++; idx += w.length; }
+  });
+  // Cap at reasonable counts (some words overlap)
+  peeCount = Math.min(peeCount, 5);
+  pooCount = Math.min(pooCount, 5);
+
+  // Try per-pet attribution if multiple pets
+  var pets = [];
+  if (petNamesStr) {
+    petNamesStr.split(/[,&]/).forEach(function(p) {
+      var name = p.trim();
+      if (name) pets.push(name);
+    });
+  }
+
+  if (pets.length <= 1) {
+    // Single pet or no pet names — generic badges
+    return { summary: [{ pet: pets[0] || null, pee: hasPee ? Math.max(peeCount, 1) : 0, poo: hasPoo ? Math.max(pooCount, 1) : 0 }] };
+  }
+
+  // Multiple pets — try to attribute per sentence
+  var sentences = noteText.split(/[.!?\n]+/);
+  var petBreaks = {};
+  pets.forEach(function(name) { petBreaks[name] = { pee: 0, poo: 0 }; });
+
+  sentences.forEach(function(sentence) {
+    var sl = sentence.toLowerCase();
+    var sentencePee = peeWords.some(function(w) { return sl.indexOf(w) !== -1; });
+    var sentencePoo = pooWords.some(function(w) { return sl.indexOf(w) !== -1; });
+    if (!sentencePee && !sentencePoo) return;
+
+    var mentionedPets = pets.filter(function(name) { return sl.indexOf(name.toLowerCase()) !== -1; });
+    if (mentionedPets.length === 0) mentionedPets = pets; // Can't tell — attribute to all
+
+    mentionedPets.forEach(function(name) {
+      if (sentencePee) petBreaks[name].pee++;
+      if (sentencePoo) petBreaks[name].poo++;
+    });
+  });
+
+  var summary = [];
+  pets.forEach(function(name) {
+    var b = petBreaks[name];
+    if (b.pee > 0 || b.poo > 0) summary.push({ pet: name, pee: b.pee, poo: b.poo });
+  });
+
+  return summary.length > 0 ? { summary: summary } : null;
+}
+
+// Render bathroom break badges as HTML
+function renderBathroomBadges(breaks, compact) {
+  if (!breaks || !breaks.summary || breaks.summary.length === 0) return '';
+  var badgeStyle = compact
+    ? 'display:inline-flex;align-items:center;gap:3px;background:#f0ebe3;border-radius:20px;padding:3px 10px;font-size:0.72rem;font-weight:600;color:#5c3d1e'
+    : 'display:inline-flex;align-items:center;gap:4px;background:#f0ebe3;border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:600;color:#5c3d1e';
+  var html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
+  breaks.summary.forEach(function(b) {
+    var petLabel = b.pet && breaks.summary.length > 1 ? b.pet + ': ' : '';
+    if (b.pee > 0) {
+      html += '<span style="' + badgeStyle + '">' + petLabel + '💧 ' + b.pee + ' pee break' + (b.pee > 1 ? 's' : '') + '</span>';
+    }
+    if (b.poo > 0) {
+      html += '<span style="' + badgeStyle + '">' + petLabel + '💩 ' + b.poo + ' poo break' + (b.poo > 1 ? 's' : '') + '</span>';
+    }
+  });
+  html += '</div>';
+  return html;
+}
+
 // ---- ACTIVITY LOG: SAVE & SEND ----
 function _buildActivityText() {
   var entries = window._actLogEntries || [];
@@ -7038,6 +7125,13 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
 
     var walk = null;
 
+    // Ensure live-tracking is loaded before starting (needed for GPS)
+    if (typeof HHP_Tracking === 'undefined' && typeof _loadLeaflet === 'function') {
+      await new Promise(function(resolve) { _loadLeaflet(resolve); });
+      // Give it a moment to initialize
+      await new Promise(function(resolve) { setTimeout(resolve, 300); });
+    }
+
     if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.startWalk === 'function') {
       walk = await HHP_Tracking.startWalk(bookingId, clientId, service, petNames);
     }
@@ -7079,13 +7173,31 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
       HHP_ServiceTimer.startTimer(walk.id, service, walk.start_time || new Date().toISOString(), petNames, clientName, bookingId, address);
     }
 
-    // ── Send "Service Started" notification to client ──
+    // ── Send "Service Started" notification to client (in-app + email) ──
     var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
+    var isDogWalk = (service || '').toLowerCase().indexOf('dog walk') !== -1 || (service || '').toLowerCase().indexOf('walking') !== -1;
     if (clientId) {
-      var startMsg = '🟢 ' + staffName + ' has started ' + (petNames ? petNames + '\'s ' : 'your ') + service + '! You can track progress in your portal under Live Tracking.';
+      var startMsg = '🟢 ' + staffName + ' has started ' + (petNames ? petNames + '\'s ' : 'your ') + service + '!' + (isDogWalk ? ' Live GPS tracking is active — follow along in your portal!' : ' You can track progress in your portal.');
       try {
         await sb.from('messages').insert({ sender_id: user.id, recipient_id: clientId, body: startMsg });
       } catch(e) { console.warn('Start notification error:', e); }
+
+      // Send email notification
+      if (contactEmail) {
+        fetch('/api/service-started-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientEmail: contactEmail,
+            clientName: clientName || '',
+            service: service,
+            petNames: petNames || '',
+            staffName: staffName,
+            isDogWalk: isDogWalk,
+            address: address || '',
+          })
+        }).catch(function(e) { console.warn('Service started email error:', e); });
+      }
     }
 
     // ── Activity log: record service start ──
@@ -7609,6 +7721,7 @@ async function endServiceFromPanel() {
           if (_profEmail) _clientEmail = _profEmail.email;
         }
         if (_clientEmail) {
+          var _bb = detectBathroomBreaks(notes, reportPets);
           fetch('/api/service-completed-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -7625,7 +7738,8 @@ async function endServiceFromPanel() {
               mood: mood || '',
               personalNote: notes || '',
               staffName: staffName,
-              mediaCount: (d.mediaUrls || []).length
+              mediaCount: (d.mediaUrls || []).length,
+              bathroomBreaks: _bb ? _bb.summary : null
             })
           }).catch(function(e) { console.warn('Service completed email error:', e); });
         }
@@ -7762,6 +7876,13 @@ async function viewCompletedReport(bookingId) {
     h += fieldRow('Departure', report.departure_time);
     h += fieldRow('Distance', report.distance);
     h += fieldRow('Mood', report.mood);
+
+    // Bathroom break badges
+    var _bb = detectBathroomBreaks(report.personal_note, report.pet_name);
+    if (_bb) {
+      h += '<div style="margin-bottom:12px">' + renderBathroomBadges(_bb, false) + '</div>';
+    }
+
     h += fieldRow('Notes', report.personal_note);
 
     if (report.media && Array.isArray(report.media) && report.media.length > 0) {
@@ -11154,6 +11275,7 @@ async function loadClientReports() {
           '</div>' +
           '<div style="font-size:1.2rem">' + (moodEmoji[r.mood] || '😄') + '</div>' +
         '</div>' +
+        (function() { var bb = detectBathroomBreaks(r.personal_note, r.pet_name); return bb ? renderBathroomBadges(bb, true) : ''; })() +
         (r.personal_note ? '<div style="font-size:0.84rem;color:var(--ink);line-height:1.6;margin-top:6px">' + r.personal_note.substring(0, 150) + (r.personal_note.length > 150 ? '...' : '') + '</div>' : '') +
         thumbsHtml +
         (mediaCount > 0 ? '<div style="font-size:0.72rem;color:var(--mid);margin-top:8px">📷 ' + mediaCount + ' photo' + (mediaCount !== 1 ? 's' : '') + '/video' + (mediaCount !== 1 ? 's' : '') + '</div>' : '') +
@@ -11212,6 +11334,7 @@ function openReportDetail(reportOrId) {
       '<div class="rstat"><div class="rstat-num">' + (moodEmoji[report.mood] || '😄') + '</div><div class="rstat-lbl">Mood</div></div>' +
     '</div>' +
     photosHtml +
+    (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false) + '</div>' : ''; })() +
     '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
     '<div id="reportRouteMapContainer"></div>' +
     '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
@@ -13198,6 +13321,22 @@ document.addEventListener('DOMContentLoaded', function() {
       };
       document.body.appendChild(js);
     };
+  })();
+  // Eagerly load Leaflet + live-tracking for owner/staff so GPS tracking works on service start
+  (function() {
+    var _eagerAttempts = 0;
+    function eagerLoadTracking() {
+      _eagerAttempts++;
+      if (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser && HHP_Auth.currentUser.profile) {
+        var role = HHP_Auth.currentUser.profile.role;
+        if (role === 'owner' || role === 'staff') {
+          if (typeof _loadLeaflet === 'function') _loadLeaflet();
+        }
+      } else if (_eagerAttempts < 30) {
+        setTimeout(eagerLoadTracking, 500);
+      }
+    }
+    setTimeout(eagerLoadTracking, 1000);
   })();
   </script>
   <script src="/js/service-timer.js" defer></script></body>
