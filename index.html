@@ -1655,16 +1655,8 @@ try {
       </div>
 
       <!-- TRACKING -->
-      <div class="p-panel" id="c-track" style="display:none!important">
-        <div class="p-header"><h2>Live Tracking 🗺️</h2><p>Track your pet's walk in real-time when a visit is active.</p></div>
-        <div class="card">
-          <div style="padding:40px;text-align:center;color:var(--mid)">
-            <div style="font-size:2.5rem;margin-bottom:12px">🗺️</div>
-            <div style="font-weight:600;margin-bottom:6px">No active walk right now</div>
-            <div style="font-size:0.84rem">Live GPS tracking will appear here during your pet's walk.</div>
-          </div>
-        </div>
-      </div>
+      <!-- Legacy c-track panel — hidden, redirects to dashboard tracking widget -->
+      <div class="p-panel" id="c-track" style="display:none!important"></div>
 
       <!-- GENERAL (combined panel with tab bar) -->
       <div class="p-panel" id="c-general">
@@ -1748,43 +1740,10 @@ try {
 
       <!-- OLD PANELS (kept hidden for backward compat, content moved to General) -->
       <!-- PHOTOS -->
-      <div class="p-panel" id="c-photos" style="display:none!important">
-        <div class="p-header"><h2>Photo Gallery 📸</h2><p>Every moment Rachel captures during visits.</p></div>
-        <div class="tabs"><button class="tab active">All Photos</button></div>
-        <div class="card"><div style="padding:40px;text-align:center;color:var(--mid)">
-          <div style="font-size:2.5rem;margin-bottom:12px">📸</div>
-          <div style="font-weight:600;margin-bottom:6px">No photos yet</div>
-          <div style="font-size:0.84rem">Photos from Rachel's visits will appear here.</div>
-        </div></div>
-      </div>
-
-      <!-- WALK REPORTS (hidden — content in General) -->
-      <div class="p-panel" id="c-reports" style="display:none!important">
-        <div class="p-header"><h2>Walk Reports 📋</h2><p>Detailed reports from every visit with Rachel.</p></div>
-        <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
-          <div class="card">
-            <div style="padding:28px;text-align:center;color:var(--mid)">
-              <div style="font-size:2rem;margin-bottom:10px">📋</div>
-              <div style="font-weight:600;margin-bottom:6px">No reports yet</div>
-              <div style="font-size:0.84rem">Walk and visit reports will appear here after each service.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CLIENT REVIEWS (hidden — content in General) -->
-      <div class="p-panel" id="c-reviews" style="display:none!important">
-        <div class="p-header"><h2>My Reviews ⭐</h2><p>Your feedback helps us grow! Leave a review after any visit.</p></div>
-        <div id="c-rv-list" style="display:flex;flex-direction:column;gap:12px">
-          <div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">⭐</div>Loading your reviews...</div>
-        </div>
-        <div class="card" style="margin-top:16px;border:2px dashed rgba(200,150,62,0.3);text-align:center;padding:20px">
-          <div style="font-size:1.5rem;margin-bottom:8px">⭐</div>
-          <div style="font-weight:700;margin-bottom:4px">Want to leave a review?</div>
-          <div style="font-size:0.82rem;color:var(--mid);margin-bottom:12px">Open any Walk Report and tap "Leave a Review" — or you'll be prompted automatically after each visit!</div>
-          <button class="btn btn-gold btn-sm" onclick="sTab('c','c-reports')">View My Reports</button>
-        </div>
-      </div>
+      <!-- Legacy panels — hidden stubs kept for backward compat redirects via _generalTabMap -->
+      <div class="p-panel" id="c-photos" style="display:none!important"></div>
+      <div class="p-panel" id="c-reports" style="display:none!important"></div>
+      <div class="p-panel" id="c-reviews" style="display:none!important"></div>
 
       <!-- MESSAGES -->
       <div class="p-panel" id="c-msgs">
@@ -1802,31 +1761,8 @@ try {
       </div>
 
       <!-- BILLING (hidden — content in General) -->
-      <div class="p-panel" id="c-bill" style="display:none!important">
-        <div class="p-header"><h2>Billing 💳</h2><p>Manage your payment method, view upcoming charges, and payment history.</p></div>
-
-        <!-- Upcoming Charges -->
-        <div class="card" style="margin-bottom:18px">
-          <div class="card-title">Upcoming Charges</div>
-          <div id="clientUpcomingCharges" style="padding:14px;text-align:center;color:var(--mid);font-size:0.88rem">Loading upcoming charges...</div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-          <div class="card">
-            <div class="card-title">Payment Method</div>
-            <div id="savedCardDisplay" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
-            <div id="savedCardActions" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
-              <button id="addCardBtn" class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="addPaymentMethod()">💳 Add Payment Method</button>
-            </div>
-            <div style="font-size:0.75rem;color:var(--mid);margin-top:10px;text-align:center">Your card is saved securely through Stripe. Recurring services are auto-charged 48 hours before each visit.</div>
-            <div style="font-size:0.75rem;color:var(--mid);margin-top:8px;text-align:center;background:var(--gold-pale);padding:8px 12px;border-radius:8px"><strong>Cancellation policy:</strong> Cancel more than 48 hours before service for a full refund. Late cancellations within 48 hours are still charged.</div>
-          </div>
-          <div class="card"><div class="card-title">Payment History</div>
-            <div id="clientPaymentHistory" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No payment history yet.</div>
-            <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;margin-top:10px" onclick="loadClientPayments()">Refresh Payment History</button>
-          </div>
-        </div>
-      </div>
+      <!-- Legacy c-bill panel — hidden, kept only for backward compat redirects -->
+      <div class="p-panel" id="c-bill" style="display:none!important"></div>
 
     </div>
   </div>
@@ -4009,14 +3945,6 @@ function sTab(portal, panelId) {
   // Booking request panels
   if (panelId === 'o-requests' && typeof loadBookingRequestsPanel === 'function') loadBookingRequestsPanel('owner');
   if (panelId === 's-requests' && typeof loadBookingRequestsPanel === 'function') loadBookingRequestsPanel('staff');
-  // Client panels
-  if (panelId === 'c-track') {
-    // Lazy-load Leaflet + live-tracking.js on first open
-    if (typeof _loadLeaflet === 'function' && typeof HHP_Tracking === 'undefined' && typeof loadLiveTracking === 'undefined') {
-      _loadLeaflet(function() { if (typeof HHP_Tracking !== 'undefined') HHP_Tracking.loadClientLiveTracking(); else if (typeof loadLiveTracking === 'function') loadLiveTracking(); });
-    } else if (typeof HHP_Tracking !== 'undefined') HHP_Tracking.loadClientLiveTracking();
-    else if (typeof loadLiveTracking === 'function') loadLiveTracking();
-  }
   // Gallery re-render when switching to photo panels (c-photos now handled by switchGeneralTab)
   if (panelId === 'o-photos') {
     if (window.HHP_Gallery) HHP_Gallery.render('owner');
@@ -10700,87 +10628,6 @@ async function loadStaffEarnings() {
   }
 }
 
-// ── Client Live Tracking (c-track) — show active walks ──
-async function loadLiveTracking() {
-  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
-  if (!sb || !window.HHP_Auth.currentUser) return;
-
-  var panel = document.getElementById('c-track');
-  if (!panel) return;
-  var card = panel.querySelector('.card');
-  if (!card) return;
-
-  try {
-    // Check for active walks for this client's pets
-    var activeWalks = await sb.from('walks')
-      .select('*, pets(name, species)')
-      .eq('status', 'in_progress')
-      .order('start_time', { ascending: false });
-
-    // Also check bookings happening today with confirmed status
-    var today = new Date().toISOString().split('T')[0];
-    var todayBookings = await sb.from('bookings')
-      .select('*')
-      .eq('client_id', getEffectiveClientId() || window.HHP_Auth.currentUser.id)
-      .eq('date', today)
-      .eq('status', 'confirmed');
-
-    var walks = (activeWalks.data || []).filter(function(w) { return w.pets; });
-    var todayJobs = todayBookings.data || [];
-
-    if (walks.length === 0 && todayJobs.length === 0) {
-      card.innerHTML = '<div style="padding:40px;text-align:center;color:var(--mid)">' +
-        '<div style="font-size:2.5rem;margin-bottom:12px">🗺️</div>' +
-        '<div style="font-weight:600;margin-bottom:6px">No active walk right now</div>' +
-        '<div style="font-size:0.84rem">Live GPS tracking will appear here during your pet\'s walk.</div></div>';
-      return;
-    }
-
-    card.innerHTML = '';
-
-    // Show active walks with live indicator
-    if (walks.length > 0) {
-      walks.forEach(function(w) {
-        var petName = w.pets ? w.pets.name : 'Your pet';
-        var startTime = new Date(w.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        var elapsed = Math.floor((Date.now() - new Date(w.start_time).getTime()) / 60000);
-
-        var div = document.createElement('div');
-        div.style.cssText = 'padding:20px;background:linear-gradient(135deg,rgba(61,90,71,0.06),transparent);border-radius:12px;margin-bottom:12px;border:1px solid rgba(61,90,71,0.15)';
-        div.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">' +
-          '<div style="width:12px;height:12px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></div>' +
-          '<div style="font-weight:700;font-size:1rem;color:var(--forest,#3d5a47)">Walk in Progress!</div></div>' +
-          '<div style="font-size:0.9rem;margin-bottom:6px"><strong>' + petName + '</strong> is out on a walk</div>' +
-          '<div style="font-size:0.82rem;color:var(--mid)">Started at ' + startTime + ' · ' + elapsed + ' min elapsed</div>' +
-          '<div style="margin-top:16px;height:200px;border-radius:10px;background:linear-gradient(135deg,var(--forest-pale),var(--gold-pale));display:flex;align-items:center;justify-content:center;border:1px solid var(--border)">' +
-          '<div style="text-align:center;color:var(--mid)"><div style="font-size:2rem">📍</div><div style="font-size:0.8rem;margin-top:6px">GPS map coming soon</div></div></div>';
-        card.appendChild(div);
-      });
-    }
-
-    // Show today's scheduled jobs
-    if (todayJobs.length > 0) {
-      var header = document.createElement('div');
-      header.style.cssText = 'font-weight:700;font-size:0.9rem;color:var(--dark);margin:12px 0 8px;padding:0 4px';
-      header.textContent = "📅 Today's Scheduled Visits";
-      card.appendChild(header);
-
-      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
-      todayJobs.forEach(function(b) {
-        var icon = svcIcons[b.service] || '🐾';
-        var row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px;background:var(--warm,#faf6ee);border-radius:8px;margin-bottom:6px';
-        row.innerHTML = '<div style="font-size:1.2rem">' + icon + '</div>' +
-          '<div><div style="font-weight:600;font-size:0.85rem">' + (b.service || 'Service') + '</div>' +
-          '<div style="font-size:0.78rem;color:var(--mid)">' + (b.time_slot ? fmt12h(b.time_slot) : 'Time TBD') + (b.pet_names ? ' · ' + b.pet_names : '') + '</div></div>';
-        card.appendChild(row);
-      });
-    }
-  } catch (e) {
-    console.warn('Load live tracking error:', e);
-  }
-}
-
 // Send announcement to all clients via messages table + announcements table
 async function submitAnnouncement() {
   var messageText = document.getElementById('announce-text')?.value || '';
@@ -13464,15 +13311,6 @@ document.addEventListener('DOMContentLoaded', function() {
           if (panelActive('s-sched')) {
             debounceRefresh('staffSchedWalk', function() {
               if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
-            });
-          }
-
-          // Client live tracking (old panel — kept for compatibility)
-          if (panelActive('c-track')) {
-            debounceRefresh('clientTrack', function() {
-              if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.loadClientLiveTracking) {
-                HHP_Tracking.loadClientLiveTracking();
-              }
             });
           }
 
