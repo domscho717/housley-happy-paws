@@ -12,12 +12,12 @@
       { wid:'cw-upcoming', icon:'📅', label:'Upcoming Appointments', size:'half',  preset:true,  fixed:false, renderFn:'_rwClientUpcoming' },
       { wid:'cw-notif',    icon:'🔔', label:'Recent Notifications',  size:'half',  preset:true,  fixed:false, renderFn:'_rwClientNotif' },
       { wid:'cw-pets',     icon:'🐾', label:'My Pets',               size:'full',  preset:false, fixed:true,  renderFn:'_rwClientPets' },
-      { wid:'cw-tracking', icon:'🗺️', label:'Live Tracking',         size:'full',  preset:false, fixed:true,  renderFn:'_rwClientTracking' },
       { wid:'cw-photos',   icon:'📸', label:'Photo Gallery',         size:'full',  preset:false, fixed:true,  renderFn:'_rwClientPhotos' },
       { wid:'cw-reports',  icon:'📋', label:'Walk Reports',          size:'half',  preset:false, fixed:false, renderFn:'_rwClientReports' },
       { wid:'cw-reviews',  icon:'⭐', label:'My Reviews',            size:'half',  preset:false, fixed:false, renderFn:'_rwClientReviews' },
       { wid:'cw-msgs',     icon:'💬', label:'Messages',              size:'half',  preset:false, fixed:false, renderFn:'_rwClientMsgs' },
-      { wid:'cw-billing',  icon:'💳', label:'Billing',               size:'half',  preset:false, fixed:false, renderFn:'_rwClientBilling' }
+      { wid:'cw-billing',  icon:'💳', label:'Billing',               size:'half',  preset:false, fixed:false, renderFn:'_rwClientBilling' },
+      { wid:'cw-tracking', icon:'🗺️', label:'Live Tracking',         size:'full',  preset:true,  fixed:true,  renderFn:'_rwClientTracking' }
     ],
     staff: [
       { wid:'sw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:false,  renderFn:'_rwStaffStats' },
@@ -45,7 +45,7 @@
   };
 
   var _panelNav = {
-    'cw-upcoming':"sTab('c','c-appts')",'cw-notif':"sTab('c','c-msgs')",'cw-pets':"sTab('c','c-pets')",'cw-tracking':"sTab('c','c-track')",
+    'cw-upcoming':"sTab('c','c-appts')",'cw-notif':"sTab('c','c-msgs')",'cw-pets':"sTab('c','c-pets')",
     'cw-photos':"sTab('c','c-photos')",'cw-reports':"sTab('c','c-reports')",'cw-reviews':"sTab('c','c-reviews')",
     'cw-msgs':"sTab('c','c-msgs')",'cw-billing':"sTab('c','c-bill')",
     'sw-jobs':"sTab('s','s-jobs')",'sw-requests':"sTab('s','s-requests')",'sw-clients':"sTab('s','s-clients')",'sw-earnings':"sTab('s','s-earn')",
@@ -662,15 +662,68 @@
 
   _R._rwClientTracking=async function(sz){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
-    if(sz==='full'){
-      try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_time,status').eq('client_id',u.id).eq('preferred_date',today).in('status',['accepted','confirmed','in_progress']).limit(3);
-        var h='<div style="font-size:0.85rem;color:var(--mid);margin-bottom:10px">Track your pet\'s walk in real time when a service is active.</div>';
-        if(data&&data.length){h+='<div style="font-weight:600;font-size:0.8rem;margin-bottom:6px">Today\'s Services:</div>';data.forEach(function(b){var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');h+='<div style="display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s;border-radius:6px" '+(b.status==='in_progress'?'onclick="sTab(\'c\',\'c-track\')"':'')+'  onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span style="font-weight:600">'+b.service+'</span><span style="color:var(--forest);font-weight:600">'+(t||b.status)+'</span></div>';});}
-        else{h+='<div style="color:var(--mid);font-size:0.8rem;font-style:italic">No services scheduled today</div>';}
-        return h;
-      }catch(e){return'';}
-    }
-    return'<div style="font-size:0.75rem;color:var(--mid)">Live GPS tracking</div>';
+    try{
+      // Check for active walks
+      var activeWalks=await sb.from('walks').select('*, pets(name, species)').eq('status','in_progress').order('start_time',{ascending:false});
+      var walks=(activeWalks.data||[]).filter(function(w){return w.pets;});
+
+      // Check today's scheduled services
+      var today=new Date().toISOString().split('T')[0];
+      var cid=(typeof getEffectiveClientId==='function'?getEffectiveClientId():null)||u.id;
+      var todayBookings=await sb.from('booking_requests').select('service,preferred_time,status,pet_names').eq('client_id',cid).eq('preferred_date',today).in('status',['accepted','confirmed','in_progress']).limit(5);
+      var todayJobs=todayBookings.data||[];
+
+      // Show/hide floating paw button based on active walks
+      if(typeof window._hhpUpdatePawBtn==='function') window._hhpUpdatePawBtn(walks.length>0);
+
+      if(walks.length===0&&todayJobs.length===0){
+        return '<div id="cw-tracking-content" style="text-align:center;padding:20px 10px;color:var(--mid)">' +
+          '<div style="font-size:2.2rem;margin-bottom:10px">🗺️</div>' +
+          '<div style="font-weight:600;margin-bottom:4px">No active walk right now</div>' +
+          '<div style="font-size:0.82rem">Live GPS tracking will appear here during your pet\'s walk.</div></div>';
+      }
+
+      var h='<div id="cw-tracking-content">';
+
+      // Active walks — full display with map placeholder + info
+      if(walks.length>0){
+        walks.forEach(function(w){
+          var petName=w.pets?w.pets.name:'Your pet';
+          var startTime=new Date(w.start_time).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+          var elapsed=Math.floor((Date.now()-new Date(w.start_time).getTime())/60000);
+          h+='<div style="padding:16px;background:linear-gradient(135deg,rgba(61,90,71,0.08),rgba(200,150,62,0.05));border-radius:14px;margin-bottom:14px;border:1px solid rgba(61,90,71,0.18)">' +
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
+            '<div style="width:12px;height:12px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;flex-shrink:0"></div>' +
+            '<div style="font-weight:700;font-size:1.05rem;color:var(--forest,#3d5a47)">Walk in Progress!</div></div>' +
+            '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">' +
+            '<div style="flex:1;min-width:120px"><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--mid);margin-bottom:2px">Pet</div><div style="font-weight:700;font-size:0.95rem">'+petName+'</div></div>' +
+            '<div style="flex:1;min-width:120px"><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--mid);margin-bottom:2px">Started</div><div style="font-weight:600;font-size:0.95rem">'+startTime+'</div></div>' +
+            '<div style="flex:1;min-width:120px"><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--mid);margin-bottom:2px">Duration</div><div style="font-weight:600;font-size:0.95rem">'+elapsed+' min</div></div></div>' +
+            '<div style="height:220px;border-radius:12px;background:linear-gradient(135deg,var(--forest-pale,#e8f0ea),var(--gold-pale,#faf3e0));display:flex;align-items:center;justify-content:center;border:1px solid var(--border)">' +
+            '<div style="text-align:center;color:var(--mid)"><div style="font-size:2.2rem">📍</div><div style="font-size:0.82rem;margin-top:6px;font-weight:600">GPS map coming soon</div></div></div>' +
+            '</div>';
+        });
+      }
+
+      // Today's scheduled jobs
+      if(todayJobs.length>0){
+        h+='<div style="font-weight:700;font-size:0.88rem;color:var(--dark);margin:8px 0 8px">📅 Today\'s Scheduled Visits</div>';
+        var svcIcons={'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
+        todayJobs.forEach(function(b){
+          var icon=svcIcons[b.service]||'🐾';
+          var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');
+          var statusColor=b.status==='in_progress'?'#22c55e':b.status==='confirmed'?'var(--forest)':'var(--gold)';
+          h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--warm,#faf6ee);border-radius:10px;margin-bottom:6px">' +
+            '<div style="font-size:1.2rem">'+icon+'</div>' +
+            '<div style="flex:1"><div style="font-weight:600;font-size:0.85rem">'+b.service+'</div>' +
+            '<div style="font-size:0.78rem;color:var(--mid)">'+(t||'Time TBD')+(b.pet_names?' · '+b.pet_names:'')+'</div></div>' +
+            '<div style="font-size:0.7rem;font-weight:700;color:'+statusColor+';text-transform:uppercase">'+b.status+'</div></div>';
+        });
+      }
+
+      h+='</div>';
+      return h;
+    }catch(e){return'';}
   };
 
   _R._rwClientPhotos=async function(sz){

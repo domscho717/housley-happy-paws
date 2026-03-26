@@ -802,6 +802,35 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   #scrollTopBtn{top:14px;padding:6px 14px 6px 11px;font-size:0.7rem;min-height:34px}
 }
 
+/* ── Floating Live Walk Paw Button ── */
+#hhp-live-paw{
+  display:none;position:fixed;bottom:28px;right:20px;z-index:500;
+  width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#3d5a47,#4a7c59);color:#fff;
+  box-shadow:0 4px 20px rgba(61,90,71,0.45),0 0 0 0 rgba(61,90,71,0.4);
+  font-size:1.5rem;
+  align-items:center;justify-content:center;
+  animation:hhpPawPulse 2s ease-in-out infinite;
+  transition:transform 0.2s,opacity 0.3s;
+  -webkit-tap-highlight-color:transparent;
+}
+#hhp-live-paw.visible{display:inline-flex}
+#hhp-live-paw:active{transform:scale(0.9)}
+#hhp-live-paw .hhp-paw-label{
+  position:absolute;top:-8px;right:-8px;
+  background:#e74c3c;color:#fff;font-size:0.58rem;font-weight:800;
+  padding:2px 6px;border-radius:10px;white-space:nowrap;
+  letter-spacing:0.3px;box-shadow:0 1px 4px rgba(0,0,0,0.25);
+}
+@keyframes hhpPawPulse{
+  0%{box-shadow:0 4px 20px rgba(61,90,71,0.45),0 0 0 0 rgba(61,90,71,0.4)}
+  50%{box-shadow:0 4px 20px rgba(61,90,71,0.45),0 0 0 14px rgba(61,90,71,0)}
+  100%{box-shadow:0 4px 20px rgba(61,90,71,0.45),0 0 0 0 rgba(61,90,71,0)}
+}
+@media(max-width:900px){
+  #hhp-live-paw{bottom:22px;right:16px;width:50px;height:50px;font-size:1.3rem}
+}
+
 /* Prevent iOS Safari zoom on input focus — all inputs must be ≥16px */
 @media screen and (-webkit-min-device-pixel-ratio:0) {
   select,textarea,input[type="text"],input[type="email"],input[type="password"],input[type="tel"],input[type="number"],input[type="date"],input[type="time"],input[type="search"]{font-size:16px!important}
@@ -1454,6 +1483,7 @@ try {
 
 <!-- Scroll-to-Top Button (all pages + portals) -->
 <button id="scrollTopBtn" onclick="scrollToTop()">↑ Top</button>
+<button id="hhp-live-paw" aria-label="Live walk in progress">🐾<span class="hhp-paw-label">LIVE</span></button>
 
 <!-- ========= CLIENT PORTAL ========= -->
 <div class="page" id="pg-client">
@@ -1464,7 +1494,6 @@ try {
       <div class="sb-nav-group" style="max-height:1200px">
         <button class="sb-item" onclick="sTab('c','c-pets')" style="background:linear-gradient(135deg,rgba(200,150,62,0.2),rgba(61,90,71,0.15));border:1px solid rgba(200,150,62,0.25);color:var(--gold-light)"><span class="sb-item-icon">🐾</span>My Pets</button>
         <button class="sb-item" onclick="sTab('c','c-appts')"><span class="sb-item-icon">📅</span>Appointments</button>
-        <button class="sb-item" onclick="sTab('c','c-track')"><span class="sb-item-icon">🗺️</span>Live Tracking</button>
         <button class="sb-item" onclick="sTab('c','c-msgs')"><span class="sb-item-icon">💬</span>Messages</button>
         <button class="sb-item" onclick="sTab('c','c-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
         <button class="sb-item" onclick="sTab('c','c-general')" id="sb-general-btn" style="position:relative"><span class="sb-item-icon">📂</span>General<span id="sb-reports-badge" class="sb-badge" style="display:none;position:absolute;top:2px;right:8px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;min-width:18px;height:18px;line-height:18px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></span></button>
@@ -1626,7 +1655,7 @@ try {
       </div>
 
       <!-- TRACKING -->
-      <div class="p-panel" id="c-track">
+      <div class="p-panel" id="c-track" style="display:none!important">
         <div class="p-header"><h2>Live Tracking 🗺️</h2><p>Track your pet's walk in real-time when a visit is active.</p></div>
         <div class="card">
           <div style="padding:40px;text-align:center;color:var(--mid)">
@@ -3901,6 +3930,15 @@ function goBackPanel() {
 var _generalTabMap = { 'c-photos': 'photos', 'c-reports': 'reports', 'c-reviews': 'reviews', 'c-bill': 'billing' };
 
 function sTab(portal, panelId) {
+  // Redirect c-track to dashboard (tracking is now a dashboard widget)
+  if (panelId === 'c-track') {
+    panelId = 'c-dash';
+    // Scroll to tracking widget after panel loads
+    setTimeout(function() {
+      var w = document.getElementById('cw-tracking');
+      if (w) w.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  }
   // Intercept old panel IDs that now live inside General
   if (_generalTabMap[panelId]) {
     var subTab = _generalTabMap[panelId];
@@ -12305,6 +12343,50 @@ function _injectReviewSchema(reviews, avgRating, totalCount) {
   document.head.appendChild(script);
 }
 
+// ── Floating Live Walk Paw Button ──
+(function(){
+  var pawBtn=document.getElementById('hhp-live-paw');
+  if(!pawBtn)return;
+  var dismissed=false;
+
+  // Global function the widget render calls to show/hide the paw
+  window._hhpUpdatePawBtn=function(hasActiveWalks){
+    if(!pawBtn)return;
+    // Only show for clients on the dashboard, and only if not already dismissed this session
+    var isClient=window.HHP_Auth&&window.HHP_Auth.currentRole==='client';
+    if(hasActiveWalks&&isClient&&!dismissed){
+      pawBtn.classList.add('visible');
+    }else{
+      pawBtn.classList.remove('visible');
+    }
+  };
+
+  // On tap: scroll to the tracking widget, then dismiss
+  pawBtn.addEventListener('click',function(){
+    var widget=document.getElementById('cw-tracking');
+    if(widget){
+      widget.scrollIntoView({behavior:'smooth',block:'center'});
+      // Brief highlight effect
+      widget.style.transition='box-shadow 0.3s';
+      widget.style.boxShadow='0 0 0 3px rgba(61,90,71,0.4)';
+      setTimeout(function(){widget.style.boxShadow='';},2000);
+    }
+    // Dismiss — hide button for rest of session
+    dismissed=true;
+    pawBtn.classList.remove('visible');
+  });
+
+  // Also check on walk subscription events
+  window._hhpCheckLiveWalks=async function(){
+    var sb=window.HHP_Auth&&window.HHP_Auth.supabase;
+    if(!sb)return;
+    try{
+      var{data}=await sb.from('walks').select('id').eq('status','in_progress').limit(1);
+      window._hhpUpdatePawBtn(data&&data.length>0);
+    }catch(e){}
+  };
+})();
+
 // ── Initialize reports & reviews on page load ──
 document.addEventListener('DOMContentLoaded', function() {
   initReportDate();
@@ -13385,7 +13467,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
           }
 
-          // Client live tracking
+          // Client live tracking (old panel — kept for compatibility)
           if (panelActive('c-track')) {
             debounceRefresh('clientTrack', function() {
               if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.loadClientLiveTracking) {
@@ -13393,6 +13475,15 @@ document.addEventListener('DOMContentLoaded', function() {
               }
             });
           }
+
+          // Client dashboard tracking widget + floating paw button
+          debounceRefresh('clientTrackWidget', function() {
+            if (typeof window._hhpCheckLiveWalks === 'function') window._hhpCheckLiveWalks();
+            // Re-render the tracking widget if on dashboard
+            if (panelActive('c-dash') && typeof HHP_Customizer !== 'undefined' && HHP_Customizer.refreshWidget) {
+              HHP_Customizer.refreshWidget('cw-tracking');
+            }
+          });
         })
 
         // ─── SERVICE REPORTS — client reports, owner reports ───
