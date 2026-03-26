@@ -694,6 +694,23 @@
       if(sz==='full'){
         var{data}=await sb.from('service_reports').select('*').eq('client_id',u.id).order('created_at',{ascending:false}).limit(4);
         var{count}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+        var{count:_unreadFull}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id).is('client_read_at',null);
+        // Inject header badge for full size too
+        setTimeout(function(){
+          var cardEl=document.querySelector('[data-wid="cw-reports"]');
+          if(cardEl){
+            var oldBadge=cardEl.querySelector('.cw-hdr-badge');if(oldBadge)oldBadge.remove();
+            if(_unreadFull>0){
+              var labelSpan=cardEl.querySelector('[style*="text-transform:uppercase"]');
+              if(labelSpan){
+                var b=document.createElement('span');b.className='cw-hdr-badge';
+                b.style.cssText='background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;line-height:1;padding:0 4px';
+                b.textContent=Math.min(_unreadFull,9);
+                labelSpan.parentNode.insertBefore(b,labelSpan.nextSibling);
+              }
+            }
+          }
+        },50);
         var h=_bigNum(count||0,'reports received',sz);
         if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(r){var d=new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var isNew=!r.client_read_at;h+='<div style="position:relative;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'c\',\'c-reports\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(r.service||'Walk')+'</span><span style="color:var(--mid)">'+d+'</span></div>'+((r.personal_note||r.notes)?'<div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+(r.personal_note||r.notes).substring(0,60)+((r.personal_note||r.notes).length>60?'...':'')+'</div>':'')+
           (isNew?'<span style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center">+1</span>':'')+'</div>';});h+='</div>';h+='<div style="margin-top:12px;text-align:center"><a href="javascript:sTab(\'c\',\'c-reports\')" style="color:var(--forest);font-weight:600;font-size:0.85rem;text-decoration:none;cursor:pointer">View All Reports →</a></div>';}
@@ -701,8 +718,23 @@
       }
       var{count}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
       var{count:unreadCount}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id).is('client_read_at',null);
-      var badgeHtml = unreadCount > 0 ? '<span style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="sTab(\'c\',\'c-reports\')">+'+Math.min(unreadCount,9)+'</span>' : '';
-      return '<div style="position:relative;display:inline-block"><div>'+_bigNum(count||0,'reports',sz)+'</div>'+badgeHtml+'</div>';
+      // Inject badge into widget card header (next to title)
+      setTimeout(function(){
+        var cardEl=document.querySelector('[data-wid="cw-reports"]');
+        if(cardEl){
+          var oldBadge=cardEl.querySelector('.cw-hdr-badge');if(oldBadge)oldBadge.remove();
+          if(unreadCount>0){
+            var labelSpan=cardEl.querySelector('[style*="text-transform:uppercase"]');
+            if(labelSpan){
+              var b=document.createElement('span');b.className='cw-hdr-badge';
+              b.style.cssText='background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;line-height:1;padding:0 4px';
+              b.textContent=Math.min(unreadCount,9);
+              labelSpan.parentNode.insertBefore(b,labelSpan.nextSibling);
+            }
+          }
+        }
+      },50);
+      return _bigNum(count||0,'reports',sz);
     }catch(e){return'';}
   };
 
