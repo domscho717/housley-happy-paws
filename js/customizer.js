@@ -45,7 +45,7 @@
   };
 
   var _panelNav = {
-    'cw-upcoming':"sTab('c','c-appts')",'cw-pets':"sTab('c','c-pets')",'cw-tracking':"sTab('c','c-track')",
+    'cw-upcoming':"sTab('c','c-appts')",'cw-notif':"sTab('c','c-msgs')",'cw-pets':"sTab('c','c-pets')",'cw-tracking':"sTab('c','c-track')",
     'cw-photos':"sTab('c','c-photos')",'cw-reports':"sTab('c','c-reports')",'cw-reviews':"sTab('c','c-reviews')",
     'cw-msgs':"sTab('c','c-msgs')",'cw-billing':"sTab('c','c-bill')",
     'sw-jobs':"sTab('s','s-jobs')",'sw-requests':"sTab('s','s-requests')",'sw-clients':"sTab('s','s-clients')",'sw-earnings':"sTab('s','s-earn')",
@@ -345,8 +345,10 @@
     var canResize=!w.fixed; // Don't show resize on fixed-size widgets
     return '<div class="cust-widget" data-wid="'+w.wid+'" style="'+span+'background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.04)">'+
       '<div style="display:flex;align-items:center;gap:8px;padding:12px 14px 0;user-select:none">'+
+        (nav?'<a href="javascript:void(0)" onclick="event.stopPropagation();'+nav+'" style="display:flex;align-items:center;gap:8px;flex:1;text-decoration:none;cursor:pointer;transition:opacity 0.15s" onmouseenter="this.style.opacity=0.7" onmouseleave="this.style.opacity=1">':'<div style="display:flex;align-items:center;gap:8px;flex:1">')+
         '<span style="font-size:1.1rem">'+w.icon+'</span>'+
-        '<span style="font-size:0.78rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;flex:1">'+w.label+'</span>'+
+        '<span style="font-size:0.78rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">'+w.label+'</span>'+
+        (nav?'</a>':'</div>')+
         (canResize?'<button onclick="event.stopPropagation();HHP_Customizer.setSize(\''+portal+'\',\''+w.wid+'\',\''+otherSize+'\')" title="'+(full?'Shrink':'Expand full width')+'" style="background:none;border:none;cursor:pointer;font-size:1rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">'+sIcon+'</button>':'')+
         (nav?'<button onclick="event.stopPropagation();HHP_Customizer.detail(\''+portal+'\',\''+w.wid+'\')" title="Detail view" style="background:none;border:none;cursor:pointer;font-size:0.85rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">🔍</button>':'')+
         (nav?'<button onclick="event.stopPropagation();'+nav+'" title="Go to panel" style="background:none;border:none;cursor:pointer;font-size:0.7rem;color:var(--gold);font-weight:700;padding:2px 6px;opacity:0.5;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">View →</button>':'')+
@@ -690,16 +692,17 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     try{
       if(sz==='full'){
-        var{data}=await sb.from('walk_reports').select('*').eq('client_id',u.id).order('created_at',{ascending:false}).limit(4);
-        var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+        var{data}=await sb.from('service_reports').select('*').eq('client_id',u.id).order('created_at',{ascending:false}).limit(4);
+        var{count}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
         var h=_bigNum(count||0,'reports received',sz);
-        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(r){var d=new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var isNew=new Date(r.created_at)>new Date(Date.now()-3*24*60*60*1000);h+='<div style="position:relative;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'c\',\'c-reports\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(r.service||'Walk')+'</span><span style="color:var(--mid)">'+d+'</span></div>'+(r.notes?'<div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+r.notes.substring(0,60)+(r.notes.length>60?'...':'')+'</div>':'')+
+        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(r){var d=new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var isNew=!r.client_read_at;h+='<div style="position:relative;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'c\',\'c-reports\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(r.service||'Walk')+'</span><span style="color:var(--mid)">'+d+'</span></div>'+((r.personal_note||r.notes)?'<div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+(r.personal_note||r.notes).substring(0,60)+((r.personal_note||r.notes).length>60?'...':'')+'</div>':'')+
           (isNew?'<span style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center">+1</span>':'')+'</div>';});h+='</div>';h+='<div style="margin-top:12px;text-align:center"><a href="javascript:sTab(\'c\',\'c-reports\')" style="color:var(--forest);font-weight:600;font-size:0.85rem;text-decoration:none;cursor:pointer">View All Reports →</a></div>';}
         return h;
       }
-      var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
-      var{count:recentCount}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id).gte('created_at',new Date(Date.now()-7*24*60*60*1000).toISOString());
-      return '<div style="position:relative;display:inline-block"><div>'+_bigNum(count||0,'reports',sz)+'</div><span style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="sTab(\'c\',\'c-reports\')">+'+Math.min(recentCount||0,9)+'</span></div>';
+      var{count}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+      var{count:unreadCount}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id).is('client_read_at',null);
+      var badgeHtml = unreadCount > 0 ? '<span style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="sTab(\'c\',\'c-reports\')">+'+Math.min(unreadCount,9)+'</span>' : '';
+      return '<div style="position:relative;display:inline-block"><div>'+_bigNum(count||0,'reports',sz)+'</div>'+badgeHtml+'</div>';
     }catch(e){return'';}
   };
 

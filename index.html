@@ -1467,7 +1467,7 @@ try {
         <button class="sb-item" onclick="sTab('c','c-appts')"><span class="sb-item-icon">📅</span>Appointments</button>
         <button class="sb-item" onclick="sTab('c','c-track')"><span class="sb-item-icon">🗺️</span>Live Tracking</button>
         <button class="sb-item" onclick="sTab('c','c-photos')"><span class="sb-item-icon">📸</span>Photo Gallery</button>
-        <button class="sb-item" onclick="sTab('c','c-reports')"><span class="sb-item-icon">📋</span>Walk Reports</button>
+        <button class="sb-item" onclick="sTab('c','c-reports')" id="sb-reports-btn"><span class="sb-item-icon">📋</span>Walk Reports<span id="sb-reports-badge" style="display:none;background:#e74c3c;color:white;font-size:0.6rem;font-weight:700;border-radius:50%;min-width:18px;height:18px;align-items:center;justify-content:center;margin-left:6px"></span></button>
         <button class="sb-item" onclick="sTab('c','c-reviews')"><span class="sb-item-icon">⭐</span>My Reviews</button>
         <button class="sb-item" onclick="sTab('c','c-msgs')"><span class="sb-item-icon">💬</span>Messages</button>
         <button class="sb-item" onclick="sTab('c','c-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
@@ -11348,6 +11348,27 @@ function openReportDetail(reportOrId) {
   modal.style.display = 'flex';
   modal.classList.add('active');
 
+  // Mark report as read by client
+  if (report.id && !report.client_read_at) {
+    var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+    if (sb && user && user.profile && user.profile.role === 'client') {
+      sb.from('service_reports').update({ client_read_at: new Date().toISOString() }).eq('id', report.id).then(function() {
+        report.client_read_at = new Date().toISOString();
+        if (typeof HHP_Customizer !== 'undefined' && typeof HHP_Customizer.refreshWidget === 'function') {
+          HHP_Customizer.refreshWidget('cw-reports');
+        }
+        // Also update sidebar badge
+        var rBadge = document.getElementById('sb-reports-badge');
+        if (rBadge) {
+          var cur = parseInt(rBadge.textContent) || 0;
+          if (cur > 1) { rBadge.textContent = cur - 1; }
+          else { rBadge.style.display = 'none'; }
+        }
+      });
+    }
+  }
+
   // Load walk route map for dog walk reports
   if (typeof HHP_Tracking !== 'undefined' && report.service && (report.service.toLowerCase().indexOf('walk') > -1)) {
     _loadReportRouteMap(report);
@@ -12498,6 +12519,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const { count: reportsReceived } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId);
         const el3 = document.getElementById('stat-avgRatingGiven');
         if (el3) el3.textContent = (reportsReceived || 0);
+
+        // Unread reports badge on sidebar
+        try {
+          const { count: unreadReports } = await sb.from('service_reports').select('id', { count: 'exact', head: true }).eq('client_id', effectiveUserId).is('client_read_at', null);
+          const rBadge = document.getElementById('sb-reports-badge');
+          if (rBadge) {
+            if (unreadReports > 0) {
+              rBadge.textContent = unreadReports > 9 ? '9+' : unreadReports;
+              rBadge.style.display = 'inline-flex';
+            } else {
+              rBadge.style.display = 'none';
+            }
+          }
+        } catch(e) {}
 
         // Pets in Care — count pets owned by this client (pets table uses owner_id)
         try {
