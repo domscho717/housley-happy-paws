@@ -16,7 +16,8 @@ module.exports = async function handler(req, res) {
     email, name, service, status,
     scheduledDate, scheduledTime, adminNotes,
     paymentLink, estimatedTotal, priceBreakdown,
-    autoCharged, recurrencePattern, dateDetails
+    autoCharged, recurrencePattern, dateDetails,
+    isOwnerNotification, clientName, clientAddress, mapLink
   } = req.body || {};
 
   if (!email || !name || !service || !status) {
@@ -24,8 +25,8 @@ module.exports = async function handler(req, res) {
   }
 
   // Validate status is one of the expected values
-  if (!['accepted', 'modified', 'declined', 'payment_hold'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, or payment_hold' });
+  if (!['accepted', 'modified', 'declined', 'payment_hold', 'canceled'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, canceled, or payment_hold' });
   }
 
   try {
@@ -37,7 +38,54 @@ module.exports = async function handler(req, res) {
   const dateFmt = scheduledDate ? new Date(scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
   const timeFmt = fmt12(scheduledTime) || '';
 
-  if (status === 'accepted') {
+  // ── Owner notification: client accepted/canceled time change ──
+  if (isOwnerNotification && (status === 'accepted' || status === 'canceled')) {
+    const safeClientName = escHtml(clientName || 'Client');
+    const safeAddress = escHtml(clientAddress || '');
+
+    if (status === 'accepted') {
+      subject = `✅ ${safeClientName} accepted the time change — ${safeService}`;
+      const mapHTML = mapLink ? `
+        <div style="background:#eef4ef;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #c5d8c9">
+          <div style="font-weight:700;margin-bottom:8px">📍 Client Address</div>
+          <div style="margin-bottom:8px">${safeAddress}</div>
+          <a href="${escHtml(mapLink)}" style="display:inline-block;padding:10px 24px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">🗺️ Open in Google Maps →</a>
+        </div>` : '';
+      const payNote = autoCharged ? `<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">💳 Payment of $${Number(estimatedTotal).toFixed(2)} charged automatically.</div>` : '';
+      bodyHTML = `
+        <p>Hi ${escHtml(name)}!</p>
+        <p><strong>${safeClientName}</strong> has accepted the time change for <strong>${safeService}</strong>.</p>
+        <div style="background:#eef4ef;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #3d5a47">
+          <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService}</div>
+          ${dateFmt ? `<div style="margin-bottom:4px">📅 ${dateFmt}</div>` : ''}
+          ${timeFmt ? `<div style="margin-bottom:4px">🕐 ${timeFmt}</div>` : ''}
+        </div>
+        ${payNote}
+        ${mapHTML}
+        ${safeNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-style:italic;color:#5c3d1e">${safeNotes}</div></div>` : ''}
+        <div style="margin-top:20px">
+          <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View in Owner Portal →</a>
+        </div>
+      `;
+    } else {
+      // canceled
+      subject = `❌ ${safeClientName} declined the time change — ${safeService}`;
+      bodyHTML = `
+        <p>Hi ${escHtml(name)}!</p>
+        <p><strong>${safeClientName}</strong> declined the suggested time change for <strong>${safeService}</strong> and has canceled the booking.</p>
+        <div style="background:#fde8e8;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c62828">
+          <div style="font-weight:700;margin-bottom:8px;color:#c62828">Booking Canceled</div>
+          ${dateFmt ? `<div style="margin-bottom:4px">📅 Was scheduled: ${dateFmt}</div>` : ''}
+          ${timeFmt ? `<div style="margin-bottom:4px">🕐 ${timeFmt}</div>` : ''}
+        </div>
+        ${safeNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;border:1px solid #e8e0d4"><div style="font-style:italic;color:#5c3d1e">${safeNotes}</div></div>` : ''}
+        <div style="margin-top:20px">
+          <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View in Owner Portal →</a>
+        </div>
+      `;
+    }
+
+  } else if (status === 'accepted') {
     subject = `✅ Your ${safeService} booking is confirmed! — Housley Happy Paws`;
 
     // Build invoice section
@@ -181,7 +229,7 @@ module.exports = async function handler(req, res) {
   const result = await sendEmail({
     to: email,
     subject,
-    title: status === 'accepted' ? 'Booking Confirmed!' : status === 'payment_hold' ? 'Payment Issue' : status === 'modified' ? 'Booking Update' : 'Booking Update',
+    title: isOwnerNotification ? (status === 'accepted' ? 'Time Change Accepted' : 'Booking Canceled') : status === 'accepted' ? 'Booking Confirmed!' : status === 'canceled' ? 'Booking Canceled' : status === 'payment_hold' ? 'Payment Issue' : status === 'modified' ? 'Booking Update' : 'Booking Update',
     bodyHTML,
   });
 

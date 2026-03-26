@@ -6416,8 +6416,19 @@ async function clientAcceptTimeChange(bookingId) {
       }
     } catch(e) {}
 
-    // ── EMAIL to owner (only on SUCCESS) ──
+    // ── EMAIL to owner (only on SUCCESS) — include map link ──
     try {
+      // Get client address for map link
+      var clientAddress = bk.address || '';
+      if (!clientAddress && bk.client_id) {
+        try {
+          var { data: clientProfile } = await sb.from('profiles').select('address').eq('user_id', bk.client_id).maybeSingle();
+          if (clientProfile && clientProfile.address) clientAddress = clientProfile.address;
+        } catch(e) {}
+      }
+      var mapLink = clientAddress ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(clientAddress) : '';
+      var ownerNotes = (clientName || 'Client') + ' accepted the time change.' + (autoCharged ? ' Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged.' : '');
+      if (mapLink) ownerNotes += '\n📍 Address: ' + clientAddress + '\n🗺️ Map: ' + mapLink;
       await fetch('/api/booking-status-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -6428,9 +6439,13 @@ async function clientAcceptTimeChange(bookingId) {
           status: 'accepted',
           scheduledDate: newDate,
           scheduledTime: newTime,
-          adminNotes: (clientName || 'Client') + ' accepted the time change.' + (autoCharged ? ' Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged.' : ''),
+          adminNotes: ownerNotes,
           estimatedTotal: bk.estimated_total || null,
           autoCharged: autoCharged,
+          isOwnerNotification: true,
+          clientName: clientName || 'Client',
+          clientAddress: clientAddress,
+          mapLink: mapLink,
         }),
       });
     } catch(e) { console.warn('Email notification failed:', e); }
@@ -6497,9 +6512,10 @@ async function clientDeclineTimeChange(bookingId) {
       admin_notes: (bk.admin_notes || '') + '\nClient declined the suggested time change and canceled the booking on ' + new Date().toLocaleDateString() + '.'
     }).eq('id', bookingId);
 
-    // Notify owner that client canceled due to time change
+    // Notify owner AND assigned staff that client canceled due to time change
     var clientName = '';
     try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var declineMsg = '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their booking') + ' and has canceled the booking.';
     var ownerIds = [];
     try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
     for (var oi = 0; oi < ownerIds.length; oi++) {
@@ -6507,10 +6523,25 @@ async function clientDeclineTimeChange(bookingId) {
         sender_id: user.id,
         sender_name: clientName || 'Client',
         recipient_id: ownerIds[oi],
-        body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their booking') + ' and has canceled the booking.',
+        body: declineMsg,
         is_alert: true,
       });
     }
+    // Also notify assigned staff
+    try {
+      var { data: staffAssignments } = await sb.from('staff_assignments').select('staff_id').eq('client_id', bk.client_id);
+      if (staffAssignments && staffAssignments.length > 0) {
+        for (var si = 0; si < staffAssignments.length; si++) {
+          await sb.from('messages').insert({
+            sender_id: user.id,
+            sender_name: clientName || 'Client',
+            recipient_id: staffAssignments[si].staff_id,
+            body: declineMsg,
+            is_alert: true,
+          });
+        }
+      }
+    } catch(e) {}
 
     // Email owner about the cancellation
     try {
@@ -6525,6 +6556,8 @@ async function clientDeclineTimeChange(bookingId) {
           scheduledDate: bk.preferred_date,
           scheduledTime: bk.preferred_time,
           adminNotes: (clientName || 'Client') + ' declined the suggested time change and canceled the booking.',
+          isOwnerNotification: true,
+          clientName: clientName || 'Client',
         }),
       });
     } catch(e) { console.warn('Email notification failed:', e); }
@@ -13139,11 +13172,11 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260325h" defer></script>
+  <script src="/js/booking-system.js?v=20260326a" defer></script>
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260325h" defer></script>
+  <script src="/js/customizer.js?v=20260326a" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>
