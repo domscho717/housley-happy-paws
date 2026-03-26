@@ -10804,7 +10804,8 @@ async function loadClientUpcomingCharges() {
             amount: b.estimated_total || 0,
             petNames: b.pet_names || '',
             bookingId: b.id,
-            isRecurring: !!b.recurrence_pattern
+            isRecurring: !!b.recurrence_pattern,
+            isPaid: !!b.payment_intent_id
           });
         }
       });
@@ -10820,8 +10821,11 @@ async function loadClientUpcomingCharges() {
       var dateObj = new Date(u.date + 'T12:00:00');
       var daysUntil = Math.ceil((dateObj - today) / 86400000);
       var dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-      var urgency = daysUntil <= 2 ? 'var(--gold-pale)' : 'var(--warm)';
-      var chargeNote = daysUntil <= 1 ? '<span style="color:var(--gold-deep);font-weight:600;font-size:0.72rem"> — Charging today</span>' : daysUntil <= 2 ? '<span style="color:var(--gold-deep);font-weight:600;font-size:0.72rem"> — Charging soon</span>' : '';
+      var urgency = u.isPaid ? '#e8f5e9' : daysUntil <= 2 ? 'var(--gold-pale)' : 'var(--warm)';
+      var chargeNote = u.isPaid
+        ? '<span style="color:var(--forest);font-weight:600;font-size:0.72rem"> — ✓ Paid</span>'
+        : daysUntil <= 1 ? '<span style="color:var(--gold-deep);font-weight:600;font-size:0.72rem"> — Charging today</span>'
+        : daysUntil <= 2 ? '<span style="color:var(--gold-deep);font-weight:600;font-size:0.72rem"> — Charging soon</span>' : '';
 
       h += '<div onclick="showBookingDetail(\'' + u.bookingId + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:' + urgency + ';border-radius:8px;border:1px solid var(--border);transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.boxShadow=\'none\'">';
       h += '<div><div style="font-weight:600;font-size:0.85rem">' + u.service + (u.isRecurring ? ' 🔄' : '') + '</div>';
