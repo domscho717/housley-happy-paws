@@ -7227,9 +7227,12 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   // Remove existing panel if any
   var old = document.getElementById('hhp-live-service-panel');
   if (old) old.remove();
-  // Remove any floating reopen pill
+  // Remove any floating reopen pill (legacy)
   var oldPill = document.getElementById('hhp-live-service-pill');
   if (oldPill) oldPill.remove();
+  // Hide service timer overlay while full panel is open (panel has its own timer)
+  var timerEl = document.getElementById('hhp-service-timer');
+  if (timerEl) timerEl.style.display = 'none';
 
   var panel = document.createElement('div');
   panel.id = 'hhp-live-service-panel';
@@ -7554,27 +7557,10 @@ function minimizeLiveServicePanel() {
   var panel = document.getElementById('hhp-live-service-panel');
   if (panel) panel.style.display = 'none';
 
-  // Show floating pill to reopen
-  var existingPill = document.getElementById('hhp-live-service-pill');
-  if (!existingPill) {
-    var pill = document.createElement('div');
-    pill.id = 'hhp-live-service-pill';
-    pill.style.cssText = 'position:fixed;bottom:80px;right:16px;z-index:9996;background:var(--forest,#3d5a47);color:white;padding:10px 18px;border-radius:50px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.25);display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:700;font-family:inherit;animation:pulse 2s infinite';
-    pill.innerHTML = '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e"></div><span id="hhp-pill-timer">▶ In Progress</span>';
-    pill.onclick = function() { reopenLiveServicePanel(); };
-    document.body.appendChild(pill);
-    // Keep pill timer updated
-    if (!window._pillTimerInterval) {
-      window._pillTimerInterval = setInterval(function() {
-        var d = window._liveServiceData;
-        if (!d || !d.startTime) return;
-        var elapsed = Math.floor((Date.now() - new Date(d.startTime).getTime()) / 1000);
-        var min = Math.floor(elapsed / 60);
-        var sec = elapsed % 60;
-        var pillLabel = document.getElementById('hhp-pill-timer');
-        if (pillLabel) pillLabel.textContent = '▶ ' + min + ':' + (sec < 10 ? '0' : '') + sec;
-      }, 1000);
-    }
+  // Show the service timer overlay (which already has elapsed/remaining + click-to-reopen)
+  var timerEl = document.getElementById('hhp-service-timer');
+  if (timerEl) {
+    timerEl.style.display = '';
   }
 }
 
@@ -7587,7 +7573,10 @@ function reopenLiveServicePanel() {
     var d = window._liveServiceData;
     openLiveServicePanel({ id: d.walkId, start_time: d.startTime }, d.service, d.petNames, d.clientName, d.bookingId, d.address);
   }
-  // Hide the pill
+  // Hide the service timer overlay while panel is open
+  var timerEl = document.getElementById('hhp-service-timer');
+  if (timerEl) timerEl.style.display = 'none';
+  // Remove legacy pill if it exists
   var pill = document.getElementById('hhp-live-service-pill');
   if (pill) pill.remove();
   if (window._pillTimerInterval) { clearInterval(window._pillTimerInterval); window._pillTimerInterval = null; }
