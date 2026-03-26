@@ -3582,13 +3582,41 @@
 
       // Optimistic: update card instantly
       _optimisticCard(requestId, 'accepted');
-      if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
 
       await sb.from('booking_requests').update({
         status: 'accepted',
         scheduled_date: req.preferred_date,
         scheduled_time: req.preferred_time
       }).eq('id', requestId);
+
+      // ── Charge saved card if paid service ──
+      var autoCharged = false;
+      if (req.estimated_total > 0 && req.client_id) {
+        try {
+          var chargeResp = await fetch('/api/charge-saved-card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
+          });
+          var chargeData = await chargeResp.json();
+          if (chargeData.success) {
+            autoCharged = true;
+            if (typeof toast === 'function') toast('✓ Booking accepted & card charged $' + Number(req.estimated_total).toFixed(2) + '!');
+          } else {
+            // Card failed — set payment_hold
+            await sb.from('booking_requests').update({
+              status: 'payment_hold',
+              admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but payment failed: ' + (chargeData.message || chargeData.error || 'Card declined')
+            }).eq('id', requestId);
+            if (typeof toast === 'function') toast('⚠️ Booking accepted but card was declined. Booking on payment hold.');
+          }
+        } catch (chargeErr) {
+          console.warn('Auto-charge failed:', chargeErr);
+          if (typeof toast === 'function') toast('⚠️ Booking accepted but could not charge card.');
+        }
+      } else {
+        if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
+      }
 
       _optimisticDone(requestId, true);
       _sendBookingNotification(req, 'accepted');
@@ -3783,7 +3811,7 @@
       var newStatus = allDecided ? (allDeclined ? 'declined' : 'accepted') : 'pending';
       var acceptedDates = dd.filter(function(d) { return d.status === 'accepted'; }).map(function(d) { return d.date; });
       if (typeof toast === 'function') toast('✓ Appointment accepted! Client notified.');
-      return { date_details: dd, status: newStatus, booking_dates: acceptedDates.length > 0 ? acceptedDates : booking.booking_dates };
+      return { date_details: dd, status: newStatus, scheduled_date: dd[idx].date, scheduled_time: dd[idx].time || '', booking_dates: acceptedDates.length > 0 ? acceptedDates : booking.booking_dates };
     }, 'accepted');
   };
 
