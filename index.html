@@ -1957,13 +1957,11 @@ try {
         <button class="sb-item active" onclick="sTab('o','o-overview')"><span class="sb-item-icon">📊</span>Overview</button>
         <button class="sb-item" onclick="sTab('o','o-requests')"><span class="sb-item-icon">📋</span>Booking Requests</button>
         <button class="sb-item" onclick="sTab('o','o-clients')"><span class="sb-item-icon">👥</span>All Clients</button>
-        <button class="sb-item" onclick="sTab('o','o-sched')"><span class="sb-item-icon">📅</span>Master Schedule</button>
+        <button class="sb-item" onclick="sTab('o','o-schedules')"><span class="sb-item-icon">📅</span>Schedules</button>
         <button class="sb-item" onclick="sTab('o','o-reports')"><span class="sb-item-icon">📋</span>Create Report</button>
         <button class="sb-item" onclick="sTab('o','o-reviews')"><span class="sb-item-icon">⭐</span>Reviews & Ratings</button>
         <button class="sb-item" onclick="sTab('o','o-staff')"><span class="sb-item-icon">🧑‍🤝‍🧑</span>Staff</button>
         <button class="sb-item" onclick="sTab('o','o-msgs')"><span class="sb-item-icon">💬</span>All Messages</button>
-        <button class="sb-item" onclick="sTab('o','o-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
-        <button class="sb-item" onclick="sTab('o','o-avail')"><span class="sb-item-icon">🗓️</span>Availability</button>
         <button class="sb-item" onclick="sTab('o','o-deals')"><span class="sb-item-icon">🏷️</span>Specials & Deals</button>
         <button class="sb-item" onclick="sTab('o','o-sendInvoice')"><span class="sb-item-icon">🧾</span>Send Invoice</button>
         <button class="sb-item" onclick="sTab('o','o-general')"><span class="sb-item-icon">📂</span>General</button>
@@ -2056,6 +2054,67 @@ try {
         </div>
       </div>
 
+      <!-- ========== COMBINED SCHEDULES (Calendar + Service List + Availability) ========== -->
+      <div class="p-panel" id="o-schedules">
+        <div class="p-header"><h2>📅 Schedules</h2><p>Calendar, appointments, and availability — all in one view.</p></div>
+        <!-- Staff/Owner Filter -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+          <label style="font-size:0.82rem;font-weight:700;color:var(--mid)">View:</label>
+          <select id="schedViewFilter" class="form-sel" style="font-size:0.85rem;padding:8px 14px;border-radius:10px;min-width:160px" onchange="loadSchedulesPanel()">
+            <option value="all">All (Everyone)</option>
+            <option value="owner">Owner (Rachel)</option>
+          </select>
+          <select id="schedServiceFilter" class="form-sel" style="font-size:0.85rem;padding:8px 14px;border-radius:10px;min-width:140px" onchange="loadSchedulesPanel()">
+            <option value="all">All Services</option>
+            <option value="Dog Walking">Dog Walking</option>
+            <option value="Drop-In Visit">Drop-In Visits</option>
+            <option value="Cat Care">Cat Care</option>
+            <option value="House Sitting">House Sitting</option>
+          </select>
+        </div>
+        <!-- Section tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:18px">
+          <button class="sched-sec-btn active" data-schedsec="calendar" onclick="switchScheduleSection('calendar',this)" style="padding:8px 18px;border-radius:20px;border:2px solid var(--gold);background:var(--gold);color:white;font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.2s;font-family:inherit">📆 Calendar</button>
+          <button class="sched-sec-btn" data-schedsec="services" onclick="switchScheduleSection('services',this)" style="padding:8px 18px;border-radius:20px;border:2px solid var(--border);background:var(--warm);color:var(--ink);font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.2s;font-family:inherit">📋 Services</button>
+          <button class="sched-sec-btn" data-schedsec="availability" onclick="switchScheduleSection('availability',this)" style="padding:8px 18px;border-radius:20px;border:2px solid var(--border);background:var(--warm);color:var(--ink);font-size:0.82rem;font-weight:700;cursor:pointer;transition:all 0.2s;font-family:inherit">🗓️ Availability</button>
+        </div>
+        <!-- Calendar section -->
+        <div id="sched-sec-calendar">
+          <div class="card" id="schedCalWrap"></div>
+        </div>
+        <!-- Services list section -->
+        <div id="sched-sec-services" style="display:none">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div style="display:flex;gap:10px;align-items:center">
+                <button class="btn btn-outline btn-sm" onclick="_schedListPrev()" style="padding:4px 10px">◀</button>
+                <span id="schedListMonth" style="font-weight:700;font-size:1rem;min-width:160px;text-align:center">—</span>
+                <button class="btn btn-outline btn-sm" onclick="_schedListNext()" style="padding:4px 10px">▶</button>
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="_schedListToday()">Today</button>
+            </div>
+            <div id="schedServiceList" style="display:flex;flex-direction:column;gap:8px">
+              <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading schedule...</div>
+            </div>
+          </div>
+        </div>
+        <!-- Availability section -->
+        <div id="sched-sec-availability" style="display:none">
+          <div class="card" id="schedAvailWrap" style="min-height:340px"><div style="padding:30px;text-align:center;color:var(--mid)">Loading availability calendar...</div></div>
+          <div class="card" style="margin-top:18px">
+            <div class="card-title" style="margin-bottom:14px">Block Date Range</div>
+            <p style="font-size:0.83rem;color:var(--mid);margin-bottom:12px">Quickly block off multiple days at once (vacation, holiday break, etc.)</p>
+            <div class="form-row" style="margin-bottom:12px"><div><label class="form-lbl">From</label><input class="form-in" type="date" id="sched-avail-from"></div><div><label class="form-lbl">To</label><input class="form-in" type="date" id="sched-avail-to"></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-lbl">Reason (optional)</label><input class="form-in" type="text" id="sched-avail-reason" placeholder="e.g. Holiday break, Vacation, Personal"></div>
+            <div style="display:flex;gap:10px">
+              <button class="btn btn-rose btn-sm" onclick="schedBlockRange()" style="flex:1;justify-content:center">Block These Dates</button>
+              <button class="btn btn-forest btn-sm" onclick="schedUnblockRange()" style="flex:1;justify-content:center">Unblock These Dates</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legacy panels — kept for sTab redirects -->
       <div class="p-panel" id="o-sched">
         <div class="p-header"><h2>Master Schedule 📅</h2><p>All appointments — yours and your team's.</p></div>
         <div class="card">
@@ -3927,6 +3986,10 @@ function sTab(portal, panelId) {
       if (w) w.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 300);
   }
+  // Redirect old schedule panels to combined Schedules
+  if (panelId === 'o-sched') { panelId = 'o-schedules'; setTimeout(function() { switchScheduleSection('services'); }, 0); }
+  if (panelId === 'o-cal') { panelId = 'o-schedules'; setTimeout(function() { switchScheduleSection('calendar'); }, 0); }
+  if (panelId === 'o-avail') { panelId = 'o-schedules'; setTimeout(function() { switchScheduleSection('availability'); }, 0); }
   // Intercept old panel IDs that now live inside client General
   if (_generalTabMap[panelId]) {
     var subTab = _generalTabMap[panelId];
@@ -3998,6 +4061,7 @@ function sTab(portal, panelId) {
   // Deals panel — load from Supabase
   if (panelId === 'o-deals' && typeof loadDealsPanel === 'function') loadDealsPanel();
   if (panelId === 'o-activity' && typeof initActivityLog === 'function') initActivityLog();
+  if (panelId === 'o-schedules' && typeof loadSchedulesPanel === 'function') loadSchedulesPanel();
   if (panelId === 'o-gallery' && typeof loadOwnerGallery === 'function') loadOwnerGallery();
   // Staff panels — load real data
   if (panelId === 's-sched' && typeof loadStaffSchedule === 'function') loadStaffSchedule();
@@ -14112,6 +14176,272 @@ document.addEventListener('DOMContentLoaded', function() {
       container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mid)">Error loading photos.</div>';
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // COMBINED SCHEDULES PANEL — Calendar + Services + Availability
+  // ═══════════════════════════════════════════════════════════════
+  var _schedListDate = new Date();
+  var _schedCurrentSection = 'calendar';
+
+  function switchScheduleSection(name, btn) {
+    _schedCurrentSection = name;
+    ['calendar', 'services', 'availability'].forEach(function(s) {
+      var el = document.getElementById('sched-sec-' + s);
+      if (el) el.style.display = (s === name) ? '' : 'none';
+    });
+    // Update section tab buttons
+    document.querySelectorAll('.sched-sec-btn').forEach(function(b) {
+      if (b.getAttribute('data-schedsec') === name) {
+        b.style.background = 'var(--gold)'; b.style.color = 'white'; b.style.borderColor = 'var(--gold)';
+        b.classList.add('active');
+      } else {
+        b.style.background = 'var(--warm)'; b.style.color = 'var(--ink)'; b.style.borderColor = 'var(--border)';
+        b.classList.remove('active');
+      }
+    });
+    // Load section data
+    if (name === 'calendar') _loadScheduleCalendar();
+    if (name === 'services') _loadScheduleServiceList();
+    if (name === 'availability') _loadScheduleAvailability();
+  }
+  window.switchScheduleSection = switchScheduleSection;
+
+  function loadSchedulesPanel() {
+    // Populate staff filter dropdown
+    _populateStaffFilter();
+    // Load current section
+    switchScheduleSection(_schedCurrentSection);
+  }
+
+  async function _populateStaffFilter() {
+    var sel = document.getElementById('schedViewFilter');
+    if (!sel || sel.options.length > 2) return; // Already populated
+
+    var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;
+    if (!sb) return;
+
+    try {
+      var { data: staff } = await sb.from('profiles').select('user_id, full_name').eq('role', 'staff').order('full_name');
+      if (staff && staff.length > 0) {
+        staff.forEach(function(s) {
+          var opt = document.createElement('option');
+          opt.value = 'staff:' + s.user_id;
+          opt.textContent = s.full_name || 'Staff Member';
+          sel.appendChild(opt);
+        });
+      }
+    } catch (e) { console.warn('Staff filter load error:', e); }
+  }
+
+  function _loadScheduleCalendar() {
+    var now = new Date();
+    loadCalendarBookings(now.getFullYear(), now.getMonth());
+    // Also render into the schedCalWrap container
+    setTimeout(function() {
+      buildCalendar('schedCalWrap', now.getFullYear(), now.getMonth());
+    }, 300);
+  }
+
+  function _schedListPrev() { _schedListDate.setMonth(_schedListDate.getMonth() - 1); _loadScheduleServiceList(); }
+  function _schedListNext() { _schedListDate.setMonth(_schedListDate.getMonth() + 1); _loadScheduleServiceList(); }
+  function _schedListToday() { _schedListDate = new Date(); _loadScheduleServiceList(); }
+  window._schedListPrev = _schedListPrev;
+  window._schedListNext = _schedListNext;
+  window._schedListToday = _schedListToday;
+
+  async function _loadScheduleServiceList() {
+    var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;
+    if (!sb) return;
+
+    var listEl = document.getElementById('schedServiceList');
+    var monthLabel = document.getElementById('schedListMonth');
+    if (!listEl) return;
+
+    var y = _schedListDate.getFullYear(), m = _schedListDate.getMonth();
+    if (monthLabel) monthLabel.textContent = _schedListDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    var startStr = y + '-' + String(m + 1).padStart(2, '0') + '-01';
+    var endDate = new Date(y, m + 1, 0);
+    var endStr = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(endDate.getDate()).padStart(2, '0');
+
+    var viewFilter = (document.getElementById('schedViewFilter') || {}).value || 'all';
+    var serviceFilter = (document.getElementById('schedServiceFilter') || {}).value || 'all';
+
+    listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>';
+
+    try {
+      var query = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'payment_hold'])
+        .gte('scheduled_date', startStr).lte('scheduled_date', endStr)
+        .order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true });
+
+      if (serviceFilter !== 'all') query = query.ilike('service', '%' + serviceFilter + '%');
+
+      var { data: bookings } = await query;
+      bookings = bookings || [];
+
+      // Also get preferred_date fallbacks
+      var prefQuery = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'payment_hold'])
+        .is('scheduled_date', null).gte('preferred_date', startStr).lte('preferred_date', endStr);
+      if (serviceFilter !== 'all') prefQuery = prefQuery.ilike('service', '%' + serviceFilter + '%');
+      var { data: prefBookings } = await prefQuery;
+      if (prefBookings) {
+        prefBookings.forEach(function(pb) {
+          pb.scheduled_date = pb.preferred_date;
+          pb.scheduled_time = pb.preferred_time;
+          if (!bookings.some(function(b) { return b.id === pb.id; })) bookings.push(pb);
+        });
+      }
+
+      // Multi-date bookings
+      var { data: multiDate } = await sb.from('booking_requests').select('*')
+        .in('status', ['accepted', 'confirmed', 'payment_hold']).not('booking_dates', 'is', null);
+      if (multiDate) {
+        multiDate.forEach(function(br) {
+          if (!br.booking_dates || !Array.isArray(br.booking_dates)) return;
+          if (serviceFilter !== 'all' && !(br.service || '').toLowerCase().includes(serviceFilter.toLowerCase())) return;
+          br.booking_dates.forEach(function(bd) {
+            if (bd >= startStr && bd <= endStr) {
+              if (!bookings.some(function(b) { return b.id === br.id && (b._displayDate || b.scheduled_date) === bd; })) {
+                var copy = Object.assign({}, br);
+                copy._displayDate = bd;
+                bookings.push(copy);
+              }
+            }
+          });
+        });
+      }
+
+      // Sort
+      bookings.sort(function(a, b) {
+        var dA = a._displayDate || a.scheduled_date || '';
+        var dB = b._displayDate || b.scheduled_date || '';
+        if (dA !== dB) return dA < dB ? -1 : 1;
+        return (a.scheduled_time || '') < (b.scheduled_time || '') ? -1 : 1;
+      });
+
+      // Apply staff/owner filter
+      if (viewFilter === 'owner') {
+        // Show only bookings assigned to owner or unassigned
+        var ownerProf = window.HHP_Auth && window.HHP_Auth.currentUser;
+        var ownerId = ownerProf ? ownerProf.id : null;
+        bookings = bookings.filter(function(b) {
+          return !b.assigned_staff_id || b.assigned_staff_id === ownerId;
+        });
+      } else if (viewFilter.indexOf('staff:') === 0) {
+        var staffId = viewFilter.replace('staff:', '');
+        bookings = bookings.filter(function(b) {
+          return b.assigned_staff_id === staffId;
+        });
+      }
+
+      if (bookings.length === 0) {
+        listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments this month.</div>';
+        return;
+      }
+
+      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+      function getIcon(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
+
+      var h = '', lastDate = '';
+      var todayStr = new Date().toISOString().split('T')[0];
+
+      // Group by staff if "all" view
+      bookings.forEach(function(b) {
+        var bDate = b._displayDate || b.scheduled_date || '';
+        if (bDate !== lastDate) {
+          var isToday = bDate === todayStr;
+          var dateObj = new Date(bDate + 'T12:00:00');
+          var dayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          h += '<div style="margin-top:' + (lastDate ? '16px' : '0') + ';padding:6px 12px;background:' + (isToday ? 'var(--gold)' : 'var(--ink)') + ';color:white;border-radius:8px;font-size:0.78rem;font-weight:700">';
+          h += dayLabel + (isToday ? ' — TODAY' : '') + '</div>';
+          lastDate = bDate;
+        }
+
+        var icon = getIcon(b.service);
+        var timeStr = b.scheduled_time || b.preferred_time || '';
+        if (timeStr && timeStr.indexOf(':') !== -1) {
+          var parts = timeStr.split(':'), hr = parseInt(parts[0]), mn = parts[1];
+          var ampm = hr >= 12 ? 'PM' : 'AM';
+          hr = hr > 12 ? hr - 12 : (hr === 0 ? 12 : hr);
+          timeStr = hr + ':' + mn + ' ' + ampm;
+        }
+
+        var staffLabel = '';
+        if (viewFilter === 'all' && b.assigned_staff_name) staffLabel = '<div style="font-size:0.7rem;color:var(--gold-deep);font-weight:600">👤 ' + b.assigned_staff_name + '</div>';
+
+        h += '<div onclick="showBookingDetail(\'' + b.id + '\',\'owner\',\'booking_requests\')" style="cursor:pointer;padding:10px 14px;background:var(--warm,#faf6ee);border-radius:8px;display:flex;align-items:center;gap:10px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
+        h += '<div style="font-size:1.2rem">' + icon + '</div>';
+        h += '<div style="flex:1"><div style="font-weight:600;font-size:0.85rem">' + (b.service || 'Service') + '</div>';
+        h += '<div style="font-size:0.76rem;color:var(--mid)">' + (timeStr || 'No time') + ' · ' + (b.contact_name || 'Client') + '</div>';
+        if (b.pet_names) h += '<div style="font-size:0.72rem;color:var(--mid)">🐾 ' + b.pet_names + '</div>';
+        h += staffLabel + '</div>';
+        if (b.estimated_total) h += '<div style="font-weight:700;font-size:0.85rem;color:var(--forest)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+        h += '<div style="font-size:0.72rem;color:var(--gold-deep);font-weight:600;white-space:nowrap">Details →</div>';
+        h += '</div>';
+      });
+      listEl.innerHTML = h;
+
+    } catch (e) {
+      console.warn('Schedule service list error:', e);
+      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Could not load schedule.</div>';
+    }
+  }
+
+  function _loadScheduleAvailability() {
+    // Reuse existing availability calendar but render into schedAvailWrap
+    window._schedAvailWrap = true;
+    if (typeof buildAvailCalendar === 'function') {
+      // Temporarily override the target container
+      var origWrap = document.getElementById('availCalWrap');
+      var schedWrap = document.getElementById('schedAvailWrap');
+      if (schedWrap) {
+        // Copy availability calendar into schedules panel
+        buildAvailCalendar();
+        // After render, clone content
+        setTimeout(function() {
+          if (origWrap && schedWrap && origWrap.innerHTML) {
+            schedWrap.innerHTML = origWrap.innerHTML;
+            // Rebind click handlers by re-rendering
+            _rebindSchedAvailClicks();
+          }
+        }, 500);
+      }
+    }
+  }
+
+  function _rebindSchedAvailClicks() {
+    var wrap = document.getElementById('schedAvailWrap');
+    if (!wrap) return;
+    // The availability calendar uses inline onclick handlers that reference availCalWrap
+    // Replace them to reference schedAvailWrap
+    wrap.querySelectorAll('.cal-day').forEach(function(day) {
+      var oc = day.getAttribute('onclick');
+      if (oc && oc.indexOf('toggleAvailDate') !== -1) {
+        // Already works since toggleAvailDate is global
+      }
+    });
+  }
+
+  window.schedBlockRange = async function() {
+    var fromEl = document.getElementById('sched-avail-from');
+    var toEl = document.getElementById('sched-avail-to');
+    var reasonEl = document.getElementById('sched-avail-reason');
+    // Use the existing blockAvailRange logic with our inputs
+    if (fromEl) document.getElementById('avail-range-from').value = fromEl.value;
+    if (toEl) document.getElementById('avail-range-to').value = toEl.value;
+    if (reasonEl) document.getElementById('avail-range-reason').value = reasonEl.value;
+    if (typeof blockAvailRange === 'function') await blockAvailRange();
+    _loadScheduleAvailability();
+  };
+
+  window.schedUnblockRange = async function() {
+    var fromEl = document.getElementById('sched-avail-from');
+    var toEl = document.getElementById('sched-avail-to');
+    if (fromEl) document.getElementById('avail-range-from').value = fromEl.value;
+    if (toEl) document.getElementById('avail-range-to').value = toEl.value;
+    if (typeof unblockAvailRange === 'function') await unblockAvailRange();
+    _loadScheduleAvailability();
+  };
 
   // Eagerly load Leaflet + live-tracking for owner/staff so GPS tracking works on service start
   (function() {

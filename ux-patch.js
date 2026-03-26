@@ -1469,7 +1469,7 @@
           { text: 'Overview', selector: 'o-overview' },
           { text: 'All Clients', selector: 'o-clients' },
           { text: 'Staff Management', selector: 'o-staff' },
-          { text: 'Calendar', selector: 'o-calendar' },
+          { text: 'Schedules', selector: 'o-schedules' },
           { text: 'General', selector: 'o-general' },
           { text: 'Home (Public Site)', selector: '__home__' }
         ]
