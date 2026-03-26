@@ -15,7 +15,8 @@ module.exports = async function handler(req, res) {
   const {
     clientEmail, clientName, service, petNames,
     reportDate, duration, arrivalTime, departureTime,
-    distance, mood, personalNote, staffName, mediaCount
+    distance, mood, personalNote, staffName, mediaCount,
+    bathroomBreaks
   } = req.body || {};
 
   if (!clientEmail || !service) {
@@ -66,6 +67,17 @@ module.exports = async function handler(req, res) {
       ${moodDisplay ? `<div style="margin-bottom:8px">😊 <strong>Pet Mood:</strong> ${moodDisplay}</div>` : ''}
       ${mediaCount && mediaCount > 0 ? `<div style="margin-bottom:8px">📷 <strong>${mediaCount} photo${mediaCount > 1 ? 's' : ''}/video${mediaCount > 1 ? 's' : ''}</strong> captured — view in your portal!</div>` : ''}
     </div>
+
+    ${bathroomBreaks && bathroomBreaks.length > 0 ? `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin:16px 0">
+      ${bathroomBreaks.map(b => {
+        const petLabel = b.pet && bathroomBreaks.length > 1 ? escHtml(b.pet) + ': ' : '';
+        let badges = '';
+        if (b.pee > 0) badges += `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0ebe3;border-radius:20px;padding:6px 16px;font-size:0.85rem;font-weight:600;color:#5c3d1e">${petLabel}💧 ${b.pee} pee break${b.pee > 1 ? 's' : ''}</span>`;
+        if (b.poo > 0) badges += `<span style="display:inline-flex;align-items:center;gap:4px;background:#f0ebe3;border-radius:20px;padding:6px 16px;font-size:0.85rem;font-weight:600;color:#5c3d1e">${petLabel}💩 ${b.poo} poo break${b.poo > 1 ? 's' : ''}</span>`;
+        return badges;
+      }).join('')}
+    </div>` : ''}
 
     ${safeNote ? `
     <div style="background:#fdf7ee;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #e8e0d4">
