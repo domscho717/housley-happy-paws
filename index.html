@@ -10732,28 +10732,103 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 1500);
 });
 
-// ── Load Client Payment History (real Stripe) ──
+// ── Load Client Payment History (from Supabase payments table) ──
 async function loadClientPayments() {
-  if (typeof HHP_Stripe === 'undefined') {
-    toast('Payment history available when deployed to Vercel with Stripe.');
-    return;
-  }
-  const container = document.getElementById('clientPaymentHistory');
+  var container = document.getElementById('clientPaymentHistory');
   if (!container) return;
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { container.innerHTML = '<div style="text-align:center;color:var(--mid);padding:14px">Sign in to view payment history.</div>'; return; }
+
   container.innerHTML = '<div style="text-align:center;color:var(--mid);padding:10px">Loading payments...</div>';
   try {
-    const payments = await HHP_Stripe.getPayments({ limit: 10 });
-    if (payments.length === 0) {
+    // Query payments table (RLS filters by client_email automatically)
+    var { data: payments, error: pErr } = await sb.from('payments').select('*').order('paid_at', { ascending: false }).limit(25);
+    if (pErr) throw pErr;
+    if (!payments || payments.length === 0) {
       container.innerHTML = '<div style="text-align:center;color:var(--mid);padding:18px;font-size:0.88rem">No payment history yet.</div>';
       return;
     }
-    container.innerHTML = payments.map(function(p) {
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--warm);border-radius:8px;margin-bottom:6px;border:1px solid var(--border)">' +
-        '<div><div style="font-weight:600;font-size:0.88rem">' + p.service + '</div>' +
-        '<div style="font-size:0.74rem;color:var(--mid)">' + new Date(p.date).toLocaleDateString() + '</div></div>' +
-        '<div style="font-weight:700;color:var(--forest)">$' + p.amount.toFixed(2) + '</div></div>';
-    }).join('');
+
+    // Extract booking request IDs from notes to join with booking_requests
+    var brIds = [];
+    payments.forEach(function(p) {
+      var m = p.notes && p.notes.match(/Request #([a-f0-9-]+)/i);
+      if (m) { p._brId = m[1]; brIds.push(m[1]); }
+    });
+
+    // Fetch matching booking requests for dates and pet names
+    var brMap = {};
+    if (brIds.length > 0) {
+      // booking IDs in notes are first 8 chars; need to match with LIKE
+      var { data: bookings } = await sb.from('booking_requests').select('id, booking_dates, scheduled_date, preferred_date, pet_names, service, estimated_total');
+      if (bookings) {
+        bookings.forEach(function(br) {
+          var short = br.id.substring(0, 8);
+          brMap[short] = br;
+          brMap[br.id] = br;
+        });
+      }
+    }
+
+    // Build display rows — split multi-date bookings into per-visit lines
+    var rows = [];
+    payments.forEach(function(p) {
+      var br = p._brId ? (brMap[p._brId] || null) : null;
+      var petNames = (br && br.pet_names) || p.pet_names || '';
+      var dates = br && br.booking_dates && Array.isArray(br.booking_dates) && br.booking_dates.length > 1
+        ? br.booking_dates : null;
+
+      if (dates) {
+        // Multi-date booking: split into per-visit lines
+        var perVisit = Number(p.amount) / dates.length;
+        dates.forEach(function(d) {
+          rows.push({
+            service: p.service,
+            date: d,
+            amount: perVisit,
+            petNames: petNames,
+            paidAt: p.paid_at,
+            status: p.status,
+            bookingId: br ? br.id : null
+          });
+        });
+      } else {
+        // Single-date payment
+        rows.push({
+          service: p.service,
+          date: (br && (br.scheduled_date || br.preferred_date)) || p.paid_at,
+          amount: Number(p.amount),
+          petNames: petNames,
+          paidAt: p.paid_at,
+          status: p.status,
+          bookingId: br ? br.id : null
+        });
+      }
+    });
+
+    // Sort by date descending
+    rows.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+
+    var h = '<div style="display:flex;flex-direction:column;gap:6px">';
+    rows.forEach(function(r) {
+      var dateObj = new Date(r.date + (r.date.length === 10 ? 'T12:00:00' : ''));
+      var dateLabel = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      var clickAttr = r.bookingId ? ' onclick="showBookingDetail(\'' + r.bookingId + '\',\'client\',\'booking_requests\')" style="cursor:pointer;' : ' style="';
+
+      h += '<div' + clickAttr + 'display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#e8f5e9;border-radius:8px;border:1px solid var(--border);transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.boxShadow=\'none\'">';
+      h += '<div><div style="font-weight:600;font-size:0.85rem">' + (r.service || 'Pet Care') + '</div>';
+      h += '<div style="font-size:0.76rem;color:var(--mid)">' + dateLabel;
+      if (r.petNames) h += ' · ' + r.petNames;
+      h += ' <span style="color:var(--forest);font-weight:600;font-size:0.72rem">— ✓ Paid</span>';
+      h += '</div></div>';
+      h += '<div style="font-weight:700;color:var(--forest);font-size:0.95rem">$' + r.amount.toFixed(2) + '</div>';
+      h += '</div>';
+    });
+    h += '</div>';
+    container.innerHTML = h;
   } catch (err) {
+    console.error('Load payment history error:', err);
     container.innerHTML = '<div style="text-align:center;color:var(--rose);padding:18px;font-size:0.88rem">Could not load payments.</div>';
   }
 }
