@@ -981,47 +981,56 @@
     // ── VIEW SWITCHER (only if logged in) ──
     if (loggedIn) {
       var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
-      var viewSection = document.createElement('div');
-      viewSection.style.cssText = 'padding: 8px 20px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
-      var label = document.createElement('div');
-      label.style.cssText = 'font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#000!important;font-weight:700;margin-bottom:6px;-webkit-text-fill-color:#000!important;';
-      label.textContent = 'Switch View';
-      viewSection.appendChild(label);
+      var isClientOnly = (role === 'client');
 
-      var allowedViews = [{ value: 'public', label: 'Home' }];
-      if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal' });
-      if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal' });
-      if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal' });
+      // For client-only users: no "Switch View" or "Home" link — just show portal items directly
+      if (!isClientOnly) {
+        var viewSection = document.createElement('div');
+        viewSection.style.cssText = 'padding: 8px 20px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
+        var label = document.createElement('div');
+        label.style.cssText = 'font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#000!important;font-weight:700;margin-bottom:6px;-webkit-text-fill-color:#000!important;';
+        label.textContent = 'Switch View';
+        viewSection.appendChild(label);
 
-      allowedViews.forEach(function(v) {
-        var btn = document.createElement('button');
-        btn.className = 'hhp-drawer-item';
-        btn.textContent = v.label;
-        btn.type = 'button';
-        btn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:block;width:100%;text-align:left;background:none;border:none;padding:10px 0;font-size:0.9rem;font-weight:500;cursor:pointer;';
-        if (activePortal === 'pg-' + v.value || (!activePortal && v.value === 'public')) {
-          btn.style.fontWeight = '700';
-          btn.style.color = '#c8963e';
-          btn.style.setProperty('-webkit-text-fill-color', '#c8963e', 'important');
-        }
-        btn.addEventListener('click', function() {
-          if (typeof switchView === 'function') switchView(v.value);
-          closeDrawer();
-          setTimeout(updateDrawerContent, 300);
+        var allowedViews = [{ value: 'public', label: 'Home' }];
+        if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal' });
+        if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal' });
+        if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal' });
+
+        allowedViews.forEach(function(v) {
+          var btn = document.createElement('button');
+          btn.className = 'hhp-drawer-item';
+          btn.textContent = v.label;
+          btn.type = 'button';
+          btn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:block;width:100%;text-align:left;background:none;border:none;padding:10px 0;font-size:0.9rem;font-weight:500;cursor:pointer;';
+          if (activePortal === 'pg-' + v.value || (!activePortal && v.value === 'public')) {
+            btn.style.fontWeight = '700';
+            btn.style.color = '#c8963e';
+            btn.style.setProperty('-webkit-text-fill-color', '#c8963e', 'important');
+          }
+          btn.addEventListener('click', function() {
+            if (typeof switchView === 'function') switchView(v.value);
+            closeDrawer();
+            setTimeout(updateDrawerContent, 300);
+          });
+          viewSection.appendChild(btn);
         });
-        viewSection.appendChild(btn);
-      });
-      drawer.appendChild(viewSection);
+        drawer.appendChild(viewSection);
+      }
     }
 
     // ── PORTAL SIDEBAR ITEMS (only if logged in and on a portal) ──
+    // For clients: always show portal items in drawer, even if on public homepage
+    if (loggedIn && !activePortal && isClientOnly) {
+      activePortal = 'pg-client';
+    }
     if (!loggedIn || !activePortal) return;
 
-    // Determine portal name
+    // Determine portal name — for clients, show "Home" instead of "Client Portal"
     var portalNames = {
       'pg-owner': 'Owner Portal',
       'pg-staff': 'Staff Portal',
-      'pg-client': 'Client Portal'
+      'pg-client': isClientOnly ? 'Home' : 'Client Portal'
     };
     var portalName = portalNames[activePortal] || 'Portal';
 
