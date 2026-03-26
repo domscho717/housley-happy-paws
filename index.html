@@ -1466,12 +1466,9 @@ try {
         <button class="sb-item" onclick="sTab('c','c-pets')" style="background:linear-gradient(135deg,rgba(200,150,62,0.2),rgba(61,90,71,0.15));border:1px solid rgba(200,150,62,0.25);color:var(--gold-light)"><span class="sb-item-icon">🐾</span>My Pets</button>
         <button class="sb-item" onclick="sTab('c','c-appts')"><span class="sb-item-icon">📅</span>Appointments</button>
         <button class="sb-item" onclick="sTab('c','c-track')"><span class="sb-item-icon">🗺️</span>Live Tracking</button>
-        <button class="sb-item" onclick="sTab('c','c-photos')"><span class="sb-item-icon">📸</span>Photo Gallery</button>
-        <button class="sb-item" onclick="sTab('c','c-reports')" id="sb-reports-btn" style="position:relative"><span class="sb-item-icon">📋</span>Walk Reports<span id="sb-reports-badge" class="sb-badge" style="display:none;position:absolute;top:2px;right:8px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;min-width:18px;height:18px;line-height:18px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></span></button>
-        <button class="sb-item" onclick="sTab('c','c-reviews')"><span class="sb-item-icon">⭐</span>My Reviews</button>
         <button class="sb-item" onclick="sTab('c','c-msgs')"><span class="sb-item-icon">💬</span>Messages</button>
         <button class="sb-item" onclick="sTab('c','c-cal')"><span class="sb-item-icon">📆</span>Calendar</button>
-        <button class="sb-item" onclick="sTab('c','c-bill')"><span class="sb-item-icon">💳</span>Billing</button>
+        <button class="sb-item" onclick="sTab('c','c-general')" id="sb-general-btn" style="position:relative"><span class="sb-item-icon">📂</span>General<span id="sb-reports-badge" class="sb-badge" style="display:none;position:absolute;top:2px;right:8px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;min-width:18px;height:18px;line-height:18px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.3)"></span></button>
       </div>
     </div>
     <div class="portal-main">
@@ -1641,8 +1638,105 @@ try {
         </div>
       </div>
 
+      <!-- GENERAL (combined panel with tab bar) -->
+      <div class="p-panel" id="c-general">
+        <div class="p-header"><h2>General 📂</h2><p>Photos, reports, reviews, billing & settings — all in one place.</p></div>
+        <!-- Tab bar -->
+        <div id="cg-tabbar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;padding:0 2px">
+          <button class="cg-tab cg-tab-active" data-cgtab="photos" onclick="switchGeneralTab('photos')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--gold);background:var(--gold);color:white;border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📸 Photos</button>
+          <button class="cg-tab" data-cgtab="reports" onclick="switchGeneralTab('reports')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📋 Reports</button>
+          <button class="cg-tab" data-cgtab="reviews" onclick="switchGeneralTab('reviews')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⭐ Reviews</button>
+          <button class="cg-tab" data-cgtab="billing" onclick="switchGeneralTab('billing')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💳 Billing</button>
+          <button class="cg-tab" data-cgtab="settings" onclick="switchGeneralTab('settings')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚙️ Settings</button>
+        </div>
+
+        <!-- Photos sub-content -->
+        <div class="cg-content" id="cg-photos">
+          <div class="tabs"><button class="tab active">All Photos</button></div>
+          <div class="card"><div style="padding:40px;text-align:center;color:var(--mid)">
+            <div style="font-size:2.5rem;margin-bottom:12px">📸</div>
+            <div style="font-weight:600;margin-bottom:6px">No photos yet</div>
+            <div style="font-size:0.84rem">Photos from Rachel's visits will appear here.</div>
+          </div></div>
+        </div>
+
+        <!-- Reports sub-content -->
+        <div class="cg-content" id="cg-reports" style="display:none">
+          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
+            <div class="card">
+              <div style="padding:28px;text-align:center;color:var(--mid)">
+                <div style="font-size:2rem;margin-bottom:10px">📋</div>
+                <div style="font-weight:600;margin-bottom:6px">No reports yet</div>
+                <div style="font-size:0.84rem">Walk and visit reports will appear here after each service.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reviews sub-content -->
+        <div class="cg-content" id="cg-reviews" style="display:none">
+          <div id="cg-rv-list" style="display:flex;flex-direction:column;gap:12px">
+            <div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">⭐</div>Loading your reviews...</div>
+          </div>
+          <div class="card" style="margin-top:16px;border:2px dashed rgba(200,150,62,0.3);text-align:center;padding:20px">
+            <div style="font-size:1.5rem;margin-bottom:8px">⭐</div>
+            <div style="font-weight:700;margin-bottom:4px">Want to leave a review?</div>
+            <div style="font-size:0.82rem;color:var(--mid);margin-bottom:12px">Open any Walk Report and tap "Leave a Review" — or you'll be prompted automatically after each visit!</div>
+            <button class="btn btn-gold btn-sm" onclick="switchGeneralTab('reports')">View My Reports</button>
+          </div>
+        </div>
+
+        <!-- Billing sub-content -->
+        <div class="cg-content" id="cg-billing" style="display:none">
+          <!-- Upcoming Charges -->
+          <div class="card" style="margin-bottom:18px">
+            <div class="card-title">Upcoming Charges</div>
+            <div id="clientUpcomingCharges" style="padding:14px;text-align:center;color:var(--mid);font-size:0.88rem">Loading upcoming charges...</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+            <div class="card">
+              <div class="card-title">Payment Method</div>
+              <div id="savedCardDisplay" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
+              <div id="savedCardActions" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+                <button id="addCardBtn" class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="addPaymentMethod()">💳 Add Payment Method</button>
+              </div>
+              <div style="font-size:0.75rem;color:var(--mid);margin-top:10px;text-align:center">Your card is saved securely through Stripe. Recurring services are auto-charged 48 hours before each visit.</div>
+              <div style="font-size:0.75rem;color:var(--mid);margin-top:8px;text-align:center;background:var(--gold-pale);padding:8px 12px;border-radius:8px"><strong>Cancellation policy:</strong> Cancel more than 48 hours before service for a full refund. Late cancellations within 48 hours are still charged.</div>
+            </div>
+            <div class="card"><div class="card-title">Payment History</div>
+              <div id="clientPaymentHistory" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No payment history yet.</div>
+              <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;margin-top:10px" onclick="loadClientPayments()">Refresh Payment History</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings sub-content -->
+        <div class="cg-content" id="cg-settings" style="display:none">
+          <div class="card" style="padding:24px">
+            <div class="card-title">Account Settings</div>
+            <div style="display:flex;flex-direction:column;gap:16px;margin-top:12px">
+              <div>
+                <div style="font-weight:600;font-size:0.85rem;margin-bottom:6px">Notification Preferences</div>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;color:var(--ink);cursor:pointer"><input type="checkbox" id="cg-notif-email" checked style="accent-color:var(--gold)"> Email notifications for bookings & reports</label>
+                <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;color:var(--ink);cursor:pointer;margin-top:6px"><input type="checkbox" id="cg-notif-sms" style="accent-color:var(--gold)"> SMS reminders before appointments</label>
+              </div>
+              <div>
+                <div style="font-weight:600;font-size:0.85rem;margin-bottom:6px">Display Name</div>
+                <input type="text" id="cg-display-name" class="form-input" placeholder="Your name" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.88rem">
+              </div>
+              <div>
+                <div style="font-weight:600;font-size:0.85rem;margin-bottom:6px">Contact Phone</div>
+                <input type="tel" id="cg-phone" class="form-input" placeholder="(555) 123-4567" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.88rem">
+              </div>
+              <button class="btn btn-gold btn-sm" onclick="saveClientSettings()" style="align-self:flex-start">Save Settings</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OLD PANELS (kept hidden for backward compat, content moved to General) -->
       <!-- PHOTOS -->
-      <div class="p-panel" id="c-photos">
+      <div class="p-panel" id="c-photos" style="display:none!important">
         <div class="p-header"><h2>Photo Gallery 📸</h2><p>Every moment Rachel captures during visits.</p></div>
         <div class="tabs"><button class="tab active">All Photos</button></div>
         <div class="card"><div style="padding:40px;text-align:center;color:var(--mid)">
@@ -1652,8 +1746,8 @@ try {
         </div></div>
       </div>
 
-      <!-- WALK REPORTS -->
-      <div class="p-panel" id="c-reports">
+      <!-- WALK REPORTS (hidden — content in General) -->
+      <div class="p-panel" id="c-reports" style="display:none!important">
         <div class="p-header"><h2>Walk Reports 📋</h2><p>Detailed reports from every visit with Rachel.</p></div>
         <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
           <div class="card">
@@ -1666,8 +1760,8 @@ try {
         </div>
       </div>
 
-      <!-- CLIENT REVIEWS -->
-      <div class="p-panel" id="c-reviews">
+      <!-- CLIENT REVIEWS (hidden — content in General) -->
+      <div class="p-panel" id="c-reviews" style="display:none!important">
         <div class="p-header"><h2>My Reviews ⭐</h2><p>Your feedback helps us grow! Leave a review after any visit.</p></div>
         <div id="c-rv-list" style="display:flex;flex-direction:column;gap:12px">
           <div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">⭐</div>Loading your reviews...</div>
@@ -1695,8 +1789,8 @@ try {
         <div class="card" id="cCalWrap"></div>
       </div>
 
-      <!-- BILLING -->
-      <div class="p-panel" id="c-bill">
+      <!-- BILLING (hidden — content in General) -->
+      <div class="p-panel" id="c-bill" style="display:none!important">
         <div class="p-header"><h2>Billing 💳</h2><p>Manage your payment method, view upcoming charges, and payment history.</p></div>
 
         <!-- Upcoming Charges -->
@@ -3820,7 +3914,19 @@ function goBackPanel() {
   updateBackButton();
 }
 
+// ── General tab map: old panel ID → General sub-tab ──
+var _generalTabMap = { 'c-photos': 'photos', 'c-reports': 'reports', 'c-reviews': 'reviews', 'c-bill': 'billing' };
+
 function sTab(portal, panelId) {
+  // Intercept old panel IDs that now live inside General
+  if (_generalTabMap[panelId]) {
+    var subTab = _generalTabMap[panelId];
+    // Navigate to c-general instead, then switch to the right sub-tab
+    panelId = 'c-general';
+    // Defer the sub-tab switch so it runs after panel is active
+    setTimeout(function() { switchGeneralTab(subTab); }, 0);
+  }
+
   const prefix = portal === 'c' ? 'c-' : portal === 's' ? 's-' : 'o-';
   document.querySelectorAll('.p-panel[id^="'+prefix+'"]').forEach(p => p.classList.remove('active'));
   const el = document.getElementById(panelId);
@@ -3852,10 +3958,11 @@ function sTab(portal, panelId) {
   var pm = el ? el.closest('.portal-main') : null;
   if (pm) pm.scrollTop = 0;
   // Auto-load data when switching to specific panels
-  if (panelId === 'c-bill') {
-    if (typeof loadSavedCard === 'function') loadSavedCard();
-    if (typeof loadClientUpcomingCharges === 'function') loadClientUpcomingCharges();
-    if (typeof loadClientPayments === 'function') loadClientPayments();
+  if (panelId === 'c-general') {
+    // Restore last active sub-tab or default to photos
+    var savedTab = _currentGeneralTab || 'photos';
+    try { var st = sessionStorage.getItem('hhp_general_tab'); if (st) savedTab = st; } catch(e) {}
+    switchGeneralTab(savedTab);
   }
   if (panelId === 'c-pets' && typeof loadMyPets === 'function') loadMyPets();
   if (panelId === 'o-clients' && typeof loadOwnerClients === 'function') loadOwnerClients();
@@ -3889,8 +3996,7 @@ function sTab(portal, panelId) {
     } else if (typeof HHP_Tracking !== 'undefined') HHP_Tracking.loadClientLiveTracking();
     else if (typeof loadLiveTracking === 'function') loadLiveTracking();
   }
-  // Gallery re-render when switching to photo panels
-  if (panelId === 'c-photos' && window.HHP_Gallery) HHP_Gallery.render('client');
+  // Gallery re-render when switching to photo panels (c-photos now handled by switchGeneralTab)
   if (panelId === 'o-photos') {
     if (window.HHP_Gallery) HHP_Gallery.render('owner');
     // Re-wire slots and restore photo previews every time the panel opens
@@ -3935,6 +4041,46 @@ function sTab(portal, panelId) {
     });
   }
 }
+
+// ── General Panel Tab Switching ──
+var _currentGeneralTab = 'photos';
+function switchGeneralTab(tabName) {
+  _currentGeneralTab = tabName;
+  // Hide all sub-content
+  document.querySelectorAll('.cg-content').forEach(function(el) { el.style.display = 'none'; });
+  // Show selected
+  var target = document.getElementById('cg-' + tabName);
+  if (target) target.style.display = '';
+  // Update tab bar active states
+  document.querySelectorAll('.cg-tab').forEach(function(btn) {
+    if (btn.getAttribute('data-cgtab') === tabName) {
+      btn.style.background = 'var(--gold)';
+      btn.style.color = 'white';
+      btn.style.borderColor = 'var(--gold)';
+      btn.classList.add('cg-tab-active');
+    } else {
+      btn.style.background = 'var(--warm)';
+      btn.style.color = 'var(--ink)';
+      btn.style.borderColor = 'var(--border)';
+      btn.classList.remove('cg-tab-active');
+    }
+  });
+  // Trigger data loading for the sub-tab
+  if (tabName === 'billing') {
+    if (typeof loadSavedCard === 'function') loadSavedCard();
+    if (typeof loadClientUpcomingCharges === 'function') loadClientUpcomingCharges();
+    if (typeof loadClientPayments === 'function') loadClientPayments();
+  }
+  if (tabName === 'photos' && window.HHP_Gallery) HHP_Gallery.render('client');
+  if (tabName === 'reports' && typeof loadClientReports === 'function') loadClientReports();
+  if (tabName === 'reviews' && typeof loadClientReviewsList === 'function') loadClientReviewsList();
+  // Save active sub-tab for reload
+  try { sessionStorage.setItem('hhp_general_tab', tabName); } catch(e) {}
+}
+function saveClientSettings() {
+  toast('Settings saved!');
+}
+
 // ---- ACTIVITY LOG ----
 var _actLogInited = false;
 function initActivityLog() {
@@ -11277,7 +11423,7 @@ window._reportCache = {};
 // ── Load client reports feed ──
 async function loadClientReports() {
   if (typeof HHP_Auth === 'undefined' || !HHP_Auth.supabase || !HHP_Auth.currentUser) return;
-  var container = document.querySelector('#c-reports .card') || document.querySelector('#c-reports > div');
+  var container = document.querySelector('#cg-reports .card') || document.querySelector('#cg-reports > div');
   if (!container) return;
 
   // Query reports by auth user_id (also catch legacy reports via booking_id)
@@ -11312,10 +11458,10 @@ async function loadClientReports() {
       return;
     }
 
-    // Replace the entire panel content with a scrollable feed
-    var feedParent = document.getElementById('c-reports');
+    // Replace the report sub-content with a scrollable feed
+    var feedParent = document.getElementById('cg-reports');
     if (!feedParent) return;
-    var header = '<div class="p-header"><h2>Walk Reports 📋</h2><p>Detailed reports from every visit with Rachel.</p></div>';
+    var header = '';
     var cards = reports.map(function(r) {
       window._reportCache[r.id] = r;
       var moodEmoji = { great:'😄', happy:'😊', calm:'😌', shy:'🙈', energetic:'⚡' };
@@ -11928,7 +12074,7 @@ async function loadClientReviewsList() {
   var user = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? HHP_Auth.currentUser : null;
   if (!sb || !user) return;
 
-  var listEl = document.getElementById('c-rv-list');
+  var listEl = document.getElementById('cg-rv-list') || document.getElementById('c-rv-list');
   if (!listEl) return;
 
   try {
@@ -13117,8 +13263,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Helper: check if a panel is currently visible
     function panelActive(id) {
+      // Check if the panel is directly active, OR if it's inside General and General is active with that tab
       var el = document.getElementById(id);
-      return el && el.classList.contains('active');
+      if (el && el.classList.contains('active')) return true;
+      // Check General panel sub-tabs
+      if (window._generalTabMap && window._generalTabMap[id]) {
+        var genEl = document.getElementById('c-general');
+        if (genEl && genEl.classList.contains('active') && window._currentGeneralTab === window._generalTabMap[id]) return true;
+      }
+      return false;
     }
 
     // Debounce helper — prevents rapid-fire reloads from batch changes

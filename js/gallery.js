@@ -361,8 +361,10 @@
 
   // ── Render gallery for a specific role ─────────────────────────
   async function renderGallery(role) {
-    var containerId = role === 'owner' ? 'o-photos' : role === 'staff' ? 'hhp-staff-gallery' : 'c-photos';
+    var containerId = role === 'owner' ? 'o-photos' : role === 'staff' ? 'hhp-staff-gallery' : 'cg-photos';
     var container = document.getElementById(containerId);
+    // Fallback to old panel ID if new one not found
+    if (!container && role === 'client') container = document.getElementById('c-photos');
     if (!container) return;
 
     var photos = await loadGalleryPhotos(role);
