@@ -450,12 +450,7 @@
 
   /* ── Inject Settings Buttons into Sidebars ── */
   function injectSettingsButtons() {
-    // Client sidebar
-    var cSidebar = document.querySelector('#pg-client .sidebar');
-    if (cSidebar && !cSidebar.querySelector('.sb-settings-btn')) {
-      var cBtn = createSettingsButton();
-      cSidebar.appendChild(cBtn);
-    }
+    // Client sidebar — Settings is now inside the General tab, skip standalone button
     // Staff sidebar
     var sSidebar = document.querySelector('#pg-staff .sidebar');
     if (sSidebar && !sSidebar.querySelector('.sb-settings-btn')) {

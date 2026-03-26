@@ -1641,13 +1641,13 @@ try {
       <!-- GENERAL (combined panel with tab bar) -->
       <div class="p-panel" id="c-general">
         <div class="p-header"><h2>General 📂</h2><p>Photos, reports, reviews, billing & settings — all in one place.</p></div>
-        <!-- Tab bar -->
-        <div id="cg-tabbar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;padding:0 2px">
-          <button class="cg-tab cg-tab-active" data-cgtab="photos" onclick="switchGeneralTab('photos')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--gold);background:var(--gold);color:white;border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📸 Photos</button>
-          <button class="cg-tab" data-cgtab="reports" onclick="switchGeneralTab('reports')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📋 Reports</button>
-          <button class="cg-tab" data-cgtab="reviews" onclick="switchGeneralTab('reviews')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⭐ Reviews</button>
-          <button class="cg-tab" data-cgtab="billing" onclick="switchGeneralTab('billing')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">💳 Billing</button>
-          <button class="cg-tab" data-cgtab="settings" onclick="switchGeneralTab('settings')" style="flex:1;min-width:0;padding:9px 6px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">⚙️ Settings</button>
+        <!-- Tab bar (grid: 3 on top, 2 on bottom — always fits) -->
+        <div id="cg-tabbar" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:18px;padding:0 2px">
+          <button class="cg-tab cg-tab-active" data-cgtab="photos" onclick="switchGeneralTab('photos')" style="padding:10px 4px;border:2px solid var(--gold);background:var(--gold);color:white;border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center">📸 Photos</button>
+          <button class="cg-tab" data-cgtab="reports" onclick="switchGeneralTab('reports')" style="padding:10px 4px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center">📋 Reports</button>
+          <button class="cg-tab" data-cgtab="reviews" onclick="switchGeneralTab('reviews')" style="padding:10px 4px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center">⭐ Reviews</button>
+          <button class="cg-tab" data-cgtab="billing" onclick="switchGeneralTab('billing')" style="padding:10px 4px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;grid-column:1/2">💳 Billing</button>
+          <button class="cg-tab" data-cgtab="settings" onclick="switchGeneralTab('settings')" style="padding:10px 4px;border:2px solid var(--border);background:var(--warm);color:var(--ink);border-radius:10px;font-size:0.78rem;font-weight:700;cursor:pointer;transition:all 0.2s;text-align:center;grid-column:2/3">⚙️ Settings</button>
         </div>
 
         <!-- Photos sub-content -->
@@ -1710,26 +1710,10 @@ try {
           </div>
         </div>
 
-        <!-- Settings sub-content -->
+        <!-- Settings sub-content (populated by switchGeneralTab from HHP_Settings) -->
         <div class="cg-content" id="cg-settings" style="display:none">
-          <div class="card" style="padding:24px">
-            <div class="card-title">Account Settings</div>
-            <div style="display:flex;flex-direction:column;gap:16px;margin-top:12px">
-              <div>
-                <div style="font-weight:600;font-size:0.85rem;margin-bottom:6px">Notification Preferences</div>
-                <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;color:var(--ink);cursor:pointer"><input type="checkbox" id="cg-notif-email" checked style="accent-color:var(--gold)"> Email notifications for bookings & reports</label>
-                <label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;color:var(--ink);cursor:pointer;margin-top:6px"><input type="checkbox" id="cg-notif-sms" style="accent-color:var(--gold)"> SMS reminders before appointments</label>
-              </div>
-              <div>
-                <div style="font-weight:600;font-size:0.85rem;margin-bottom:6px">Display Name</div>
-                <input type="text" id="cg-display-name" class="form-input" placeholder="Your name" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.88rem">
-              </div>
-              <div>
-                <div style="font-weight:600;font-size:0.85rem;margin-bottom:6px">Contact Phone</div>
-                <input type="tel" id="cg-phone" class="form-input" placeholder="(555) 123-4567" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.88rem">
-              </div>
-              <button class="btn btn-gold btn-sm" onclick="saveClientSettings()" style="align-self:flex-start">Save Settings</button>
-            </div>
+          <div id="cg-settings-inner" style="padding:4px 0">
+            <div style="text-align:center;color:var(--mid);padding:20px">Loading settings...</div>
           </div>
         </div>
       </div>
@@ -4074,11 +4058,57 @@ function switchGeneralTab(tabName) {
   if (tabName === 'photos' && window.HHP_Gallery) HHP_Gallery.render('client');
   if (tabName === 'reports' && typeof loadClientReports === 'function') loadClientReports();
   if (tabName === 'reviews' && typeof loadClientReviewsList === 'function') loadClientReviewsList();
+  if (tabName === 'settings') {
+    // Render the real settings panel inline
+    var inner = document.getElementById('cg-settings-inner');
+    if (inner && window.HHP_Settings) {
+      var s = HHP_Settings.getAll();
+      inner.innerHTML =
+        '<div class="card" style="padding:20px;margin-bottom:14px">' +
+          '<div class="card-title" style="margin-bottom:14px">Appearance</div>' +
+          '<div style="display:flex;flex-direction:column;gap:14px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+              '<div><div style="font-weight:600;font-size:0.85rem">Theme</div><div style="font-size:0.75rem;color:var(--mid)">Light or dark mode</div></div>' +
+              '<div style="display:flex;gap:4px">' +
+                '<button onclick="HHP_Settings.set(\'theme\',\'light\');switchGeneralTab(\'settings\')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;font-weight:600;cursor:pointer;background:' + (s.theme==='light'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">☀️ Light</button>' +
+                '<button onclick="HHP_Settings.set(\'theme\',\'dark\');switchGeneralTab(\'settings\')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;font-weight:600;cursor:pointer;background:' + (s.theme==='dark'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">🌙 Dark</button>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+              '<div><div style="font-weight:600;font-size:0.85rem">Text Size</div><div style="font-size:0.75rem;color:var(--mid)">Adjust for readability</div></div>' +
+              '<div style="display:flex;gap:4px">' +
+                '<button onclick="HHP_Settings.set(\'textSize\',\'small\');switchGeneralTab(\'settings\')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);font-size:0.72rem;font-weight:600;cursor:pointer;background:' + (s.textSize==='small'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">A</button>' +
+                '<button onclick="HHP_Settings.set(\'textSize\',\'medium\');switchGeneralTab(\'settings\')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);font-size:0.85rem;font-weight:600;cursor:pointer;background:' + (s.textSize==='medium'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">A</button>' +
+                '<button onclick="HHP_Settings.set(\'textSize\',\'large\');switchGeneralTab(\'settings\')" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);font-size:1.05rem;font-weight:600;cursor:pointer;background:' + (s.textSize==='large'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">A</button>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+              '<div><div style="font-weight:600;font-size:0.85rem">Time Format</div><div style="font-size:0.75rem;color:var(--mid)">How times are displayed</div></div>' +
+              '<div style="display:flex;gap:4px">' +
+                '<button onclick="HHP_Settings.set(\'timeFormat\',\'12h\');switchGeneralTab(\'settings\')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;font-weight:600;cursor:pointer;background:' + (s.timeFormat==='12h'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">12h</button>' +
+                '<button onclick="HHP_Settings.set(\'timeFormat\',\'24h\');switchGeneralTab(\'settings\')" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);font-size:0.78rem;font-weight:600;cursor:pointer;background:' + (s.timeFormat==='24h'?'var(--gold);color:white;border-color:var(--gold)':'var(--warm);color:var(--ink)') + '">24h</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card" style="padding:20px;margin-bottom:14px">' +
+          '<div class="card-title" style="margin-bottom:14px">Notifications</div>' +
+          '<div style="display:flex;flex-direction:column;gap:10px">' +
+            '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifBooking?'checked':'') + ' onchange="HHP_Settings.set(\'notifBooking\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Booking updates & confirmations</label>' +
+            '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifReminder?'checked':'') + ' onchange="HHP_Settings.set(\'notifReminder\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Appointment reminders</label>' +
+            '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifMessages?'checked':'') + ' onchange="HHP_Settings.set(\'notifMessages\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> New message alerts</label>' +
+            '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifReports?'checked':'') + ' onchange="HHP_Settings.set(\'notifReports\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Walk report notifications</label>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card" style="padding:20px">' +
+          '<div class="card-title" style="margin-bottom:14px">Account</div>' +
+          '<button onclick="HHP_Settings.goToProfile()" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--warm);cursor:pointer;text-align:left;font-size:0.85rem"><span style="font-size:1.2rem">👤</span><div style="flex:1"><div style="font-weight:600">My Profile</div><div style="font-size:0.75rem;color:var(--mid)">Edit your name, phone & photo</div></div><span style="opacity:0.4">→</span></button>' +
+          '<button onclick="if(typeof HHP_Auth!==\'undefined\')HHP_Auth.logout()" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--warm);cursor:pointer;text-align:left;font-size:0.85rem;margin-top:8px;color:var(--rose)"><span style="font-size:1.2rem">🚪</span><div style="flex:1"><div style="font-weight:600">Sign Out</div></div></button>' +
+        '</div>';
+    }
+  }
   // Save active sub-tab for reload
   try { sessionStorage.setItem('hhp_general_tab', tabName); } catch(e) {}
-}
-function saveClientSettings() {
-  toast('Settings saved!');
 }
 
 // ---- ACTIVITY LOG ----
