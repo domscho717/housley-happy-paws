@@ -881,8 +881,8 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .avail-grid { gap: 4px !important; }
   .avail-day { font-size: 0.78rem !important; padding: 8px 6px !important; }
 
-  /* Photos & Media */
-  #o-photos > div[style*="grid"] { grid-template-columns: 1fr !important; }
+  /* Photos & Media (inside Edit Website) */
+  #ce-photos > div[style*="grid"] { grid-template-columns: 1fr !important; }
 
   /* Payments & Bank */
   #o-payments > div[style*="grid"] { grid-template-columns: 1fr !important; }
@@ -1967,7 +1967,6 @@ try {
         <button class="sb-item" onclick="sTab('o','o-auto')"><span class="sb-item-icon">🤖</span>Auto-Replies</button>
         <button class="sb-item" onclick="sTab('o','o-studio')" style="background:linear-gradient(135deg,rgba(200,150,62,0.25),rgba(61,90,71,0.2));border:1px solid rgba(200,150,62,0.3);color:var(--gold-light)"><span class="sb-item-icon">✨</span>AI Owner Studio</button>
         <button class="sb-item" onclick="sTab('o','o-content')"><span class="sb-item-icon">✏️</span>Edit Website</button>
-        <button class="sb-item" onclick="sTab('o','o-photos')"><span class="sb-item-icon">🖼️</span>Photos & Media</button>
         <button class="sb-item" onclick="sTab('o','o-payments')"><span class="sb-item-icon">💳</span>Payments & Bank</button>
         <button class="sb-item" onclick="sTab('o','o-deals')"><span class="sb-item-icon">🏷️</span>Specials & Deals</button>
         <button class="sb-item" onclick="sTab('o','o-sendInvoice')"><span class="sb-item-icon">🧾</span>Send Invoice</button>
@@ -2410,6 +2409,7 @@ try {
               <button class="content-sec-btn" onclick="showContentSection('pricing',this)">💰 Pricing</button>
               <button class="content-sec-btn" onclick="showContentSection('services',this)">🐾 Services</button>
               <button class="content-sec-btn" onclick="showContentSection('footer',this)">📄 Footer / Contact</button>
+              <button class="content-sec-btn" onclick="showContentSection('photos',this)">🖼️ Photos & Media</button>
             </div>
           </div>
 
@@ -2499,71 +2499,74 @@ try {
                 <button class="submit-btn" onclick="saveFooter()">💾 Save Contact Info</button>
               </div>
             </div>
+
+            <!-- Photos & Media section -->
+            <div id="ce-photos" class="content-edit-panel" style="display:none">
+              <div style="font-size:0.85rem;color:var(--mid);margin-bottom:16px">Upload your real photos — they'll appear on your website and in walk reports.</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="card">
+                  <div class="card-title" style="margin-bottom:16px">🐾 Profile / Hero Photo</div>
+                  <div id="heroPhotoPreview" style="width:100%;aspect-ratio:4/3;border-radius:10px;background:linear-gradient(135deg,var(--gold-pale),var(--forest-pale));display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed rgba(200,150,62,0.4);cursor:pointer;transition:all 0.2s;margin-bottom:12px" onclick="document.getElementById('heroPhotoInput').click()">
+                    <div style="font-size:3rem;margin-bottom:8px">📸</div>
+                    <div style="font-size:0.85rem;font-weight:600;color:var(--brown)">Click to upload your photo</div>
+                    <div style="font-size:0.74rem;color:var(--mid);margin-top:4px">JPG, PNG · Recommended 800×600+</div>
+                  </div>
+                  <input type="file" id="heroPhotoInput" accept="image/*" style="display:none" onchange="previewPhoto(this,'heroPhotoPreview','hero')">
+                  <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center" onclick="document.getElementById('heroPhotoInput').click()">📂 Browse Files</button>
+                </div>
+
+                <div class="card">
+                  <div class="card-title" style="margin-bottom:8px">🐕 About Section Photos</div>
+                  <div style="font-size:0.75rem;color:var(--mid);margin-bottom:12px">These appear in the auto-fade slideshow on your About section. Add as many as you like!</div>
+                  <div id="aboutPhotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+                    <!-- Dynamic slots populated by JS -->
+                  </div>
+                  <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center" onclick="addAboutPhotoSlot()">➕ Add Another Photo</button>
+                </div>
+
+                <div class="card">
+                  <div class="card-title" style="margin-bottom:16px">🖼️ Service Photos (shown on cards)</div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto1')"><div style="font-size:1.8rem">🦮</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Dog Walk</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto2')"><div style="font-size:1.8rem">🚪</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Drop-In</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto3')"><div style="font-size:1.8rem">🌙</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Boarding</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto4')"><div style="font-size:1.8rem">🐱</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Cat Care</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto5')"><div style="font-size:1.8rem">🚌</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Paw Bus</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto6')"><div style="font-size:1.8rem">🏡</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">House Sitting</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto7')"><div style="font-size:1.8rem">☀️</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Doggy Day Care</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto9')"><div style="font-size:1.8rem">💍</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Wedding</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto10')"><div style="font-size:1.8rem">🐾</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Pet Shop</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto8')" style="border-style:solid;background:var(--gold-pale)"><div style="font-size:1.3rem">+</div><div style="font-size:0.65rem;margin-top:4px;color:var(--gold-deep);font-weight:700">Add More</div></div>
+                  </div>
+                  <input type="file" id="svcPhoto1" accept="image/*" style="display:none" onchange="toast('📸 Dog Walk photo uploaded!')">
+                  <input type="file" id="svcPhoto2" accept="image/*" style="display:none" onchange="toast('📸 Drop-In photo uploaded!')">
+                  <input type="file" id="svcPhoto3" accept="image/*" style="display:none" onchange="toast('📸 Boarding photo uploaded!')">
+                  <input type="file" id="svcPhoto4" accept="image/*" style="display:none" onchange="toast('📸 Cat Care photo uploaded!')">
+                  <input type="file" id="svcPhoto5" accept="image/*" style="display:none" onchange="toast('📸 Paw Bus photo uploaded!')">
+                  <input type="file" id="svcPhoto6" accept="image/*" style="display:none" onchange="toast('📸 House Sitting photo uploaded!')">
+                  <input type="file" id="svcPhoto7" accept="image/*" style="display:none" onchange="toast('📸 Doggy Day Care photo uploaded!')">
+                  <input type="file" id="svcPhoto8" accept="image/*" style="display:none" onchange="toast('📸 Photo uploaded!')">
+                  <input type="file" id="svcPhoto9" accept="image/*" style="display:none" onchange="toast('📸 Wedding Addition photo uploaded!')">
+                  <input type="file" id="svcPhoto10" accept="image/*" style="display:none" onchange="toast('📸 Pet Shop photo uploaded!')">
+                </div>
+
+                <div class="card">
+                  <div class="card-title" style="margin-bottom:14px">📱 Social Media & Logo</div>
+                  <div style="display:flex;flex-direction:column;gap:10px">
+                    <div class="photo-upload-slot" style="aspect-ratio:1;max-width:120px" onclick="triggerUpload('logoUpload')"><div style="font-size:2rem">🐾</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Business Logo</div></div>
+                    <input type="file" id="logoUpload" accept="image/*" style="display:none" onchange="toast('✅ Logo uploaded!')">
+                    <div style="font-size:0.82rem;color:var(--brown);line-height:1.6">Upload your logo here and it will appear in the nav, footer, and report cards.</div>
+                    <div style="background:var(--gold-pale);border-radius:8px;padding:12px;font-size:0.8rem;color:var(--brown)">💡 <strong>Tip:</strong> Use a square PNG with transparent background for the best results across your site and future app.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- ========== PHOTOS & MEDIA ========== -->
-      <div class="p-panel" id="o-photos">
-        <div class="p-header"><h2>🖼️ Photos & Media</h2><p>Upload your real photos — they'll appear on your website and in walk reports.</p></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-          <div class="card">
-            <div class="card-title" style="margin-bottom:16px">🐾 Profile / Hero Photo</div>
-            <div id="heroPhotoPreview" style="width:100%;aspect-ratio:4/3;border-radius:10px;background:linear-gradient(135deg,var(--gold-pale),var(--forest-pale));display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed rgba(200,150,62,0.4);cursor:pointer;transition:all 0.2s;margin-bottom:12px" onclick="document.getElementById('heroPhotoInput').click()">
-              <div style="font-size:3rem;margin-bottom:8px">📸</div>
-              <div style="font-size:0.85rem;font-weight:600;color:var(--brown)">Click to upload your photo</div>
-              <div style="font-size:0.74rem;color:var(--mid);margin-top:4px">JPG, PNG · Recommended 800×600+</div>
-            </div>
-            <input type="file" id="heroPhotoInput" accept="image/*" style="display:none" onchange="previewPhoto(this,'heroPhotoPreview','hero')">
-            <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center" onclick="document.getElementById('heroPhotoInput').click()">📂 Browse Files</button>
-          </div>
-
-          <div class="card">
-            <div class="card-title" style="margin-bottom:8px">🐕 About Section Photos</div>
-            <div style="font-size:0.75rem;color:var(--mid);margin-bottom:12px">These appear in the auto-fade slideshow on your About section. Add as many as you like!</div>
-            <div id="aboutPhotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-              <!-- Dynamic slots populated by JS -->
-            </div>
-            <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center" onclick="addAboutPhotoSlot()">➕ Add Another Photo</button>
-          </div>
-
-          <div class="card">
-            <div class="card-title" style="margin-bottom:16px">🖼️ Service Photos (shown on cards)</div>
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto1')"><div style="font-size:1.8rem">🦮</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Dog Walk</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto2')"><div style="font-size:1.8rem">🚪</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Drop-In</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto3')"><div style="font-size:1.8rem">🌙</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Boarding</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto4')"><div style="font-size:1.8rem">🐱</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Cat Care</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto5')"><div style="font-size:1.8rem">🚌</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Paw Bus</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto6')"><div style="font-size:1.8rem">🏡</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">House Sitting</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto7')"><div style="font-size:1.8rem">☀️</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Doggy Day Care</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto9')"><div style="font-size:1.8rem">💍</div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto10')"><div style="font-size:1.8rem">🐾</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Pet Shop</div></div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Wedding</div></div>
-              <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto8')" style="border-style:solid;background:var(--gold-pale)"><div style="font-size:1.3rem">+</div><div style="font-size:0.65rem;margin-top:4px;color:var(--gold-deep);font-weight:700">Add More</div></div>
-            </div>
-            <input type="file" id="svcPhoto1" accept="image/*" style="display:none" onchange="toast('📸 Dog Walk photo uploaded!')">
-            <input type="file" id="svcPhoto2" accept="image/*" style="display:none" onchange="toast('📸 Drop-In photo uploaded!')">
-            <input type="file" id="svcPhoto3" accept="image/*" style="display:none" onchange="toast('📸 Boarding photo uploaded!')">
-            <input type="file" id="svcPhoto4" accept="image/*" style="display:none" onchange="toast('📸 Cat Care photo uploaded!')">
-            <input type="file" id="svcPhoto5" accept="image/*" style="display:none" onchange="toast('📸 Paw Bus photo uploaded!')">
-            <input type="file" id="svcPhoto6" accept="image/*" style="display:none" onchange="toast('📸 House Sitting photo uploaded!')">
-            <input type="file" id="svcPhoto7" accept="image/*" style="display:none" onchange="toast('📸 Doggy Day Care photo uploaded!')">
-            <input type="file" id="svcPhoto8" accept="image/*" style="display:none" onchange="toast('📸 Photo uploaded!')">
-            <input type="file" id="svcPhoto9" accept="image/*" style="display:none" onchange="toast('📸 Wedding Addition photo uploaded!')">
-            <input type="file" id="svcPhoto10" accept="image/*" style="display:none" onchange="toast('📸 Pet Shop photo uploaded!')">
-          </div>
-
-          <div class="card">
-            <div class="card-title" style="margin-bottom:14px">📱 Social Media & Logo</div>
-            <div style="display:flex;flex-direction:column;gap:10px">
-              <div class="photo-upload-slot" style="aspect-ratio:1;max-width:120px" onclick="triggerUpload('logoUpload')"><div style="font-size:2rem">🐾</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Business Logo</div></div>
-              <input type="file" id="logoUpload" accept="image/*" style="display:none" onchange="toast('✅ Logo uploaded!')">
-              <div style="font-size:0.82rem;color:var(--brown);line-height:1.6">Upload your logo here and it will appear in the nav, footer, and report cards.</div>
-              <div style="background:var(--gold-pale);border-radius:8px;padding:12px;font-size:0.8rem;color:var(--brown)">💡 <strong>Tip:</strong> Use a square PNG with transparent background for the best results across your site and future app.</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- Legacy o-photos panel — hidden, redirects to Edit Website > Photos section -->
+      <div class="p-panel" id="o-photos" style="display:none!important"></div>
 
       <!-- ========== PAYMENTS & BANK ========== -->
       <div class="p-panel" id="o-payments">
@@ -3866,6 +3869,11 @@ function goBackPanel() {
 var _generalTabMap = { 'c-photos': 'photos', 'c-reports': 'reports', 'c-reviews': 'reviews', 'c-bill': 'billing' };
 
 function sTab(portal, panelId) {
+  // Redirect o-photos to Edit Website > Photos section
+  if (panelId === 'o-photos') {
+    panelId = 'o-content';
+    setTimeout(function() { showContentSection('photos'); }, 50);
+  }
   // Redirect c-track to dashboard (tracking is now a dashboard widget)
   if (panelId === 'c-track') {
     panelId = 'c-dash';
@@ -3945,21 +3953,6 @@ function sTab(portal, panelId) {
   // Booking request panels
   if (panelId === 'o-requests' && typeof loadBookingRequestsPanel === 'function') loadBookingRequestsPanel('owner');
   if (panelId === 's-requests' && typeof loadBookingRequestsPanel === 'function') loadBookingRequestsPanel('staff');
-  // Gallery re-render when switching to photo panels (c-photos now handled by switchGeneralTab)
-  if (panelId === 'o-photos') {
-    if (window.HHP_Gallery) HHP_Gallery.render('owner');
-    // Re-wire slots and restore photo previews every time the panel opens
-    if (window.HHP_Photos) {
-      HHP_Photos.wireUploadSlots();
-      initAboutPhotoGrid();
-      HHP_Photos.restoreAllPreviews();
-      // If photos never loaded (Supabase wasn't ready), try again now
-      if (Object.keys(HHP_Photos.photos).length === 0) {
-        HHP_Photos._loadRetries = 0;
-        HHP_Photos.loadPhotos();
-      }
-    }
-  }
   // Load dashboard stats when switching to dashboard/overview panels
   if ((panelId === 'c-dash' || panelId === 's-sched' || panelId === 'o-overview') && typeof loadDashboardStats === 'function') loadDashboardStats();
   // Reload alerts & booking requests when returning to overview
@@ -8699,8 +8692,24 @@ function showContentSection(name, btn) {
   const el = document.getElementById('ce-'+name); if(el) el.style.display='block';
   document.querySelectorAll('.content-sec-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
+  else {
+    // Find the matching button by section name and activate it
+    document.querySelectorAll('.content-sec-btn').forEach(function(b){
+      if(b.textContent.toLowerCase().indexOf(name)!==-1) b.classList.add('active');
+    });
+  }
   if(name==='pricing') buildPricingEditor();
   if(name==='services') buildServiceEditor();
+  if(name==='photos') {
+    // Load photos & wire upload slots when switching to Photos section
+    if(window.HHP_Gallery) HHP_Gallery.render('owner');
+    if(window.HHP_Photos){
+      HHP_Photos.wireUploadSlots();
+      if(typeof initAboutPhotoGrid==='function') initAboutPhotoGrid();
+      HHP_Photos.restoreAllPreviews();
+      if(Object.keys(HHP_Photos.photos).length===0){HHP_Photos._loadRetries=0;HHP_Photos.loadPhotos();}
+    }
+  }
 }
 function saveContentSection(section) {
   const updates = {};

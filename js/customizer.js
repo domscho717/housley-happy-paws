@@ -52,7 +52,7 @@
     'sw-msgs':"sTab('s','s-msgs')",'sw-cal':"sTab('s','s-cal')",
     'ow-requests':"sTab('o','o-requests')",'ow-clients':"sTab('o','o-clients')",'ow-staff':"sTab('o','o-staff')",
     'ow-reviews':"sTab('o','o-reviews')",'ow-payments':"sTab('o','o-payments')",'ow-deals':"sTab('o','o-deals')",
-    'ow-photos':"sTab('o','o-photos')",'ow-activity':"sTab('o','o-activity')"
+    'ow-photos':"sTab('o','o-content');setTimeout(function(){showContentSection('photos')},50)",'ow-activity':"sTab('o','o-activity')"
   };
 
   function _defaults(p) { return (WIDGETS[p]||[]).filter(function(w){return w.preset;}).map(function(w){return w.wid;}); }
