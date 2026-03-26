@@ -458,12 +458,7 @@
       var sBtn = createSettingsButton();
       sSidebar.appendChild(sBtn);
     }
-    // Owner sidebar
-    var oSidebar = document.querySelector('#pg-owner .sidebar');
-    if (oSidebar && !oSidebar.querySelector('.sb-settings-btn')) {
-      var oBtn = createSettingsButton();
-      oSidebar.appendChild(oBtn);
-    }
+    // Owner sidebar — Settings is now inside the General tab, skip standalone button
   }
 
   function createSettingsButton() {
