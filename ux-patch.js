@@ -945,8 +945,17 @@
     closeHeader.appendChild(closeBtn);
     drawer.appendChild(closeHeader);
 
-    // ── PUBLIC NAV LINKS (only shown when NOT logged in) ──
-    if (!loggedIn) {
+    // ── Detect role early so we can skip sections for client-only users ──
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+    var isClientOnly = loggedIn && (role === 'client');
+
+    // For client-only users: force portal context immediately — they never need public nav or switch view
+    if (isClientOnly) {
+      activePortal = 'pg-client';
+    }
+
+    // ── PUBLIC NAV LINKS (only shown when NOT logged in and not client-only) ──
+    if (!loggedIn && !isClientOnly) {
       var navSection = document.createElement('div');
       navSection.className = 'hhp-drawer-nav-section';
       navSection.style.cssText = 'padding: 0 20px 8px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
@@ -978,13 +987,8 @@
       drawer.appendChild(navSection);
     }
 
-    // ── VIEW SWITCHER (only if logged in) ──
-    if (loggedIn) {
-      var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
-      var isClientOnly = (role === 'client');
-
-      // For client-only users: no "Switch View" or "Home" link — just show portal items directly
-      if (!isClientOnly) {
+    // ── VIEW SWITCHER (only if logged in AND not client-only) ──
+    if (loggedIn && !isClientOnly) {
         var viewSection = document.createElement('div');
         viewSection.style.cssText = 'padding: 8px 20px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
         var label = document.createElement('div');
@@ -1016,14 +1020,10 @@
           viewSection.appendChild(btn);
         });
         drawer.appendChild(viewSection);
-      }
     }
 
-    // ── PORTAL SIDEBAR ITEMS (only if logged in and on a portal) ──
-    // For clients: always show portal items in drawer, even if on public homepage
-    if (loggedIn && !activePortal && isClientOnly) {
-      activePortal = 'pg-client';
-    }
+    // ── PORTAL SIDEBAR ITEMS ──
+    // activePortal already set for client-only users above; for others, need a portal active
     if (!loggedIn || !activePortal) return;
 
     // Determine portal name — for clients, show "Home" instead of "Client Portal"
@@ -1034,11 +1034,30 @@
     };
     var portalName = portalNames[activePortal] || 'Portal';
 
-    // Add portal title header (close button is already at the top)
+    // Add portal title header — for clients, "Home" is clickable and goes to dashboard
     var header = document.createElement('div');
     header.className = 'hhp-drawer-header';
     header.style.cssText = 'display:flex;align-items:center;padding:8px 20px 12px;border-bottom:2px solid #e0d5c5;';
-    header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;">' + portalName + '</span>';
+    if (isClientOnly) {
+      var homeBtn = document.createElement('button');
+      homeBtn.type = 'button';
+      homeBtn.className = 'hhp-drawer-title';
+      homeBtn.textContent = portalName;
+      homeBtn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;';
+      homeBtn.addEventListener('click', function() {
+        var needsSwitch = !getActivePortal();
+        if (needsSwitch && typeof switchView === 'function') {
+          switchView('client');
+        }
+        setTimeout(function() {
+          if (typeof sTab === 'function') sTab('c', 'c-dash');
+        }, needsSwitch ? 150 : 0);
+        closeDrawer();
+      });
+      header.appendChild(homeBtn);
+    } else {
+      header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;">' + portalName + '</span>';
+    }
     drawer.appendChild(header);
 
     // ── SIDEBAR EDIT BUTTON (reorder drawers) ──
@@ -1107,16 +1126,27 @@
             // Block navigation if in edit mode
             var editBtn = document.getElementById('mob-sb-edit-btn');
             if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
-            if (typeof sTab === 'function') {
-              sTab(tabPortal, tabPanel);
+            // For client-only users on public page, switch to portal first then navigate after delay
+            var needsSwitch = isClientOnly && !getActivePortal();
+            if (needsSwitch && typeof switchView === 'function') {
+              switchView('client');
             }
+            var tp = tabPortal, pn = tabPanel;
+            setTimeout(function() {
+              if (typeof sTab === 'function') sTab(tp, pn);
+            }, needsSwitch ? 150 : 0);
             closeDrawer();
           });
         } else {
           link.addEventListener('click', function(e) {
             var editBtn = document.getElementById('mob-sb-edit-btn');
             if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
-            sbItem.click();
+            var needsSwitch = isClientOnly && !getActivePortal();
+            if (needsSwitch && typeof switchView === 'function') {
+              switchView('client');
+            }
+            var item = sbItem;
+            setTimeout(function() { item.click(); }, needsSwitch ? 150 : 0);
             closeDrawer();
           });
         }
@@ -1124,7 +1154,12 @@
         link.addEventListener('click', function(e) {
           var editBtn = document.getElementById('mob-sb-edit-btn');
           if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
-          sbItem.click();
+          var needsSwitch = isClientOnly && !getActivePortal();
+          if (needsSwitch && typeof switchView === 'function') {
+            switchView('client');
+          }
+          var item = sbItem;
+          setTimeout(function() { item.click(); }, needsSwitch ? 150 : 0);
           closeDrawer();
         });
       }
