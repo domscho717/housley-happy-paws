@@ -6242,7 +6242,7 @@ async function loadClientAppts(filter, tabBtn) {
           if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid);margin-bottom:10px">Pets: ' + b.pet_names + '</div>';
           html += '<div style="display:flex;gap:8px">';
           html += '<button onclick="event.stopPropagation();clientAcceptTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept New Time</button>';
-          html += '<button onclick="event.stopPropagation();clientDeclineTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline</button>';
+          html += '<button onclick="event.stopPropagation();clientDeclineTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
           html += '</div></div></div>';
         }
         // ── Per-appointment time changes (date_details) ──
@@ -6258,10 +6258,26 @@ async function loadClientAppts(filter, tabBtn) {
             if (tc.msg) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:8px">"' + tc.msg + '"</div>';
             html += '<div style="display:flex;gap:8px">';
             html += '<button onclick="event.stopPropagation();clientAcceptApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept</button>';
-            html += '<button onclick="event.stopPropagation();clientDeclineApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline</button>';
+            html += '<button onclick="event.stopPropagation();clientDeclineApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
             html += '</div></div></div>';
           });
         }
+
+        // ── Payment hold banner (card declined — show retry option) ──
+        if (b.status === 'payment_hold') {
+          html += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:12px;overflow:hidden;margin-bottom:4px">';
+          html += '<div style="background:#fce4e4;padding:10px 14px;display:flex;align-items:center;gap:8px">';
+          html += '<span style="font-size:1.1rem">⚠️</span>';
+          html += '<div style="flex:1"><div style="font-weight:700;font-size:0.86rem;color:#c62828">Payment Required</div>';
+          html += '<div style="font-size:0.76rem;color:#8b1a1a">Your card was declined. Please update your payment method to confirm this booking.</div></div></div>';
+          html += '<div style="padding:10px 14px">';
+          html += '<div style="font-weight:600;font-size:0.84rem;margin-bottom:4px">' + (b.service || 'Appointment') + '</div>';
+          html += '<div style="font-size:0.8rem;color:var(--mid);margin-bottom:8px">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + (b.estimated_total ? ' · $' + Number(b.estimated_total).toFixed(2) : '') + '</div>';
+          html += '<div style="display:flex;gap:8px">';
+          html += '<button onclick="event.stopPropagation();sTab(\'c\',\'c-profile\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:#c62828;color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">Update Payment Method</button>';
+          html += '<button onclick="event.stopPropagation();clientAcceptTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid var(--forest);border-radius:8px;background:white;color:var(--forest);font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">Retry Payment</button>';
+          html += '</div></div></div>';
+        } else {
 
         html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + borderColor + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
         html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
@@ -6276,6 +6292,8 @@ async function loadClientAppts(filter, tabBtn) {
         html += paidBadge;
         if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
         html += '</div></div></div>';
+
+        } // end payment_hold else
       });
       html += '</div>';
     }
@@ -6486,18 +6504,18 @@ async function clientDeclineTimeChange(bookingId) {
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
   try {
-    var { data: bk } = await sb.from('booking_requests').select('scheduled_date, scheduled_time, service, preferred_date, preferred_time').eq('id', bookingId).maybeSingle();
+    var { data: bk } = await sb.from('booking_requests').select('*').eq('id', bookingId).maybeSingle();
     if (!bk) return;
 
-    // Revert to original date, set status back to accepted
+    // Cancel the booking entirely — client doesn't want it at these times
     await sb.from('booking_requests').update({
-      status: 'accepted',
-      scheduled_date: null,
-      scheduled_time: null,
-      admin_notes: 'Client declined the suggested time change on ' + new Date().toLocaleDateString() + '. Keeping original date.'
+      status: 'canceled',
+      canceled_at: new Date().toISOString(),
+      canceled_by: 'client',
+      admin_notes: (bk.admin_notes || '') + '\nClient declined the suggested time change and canceled the booking on ' + new Date().toLocaleDateString() + '.'
     }).eq('id', bookingId);
 
-    // Notify owner
+    // Notify owner that client canceled due to time change
     var clientName = '';
     try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
     var ownerIds = [];
@@ -6507,19 +6525,37 @@ async function clientDeclineTimeChange(bookingId) {
         sender_id: user.id,
         sender_name: clientName || 'Client',
         recipient_id: ownerIds[oi],
-        body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their booking') + '. The original date is kept.',
+        body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their booking') + ' and has canceled the booking.',
         is_alert: true,
       });
     }
+
+    // Email owner about the cancellation
+    try {
+      await fetch('/api/booking-status-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'rlhousley05@gmail.com',
+          name: 'Rachel',
+          service: bk.service || 'Booking',
+          status: 'canceled',
+          scheduledDate: bk.preferred_date,
+          scheduledTime: bk.preferred_time,
+          adminNotes: (clientName || 'Client') + ' declined the suggested time change and canceled the booking.',
+        }),
+      });
+    } catch(e) { console.warn('Email notification failed:', e); }
 
     // Refresh FIRST, then show banner
     await loadClientAppts('all');
     if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
-    _showTimeChangeBanner('info', 'Time change declined. Your original appointment time has been kept. Rachel has been notified.');
+    if (typeof loadDashboardStats === 'function') loadDashboardStats();
+    _showTimeChangeBanner('info', 'Booking canceled. Rachel has been notified. If you\'d like to rebook at a different time, you can submit a new booking request.');
   } catch (e) {
     console.error('Decline time change error:', e);
-    _showTimeChangeBanner('error', '❌ Error declining time change. Please try again.');
+    _showTimeChangeBanner('error', '❌ Error canceling booking. Please try again.');
   }
 }
 
@@ -6565,25 +6601,21 @@ async function clientAcceptApptTimeChange(bookingId, apptIdx) {
   }
 }
 
-// ── Client: Decline per-appointment Time Change (date_details) ──
+// ── Client: Decline per-appointment Time Change (date_details) → cancels booking ──
 async function clientDeclineApptTimeChange(bookingId, apptIdx) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
   try {
-    var { data: bk } = await sb.from('booking_requests').select('date_details, service').eq('id', bookingId).maybeSingle();
-    if (!bk || !bk.date_details || !bk.date_details[apptIdx]) return;
+    var { data: bk } = await sb.from('booking_requests').select('*').eq('id', bookingId).maybeSingle();
+    if (!bk) return;
 
-    var dd = bk.date_details;
-    dd[apptIdx].status = 'accepted';
-    delete dd[apptIdx].suggested_date;
-    delete dd[apptIdx].suggested_time;
-    delete dd[apptIdx].admin_message;
-
-    var allAccepted = dd.every(function(d) { return d.status === 'accepted'; });
+    // Cancel the entire booking — client doesn't want it
     await sb.from('booking_requests').update({
-      date_details: dd,
-      status: allAccepted ? 'accepted' : 'pending'
+      status: 'canceled',
+      canceled_at: new Date().toISOString(),
+      canceled_by: 'client',
+      admin_notes: (bk.admin_notes || '') + '\nClient declined the suggested time change and canceled the booking on ' + new Date().toLocaleDateString() + '.'
     }).eq('id', bookingId);
 
     // Notify owner
@@ -6592,15 +6624,17 @@ async function clientDeclineApptTimeChange(bookingId, apptIdx) {
     var ownerIds = [];
     try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
     for (var oi = 0; oi < ownerIds.length; oi++) {
-      await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their appointment') + '.', is_alert: true });
+      await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their booking') + ' and has canceled the booking.', is_alert: true });
     }
 
     await loadClientAppts('all');
+    if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
-    _showTimeChangeBanner('info', 'Time change declined. Your original appointment time has been kept.');
+    if (typeof loadDashboardStats === 'function') loadDashboardStats();
+    _showTimeChangeBanner('info', 'Booking canceled. Rachel has been notified. If you\'d like to rebook at a different time, you can submit a new booking request.');
   } catch (e) {
     console.error('Decline appt time change error:', e);
-    _showTimeChangeBanner('error', '❌ Error declining time change. Please try again.');
+    _showTimeChangeBanner('error', '❌ Error canceling booking. Please try again.');
   }
 }
 
