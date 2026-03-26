@@ -954,6 +954,24 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .admin-filter-btn{padding:5px 10px;font-size:0.72rem}
 }
 
+/* ── Skeleton shimmer loading states ── */
+@keyframes hhpShimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}
+.sk{background:linear-gradient(90deg,#f0ebe3 25%,#e8e0d4 50%,#f0ebe3 75%);background-size:600px 100%;animation:hhpShimmer 1.5s ease infinite;border-radius:6px}
+.sk-text{height:14px;margin-bottom:8px;width:70%}
+.sk-text.w40{width:40%}.sk-text.w60{width:60%}.sk-text.w90{width:90%}.sk-text.w100{width:100%}
+.sk-card{height:60px;margin-bottom:8px;border-radius:8px}
+.sk-stat{height:52px;border-radius:8px;flex:1;min-width:60px}
+.sk-avatar{width:36px;height:36px;border-radius:50%;flex-shrink:0}
+.sk-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.sk-grid{display:flex;gap:8px;flex-wrap:wrap}
+/* Fade in when data loads */
+.cust-widget .cw-body{transition:opacity 0.2s ease}
+.cust-widget[data-loaded="true"] .cw-body{opacity:1}
+/* Optimistic UI states */
+.opt-pending{opacity:0.6;pointer-events:none;transition:opacity 0.2s}
+.opt-success{animation:optFlash 0.4s ease}
+@keyframes optFlash{0%{background:var(--forest-pale)}100%{background:transparent}}
+
 /* ── iOS safe-area support (notch / Dynamic Island) ── */
 @supports(padding:env(safe-area-inset-top)){
   .navbar,.nav{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
@@ -3129,6 +3147,24 @@ try {
           <input type="radio" name="cancelOption" value="future" style="cursor:pointer">
           <span style="font-size:0.85rem;color:var(--ink)">All future bookings</span>
         </label>
+      </div>
+    </div>
+
+    <!-- Refund Option (shown only for owner/staff canceling a PAID booking) -->
+    <div id="cancelModal_refundGroup" style="display:none;margin-bottom:16px">
+      <div style="background:#e8f5e9;border:1.5px solid #4caf50;border-radius:10px;padding:14px 16px;border-left:4px solid #4caf50">
+        <div style="font-size:0.72rem;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">💳 Payment Detected</div>
+        <div style="font-size:0.84rem;color:#2e7d32;line-height:1.4;margin-bottom:10px">This booking has been paid (<strong id="cancelModal_paidAmount">$0.00</strong>). Since you're canceling on your end, would you like to issue a full refund to the client?</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:white;border-radius:8px;border:1.5px solid #4caf50;transition:all 0.2s">
+            <input type="radio" name="refundOption" value="refund" checked style="cursor:pointer;accent-color:#4caf50">
+            <span style="font-size:0.85rem;color:var(--ink);font-weight:600">Yes, issue full refund</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:white;border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
+            <input type="radio" name="refundOption" value="no_refund" style="cursor:pointer">
+            <span style="font-size:0.85rem;color:var(--ink)">No refund (late cancel by client)</span>
+          </label>
+        </div>
       </div>
     </div>
 
@@ -5670,8 +5706,9 @@ async function loadCalendarBookings(year, month) {
         }
       }
 
-      // Handle recurring bookings — generate all recurring dates for this month
-      if (b.recurrence_pattern && b.status !== 'canceled') {
+      // Handle recurring bookings — generate all recurring dates for this month (only active bookings)
+      var _calRecurActive = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1 };
+      if (b.recurrence_pattern && _calRecurActive[b.status]) {
         var cur = new Date(firstDay + 'T12:00:00');
         var last = new Date(lastDay + 'T12:00:00');
         while (cur <= last) {
@@ -6023,7 +6060,8 @@ async function loadClientAppts(filter, tabBtn) {
     // ── Helper: get next N upcoming dates for a recurring booking ──
     function getNextRecurringDates(booking, count) {
       var dates = [];
-      if (!booking.recurrence_pattern || booking.status === 'canceled') return dates;
+      var _activeStatuses = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1, payment_hold:1 };
+      if (!booking.recurrence_pattern || !_activeStatuses[booking.status]) return dates;
       var d = new Date();
       d.setHours(12, 0, 0, 0);
       var limit = new Date(d);
@@ -6040,10 +6078,12 @@ async function loadClientAppts(filter, tabBtn) {
     }
 
     // Separate recurring from one-time
+    // Only show recurring services that are actively scheduled (not completed/declined/canceled)
+    var _recurringActiveStatuses = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1 };
     var recurringAppts = [];
     var oneTimeAppts = [];
     appts.forEach(function(b) {
-      if (b.recurrence_pattern && b.status !== 'canceled') {
+      if (b.recurrence_pattern && _recurringActiveStatuses[b.status]) {
         recurringAppts.push(b);
       } else {
         oneTimeAppts.push(b);
@@ -6162,14 +6202,68 @@ async function loadClientAppts(filter, tabBtn) {
         var shortId = b.id ? b.id.slice(0, 8) : '';
         var isPaid = paidSet.has(shortId) || paidSet.has(user.email.toLowerCase() + '|' + b.estimated_total);
 
-        var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
-        var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
+        var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'payment_hold' ? '#fde8e8' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
+        var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'payment_hold' ? 'Payment Needed' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
         var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Paid</span>' : '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Unpaid</span>') : '';
+
+        // Detect time change request — owner/staff suggested a new time
+        var isTimeChange = b.status === 'modified' && b.scheduled_date;
+        // Also check date_details for per-appointment time changes
+        var ddTimeChanges = [];
+        if (b.date_details && Array.isArray(b.date_details)) {
+          b.date_details.forEach(function(dd, di) {
+            if (dd.status === 'modified' && dd.suggested_date) ddTimeChanges.push({ idx: di, date: dd.suggested_date, time: dd.suggested_time || '', msg: dd.admin_message || '' });
+          });
+        }
 
         var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
         var timeDisplay = fmt12h(b.preferred_time) || '';
 
-        html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + (b.status === 'accepted' ? 'var(--forest)' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)') + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
+        var borderColor = b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'payment_hold' ? '#c62828' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
+
+        // ── Time change banner (whole booking) ──
+        if (isTimeChange) {
+          var newDateFmt = new Date(b.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          var newTimeFmt = b.scheduled_time ? ((typeof fmt12h === 'function') ? fmt12h(b.scheduled_time) : b.scheduled_time) : '';
+          var tcNote = b.admin_notes || '';
+          html += '<div style="background:#fff8e1;border:1.5px solid #e67e22;border-radius:12px;overflow:hidden;margin-bottom:4px" data-tc-booking="' + b.id + '">';
+          html += '<div style="background:#ffecd2;padding:12px 14px;display:flex;align-items:center;gap:8px">';
+          html += '<span style="font-size:1.2rem">⏰</span>';
+          html += '<div style="flex:1"><div style="font-weight:700;font-size:0.88rem;color:#bf5d00">Time Change Requested</div>';
+          html += '<div style="font-size:0.78rem;color:#8a4400">Rachel suggested a new time for your appointment</div></div></div>';
+          html += '<div style="padding:12px 14px">';
+          html += '<div style="display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap">';
+          html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:var(--mid);font-weight:600;margin-bottom:2px">Originally</div>';
+          html += '<div style="font-size:0.85rem;color:var(--mid);text-decoration:line-through">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div></div>';
+          html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:#bf5d00;font-weight:600;margin-bottom:2px">New Time</div>';
+          html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00">' + newDateFmt + (newTimeFmt ? ' at ' + newTimeFmt : '') + '</div></div></div>';
+          if (tcNote) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:10px;padding:8px;background:white;border-radius:6px">"' + tcNote + '"</div>';
+          html += '<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px">' + (b.service || 'Appointment') + '</div>';
+          if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid);margin-bottom:10px">Pets: ' + b.pet_names + '</div>';
+          html += '<div style="display:flex;gap:8px">';
+          html += '<button onclick="event.stopPropagation();clientAcceptTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept New Time</button>';
+          html += '<button onclick="event.stopPropagation();clientDeclineTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
+          html += '</div></div></div>';
+        }
+        // ── Per-appointment time changes (date_details) ──
+        else if (ddTimeChanges.length > 0) {
+          ddTimeChanges.forEach(function(tc) {
+            var tcDateFmt = new Date(tc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var tcTimeFmt = tc.time ? ((typeof fmt12h === 'function') ? fmt12h(tc.time) : tc.time) : '';
+            html += '<div style="background:#fff8e1;border:1.5px solid #e67e22;border-radius:12px;overflow:hidden;margin-bottom:4px">';
+            html += '<div style="background:#ffecd2;padding:10px 14px;display:flex;align-items:center;gap:8px">';
+            html += '<span style="font-size:1.1rem">⏰</span><div style="font-weight:700;font-size:0.84rem;color:#bf5d00">Time Change — ' + (b.service || 'Appointment') + '</div></div>';
+            html += '<div style="padding:10px 14px">';
+            html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00;margin-bottom:4px">New: ' + tcDateFmt + (tcTimeFmt ? ' at ' + tcTimeFmt : '') + '</div>';
+            if (tc.msg) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:8px">"' + tc.msg + '"</div>';
+            html += '<div style="display:flex;gap:8px">';
+            html += '<button onclick="event.stopPropagation();clientAcceptApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept</button>';
+            html += '<button onclick="event.stopPropagation();clientDeclineApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
+            html += '</div></div></div>';
+          });
+        }
+
+        html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + borderColor + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
         html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
         html += '<div style="flex:1;min-width:0">';
         html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + '</div>';
@@ -6196,6 +6290,369 @@ async function loadClientAppts(filter, tabBtn) {
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
   }
 }
+
+// ── Client: Accept Time Change (whole booking) ──
+async function clientAcceptTimeChange(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  try {
+    // Get the full booking to read all relevant fields
+    var { data: bk } = await sb.from('booking_requests').select('*').eq('id', bookingId).maybeSingle();
+    if (!bk || !bk.scheduled_date) { if (typeof toast === 'function') toast('Could not find time change details'); return; }
+
+    var newDate = bk.scheduled_date;
+    var newTime = bk.scheduled_time || '';
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var newDateFmt = new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    var timeFmt = newTime ? ((typeof fmt12h === 'function') ? fmt12h(newTime) : newTime) : '';
+
+    // ══════════════════════════════════════════════════════════
+    // STEP 1: CHARGE CARD FIRST — nothing else happens if this fails
+    // ══════════════════════════════════════════════════════════
+    var autoCharged = false;
+    var paymentFailed = false;
+    var failReason = '';
+
+    if (bk.estimated_total > 0 && bk.client_id) {
+      try {
+        var chargeResp = await fetch('/api/charge-saved-card', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingRequestId: bookingId,
+            amount: bk.estimated_total,
+            service: bk.service,
+            clientProfileId: bk.client_id,
+          }),
+        });
+        var chargeData = await chargeResp.json();
+
+        if (chargeData.success) {
+          autoCharged = true;
+        } else if (chargeData.error === 'no_card') {
+          paymentFailed = true;
+          failReason = 'No payment method on file. Please add a card and try again.';
+        } else {
+          paymentFailed = true;
+          failReason = chargeData.message || 'Your card was declined. Please update your payment method and try again.';
+        }
+      } catch (chargeErr) {
+        console.warn('Auto-charge failed:', chargeErr);
+        paymentFailed = true;
+        failReason = 'Payment could not be processed. Please try again or contact Rachel.';
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // STEP 2: If payment FAILED — block everything, show error, notify owner
+    // ══════════════════════════════════════════════════════════
+    if (paymentFailed) {
+      // Set booking to payment_hold — do NOT set to accepted
+      await sb.from('booking_requests').update({
+        status: 'payment_hold',
+        admin_notes: (bk.admin_notes || '') + '\n⚠️ Client tried to accept time change but payment failed: ' + failReason
+      }).eq('id', bookingId);
+
+      // Notify owner about the failure (NOT success)
+      var failAlertBody = '⚠️ ' + (clientName || 'Client') + ' tried to accept the time change for ' + (bk.service || 'their booking') + ' but payment failed: ' + failReason;
+      var ownerIds = [];
+      try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+      for (var oi = 0; oi < ownerIds.length; oi++) {
+        await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: failAlertBody, is_alert: true });
+      }
+
+      // Show persistent error to client — DO NOT send success email
+      _showTimeChangeBanner('error', '❌ Payment Failed — ' + failReason + ' Your booking has NOT been confirmed. Please update your payment method in your profile and try accepting again.');
+
+      // Refresh to show payment_hold status
+      await loadClientAppts('all');
+      if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+      if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+      return; // STOP — do not confirm booking
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // STEP 3: Payment succeeded (or free service) — NOW confirm the booking
+    // ══════════════════════════════════════════════════════════
+    var updatePayload = {
+      preferred_date: newDate,
+      preferred_time: newTime,
+      scheduled_date: newDate,
+      scheduled_time: newTime,
+      status: 'accepted',
+      admin_notes: (bk.admin_notes || '') + '\nClient accepted time change on ' + new Date().toLocaleDateString() + (autoCharged ? ' — Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged.' : '')
+    };
+
+    if (bk.booking_dates && Array.isArray(bk.booking_dates)) {
+      updatePayload.booking_dates = bk.booking_dates.map(function() { return newDate; });
+    }
+    if (bk.date_details && Array.isArray(bk.date_details)) {
+      updatePayload.date_details = bk.date_details.map(function(dd) {
+        dd.date = newDate; dd.time = newTime; dd.status = 'accepted';
+        delete dd.suggested_date; delete dd.suggested_time; delete dd.admin_message;
+        return dd;
+      });
+    }
+
+    await sb.from('booking_requests').update(updatePayload).eq('id', bookingId);
+
+    // ── NOTIFY OWNER + STAFF (only on SUCCESS) ──
+    var alertBody = '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their booking') + '. Confirmed: ' + newDateFmt + (timeFmt ? ' at ' + timeFmt : '');
+    if (autoCharged) alertBody += '\n💳 Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged automatically.';
+
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: alertBody, is_alert: true });
+    }
+    try {
+      var { data: staffAssignments } = await sb.from('staff_assignments').select('staff_id').eq('client_id', bk.client_id);
+      if (staffAssignments && staffAssignments.length > 0) {
+        for (var si = 0; si < staffAssignments.length; si++) {
+          await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: staffAssignments[si].staff_id, body: alertBody, is_alert: true });
+        }
+      }
+    } catch(e) {}
+
+    // ── EMAIL to owner (only on SUCCESS) — include map link ──
+    try {
+      // Get client address for map link
+      var clientAddress = bk.address || '';
+      if (!clientAddress && bk.client_id) {
+        try {
+          var { data: clientProfile } = await sb.from('profiles').select('address').eq('user_id', bk.client_id).maybeSingle();
+          if (clientProfile && clientProfile.address) clientAddress = clientProfile.address;
+        } catch(e) {}
+      }
+      var mapLink = clientAddress ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(clientAddress) : '';
+      var ownerNotes = (clientName || 'Client') + ' accepted the time change.' + (autoCharged ? ' Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged.' : '');
+      if (mapLink) ownerNotes += '\n📍 Address: ' + clientAddress + '\n🗺️ Map: ' + mapLink;
+      await fetch('/api/booking-status-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'rlhousley05@gmail.com',
+          name: 'Rachel',
+          service: bk.service || 'Booking',
+          status: 'accepted',
+          scheduledDate: newDate,
+          scheduledTime: newTime,
+          adminNotes: ownerNotes,
+          estimatedTotal: bk.estimated_total || null,
+          autoCharged: autoCharged,
+          isOwnerNotification: true,
+          clientName: clientName || 'Client',
+          clientAddress: clientAddress,
+          mapLink: mapLink,
+        }),
+      });
+    } catch(e) { console.warn('Email notification failed:', e); }
+
+    // ── CLIENT CONFIRMATION (only on SUCCESS) ──
+    var confirmMsg = autoCharged
+      ? '✅ Booking confirmed! Your card has been charged $' + Number(bk.estimated_total).toFixed(2) + '. You\'re all set!'
+      : '✅ Booking confirmed at the new time! Note: Cancellations within 48 hours of your appointment are subject to the full service charge.';
+
+    // Refresh FIRST, then show banner so it doesn't get wiped
+    await loadClientAppts('all');
+    if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+    if (typeof loadDashboardStats === 'function') loadDashboardStats();
+
+    // Now show the banner (after reload is done)
+    _showTimeChangeBanner('success', confirmMsg);
+
+  } catch (e) {
+    console.error('Accept time change error:', e);
+    _showTimeChangeBanner('error', '❌ Something went wrong accepting the time change. Please try again.');
+  }
+}
+
+// ── Shared banner helper for time change accept/decline feedback ──
+function _showTimeChangeBanner(type, message) {
+  // Remove any existing banner first
+  var old = document.getElementById('tc-feedback-banner');
+  if (old) old.remove();
+
+  var isError = type === 'error';
+  var bgColor = isError ? '#fde8e8' : type === 'info' ? '#e8f4fd' : '#d4edda';
+  var textColor = isError ? '#c62828' : type === 'info' ? '#01579b' : '#155724';
+  var icon = isError ? '❌' : type === 'info' ? 'ℹ️' : '✅';
+
+  var banner = document.createElement('div');
+  banner.id = 'tc-feedback-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;padding:16px 20px;background:' + bgColor + ';color:' + textColor + ';font-size:0.92rem;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,0.15);font-family:inherit';
+  banner.innerHTML = '<span style="font-size:1.3rem;flex-shrink:0">' + icon + '</span>' +
+    '<div style="flex:1">' + message + '</div>' +
+    '<button onclick="this.parentElement.remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:' + textColor + ';flex-shrink:0">✕</button>';
+  document.body.appendChild(banner);
+
+  // Auto-dismiss success banners after 8 seconds, keep errors until manually closed
+  if (!isError) {
+    setTimeout(function() { if (banner.parentElement) banner.remove(); }, 8000);
+  }
+}
+
+// ── Client: Decline Time Change (whole booking) ──
+async function clientDeclineTimeChange(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('*').eq('id', bookingId).maybeSingle();
+    if (!bk) return;
+
+    // Cancel the booking entirely — client doesn't want it at these times
+    await sb.from('booking_requests').update({
+      status: 'canceled',
+      canceled_at: new Date().toISOString(),
+      canceled_by: 'client',
+      admin_notes: (bk.admin_notes || '') + '\nClient declined the suggested time change and canceled the booking on ' + new Date().toLocaleDateString() + '.'
+    }).eq('id', bookingId);
+
+    // Notify owner AND assigned staff that client canceled due to time change
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var declineMsg = '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their booking') + ' and has canceled the booking.';
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({
+        sender_id: user.id,
+        sender_name: clientName || 'Client',
+        recipient_id: ownerIds[oi],
+        body: declineMsg,
+        is_alert: true,
+      });
+    }
+    // Also notify assigned staff
+    try {
+      var { data: staffAssignments } = await sb.from('staff_assignments').select('staff_id').eq('client_id', bk.client_id);
+      if (staffAssignments && staffAssignments.length > 0) {
+        for (var si = 0; si < staffAssignments.length; si++) {
+          await sb.from('messages').insert({
+            sender_id: user.id,
+            sender_name: clientName || 'Client',
+            recipient_id: staffAssignments[si].staff_id,
+            body: declineMsg,
+            is_alert: true,
+          });
+        }
+      }
+    } catch(e) {}
+
+    // Email owner about the cancellation
+    try {
+      await fetch('/api/booking-status-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: 'rlhousley05@gmail.com',
+          name: 'Rachel',
+          service: bk.service || 'Booking',
+          status: 'canceled',
+          scheduledDate: bk.preferred_date,
+          scheduledTime: bk.preferred_time,
+          adminNotes: (clientName || 'Client') + ' declined the suggested time change and canceled the booking.',
+          isOwnerNotification: true,
+          clientName: clientName || 'Client',
+        }),
+      });
+    } catch(e) { console.warn('Email notification failed:', e); }
+
+    // Refresh FIRST, then show banner
+    await loadClientAppts('all');
+    if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+    if (typeof loadDashboardStats === 'function') loadDashboardStats();
+    _showTimeChangeBanner('info', 'Booking canceled. Rachel has been notified. If you\'d like to rebook at a different time, you can submit a new booking request.');
+  } catch (e) {
+    console.error('Decline time change error:', e);
+    _showTimeChangeBanner('error', '❌ Error canceling booking. Please try again.');
+  }
+}
+
+// ── Client: Accept per-appointment Time Change (date_details) ──
+async function clientAcceptApptTimeChange(bookingId, apptIdx) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('date_details, service').eq('id', bookingId).maybeSingle();
+    if (!bk || !bk.date_details || !bk.date_details[apptIdx]) return;
+
+    var dd = bk.date_details;
+    // Move suggested date/time to main date, set status to accepted
+    dd[apptIdx].date = dd[apptIdx].suggested_date || dd[apptIdx].date;
+    dd[apptIdx].time = dd[apptIdx].suggested_time || dd[apptIdx].time;
+    dd[apptIdx].status = 'accepted';
+    delete dd[apptIdx].suggested_date;
+    delete dd[apptIdx].suggested_time;
+    delete dd[apptIdx].admin_message;
+
+    var allAccepted = dd.every(function(d) { return d.status === 'accepted'; });
+    await sb.from('booking_requests').update({
+      date_details: dd,
+      status: allAccepted ? 'accepted' : 'pending'
+    }).eq('id', bookingId);
+
+    // Notify owner
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their appointment') + '.', is_alert: true });
+    }
+
+    await loadClientAppts('all');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+    _showTimeChangeBanner('success', '✅ New time accepted for this appointment!');
+  } catch (e) {
+    console.error('Accept appt time change error:', e);
+    _showTimeChangeBanner('error', '❌ Error accepting time change. Please try again.');
+  }
+}
+
+// ── Client: Decline per-appointment Time Change (date_details) → cancels booking ──
+async function clientDeclineApptTimeChange(bookingId, apptIdx) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('*').eq('id', bookingId).maybeSingle();
+    if (!bk) return;
+
+    // Cancel the entire booking — client doesn't want it
+    await sb.from('booking_requests').update({
+      status: 'canceled',
+      canceled_at: new Date().toISOString(),
+      canceled_by: 'client',
+      admin_notes: (bk.admin_notes || '') + '\nClient declined the suggested time change and canceled the booking on ' + new Date().toLocaleDateString() + '.'
+    }).eq('id', bookingId);
+
+    // Notify owner
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their booking') + ' and has canceled the booking.', is_alert: true });
+    }
+
+    await loadClientAppts('all');
+    if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+    if (typeof loadDashboardStats === 'function') loadDashboardStats();
+    _showTimeChangeBanner('info', 'Booking canceled. Rachel has been notified. If you\'d like to rebook at a different time, you can submit a new booking request.');
+  } catch (e) {
+    console.error('Decline appt time change error:', e);
+    _showTimeChangeBanner('error', '❌ Error canceling booking. Please try again.');
+  }
+}
+
 // ── Recurring: Request Change (sends message to owner) ──
 async function requestRecurringChange(bookingId) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
@@ -6319,8 +6776,8 @@ async function showBookingDetail(bookingId, role, source) {
     else if (svcLower.indexOf('day care') !== -1) icon = '☀️';
 
     // Status badge
-    var statusColors = { pending: '#e0a800', accepted: '#28a745', confirmed: '#28a745', completed: '#17a2b8', canceled: '#dc3545', rejected: '#6c757d' };
-    var statusLabels = { pending: 'Pending', accepted: 'Confirmed', confirmed: 'Confirmed', completed: 'Completed', canceled: 'Canceled', rejected: 'Declined' };
+    var statusColors = { pending: '#e0a800', accepted: '#28a745', confirmed: '#28a745', completed: '#17a2b8', canceled: '#dc3545', rejected: '#6c757d', modified: '#e67e22', payment_hold: '#c62828' };
+    var statusLabels = { pending: 'Pending', accepted: 'Confirmed', confirmed: 'Confirmed', completed: 'Completed', canceled: 'Canceled', rejected: 'Declined', modified: 'Time Change', payment_hold: 'Payment Needed' };
     var st = b.status || 'pending';
     var stColor = statusColors[st] || '#6c757d';
     var stLabel = statusLabels[st] || st;
@@ -6440,8 +6897,18 @@ async function showBookingDetail(bookingId, role, source) {
       if (b.deal_discount && b.deal_discount > 0) {
         h += '<div style="font-size:0.78rem;color:#2e7d32;font-weight:600">🏷️ You saved $' + Number(b.deal_discount).toFixed(2) + ' with a deal!</div>';
       }
+      if (b.price_breakdown) {
+        h += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">' + b.price_breakdown.split(' | ').join(' · ') + '</div>';
+      }
       h += '<div style="font-size:0.78rem;color:var(--mid)">' + (isPaid ? '✅ Paid' : '⏳ Payment pending') + '</div>';
       h += '</div></div>';
+    }
+
+    // 48-hour cancellation policy (client view only, for active bookings)
+    if (role === 'client' && (st === 'accepted' || st === 'confirmed' || st === 'pending' || st === 'modified' || st === 'payment_hold')) {
+      h += '<div style="background:#fff8e1;border:1px solid #e0d5c5;border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:0.78rem;color:#6b5c4d;line-height:1.5">';
+      h += '<strong style="color:#bf5d00">Cancellation Policy:</strong> Cancellations made within 48 hours of your scheduled appointment will be charged the full service fee. Cancellations made more than 48 hours in advance are fully refundable.';
+      h += '</div>';
     }
 
     h += '</div>'; // end info rows
@@ -7400,7 +7867,7 @@ function getCancelType(bookingDate) {
   return now <= cutoff ? 'free' : 'late';
 }
 
-function openCancelModal(bookingRequestId, service, date, clientName, isRecurring, canceledBy) {
+async function openCancelModal(bookingRequestId, service, date, clientName, isRecurring, canceledBy) {
   // Store data for confirm action
   _cancelData.bookingRequestId = bookingRequestId;
   _cancelData.service = service;
@@ -7408,6 +7875,8 @@ function openCancelModal(bookingRequestId, service, date, clientName, isRecurrin
   _cancelData.clientName = clientName;
   _cancelData.isRecurring = isRecurring;
   _cancelData.canceledBy = canceledBy;
+  _cancelData.paymentIntentId = null;
+  _cancelData.paidAmount = 0;
 
   // Populate modal with booking details
   var dateDisplay = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
@@ -7433,6 +7902,27 @@ function openCancelModal(bookingRequestId, service, date, clientName, isRecurrin
     recurringGroup.style.display = 'none';
   }
 
+  // Show/hide refund option — only for owner/staff canceling a paid booking
+  var refundGroup = document.getElementById('cancelModal_refundGroup');
+  refundGroup.style.display = 'none';
+  if (canceledBy === 'owner' || canceledBy === 'staff') {
+    try {
+      var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+      if (sb) {
+        var { data: bk } = await sb.from('booking_requests').select('payment_intent_id, estimated_total').eq('id', bookingRequestId).maybeSingle();
+        if (bk && bk.payment_intent_id) {
+          _cancelData.paymentIntentId = bk.payment_intent_id;
+          _cancelData.paidAmount = bk.estimated_total || 0;
+          document.getElementById('cancelModal_paidAmount').textContent = '$' + Number(_cancelData.paidAmount).toFixed(2);
+          refundGroup.style.display = '';
+          // Default to refund for owner/staff cancels
+          var refundRadio = document.querySelector('input[name="refundOption"][value="refund"]');
+          if (refundRadio) refundRadio.checked = true;
+        }
+      }
+    } catch(e) { console.warn('Could not check payment status:', e); }
+  }
+
   // Open modal
   openModal('cancelBookingModal');
 }
@@ -7450,6 +7940,13 @@ async function confirmCancelBooking() {
     var option = cancelOption ? cancelOption.value : 'this';
     var isSingleCancel = _cancelData.isRecurring && option === 'this';
 
+    // Check refund selection (only present for owner/staff paid cancels)
+    var refundOption = document.querySelector('input[name="refundOption"]:checked');
+    var issueRefund = false;
+    if (_cancelData.paymentIntentId && refundOption && refundOption.value === 'refund') {
+      issueRefund = true;
+    }
+
     // Call the backend API
     var response = await fetch('/api/cancel-booking', {
       method: 'POST',
@@ -7458,14 +7955,20 @@ async function confirmCancelBooking() {
         bookingRequestId: _cancelData.bookingRequestId,
         canceledBy: _cancelData.canceledBy,
         cancelSingle: isSingleCancel,
-        cancelDate: isSingleCancel ? _cancelData.date : undefined
+        cancelDate: isSingleCancel ? _cancelData.date : undefined,
+        issueRefund: issueRefund
       })
     });
 
     var result = await response.json();
     if (result.success) {
-      toast('✅ Booking canceled successfully 🐾');
+      var toastMsg = '✅ Booking canceled successfully 🐾';
+      if (result.refunded) toastMsg = '✅ Booking canceled & refund issued 🐾';
+      toast(toastMsg);
       closeModal('cancelBookingModal');
+      // Invalidate cache & refresh widgets
+      if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+      if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
       // Refresh the relevant portal view
       if (_cancelData.canceledBy === 'client') {
         if (typeof loadClientAppts === 'function') {
@@ -9627,7 +10130,7 @@ async function loadStaffSchedule() {
     var todayStr = today.toISOString().split('T')[0];
     if (typeof isRecurringOnDate === 'function') {
       var { data: staffRecurring } = await sb.from('booking_requests').select('*')
-        .in('status', ['accepted', 'confirmed']).not('recurrence_pattern', 'is', null);
+        .in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']).not('recurrence_pattern', 'is', null);
       if (staffRecurring) {
         staffRecurring.forEach(function(rb) {
           if (isRecurringOnDate(rb, todayStr)) {
@@ -11562,6 +12065,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
   window._hhpAuthReady = false;
+  window._hhpEarlyHydrated = false;
   window.onHHPAuthReady = function(fn) {
     if (window._hhpAuthReady) { fn(); } else { window._hhpAuthCallbacks.push(fn); }
   };
@@ -11571,6 +12075,72 @@ document.addEventListener('DOMContentLoaded', function() {
     window._hhpAuthCallbacks = [];
     for (var i = 0; i < cbs.length; i++) { try { cbs[i](); } catch(e) { console.error('Auth callback error:', e); } }
   }
+
+  // ── EARLY HYDRATION: Instant UI from cached session ──
+  // Before Supabase SDK even loads, hydrate the portal from sessionStorage
+  // so the user sees their dashboard immediately on refresh.
+  (function _earlyHydrate() {
+    try {
+      var cachedRole = sessionStorage.getItem('hhp_cached_role');
+      var cachedProfile = sessionStorage.getItem('hhp_cached_profile');
+      if (!cachedRole) return; // No cached session — first visit or logged out
+
+      var profile = cachedProfile ? JSON.parse(cachedProfile) : null;
+
+      // Populate HHP_Auth with cached data so modules can start immediately
+      if (typeof HHP_Auth !== 'undefined') {
+        HHP_Auth.currentRole = cachedRole;
+        // Create a minimal currentUser from cache so _getUser() and _getPortal() work
+        HHP_Auth.currentUser = HHP_Auth.currentUser || { id: 'cached', profile: profile };
+        if (profile) HHP_Auth.currentUser.profile = profile;
+      }
+
+      // Update nav buttons instantly
+      var loginBtn = document.getElementById('navLoginBtn');
+      var logoutBtn = document.getElementById('navLogoutBtn');
+      if (loginBtn) loginBtn.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+
+      // Fill in user name instantly from cache
+      if (profile && profile.full_name) {
+        var nameEls = document.querySelectorAll('.sb-name');
+        nameEls.forEach(function(el) { el.textContent = profile.full_name; });
+      }
+
+      // Restore view from cache
+      var lastView = sessionStorage.getItem('hhp_last_view');
+      var lastPanel = sessionStorage.getItem('hhp_last_panel');
+      var lastPortal = sessionStorage.getItem('hhp_last_portal');
+      if (lastView && typeof switchView === 'function') {
+        switchView(lastView);
+        if (lastPanel && lastPortal && typeof sTab === 'function') {
+          setTimeout(function() { sTab(lastPortal, lastPanel); }, 30);
+        }
+      } else if (typeof switchView === 'function') {
+        switchView(cachedRole === 'owner' ? 'owner' : cachedRole === 'staff' ? 'staff' : 'client');
+      }
+
+      // Pre-fill cached stats instantly (fills in the "—" placeholders)
+      try {
+        var cachedStats = sessionStorage.getItem('hhp_cached_stats');
+        if (cachedStats) {
+          var stats = JSON.parse(cachedStats);
+          // Use requestAnimationFrame to fill once DOM is painted
+          requestAnimationFrame(function() {
+            Object.keys(stats).forEach(function(id) {
+              var el = document.getElementById(id);
+              if (el && (el.textContent === '—' || el.textContent === '')) el.textContent = stats[id];
+            });
+          });
+        }
+      } catch(e) {}
+
+      // Fire auth-ready early so customizer + realtime start immediately
+      window._hhpEarlyHydrated = true;
+      _fireAuthReady();
+      console.log('[Early Hydrate] Portal rendered from cache in <50ms');
+    } catch(e) { console.warn('Early hydrate skipped:', e); }
+  })();
 
     // Wait for Supabase SDK to load (async script)
   function waitForSupabase(cb, maxWait) {
@@ -11582,7 +12152,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 50);
   }
 
-    // Initialize auth when page loads
+    // Initialize auth when page loads — verifies cached session with real Supabase
   document.addEventListener('DOMContentLoaded', function() {
     waitForSupabase(async function() {
     if (typeof HHP_Auth !== 'undefined' && HHP_Auth.SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
@@ -11590,21 +12160,31 @@ document.addEventListener('DOMContentLoaded', function() {
       // Set global alias so all functions can access the same Supabase client
       if (ok && HHP_Auth.supabase) window.HHP_supabase = HHP_Auth.supabase;
       if (ok && !HHP_Auth.isAuthenticated()) {
-        // Not logged in — show public site, hide login overlay for now
-        // Login overlay shows when they try to access a portal
+        // Not logged in — clear stale cache and show public site
+        if (window._hhpEarlyHydrated) {
+          // Early hydration was wrong — user is actually logged out
+          try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_cached_profile'); } catch(e) {}
+          if (typeof switchView === 'function') switchView('public');
+        }
         document.getElementById('navLoginBtn').style.display = 'inline-flex';
+        document.getElementById('navLogoutBtn').style.display = 'none';
       } else if (ok && HHP_Auth.isAuthenticated()) {
         document.getElementById('navLoginBtn').style.display = 'none';
         document.getElementById('navLogoutBtn').style.display = 'inline-flex';
-        // Load dashboard stats on initial page load
+        // Load dashboard stats
         if (typeof loadDashboardStats === 'function') loadDashboardStats();
         if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+        // If early hydration already fired auth-ready, refresh widgets with real data
+        if (window._hhpEarlyHydrated && window.HHP_Customizer && HHP_Customizer.refreshAll) {
+          HHP_Customizer.refreshAll();
+        }
       }
-      // Signal auth is ready — all waiting modules fire immediately
-      _fireAuthReady();
+      // Signal auth is ready — if early hydration already fired, this is a no-op
+      // (callbacks array was already drained)
+      if (!window._hhpEarlyHydrated) _fireAuthReady();
     } else {
       // Auth not configured — dev mode
-      _fireAuthReady();
+      if (!window._hhpEarlyHydrated) _fireAuthReady();
     }
     }); // end waitForSupabase
   });
@@ -12016,6 +12596,18 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (error) {
       console.error('Error loading dashboard stats:', error);
     }
+
+    // Cache all stat values for instant hydration on next page load
+    try {
+      var statEls = document.querySelectorAll('[id^="stat-"]');
+      var statCache = {};
+      statEls.forEach(function(el) {
+        if (el.textContent && el.textContent !== '—' && el.textContent !== '') {
+          statCache[el.id] = el.textContent;
+        }
+      });
+      sessionStorage.setItem('hhp_cached_stats', JSON.stringify(statCache));
+    } catch(e) {}
   }
 
   // ---- OWNER TODAY'S SCHEDULE WITH START/END WALK BUTTONS ----
@@ -12034,16 +12626,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
       // Query booking_requests for today — exclude completed (they go to activity log)
+      // Check both scheduled_date AND preferred_date since some bookings may only have preferred_date set
       var { data: bookings, error } = await sb.from('booking_requests').select('*')
-        .eq('scheduled_date', todayStr).in('status', ['accepted', 'confirmed', 'in_progress'])
+        .eq('scheduled_date', todayStr).in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold'])
         .order('scheduled_time', { ascending: true });
+      // Also get bookings that only have preferred_date (no scheduled_date set)
+      var { data: prefDateBookings } = await sb.from('booking_requests').select('*')
+        .eq('preferred_date', todayStr).is('scheduled_date', null).in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']);
+      if (prefDateBookings) {
+        prefDateBookings.forEach(function(pb) {
+          var alreadyIn = (bookings || []).some(function(b) { return b.id === pb.id; });
+          if (!alreadyIn) { if (!bookings) bookings = []; bookings.push(pb); }
+        });
+      }
 
       if (error) { console.warn('Owner today schedule error:', error); }
       bookings = bookings || [];
 
       // Also check for multi-date bookings that include today
       var { data: multiDate } = await sb.from('booking_requests').select('*')
-        .in('status', ['accepted', 'confirmed', 'in_progress']).not('booking_dates', 'is', null);
+        .in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']).not('booking_dates', 'is', null);
       if (multiDate) {
         multiDate.forEach(function(br) {
           if (br.booking_dates && Array.isArray(br.booking_dates) && br.booking_dates.indexOf(todayStr) !== -1) {
@@ -12055,7 +12657,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Also check for recurring bookings that fall on today
       var { data: recurringBookings } = await sb.from('booking_requests').select('*')
-        .in('status', ['accepted', 'confirmed']).not('recurrence_pattern', 'is', null);
+        .in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']).not('recurrence_pattern', 'is', null);
       if (recurringBookings) {
         recurringBookings.forEach(function(rb) {
           if (isRecurringOnDate(rb, todayStr)) {
@@ -12162,8 +12764,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var filter = (document.getElementById('masterSchedFilter') || {}).value || 'all';
 
     try {
-      // Get all accepted booking_requests in this month range
-      var query = sb.from('booking_requests').select('*').eq('status', 'accepted')
+      // Get all accepted/confirmed booking_requests in this month range
+      // Query by scheduled_date first
+      var query = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'payment_hold'])
         .gte('scheduled_date', startStr).lte('scheduled_date', endStr)
         .order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true });
 
@@ -12173,9 +12776,27 @@ document.addEventListener('DOMContentLoaded', function() {
       if (error) console.warn('Master schedule error:', error);
       bookings = bookings || [];
 
+      // Also get bookings that only have preferred_date (no scheduled_date)
+      var prefQuery = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'payment_hold'])
+        .is('scheduled_date', null).gte('preferred_date', startStr).lte('preferred_date', endStr);
+      if (filter !== 'all') prefQuery = prefQuery.ilike('service', '%' + filter + '%');
+      var { data: prefBookings } = await prefQuery;
+      if (prefBookings) {
+        prefBookings.forEach(function(pb) {
+          pb.scheduled_date = pb.preferred_date; // normalize for display
+          pb.scheduled_time = pb.preferred_time;
+          var alreadyIn = bookings.some(function(b) { return b.id === pb.id; });
+          if (!alreadyIn) bookings.push(pb);
+        });
+        bookings.sort(function(a, b) {
+          if ((a.scheduled_date || '') !== (b.scheduled_date || '')) return (a.scheduled_date || '') < (b.scheduled_date || '') ? -1 : 1;
+          return (a.scheduled_time || '') < (b.scheduled_time || '') ? -1 : 1;
+        });
+      }
+
       // Also include multi-date bookings that fall in this month
       var { data: multiDate } = await sb.from('booking_requests').select('*')
-        .eq('status', 'accepted').not('booking_dates', 'is', null);
+        .in('status', ['accepted', 'confirmed', 'payment_hold']).not('booking_dates', 'is', null);
       if (multiDate) {
         multiDate.forEach(function(br) {
           if (!br.booking_dates || !Array.isArray(br.booking_dates)) return;
@@ -12550,11 +13171,12 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/profiles.js" defer></script>
   <script src="/js/employee-mgmt.js" defer></script>
 
-  <script src="/js/booking-system.js?v=20260325b" defer></script>
+  <script src="/js/realtime-cache.js?v=20260325" defer></script>
+  <script src="/js/booking-system.js?v=20260326a" defer></script>
   <script src="/js/messaging.js?v=20260324" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260325c" defer></script>
+  <script src="/js/customizer.js?v=20260326a" defer></script>
   <script src="/js/avatar-system.js" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>

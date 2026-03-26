@@ -267,24 +267,75 @@
     el.appendChild(tb); el.appendChild(grid);
   }
 
+  // Skeleton placeholder for a widget body based on size
+  function _skeletonFor(wid,size){
+    if(window.HHP_Skeleton){
+      if(wid.indexOf('-stats')>-1||wid.indexOf('-weekstats')>-1||wid.indexOf('-banner')>-1) return HHP_Skeleton.stats(size==='full'?4:2);
+      if(size==='full') return HHP_Skeleton.cards(3);
+      return HHP_Skeleton.lines(2);
+    }
+    return '<div style="height:40px;background:var(--warm);border-radius:6px;animation:hhpShimmer 1.5s ease infinite"></div>';
+  }
+
+  // Render widgets with instant skeletons, then fill async
   async function _renderWidgets(portal){
     var grid=document.getElementById('cust-grid-'+portal);
     if(!grid) return;
     var active=_getActive(portal), allW=WIDGETS[portal]||[];
+
+    // Phase 1: show skeleton placeholders instantly
     var html='';
     for(var i=0;i<active.length;i++){
       var w=allW.find(function(x){return x.wid===active[i];}); if(!w) continue;
       var size=_getSize(portal,w.wid);
-      var renderer=_R[w.renderFn];
-      var body='';
-      // Pass size to renderer so it can adapt content for small vs full
-      if(renderer){try{body=await renderer(size);}catch(e){body='<div style="color:var(--mid);font-size:0.82rem">Could not load</div>';}}
-      html+=_card(portal,w,body,size);
+      html+=_card(portal,w,_skeletonFor(w.wid,size),size);
     }
     if(!html) html='<div style="grid-column:1/-1;padding:30px;text-align:center;color:var(--mid);font-size:0.85rem;background:var(--warm);border-radius:12px;border:1.5px dashed var(--border)">No widgets visible. Click <strong>✏️ Customize</strong> to add sections.</div>';
     grid.innerHTML=html;
-    // Fade in
     requestAnimationFrame(function(){grid.style.opacity='1';});
+
+    // Phase 2: fill each widget async in parallel (no waiting sequentially)
+    active.forEach(function(wid){
+      var w=allW.find(function(x){return x.wid===wid;}); if(!w) return;
+      var size=_getSize(portal,w.wid);
+      var renderer=_R[w.renderFn];
+      if(!renderer) return;
+      (async function(){
+        try{
+          var body=await renderer(size);
+          var el=grid.querySelector('[data-wid="'+wid+'"] .cw-body');
+          if(el) el.innerHTML=body;
+        }catch(e){
+          var el=grid.querySelector('[data-wid="'+wid+'"] .cw-body');
+          if(el) el.innerHTML='<div style="color:var(--mid);font-size:0.82rem">Could not load</div>';
+        }
+      })();
+    });
+  }
+
+  // Refresh a single widget in-place (for realtime updates)
+  function _refreshWidget(portal,wid){
+    var grid=document.getElementById('cust-grid-'+portal);
+    if(!grid) return;
+    var allW=WIDGETS[portal]||[];
+    var w=allW.find(function(x){return x.wid===wid;});
+    if(!w) return;
+    var size=_getSize(portal,w.wid);
+    var renderer=_R[w.renderFn];
+    if(!renderer) return;
+    (async function(){
+      try{
+        var body=await renderer(size);
+        var el=grid.querySelector('[data-wid="'+wid+'"] .cw-body');
+        if(el) el.innerHTML=body;
+      }catch(e){}
+    })();
+  }
+
+  // Refresh all widgets for a portal
+  function _refreshAll(portal){
+    var active=_getActive(portal);
+    active.forEach(function(wid){ _refreshWidget(portal,wid); });
   }
 
   function _card(portal,w,body,size){
@@ -299,7 +350,7 @@
         (canResize?'<button onclick="event.stopPropagation();HHP_Customizer.setSize(\''+portal+'\',\''+w.wid+'\',\''+otherSize+'\')" title="'+(full?'Shrink':'Expand full width')+'" style="background:none;border:none;cursor:pointer;font-size:1rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">'+sIcon+'</button>':'')+
         (nav?'<button onclick="event.stopPropagation();HHP_Customizer.detail(\''+portal+'\',\''+w.wid+'\')" title="Detail view" style="background:none;border:none;cursor:pointer;font-size:0.85rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">🔍</button>':'')+
         (nav?'<button onclick="event.stopPropagation();'+nav+'" title="Go to panel" style="background:none;border:none;cursor:pointer;font-size:0.7rem;color:var(--gold);font-weight:700;padding:2px 6px;opacity:0.5;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">View →</button>':'')+
-      '</div><div style="padding:10px 14px 14px">'+body+'</div></div>';
+      '</div><div class="cw-body" style="padding:10px 14px 14px">'+body+'</div></div>';
   }
 
   // ══════════════════════════════════════
@@ -568,12 +619,12 @@
   _R._rwClientUpcoming=async function(sz){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'<div style="color:var(--mid);font-size:0.82rem">No data</div>';
     var lim=sz==='full'?8:2;
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,estimated_total,status,pet_names').eq('client_id',u.id).in('status',['accepted','confirmed']).gte('preferred_date',today).order('preferred_date').limit(lim);
+    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('id,service,preferred_date,preferred_time,scheduled_date,scheduled_time,estimated_total,status,pet_names').eq('client_id',u.id).in('status',['accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(lim);
       if(!data||!data.length)return'<div style="color:var(--mid);font-size:0.82rem;padding:8px 0">No upcoming appointments</div>';
       if(sz==='full'){
-        return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');return'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.85rem"><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.75rem;color:var(--mid)">'+d+(t?' · '+t:'')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right"><div style="font-weight:600;color:var(--forest)">$'+(b.estimated_total||0).toFixed(2)+'</div><div style="font-size:0.65rem;color:var(--forest);text-transform:uppercase">'+b.status+'</div></div></div>';}).join('');
+        return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var tcBanner='';if(b.status==='modified'&&b.scheduled_date){var nd=new Date(b.scheduled_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var nt=b.scheduled_time?((typeof fmt12h==='function')?fmt12h(b.scheduled_time):b.scheduled_time):'';tcBanner='<div style="background:#fff8e1;border:1px solid #e67e22;border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:0.75rem"><span style="font-weight:700;color:#bf5d00">⏰ Time Change:</span> '+nd+(nt?' at '+nt:'')+' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;font-weight:700;margin-left:4px">Review</a></div>';}var _wSLabel=b.status==='accepted'?'Confirmed':b.status==='modified'?'Time Change':b.status==='payment_hold'?'Payment Needed':b.status==='confirmed'?'Confirmed':'Pending';var _wSColor=b.status==='modified'?'#e67e22':b.status==='payment_hold'?'#c62828':'var(--forest)';var _wPaidBadge=(b.status==='accepted'||b.status==='confirmed')?'<span style="font-size:0.6rem;color:#155724;font-weight:700">PAID</span>':'';return tcBanner+'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.85rem"><div style="flex:1"><div style="font-weight:700">'+b.service+(b.status==='modified'?' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;font-weight:700;font-size:0.78rem;text-decoration:underline">(Request Time Change)</a>':'')+'</div><div style="font-size:0.75rem;color:var(--mid)">'+d+(t?' · '+t:'')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right"><div style="font-weight:600;color:'+_wSColor+'">$'+(b.estimated_total||0).toFixed(2)+'</div><div style="font-size:0.65rem;color:'+_wSColor+';text-transform:uppercase">'+_wSLabel+'</div>'+_wPaidBadge+'</div></div>';}).join('');
       }
-      return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});return'<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.78rem"><span style="font-weight:600">'+b.service+'</span><span style="color:var(--mid)">'+d+'</span></div>';}).join('');
+      return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});if(b.status==='modified'){return'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.78rem"><span style="font-weight:600;color:#e67e22">⏰ '+b.service+' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;text-decoration:underline;font-weight:700">(Request Time Change)</a></span><span style="color:var(--mid)">'+d+'</span></div>';}var _cSLabel=b.status==='accepted'||b.status==='confirmed'?'Confirmed':'';return'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.78rem"><span style="font-weight:600">'+b.service+(_cSLabel?' <span style="color:var(--forest);font-size:0.68rem;font-weight:700">'+_cSLabel+'</span>':'')+'</span><span style="color:var(--mid)">'+d+'</span></div>';}).join('');
     }catch(e){return'';}
   };
 
@@ -861,10 +912,14 @@
 
   // ── OWNER ──
   _R._rwOwnerBanner=async function(sz){
+    var _bH=new Date().getHours();
+    var _bGreet=_bH<12?'Good morning':_bH<17?'Good afternoon':'Good evening';
+    var _bName='Rachel';
+    try{if(window.HHP_Auth&&HHP_Auth.currentUser&&HHP_Auth.currentUser.profile&&HHP_Auth.currentUser.profile.full_name)_bName=HHP_Auth.currentUser.profile.full_name.split(' ')[0];}catch(e){}
     if(sz==='half'){
       // Small: greeting + 3 key stats + announcement button
       return '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">'+
-        '<div style="flex:1"><div style="font-family:\'Cormorant Garamond\',serif;font-size:0.95rem;font-weight:700;color:var(--ink)">Good morning, Rachel 🐾</div></div>'+
+        '<div style="flex:1"><div style="font-family:\'Cormorant Garamond\',serif;font-size:0.95rem;font-weight:700;color:var(--ink)">'+_bGreet+', '+_bName+' 🐾</div></div>'+
         '<button class="btn btn-gold btn-sm" onclick="openModal(\'announceModal\')" style="padding:4px 8px;font-size:0.7rem;white-space:nowrap;flex-shrink:0">📢</button></div>'+
         '<div style="display:flex;gap:5px;flex-wrap:wrap">'+
           '<div style="flex:1;min-width:45px;text-align:center;background:var(--warm);border-radius:6px;padding:5px;cursor:pointer" onclick="sTab(\'o\',\'o-clients\')" style="transition:background 0.15s" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\'var(--warm)\'"><div style="font-family:\'Cormorant Garamond\',serif;font-size:1rem;font-weight:700" id="stat-activeClients">—</div><div style="font-size:0.55rem;color:var(--mid);text-transform:uppercase">Clients</div></div>'+
@@ -874,7 +929,7 @@
     }
     // Full: greeting + announcement button + 4 key stats (Clients, Sign-ups, Reports, Today)
     return '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">'+
-      '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700;color:var(--ink)">Good morning, Rachel 🐾</div>'+
+      '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.3rem;font-weight:700;color:var(--ink)">'+_bGreet+', '+_bName+' 🐾</div>'+
       '<div style="font-size:0.82rem;color:var(--mid)">Your business is growing beautifully.</div></div>'+
       '<button class="btn btn-gold btn-sm" onclick="openModal(\'announceModal\')">📢 Post Announcement</button></div>'+
       '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">'+
@@ -963,7 +1018,7 @@
       return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:0.82rem;color:var(--mid)" id="todayDateLabel">Loading...</div></div>'+
         '<div id="ownerTodayScheduleList" style="display:flex;flex-direction:column;gap:6px;min-height:60px"><div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem">Loading...</div></div>';
     }
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed']).eq('preferred_date',today).order('preferred_time');
+    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
       var h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:0.85rem;color:var(--mid);font-weight:600" id="todayDateLabel">'+new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})+'</div>'+
         '<button class="btn btn-outline btn-sm" onclick="sTab(\'o\',\'o-sched\')" style="font-size:0.75rem;padding:4px 8px">Full Schedule →</button></div>';
       if(data&&data.length){
@@ -1210,14 +1265,14 @@
   // ── DETAIL RENDERERS ──
   _D._rwClientUpcoming=async function(){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'No data';
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('*').eq('client_id',u.id).in('status',['accepted','confirmed']).gte('preferred_date',today).order('preferred_date').limit(10);
+    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('*').eq('client_id',u.id).in('status',['accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(10);
       if(!data||!data.length)return'<div style="color:var(--mid);padding:16px 0">No upcoming appointments.</div>';
       return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||b.time_slot||''):(b.preferred_time||'');return'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:700;font-size:0.9rem">'+b.service+'</div><div style="font-size:0.78rem;color:var(--mid)">'+d+(t?' · '+t:'')+'</div></div><div style="font-size:0.82rem;font-weight:600;color:var(--forest)">$'+(b.estimated_total||0).toFixed(2)+'</div></div>';}).join('');
     }catch(e){return'Could not load';}
   };
   _D._rwOwnerToday=async function(){
     var sb=_getSB();if(!sb)return'';
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('*').in('status',['accepted','confirmed']).eq('preferred_date',today).order('preferred_time');
+    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('*').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
       if(!data||!data.length)return'<div style="padding:16px 0;color:var(--mid)">No services today.</div>';
       return data.map(function(b){var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||b.time_slot||''):(b.preferred_time||'');return'<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div style="min-width:60px;font-weight:700;font-size:0.85rem;color:var(--gold)">'+t+'</div><div style="flex:1"><div style="font-weight:600;font-size:0.9rem">'+b.service+'</div><div style="font-size:0.78rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div></div>';}).join('');
     }catch(e){return'';}
@@ -1253,6 +1308,9 @@
     if(!portal) return;
     console.log('Customizer: init',portal);
 
+    // Kick off preload in background (parallel data fetch)
+    if(window.HHP_Preload) HHP_Preload.forPortal(portal);
+
     // Load prefs in parallel with DOM setup
     var prefsPromise=_loadPrefs();
     _setupOverview(portal);
@@ -1260,13 +1318,41 @@
     await prefsPromise;
     _applySidebarOrder(portal);
 
-    // Render widgets, then retrigger data loaders after DOM is ready
+    // Render widgets with skeletons first, then fill async
     await _renderWidgets(portal);
     // Give DOM time to paint before firing data loaders to populate widget content
     setTimeout(function(){_retrigger(portal);},300);
     // Safety: retrigger again after a bit in case some loaders weren't ready yet
     setTimeout(function(){_retrigger(portal);},1500);
+
+    // Register realtime callbacks to auto-refresh widgets on data changes
+    _hookRealtime(portal);
+
     console.log('Customizer: ready');
+  }
+
+  // Map tables to widgets that need refreshing
+  var _tableWidgets={
+    booking_requests:{owner:['ow-requests','ow-today','ow-weekstats','ow-banner','ow-activity'],staff:['sw-requests','sw-jobs','sw-stats','sw-cal'],client:['cw-upcoming','cw-stats']},
+    messages:{owner:['ow-alerts'],staff:['sw-msgs'],client:['cw-notif','cw-msgs']},
+    deals:{owner:['ow-deals'],staff:[],client:[]},
+    announcements:{owner:[],staff:[],client:[]},
+    payments:{owner:['ow-payments','ow-weekstats'],staff:['sw-earnings'],client:['cw-billing']},
+    reviews:{owner:['ow-reviews'],staff:[],client:['cw-reviews']},
+    pets:{owner:['ow-clients'],staff:[],client:['cw-pets']},
+    profiles:{owner:['ow-clients','ow-staff'],staff:['sw-clients'],client:[]}
+  };
+
+  function _hookRealtime(portal){
+    if(!window.HHP_Realtime) return;
+    // Listen to all table changes and refresh the relevant widgets
+    HHP_Realtime.on('*', function(table){
+      var wids=(_tableWidgets[table]||{})[portal]||[];
+      wids.forEach(function(wid){ _refreshWidget(portal,wid); });
+      // Also retrigger stat loaders (they populate by element ID)
+      setTimeout(function(){_retrigger(portal);},200);
+    });
+    console.log('[RT] Customizer hooked for',portal);
   }
 
   // Hook into auth callback system for fastest possible init
@@ -1379,6 +1465,8 @@
     openPetProfile:_openPetProfile,
     togglePets:_togglePets,
     refresh:function(){var p=_getPortal();if(p)_renderWidgets(p).then(function(){_retrigger(p);});},
+    refreshWidget:function(wid){var p=_getPortal();if(p)_refreshWidget(p,wid);},
+    refreshAll:function(){var p=_getPortal();if(p){_refreshAll(p);setTimeout(function(){_retrigger(p);},200);}},
     // Mobile drawer edit mode — reorder portal sidebar items only
     _toggleSidebarEditMobile:function(portal,drawer){
       var btn=document.getElementById('mob-sb-edit-btn');

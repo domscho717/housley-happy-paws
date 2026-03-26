@@ -732,7 +732,11 @@
       '    <div id="brm-price-estimate" style="display:none;background:linear-gradient(135deg,#f9f6f0,#fff);border:1px solid #e0d5c5;border-radius:10px;padding:14px 16px;margin:10px 0 14px">',
       '      <div style="font-weight:700;font-size:0.88rem;margin-bottom:6px">Estimated Total</div>',
       '      <div id="brm-price-breakdown" style="font-size:0.82rem;color:#6b5c4d;line-height:1.6"></div>',
+      '      <div id="brm-per-service-list" style="margin-top:6px;font-size:0.8rem"></div>',
       '      <div style="font-weight:700;font-size:1.15rem;color:#1e1409;margin-top:6px">$<span id="brm-price-total">0</span></div>',
+      '      <div id="brm-policy-notice" style="margin-top:10px;padding:10px 12px;background:#fff8e1;border:1px solid #e0d5c5;border-radius:8px;font-size:0.76rem;color:#6b5c4d;line-height:1.5">',
+      '        <strong style="color:#bf5d00">Cancellation Policy:</strong> Cancellations made within 48 hours of your scheduled appointment will be charged the full service fee. Cancellations made more than 48 hours in advance are fully refundable.',
+      '      </div>',
       '    </div>',
       '',
       '    <label class="brm-label">Home Address <span style="color:var(--rose,#c25656);font-weight:700">*</span></label>',
@@ -860,14 +864,27 @@
         }
       }
 
+      // Per-service list (shows each date card's price individually)
+      var perServiceEl = document.getElementById('brm-per-service-list');
+
       // Recurring pricing: show per-appointment cost, billed the day before each visit
       if (hasAnyRecurring && !isHS) {
         var recurringCount = 0;
         var oneTimeCards = 0;
+        var recurringSchedules = [];
         document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
           var cIdx = card.id.replace('brm-dc-', '');
           var rCb = document.getElementById('brm-dc-recur-' + cIdx);
-          if (rCb && rCb.checked) { recurringCount++; } else { oneTimeCards++; }
+          var cardDate = card.getAttribute('data-date');
+          if (rCb && rCb.checked) {
+            recurringCount++;
+            var freqEl = document.getElementById('brm-dc-freq-' + cIdx);
+            var ongoingEl = document.getElementById('brm-dc-ongoing-' + cIdx);
+            var endEl = document.getElementById('brm-dc-recur-end-' + cIdx);
+            var freq = freqEl ? freqEl.value : 'weekly';
+            var isOngoing = ongoingEl && ongoingEl.checked;
+            recurringSchedules.push({ date: cardDate, freq: freq, ongoing: isOngoing, end: endEl ? endEl.value : '' });
+          } else { oneTimeCards++; }
         });
         var oneTimeTotal = result.total * oneTimeCards;
         if (breakdownEl) {
@@ -880,12 +897,48 @@
           }
           breakdownEl.innerHTML += '<br><span style="font-size:0.78rem;color:#8c6b4a">Charged the day before each appointment</span>';
         }
+        // Show recurring schedule details
+        if (perServiceEl && recurringSchedules.length > 0) {
+          var recurHTML = '<div style="border-top:1px solid #e0d5c5;margin-top:6px;padding-top:6px">';
+          recurHTML += '<div style="font-weight:600;font-size:0.78rem;color:#6b5c4d;margin-bottom:4px">Recurring Schedule:</div>';
+          recurringSchedules.forEach(function(rs) {
+            var dFmt = new Date(rs.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var freqLabel = rs.freq === 'weekly' ? 'Every week' : rs.freq === 'biweekly' ? 'Every 2 weeks' : rs.freq === 'monthly' ? 'Monthly' : rs.freq;
+            var endLabel = rs.ongoing ? 'Until stopped' : (rs.end ? 'Until ' + new Date(rs.end + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+            recurHTML += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.76rem">';
+            recurHTML += '<span>' + svcName + ' — ' + dFmt + '</span>';
+            recurHTML += '<span style="color:#8c6b4a">' + freqLabel + (endLabel ? ' · ' + endLabel : '') + '</span></div>';
+            recurHTML += '<div style="font-size:0.72rem;color:#8c6b4a;padding-left:8px">$' + result.total.toFixed(2) + '/visit · Charged the day before each appointment</div>';
+          });
+          recurHTML += '</div>';
+          perServiceEl.innerHTML = recurHTML;
+        }
         if (totalEl) totalEl.textContent = result.total.toFixed(2) + '/appt';
       } else if (totalDates > 1 && !isHS) {
         var multiTotal = result.total * totalDates;
         if (breakdownEl) breakdownEl.innerHTML += '<br><span style="font-weight:600">' + totalDates + ' appointments x $' + result.total.toFixed(2) + '</span>';
+        // Show per-date-card breakdown
+        if (perServiceEl && window._brmGetDateCardsData) {
+          var cards = window._brmGetDateCardsData();
+          if (cards.length > 1) {
+            var listHTML = '<div style="border-top:1px solid #e0d5c5;margin-top:6px;padding-top:6px">';
+            listHTML += '<div style="font-weight:600;font-size:0.78rem;color:#6b5c4d;margin-bottom:4px">Per Appointment:</div>';
+            cards.forEach(function(dc, idx) {
+              var dFmt = new Date(dc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+              var tFmt = dc.time ? ((typeof fmt12h === 'function') ? fmt12h(dc.time) : dc.time) : '';
+              listHTML += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.76rem">';
+              listHTML += '<span>' + svcName + ' — ' + dFmt + (tFmt ? ' at ' + tFmt : '') + '</span>';
+              listHTML += '<span style="font-weight:600">$' + result.total.toFixed(2) + '</span></div>';
+            });
+            listHTML += '</div>';
+            perServiceEl.innerHTML = listHTML;
+          } else {
+            perServiceEl.innerHTML = '';
+          }
+        }
         if (totalEl) totalEl.textContent = multiTotal.toFixed(2);
       } else {
+        if (perServiceEl) perServiceEl.innerHTML = '';
         if (totalEl) totalEl.textContent = result.total.toFixed(2);
       }
 
@@ -2329,44 +2382,98 @@
         }
       }
 
-      var { data, error } = await sb
-        .from('booking_requests')
-        .insert({
-          service: service,
-          preferred_date: date,
-          preferred_end_date: isHouseSitting ? endDate : null,
-          preferred_time: time,
-          contact_name: name,
-          contact_email: email,
-          contact_phone: phone || null,
-          pet_names: pets,
-          pet_types: petType,
-          number_of_pets: numPets,
-          is_puppy: isPuppy,
-          is_holiday: holidayFlag,
-          estimated_total: window._brmDealDiscount ? window._brmDealDiscount.discountedTotal : (isHouseSitting ? priceResult.total : multiDateTotal),
-          price_breakdown: multiDateBreakdown + (window._brmDealDiscount ? ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + window._brmDealDiscount.savings.toFixed(2) : ''),
-          deal_id: window._brmDealDiscount ? window._brmDealDiscount.deal.id : null,
-          deal_discount: window._brmDealDiscount ? window._brmDealDiscount.savings : null,
-          special_notes: notes || null,
-          address: address,
-          house_area: address,
-          client_id: clientId,
-          status: 'pending',
-          booking_dates: totalDates > 1 ? allBookingDates : null,
-          recurrence_pattern: recurrencePattern,
-          date_details: dateCardDetails.length > 0 ? dateCardDetails : null,
-          selected_pet_ids: selectedPetIds ? selectedPetIds.split(',') : null,
-        })
-        .select();
+      // ── Split multi-date bookings into individual records ──
+      // Each date card becomes its own booking_request so owner/staff can manage them independently
+      var shouldSplit = dateCardDetails.length > 1 && !isRecurring && !isHouseSittingSvc;
+      var data, error;
+
+      if (shouldSplit) {
+        var perVisitPrice = priceResult.total; // per-session price
+        var perVisitDealSavings = window._brmDealDiscount ? (window._brmDealDiscount.savings / dateCardDetails.length) : null;
+        var perVisitTotal = window._brmDealDiscount ? (window._brmDealDiscount.discountedTotal / dateCardDetails.length) : perVisitPrice;
+
+        var insertRows = dateCardDetails.map(function(dc) {
+          return {
+            service: service,
+            preferred_date: dc.date,
+            preferred_end_date: null,
+            preferred_time: dc.time || '',
+            contact_name: name,
+            contact_email: email,
+            contact_phone: phone || null,
+            pet_names: pets,
+            pet_types: petType,
+            number_of_pets: numPets,
+            is_puppy: isPuppy,
+            is_holiday: isHoliday(dc.date),
+            estimated_total: perVisitTotal,
+            price_breakdown: priceResult.breakdown + (window._brmDealDiscount ? ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + perVisitDealSavings.toFixed(2) : ''),
+            deal_id: window._brmDealDiscount ? window._brmDealDiscount.deal.id : null,
+            deal_discount: perVisitDealSavings,
+            special_notes: notes || null,
+            address: address,
+            house_area: address,
+            client_id: clientId,
+            status: 'pending',
+            booking_dates: null,
+            recurrence_pattern: null,
+            date_details: null,
+            selected_pet_ids: selectedPetIds ? selectedPetIds.split(',') : null,
+          };
+        });
+
+        var result = await sb.from('booking_requests').insert(insertRows).select();
+        data = result.data;
+        error = result.error;
+      } else {
+        // Single record — original behavior (1 date card, recurring, or house sitting)
+        var result = await sb
+          .from('booking_requests')
+          .insert({
+            service: service,
+            preferred_date: date,
+            preferred_end_date: isHouseSittingSvc ? endDate : null,
+            preferred_time: time,
+            contact_name: name,
+            contact_email: email,
+            contact_phone: phone || null,
+            pet_names: pets,
+            pet_types: petType,
+            number_of_pets: numPets,
+            is_puppy: isPuppy,
+            is_holiday: holidayFlag,
+            estimated_total: window._brmDealDiscount ? window._brmDealDiscount.discountedTotal : (isHouseSittingSvc ? priceResult.total : multiDateTotal),
+            price_breakdown: multiDateBreakdown + (window._brmDealDiscount ? ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + window._brmDealDiscount.savings.toFixed(2) : ''),
+            deal_id: window._brmDealDiscount ? window._brmDealDiscount.deal.id : null,
+            deal_discount: window._brmDealDiscount ? window._brmDealDiscount.savings : null,
+            special_notes: notes || null,
+            address: address,
+            house_area: address,
+            client_id: clientId,
+            status: 'pending',
+            booking_dates: totalDates > 1 ? allBookingDates : null,
+            recurrence_pattern: recurrencePattern,
+            date_details: dateCardDetails.length > 0 ? dateCardDetails : null,
+            selected_pet_ids: selectedPetIds ? selectedPetIds.split(',') : null,
+          })
+          .select();
+        data = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
 
       // Send email notification to Rachel
       try {
         var dateDisplay = isHouseSitting ? date + ' to ' + endDate : date;
-        if (totalDates > 1 && !isHouseSitting) {
-          // Include per-date times if available from date cards
+        if (shouldSplit && dateCardDetails.length > 1) {
+          // Split bookings — list all dates in the email so Rachel sees them all
+          var dateParts = [];
+          dateCardDetails.forEach(function(dc) {
+            dateParts.push(dc.date + (dc.time ? ' @ ' + dc.time : ''));
+          });
+          dateDisplay = dateParts.join(', ') + ' (' + dateCardDetails.length + ' separate bookings)';
+        } else if (totalDates > 1 && !isHouseSitting) {
           if (dateCardDetails.length > 0) {
             var dateParts = [];
             dateCardDetails.forEach(function(dc) {
@@ -3419,22 +3526,51 @@
         }),
       });
     } catch (e) { console.warn('Email notification failed:', e); }
-    // 2. Insert in-app message
+    // 2. Insert in-app message/alert for the client
     if (sb && req.client_id) {
       try {
         var owner = window.HHP_Auth && window.HHP_Auth.currentUser;
+        var ownerName = 'Rachel Housley';
+        try { if (owner && owner.profile && owner.profile.full_name) ownerName = owner.profile.full_name; } catch(e){}
         var statusLabel = newStatus === 'accepted' ? 'confirmed' : newStatus === 'declined' ? 'declined' : newStatus === 'modified' ? 'updated with a new suggested time' : newStatus;
-        var msgBody = 'Your ' + (req.service || 'booking') + ' request has been ' + statusLabel + '.';
-        if (extraOpts.adminNotes) msgBody += ' Note: ' + extraOpts.adminNotes;
+        var msgBody = '📋 Your ' + (req.service || 'booking') + ' request has been ' + statusLabel + '.';
+        if (extraOpts.adminNotes) msgBody += '\n' + extraOpts.adminNotes;
+        if (newStatus === 'modified' && extraOpts.scheduledDate) {
+          msgBody += '\n📅 New suggested date: ' + extraOpts.scheduledDate;
+          if (extraOpts.scheduledTime) msgBody += ' at ' + extraOpts.scheduledTime;
+        }
         await sb.from('messages').insert({
           sender_id: owner ? owner.id : null,
-          sender_name: 'Rachel Housley',
+          sender_name: ownerName,
           recipient_id: req.client_id,
           body: msgBody,
           is_alert: true,
         });
       } catch (e) { console.warn('In-app message failed:', e); }
     }
+  }
+
+  // Optimistic UI helper: fade card and show status instantly
+  function _optimisticCard(requestId, newStatus) {
+    var card = document.querySelector('[data-request-id="' + requestId + '"]');
+    if (!card) return;
+    card.classList.add('opt-pending');
+    var badge = card.querySelector('.status-badge');
+    if (badge) {
+      badge.textContent = newStatus;
+      badge.style.color = newStatus === 'accepted' ? 'var(--forest)' : newStatus === 'declined' ? '#c00' : '#c8963e';
+    }
+  }
+  function _optimisticDone(requestId, success) {
+    var card = document.querySelector('[data-request-id="' + requestId + '"]');
+    if (!card) return;
+    card.classList.remove('opt-pending');
+    if (success) { card.classList.add('opt-success'); setTimeout(function(){ card.classList.remove('opt-success'); }, 500); }
+  }
+  // Invalidate cache and refresh widgets after booking action
+  function _afterBookingAction() {
+    if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+    if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
   }
 
   window.acceptBookingRequest = async function(requestId) {
@@ -3444,18 +3580,53 @@
       var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
       if (!req) return;
 
+      // Optimistic: update card instantly
+      _optimisticCard(requestId, 'accepted');
+
       await sb.from('booking_requests').update({
         status: 'accepted',
         scheduled_date: req.preferred_date,
         scheduled_time: req.preferred_time
       }).eq('id', requestId);
 
-      await _sendBookingNotification(req, 'accepted');
-      if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
+      // ── Charge saved card if paid service ──
+      var autoCharged = false;
+      if (req.estimated_total > 0 && req.client_id) {
+        try {
+          var chargeResp = await fetch('/api/charge-saved-card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
+          });
+          var chargeData = await chargeResp.json();
+          if (chargeData.success) {
+            autoCharged = true;
+            if (typeof toast === 'function') toast('✓ Booking accepted & card charged $' + Number(req.estimated_total).toFixed(2) + '!');
+          } else {
+            // Card failed — set payment_hold
+            await sb.from('booking_requests').update({
+              status: 'payment_hold',
+              admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but payment failed: ' + (chargeData.message || chargeData.error || 'Card declined')
+            }).eq('id', requestId);
+            if (typeof toast === 'function') toast('⚠️ Booking accepted but card was declined. Booking on payment hold.');
+          }
+        } catch (chargeErr) {
+          console.warn('Auto-charge failed:', chargeErr);
+          if (typeof toast === 'function') toast('⚠️ Booking accepted but could not charge card.');
+        }
+      } else {
+        if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
+      }
+
+      _optimisticDone(requestId, true);
+      _sendBookingNotification(req, 'accepted');
+      _afterBookingAction();
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
+      _optimisticDone(requestId, false);
       console.error('Failed to accept booking:', e);
       if (typeof toast === 'function') toast('Error accepting booking');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
     }
   };
 
@@ -3466,13 +3637,19 @@
 
     try {
       var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
-      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
-      await _sendBookingNotification(req, 'declined');
+      _optimisticCard(requestId, 'declined');
       if (typeof toast === 'function') toast('Booking declined. Client notified.');
+
+      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
+      _optimisticDone(requestId, true);
+      _sendBookingNotification(req, 'declined');
+      _afterBookingAction();
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
+      _optimisticDone(requestId, false);
       console.error('Failed to decline booking:', e);
       if (typeof toast === 'function') toast('Error declining booking');
+      window.loadBookingRequestsPanel(_bookingPanelState.portal);
     }
   };
 
@@ -3551,12 +3728,13 @@
         admin_notes: msgEl ? msgEl.value : ''
       }).eq('id', requestId);
 
-      await _sendBookingNotification(req, 'modified', {
+      _sendBookingNotification(req, 'modified', {
         scheduledDate: dateEl.value,
         scheduledTime: timeEl ? timeEl.value : '',
         adminNotes: msgEl ? msgEl.value : ''
       });
       if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
+      _afterBookingAction();
       window.loadBookingRequestsPanel(_bookingPanelState.portal);
     } catch (e) {
       console.error('Failed to submit time change:', e);
@@ -3565,19 +3743,31 @@
   };
 
   window.cancelBooking = async function(requestId, service) {
-    if (!confirm('Are you sure you want to cancel this booking?')) return;
-    var sb = getSB();
-    if (!sb) return;
+    // Route through the cancel modal so refund prompt appears for paid bookings
+    var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
+    var portal = _bookingPanelState.portal || 'owner';
+    var canceledBy = portal === 'staff' ? 'staff' : 'owner';
+    var cancelDate = req ? (req.scheduled_date || req.preferred_date || '') : '';
+    var cancelName = req ? (req.contact_name || 'Client') : 'Client';
+    var isRecurring = req ? !!req.recurrence_pattern : false;
 
-    try {
-      var req = _bookingPanelState.requests.find(function(r) { return r.id === requestId; });
-      await sb.from('booking_requests').update({ status: 'declined' }).eq('id', requestId);
-      await _sendBookingNotification(req, 'declined');
-      if (typeof toast === 'function') toast('Booking cancelled. Client notified.');
-      window.loadBookingRequestsPanel(_bookingPanelState.portal);
-    } catch (e) {
-      console.error('Failed to cancel booking:', e);
-      if (typeof toast === 'function') toast('Error cancelling booking');
+    if (typeof openCancelModal === 'function') {
+      openCancelModal(requestId, service || (req ? req.service : ''), cancelDate, cancelName, isRecurring, canceledBy);
+    } else {
+      // Fallback: simple cancel if modal not available
+      if (!confirm('Are you sure you want to cancel this booking?')) return;
+      var sb = getSB();
+      if (!sb) return;
+      try {
+        await sb.from('booking_requests').update({ status: 'canceled', canceled_at: new Date().toISOString(), canceled_by: canceledBy }).eq('id', requestId);
+        _sendBookingNotification(req, 'declined');
+        _afterBookingAction();
+        if (typeof toast === 'function') toast('Booking cancelled.');
+        window.loadBookingRequestsPanel(portal);
+      } catch (e) {
+        console.error('Failed to cancel booking:', e);
+        if (typeof toast === 'function') toast('Error cancelling booking');
+      }
     }
   };
 
@@ -3604,6 +3794,7 @@
           await _sendBookingNotification(booking, notifyStatus, { adminNotes: noteMsg });
         }
         if (typeof HHP_BookingAdmin !== 'undefined' && HHP_BookingAdmin.loadRequests) HHP_BookingAdmin.loadRequests();
+        _afterBookingAction();
         if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
       }
     } catch (e) {
@@ -3620,7 +3811,7 @@
       var newStatus = allDecided ? (allDeclined ? 'declined' : 'accepted') : 'pending';
       var acceptedDates = dd.filter(function(d) { return d.status === 'accepted'; }).map(function(d) { return d.date; });
       if (typeof toast === 'function') toast('✓ Appointment accepted! Client notified.');
-      return { date_details: dd, status: newStatus, booking_dates: acceptedDates.length > 0 ? acceptedDates : booking.booking_dates };
+      return { date_details: dd, status: newStatus, scheduled_date: dd[idx].date, scheduled_time: dd[idx].time || '', booking_dates: acceptedDates.length > 0 ? acceptedDates : booking.booking_dates };
     }, 'accepted');
   };
 
@@ -3694,7 +3885,7 @@
       dd[idx].status = 'modified';
       dd[idx].admin_message = msgEl ? msgEl.value : '';
       if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
-      return { date_details: dd, status: 'pending', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
+      return { date_details: dd, status: 'modified', scheduled_date: dateEl.value, scheduled_time: timeEl ? timeEl.value : '', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
     }, 'modified');
   };
 

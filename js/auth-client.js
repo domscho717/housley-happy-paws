@@ -42,7 +42,7 @@ const HHP_Auth = window.HHP_Auth = {
                 this.currentRole = null;
                 this.session = null;
                 this._handledSessionId = null;
-                try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
+                try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_cached_profile'); sessionStorage.removeItem('hhp_cached_stats'); sessionStorage.removeItem('hhp_avatar_url'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
                 this.showLoginScreen();
             }
         });
@@ -108,10 +108,11 @@ const HHP_Auth = window.HHP_Auth = {
             } else if (profile) {
                 this.currentRole = profile.role || 'client';
                 this.currentUser.profile = profile;
-                // Cache avatar for instant display
-                if (profile.avatar_url) {
-                    try { sessionStorage.setItem('hhp_avatar_url', profile.avatar_url); } catch(e) {}
-                }
+                // Cache full profile for instant hydration on next load
+                try {
+                    sessionStorage.setItem('hhp_cached_profile', JSON.stringify(profile));
+                    if (profile.avatar_url) sessionStorage.setItem('hhp_avatar_url', profile.avatar_url);
+                } catch(e) {}
                 // Load user preferences from DB into settings
                 if (profile.preferences && typeof profile.preferences === 'object') {
                     try {
@@ -272,7 +273,9 @@ const HHP_Auth = window.HHP_Auth = {
 
     // ── Logout ──
     async logout() {
-        // Clean up realtime subscriptions before signing out
+        // Clean up realtime subscriptions and cache before signing out
+        try { if (window.HHP_Realtime) window.HHP_Realtime.destroy(); } catch(e) { console.warn('Realtime cleanup:', e); }
+        try { if (window.HHP_Cache) window.HHP_Cache.clear(); } catch(e) { console.warn('Cache cleanup:', e); }
         try { if (window.HHP_Messaging && window.HHP_Messaging.cleanup) window.HHP_Messaging.cleanup(); } catch(e) { console.warn('Messaging cleanup:', e); }
         try { if (window.HHP_Notif && window.HHP_Notif.cleanup) window.HHP_Notif.cleanup(); } catch(e) { console.warn('Notif cleanup:', e); }
         try { if (window.HHP_ServiceTimer) window.HHP_ServiceTimer.stopTimer(); } catch(e) {}
@@ -281,7 +284,7 @@ const HHP_Auth = window.HHP_Auth = {
         this.currentRole = null;
         this.session = null;
         this._handledSessionId = null;
-        try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
+        try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_cached_profile'); sessionStorage.removeItem('hhp_cached_stats'); sessionStorage.removeItem('hhp_avatar_url'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
         if (typeof switchView === 'function') switchView('public');
         this.showLoginScreen();
     },
