@@ -80,6 +80,13 @@
         var sizes=(!Array.isArray(ow)&&ow.sizes)?ow.sizes:{};
         _prefs[r.portal]={sidebar_order:r.sidebar_order||[],widgets:wids,sizes:sizes};
       });
+      // Migration: auto-add cw-tracking to existing client prefs if missing
+      if(_prefs.client&&_prefs.client.widgets&&_prefs.client.widgets.length>0){
+        if(_prefs.client.widgets.indexOf('cw-tracking')===-1){
+          _prefs.client.widgets.push('cw-tracking');
+          _savePrefs('client');
+        }
+      }
     }catch(e){console.warn('Cust load:',e);}
   }
 
