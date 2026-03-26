@@ -1070,12 +1070,13 @@
         else if (!node.classList || !node.classList.contains('sb-badge')) labelText += node.textContent;
       });
       link.textContent = labelText.trim();
-      // If the sidebar item has a badge, recreate it in the drawer
-      if (badgeEl) {
+      // If the sidebar item has a VISIBLE badge with content, recreate it in the drawer
+      var badgeVisible = badgeEl && badgeEl.style.display !== 'none' && badgeEl.textContent.trim();
+      if (badgeVisible) {
         var drawerBadge = document.createElement('span');
         drawerBadge.className = 'sb-badge';
         drawerBadge.textContent = badgeEl.textContent;
-        drawerBadge.style.cssText = 'margin-left:auto;background:#C4756A;color:white;border-radius:50px;padding:3px 8px;font-size:0.68rem;font-weight:800;min-width:22px;text-align:center;box-shadow:0 2px 8px rgba(229,62,62,0.35)';
+        drawerBadge.style.cssText = 'margin-left:auto;background:#e74c3c;color:white;border-radius:50%;min-width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;padding:0 5px;box-shadow:0 1px 3px rgba(0,0,0,0.3)';
         link.style.display = 'flex';
         link.style.alignItems = 'center';
         link.appendChild(drawerBadge);
