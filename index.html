@@ -6303,42 +6303,18 @@ async function clientAcceptTimeChange(bookingId) {
 
     var newDate = bk.scheduled_date;
     var newTime = bk.scheduled_time || '';
+    var clientName = '';
+    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
+    var newDateFmt = new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    var timeFmt = newTime ? ((typeof fmt12h === 'function') ? fmt12h(newTime) : newTime) : '';
 
-    // Update booking: apply the new date/time everywhere, set status to accepted
-    var updatePayload = {
-      preferred_date: newDate,
-      preferred_time: newTime,
-      scheduled_date: newDate,
-      scheduled_time: newTime,
-      status: 'accepted',
-      admin_notes: (bk.admin_notes || '') + '\nClient accepted time change on ' + new Date().toLocaleDateString()
-    };
-
-    // Also update booking_dates array if it exists
-    if (bk.booking_dates && Array.isArray(bk.booking_dates)) {
-      var newDates = bk.booking_dates.map(function() { return newDate; });
-      updatePayload.booking_dates = newDates;
-    }
-
-    // Update date_details if present — set all to accepted with new date
-    if (bk.date_details && Array.isArray(bk.date_details)) {
-      var updatedDD = bk.date_details.map(function(dd) {
-        dd.date = newDate;
-        dd.time = newTime;
-        dd.status = 'accepted';
-        delete dd.suggested_date;
-        delete dd.suggested_time;
-        delete dd.admin_message;
-        return dd;
-      });
-      updatePayload.date_details = updatedDD;
-    }
-
-    await sb.from('booking_requests').update(updatePayload).eq('id', bookingId);
-
-    // ── PAYMENT: Charge saved card (same flow as owner accept) ──
+    // ══════════════════════════════════════════════════════════
+    // STEP 1: CHARGE CARD FIRST — nothing else happens if this fails
+    // ══════════════════════════════════════════════════════════
     var autoCharged = false;
     var paymentFailed = false;
+    var failReason = '';
+
     if (bk.estimated_total > 0 && bk.client_id) {
       try {
         var chargeResp = await fetch('/api/charge-saved-card', {
@@ -6355,68 +6331,92 @@ async function clientAcceptTimeChange(bookingId) {
 
         if (chargeData.success) {
           autoCharged = true;
-          if (typeof toast === 'function') toast('💳 Card charged $' + Number(bk.estimated_total).toFixed(2) + '!');
         } else if (chargeData.error === 'no_card') {
-          // No saved card — put on payment_hold
           paymentFailed = true;
-          await sb.from('booking_requests').update({
-            status: 'payment_hold',
-            admin_notes: (bk.admin_notes || '') + '\n⚠️ Client accepted time change but no card on file.'
-          }).eq('id', bookingId);
+          failReason = 'No payment method on file. Please add a card and try again.';
         } else {
-          // Card declined or other error
           paymentFailed = true;
-          await sb.from('booking_requests').update({
-            status: 'payment_hold',
-            admin_notes: (bk.admin_notes || '') + '\n⚠️ Client accepted time change but payment failed: ' + (chargeData.message || 'Unknown error')
-          }).eq('id', bookingId);
+          failReason = chargeData.message || 'Your card was declined. Please update your payment method and try again.';
         }
       } catch (chargeErr) {
         console.warn('Auto-charge failed:', chargeErr);
         paymentFailed = true;
+        failReason = 'Payment could not be processed. Please try again or contact Rachel.';
       }
     }
 
-    // ── NOTIFY OWNER + STAFF: in-app message ──
-    var clientName = '';
-    try { clientName = (user.profile && user.profile.full_name) ? user.profile.full_name.split(' ')[0] : ''; } catch(e){}
-    var newDateFmt = new Date(newDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    var timeFmt = newTime ? ((typeof fmt12h === 'function') ? fmt12h(newTime) : newTime) : '';
+    // ══════════════════════════════════════════════════════════
+    // STEP 2: If payment FAILED — block everything, show error, notify owner
+    // ══════════════════════════════════════════════════════════
+    if (paymentFailed) {
+      // Set booking to payment_hold — do NOT set to accepted
+      await sb.from('booking_requests').update({
+        status: 'payment_hold',
+        admin_notes: (bk.admin_notes || '') + '\n⚠️ Client tried to accept time change but payment failed: ' + failReason
+      }).eq('id', bookingId);
 
-    var alertBody = '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their booking') + '. Confirmed: ' + newDateFmt + (timeFmt ? ' at ' + timeFmt : '');
-    if (autoCharged) alertBody += '\n💳 Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged automatically.';
-    else if (paymentFailed) alertBody += '\n⚠️ Payment failed — booking on hold. Please follow up with client.';
+      // Notify owner about the failure (NOT success)
+      var failAlertBody = '⚠️ ' + (clientName || 'Client') + ' tried to accept the time change for ' + (bk.service || 'their booking') + ' but payment failed: ' + failReason;
+      var ownerIds = [];
+      try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+      for (var oi = 0; oi < ownerIds.length; oi++) {
+        await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: failAlertBody, is_alert: true });
+      }
 
-    // Send to all owners
-    var ownerIds = [];
-    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
-    for (var oi = 0; oi < ownerIds.length; oi++) {
-      await sb.from('messages').insert({
-        sender_id: user.id,
-        sender_name: clientName || 'Client',
-        recipient_id: ownerIds[oi],
-        body: alertBody,
-        is_alert: true,
+      // Show persistent error to client — DO NOT send success email
+      _showTimeChangeBanner('error', '❌ Payment Failed — ' + failReason + ' Your booking has NOT been confirmed. Please update your payment method in your profile and try accepting again.');
+
+      // Refresh to show payment_hold status
+      await loadClientAppts('all');
+      if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
+      if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+      return; // STOP — do not confirm booking
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // STEP 3: Payment succeeded (or free service) — NOW confirm the booking
+    // ══════════════════════════════════════════════════════════
+    var updatePayload = {
+      preferred_date: newDate,
+      preferred_time: newTime,
+      scheduled_date: newDate,
+      scheduled_time: newTime,
+      status: 'accepted',
+      admin_notes: (bk.admin_notes || '') + '\nClient accepted time change on ' + new Date().toLocaleDateString() + (autoCharged ? ' — Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged.' : '')
+    };
+
+    if (bk.booking_dates && Array.isArray(bk.booking_dates)) {
+      updatePayload.booking_dates = bk.booking_dates.map(function() { return newDate; });
+    }
+    if (bk.date_details && Array.isArray(bk.date_details)) {
+      updatePayload.date_details = bk.date_details.map(function(dd) {
+        dd.date = newDate; dd.time = newTime; dd.status = 'accepted';
+        delete dd.suggested_date; delete dd.suggested_time; delete dd.admin_message;
+        return dd;
       });
     }
 
-    // Send to assigned staff
+    await sb.from('booking_requests').update(updatePayload).eq('id', bookingId);
+
+    // ── NOTIFY OWNER + STAFF (only on SUCCESS) ──
+    var alertBody = '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their booking') + '. Confirmed: ' + newDateFmt + (timeFmt ? ' at ' + timeFmt : '');
+    if (autoCharged) alertBody += '\n💳 Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged automatically.';
+
+    var ownerIds = [];
+    try { var { data: owners } = await sb.from('profiles').select('user_id').eq('role', 'owner'); ownerIds = (owners || []).map(function(o) { return o.user_id; }); } catch(e){}
+    for (var oi = 0; oi < ownerIds.length; oi++) {
+      await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: alertBody, is_alert: true });
+    }
     try {
       var { data: staffAssignments } = await sb.from('staff_assignments').select('staff_id').eq('client_id', bk.client_id);
       if (staffAssignments && staffAssignments.length > 0) {
         for (var si = 0; si < staffAssignments.length; si++) {
-          await sb.from('messages').insert({
-            sender_id: user.id,
-            sender_name: clientName || 'Client',
-            recipient_id: staffAssignments[si].staff_id,
-            body: alertBody,
-            is_alert: true,
-          });
+          await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: staffAssignments[si].staff_id, body: alertBody, is_alert: true });
         }
       }
     } catch(e) {}
 
-    // ── EMAIL NOTIFICATION to owner ──
+    // ── EMAIL to owner (only on SUCCESS) ──
     try {
       await fetch('/api/booking-status-notification', {
         method: 'POST',
@@ -6428,47 +6428,55 @@ async function clientAcceptTimeChange(bookingId) {
           status: 'accepted',
           scheduledDate: newDate,
           scheduledTime: newTime,
-          adminNotes: (clientName || 'Client') + ' accepted the time change.' + (autoCharged ? ' Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged.' : '') + (paymentFailed ? ' ⚠️ Payment failed.' : ''),
+          adminNotes: (clientName || 'Client') + ' accepted the time change.' + (autoCharged ? ' Payment of $' + Number(bk.estimated_total).toFixed(2) + ' charged.' : ''),
           estimatedTotal: bk.estimated_total || null,
           autoCharged: autoCharged,
         }),
       });
     } catch(e) { console.warn('Email notification failed:', e); }
 
-    // ── CLIENT CONFIRMATION MESSAGE ──
-    // Show a prominent confirmation banner instead of just a toast
-    var confirmMsg = '';
-    if (paymentFailed) {
-      confirmMsg = '⚠️ Time accepted but payment could not be processed. Please update your payment method or contact Rachel to arrange payment.';
-    } else if (autoCharged) {
-      confirmMsg = '✅ Booking confirmed! Your card has been charged $' + Number(bk.estimated_total).toFixed(2) + '. You\'re all set!';
-    } else {
-      // Within 48hrs or no charge needed
-      confirmMsg = '✅ Booking confirmed at the new time! Note: Cancellations within 48 hours of your appointment are subject to the full service charge.';
-    }
-    if (typeof toast === 'function') toast(confirmMsg);
+    // ── CLIENT CONFIRMATION (only on SUCCESS) ──
+    var confirmMsg = autoCharged
+      ? '✅ Booking confirmed! Your card has been charged $' + Number(bk.estimated_total).toFixed(2) + '. You\'re all set!'
+      : '✅ Booking confirmed at the new time! Note: Cancellations within 48 hours of your appointment are subject to the full service charge.';
 
-    // Also inject a brief confirmation banner at the top of the appointments list
-    var confirmBanner = document.getElementById('clientApptsList');
-    if (confirmBanner) {
-      var bannerColor = paymentFailed ? '#fde8e8' : '#d4edda';
-      var bannerTextColor = paymentFailed ? '#c62828' : '#155724';
-      var bannerHTML = '<div id="tc-confirm-banner" style="padding:14px 16px;background:' + bannerColor + ';border-radius:10px;margin-bottom:10px;font-size:0.88rem;color:' + bannerTextColor + ';font-weight:600;display:flex;align-items:center;gap:8px">';
-      bannerHTML += '<span style="font-size:1.2rem">' + (paymentFailed ? '⚠️' : '✅') + '</span>';
-      bannerHTML += '<div>' + confirmMsg + '</div>';
-      bannerHTML += '<button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:' + bannerTextColor + '">✕</button>';
-      bannerHTML += '</div>';
-      confirmBanner.insertAdjacentHTML('afterbegin', bannerHTML);
-    }
-
-    // Refresh everything
-    loadClientAppts('all');
+    // Refresh FIRST, then show banner so it doesn't get wiped
+    await loadClientAppts('all');
     if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
     if (typeof loadDashboardStats === 'function') loadDashboardStats();
+
+    // Now show the banner (after reload is done)
+    _showTimeChangeBanner('success', confirmMsg);
+
   } catch (e) {
     console.error('Accept time change error:', e);
-    if (typeof toast === 'function') toast('Error accepting time change');
+    _showTimeChangeBanner('error', '❌ Something went wrong accepting the time change. Please try again.');
+  }
+}
+
+// ── Shared banner helper for time change accept/decline feedback ──
+function _showTimeChangeBanner(type, message) {
+  // Remove any existing banner first
+  var old = document.getElementById('tc-feedback-banner');
+  if (old) old.remove();
+
+  var isError = type === 'error';
+  var bgColor = isError ? '#fde8e8' : type === 'info' ? '#e8f4fd' : '#d4edda';
+  var textColor = isError ? '#c62828' : type === 'info' ? '#01579b' : '#155724';
+  var icon = isError ? '❌' : type === 'info' ? 'ℹ️' : '✅';
+
+  var banner = document.createElement('div');
+  banner.id = 'tc-feedback-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;padding:16px 20px;background:' + bgColor + ';color:' + textColor + ';font-size:0.92rem;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,0.15);font-family:inherit';
+  banner.innerHTML = '<span style="font-size:1.3rem;flex-shrink:0">' + icon + '</span>' +
+    '<div style="flex:1">' + message + '</div>' +
+    '<button onclick="this.parentElement.remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:' + textColor + ';flex-shrink:0">✕</button>';
+  document.body.appendChild(banner);
+
+  // Auto-dismiss success banners after 8 seconds, keep errors until manually closed
+  if (!isError) {
+    setTimeout(function() { if (banner.parentElement) banner.remove(); }, 8000);
   }
 }
 
@@ -6504,13 +6512,14 @@ async function clientDeclineTimeChange(bookingId) {
       });
     }
 
-    if (typeof toast === 'function') toast('Time change declined. Original time kept.');
-    loadClientAppts('all');
+    // Refresh FIRST, then show banner
+    await loadClientAppts('all');
     if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+    _showTimeChangeBanner('info', 'Time change declined. Your original appointment time has been kept. Rachel has been notified.');
   } catch (e) {
     console.error('Decline time change error:', e);
-    if (typeof toast === 'function') toast('Error declining time change');
+    _showTimeChangeBanner('error', '❌ Error declining time change. Please try again.');
   }
 }
 
@@ -6547,12 +6556,12 @@ async function clientAcceptApptTimeChange(bookingId, apptIdx) {
       await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: '✅ ' + (clientName || 'Client') + ' accepted the time change for ' + (bk.service || 'their appointment') + '.', is_alert: true });
     }
 
-    if (typeof toast === 'function') toast('✓ New time accepted!');
-    loadClientAppts('all');
+    await loadClientAppts('all');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+    _showTimeChangeBanner('success', '✅ New time accepted for this appointment!');
   } catch (e) {
     console.error('Accept appt time change error:', e);
-    if (typeof toast === 'function') toast('Error accepting time change');
+    _showTimeChangeBanner('error', '❌ Error accepting time change. Please try again.');
   }
 }
 
@@ -6566,7 +6575,6 @@ async function clientDeclineApptTimeChange(bookingId, apptIdx) {
     if (!bk || !bk.date_details || !bk.date_details[apptIdx]) return;
 
     var dd = bk.date_details;
-    // Revert: remove suggested fields, keep original date, set status back to accepted
     dd[apptIdx].status = 'accepted';
     delete dd[apptIdx].suggested_date;
     delete dd[apptIdx].suggested_time;
@@ -6587,12 +6595,12 @@ async function clientDeclineApptTimeChange(bookingId, apptIdx) {
       await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: '❌ ' + (clientName || 'Client') + ' declined the time change for ' + (bk.service || 'their appointment') + '.', is_alert: true });
     }
 
-    if (typeof toast === 'function') toast('Time change declined. Original time kept.');
-    loadClientAppts('all');
+    await loadClientAppts('all');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+    _showTimeChangeBanner('info', 'Time change declined. Your original appointment time has been kept.');
   } catch (e) {
     console.error('Decline appt time change error:', e);
-    if (typeof toast === 'function') toast('Error declining time change');
+    _showTimeChangeBanner('error', '❌ Error declining time change. Please try again.');
   }
 }
 
