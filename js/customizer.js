@@ -1045,8 +1045,11 @@
     }
     try{
       var lim=sz==='full'?4:2;
-      var{data:alerts}=await sb.from('messages').select('body,sender_name,created_at').eq('is_alert',true).order('created_at',{ascending:false}).limit(lim);
-      var{data:messages}=await sb.from('messages').select('body,sender_name,created_at').eq('is_alert',false).order('created_at',{ascending:false}).limit(lim);
+      var[alertsRes,messagesRes]=await Promise.all([
+        sb.from('messages').select('body,sender_name,created_at').eq('is_alert',true).order('created_at',{ascending:false}).limit(lim),
+        sb.from('messages').select('body,sender_name,created_at').eq('is_alert',false).order('created_at',{ascending:false}).limit(lim)
+      ]);
+      var alerts=alertsRes.data,messages=messagesRes.data;
       if(sz==='full'){
         var h='<div id="hhpAlertsCard">';
         if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(a.sender_name||'Alert')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+a.body.substring(0,80)+(a.body.length>80?'...':'')+'</div></div>';});}
@@ -1075,14 +1078,17 @@
         var sow=new Date(today);sow.setDate(today.getDate()-today.getDay());
         var eow=new Date(sow);eow.setDate(eow.getDate()+6);
         var ws=sow.toISOString().split('T')[0],we=eow.toISOString().split('T')[0];
-        var{count:jc}=await sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('preferred_date',ws).lte('preferred_date',we).in('status',['accepted','confirmed','completed']);
-        jobs=jc||0;
-        var{data:pw}=await sb.from('payments').select('amount').eq('status','paid').gte('created_at',ws).lte('created_at',we+'T23:59:59');
+        var[jobsRes,pwRes,inqRes,rptsRes]=await Promise.all([
+          sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('preferred_date',ws).lte('preferred_date',we).in('status',['accepted','confirmed','completed']),
+          sb.from('payments').select('amount').eq('status','paid').gte('created_at',ws).lte('created_at',we+'T23:59:59'),
+          sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59'),
+          sb.from('service_reports').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59')
+        ]);
+        jobs=jobsRes.count||0;
+        var pw=pwRes.data;
         if(pw&&pw.length){var t=pw.reduce(function(a,p){return a+(p.amount||0);},0);rev='$'+(t*0.85).toFixed(0);}else{rev='$0';}
-        var{count:ic}=await sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59');
-        inq=ic||0;
-        var{count:rc}=await sb.from('service_reports').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59');
-        rpts=rc||0;
+        inq=inqRes.count||0;
+        rpts=rptsRes.count||0;
       }catch(e){console.warn('Week stats:',e);}
     }
     return '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between">'+
@@ -1428,10 +1434,10 @@
 
     // Render widgets with skeletons first, then fill async
     await _renderWidgets(portal);
-    // Give DOM time to paint before firing data loaders to populate widget content
-    setTimeout(function(){_retrigger(portal);},300);
-    // Safety: retrigger again after a bit in case some loaders weren't ready yet
-    setTimeout(function(){_retrigger(portal);},1500);
+    // Give DOM a frame to paint, then fire data loaders
+    requestAnimationFrame(function(){_retrigger(portal);});
+    // Safety retrigger — reduced from 1500ms
+    setTimeout(function(){_retrigger(portal);},500);
 
     // Register realtime callbacks to auto-refresh widgets on data changes
     _hookRealtime(portal);

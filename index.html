@@ -12969,29 +12969,28 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         } catch(ge) { console.warn('Greeting error:', ge); }
 
-        // CLIENT DASHBOARD STATS (uses effectiveUserId for View As support)
-        // Total Visits — count accepted/completed booking_requests (bookings table may be empty)
-        const { count: totalVisits } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('status', ['accepted', 'completed']);
+        // CLIENT DASHBOARD STATS — all queries run in parallel for speed
+        const [visitsRes, walksRes, reportsRes, unreadRes, petsRes] = await Promise.all([
+          sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('status', ['accepted', 'completed']),
+          sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('status', ['accepted', 'completed']).ilike('service', '%walk%'),
+          sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId),
+          sb.from('service_reports').select('id', { count: 'exact', head: true }).eq('client_id', effectiveUserId).is('client_read_at', null),
+          sb.from('pets').select('*', { count: 'exact', head: true }).eq('owner_id', effectiveUserId)
+        ]);
+
         const el = document.getElementById('stat-totalVisits');
-        if (el) el.textContent = totalVisits || '0';
-
-        // Walks Done — count walk-related booking_requests
-        const { count: walksDone } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('status', ['accepted', 'completed']).ilike('service', '%walk%');
+        if (el) el.textContent = visitsRes.count || '0';
         const el2 = document.getElementById('stat-walksDone');
-        if (el2) el2.textContent = walksDone || '0';
-
-        // Reports Received — count of service reports for this client
-        const { count: reportsReceived } = await sb.from('service_reports').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId);
+        if (el2) el2.textContent = walksRes.count || '0';
         const el3 = document.getElementById('stat-avgRatingGiven');
-        if (el3) el3.textContent = (reportsReceived || 0);
+        if (el3) el3.textContent = (reportsRes.count || 0);
 
         // Unread reports badge on sidebar
         try {
-          const { count: unreadReports } = await sb.from('service_reports').select('id', { count: 'exact', head: true }).eq('client_id', effectiveUserId).is('client_read_at', null);
           const rBadge = document.getElementById('sb-reports-badge');
           if (rBadge) {
-            if (unreadReports > 0) {
-              rBadge.textContent = unreadReports > 9 ? '9+' : unreadReports;
+            if (unreadRes.count > 0) {
+              rBadge.textContent = unreadRes.count > 9 ? '9+' : unreadRes.count;
               rBadge.style.display = 'block';
             } else {
               rBadge.style.display = 'none';
@@ -12999,23 +12998,28 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         } catch(e) {}
 
-        // Pets in Care — count pets owned by this client (pets table uses owner_id)
+        // Pets in Care
         try {
-          const { count: petsCount } = await sb.from('pets').select('*', { count: 'exact', head: true }).eq('owner_id', effectiveUserId);
           const el4 = document.getElementById('stat-petsInCare');
-          if (el4) el4.textContent = petsCount || '0';
+          if (el4) el4.textContent = petsRes.count || '0';
         } catch(e) {
           const el4 = document.getElementById('stat-petsInCare');
           if (el4) el4.textContent = '—';
         }
 
-        // ── Upcoming Appointments (client dash card) ──
+        // ── Upcoming Appointments + Notifications — fetch in parallel ──
         var upEl = document.getElementById('clientDashUpcoming');
+        var notifEl = document.getElementById('clientDashNotifications');
+        var today = new Date().toISOString().split('T')[0];
+
+        var [upcomingRes, notifsRes] = await Promise.all([
+          upEl ? sb.from('bookings').select('id, service, date, time_slot, status, pet_names').eq('client_id', effectiveUserId).gte('date', today).order('date', { ascending: true }).limit(4) : Promise.resolve({data:null}),
+          notifEl ? sb.from('notifications').select('id, title, body, type, created_at, read').eq('user_id', effectiveUserId).order('created_at', { ascending: false }).limit(5) : Promise.resolve({data:null})
+        ]);
+
         if (upEl) {
           try {
-            var today = new Date().toISOString().split('T')[0];
-            var { data: upcoming } = await sb.from('bookings').select('id, service, date, time_slot, status, pet_names')
-              .eq('client_id', effectiveUserId).gte('date', today).order('date', { ascending: true }).limit(4);
+            var upcoming = upcomingRes.data;
             if (upcoming && upcoming.length > 0) {
               var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
               var h = '';
@@ -13035,12 +13039,9 @@ document.addEventListener('DOMContentLoaded', function() {
           } catch(e) { upEl.innerHTML = 'No upcoming appointments.<br>Book a meet & greet to get started!'; }
         }
 
-        // ── Recent Notifications (client dash card) ──
-        var notifEl = document.getElementById('clientDashNotifications');
         if (notifEl) {
           try {
-            var { data: notifs } = await sb.from('notifications').select('id, title, body, type, created_at, read')
-              .eq('user_id', effectiveUserId).order('created_at', { ascending: false }).limit(5);
+            var notifs = notifsRes.data;
             if (notifs && notifs.length > 0) {
               var nh = '';
               notifs.forEach(function(n) {
