@@ -6416,7 +6416,14 @@ function showCalDetail(key, label, el) {
         html += '<div style="font-size:0.9rem;color:var(--brown)">'+ev.label+'</div>';
         html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Rachel has marked this as a day off.</div>';
       } else if(ev.bookings && ev.bookings.length > 0) {
-        ev.bookings.forEach(function(b) {
+        // Sort: non-completed first (by time), then completed at bottom (by time)
+        var sortedBookings = ev.bookings.slice().sort(function(a, b) {
+          var aCompleted = (a.status === 'completed' || a.status === 'canceled') ? 1 : 0;
+          var bCompleted = (b.status === 'completed' || b.status === 'canceled') ? 1 : 0;
+          if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+          return (a.preferred_time || '').localeCompare(b.preferred_time || '');
+        });
+        sortedBookings.forEach(function(b) {
           var svc = b.service || 'Pet Care';
           var icon = '📅';
           var s = svc.toLowerCase();
