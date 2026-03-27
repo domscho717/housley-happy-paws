@@ -737,6 +737,9 @@
       '      <div id="brm-policy-notice" style="margin-top:10px;padding:10px 12px;background:#fff8e1;border:1px solid #e0d5c5;border-radius:8px;font-size:0.76rem;color:#6b5c4d;line-height:1.5">',
       '        <strong style="color:#bf5d00">Cancellation Policy:</strong> Cancellations made within 48 hours of your scheduled appointment will be charged the full service fee. Cancellations made more than 48 hours in advance are fully refundable.',
       '      </div>',
+      '      <div style="margin-top:8px;padding:10px 12px;background:#f0f7f0;border:1px solid #c5dcc5;border-radius:8px;font-size:0.76rem;color:#3d5c3d;line-height:1.5">',
+      '        <strong style="color:#2e7d32">💳 Payment Info:</strong> Once your booking is accepted, appointments within the next 48 hours will be charged automatically. Appointments scheduled further out will be held until 48 hours before your service, at which point payment will process.',
+      '      </div>',
       '    </div>',
       '',
       '    <label class="brm-label">Home Address <span style="color:var(--rose,#c25656);font-weight:700">*</span></label>',
@@ -1314,7 +1317,6 @@
           '</div>' +
         '</div>' +
         '<button type="button" onclick="window._brmAddTimeSlot(' + idx + ')" style="background:none;border:1px dashed #c8963e;color:#c8963e;border-radius:6px;padding:4px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-top:2px;margin-bottom:4px">+ Add another time</button>' +
-        _brmPetChipsHTML(idx) +
         '<div style="margin-top:8px;border-top:1px dashed #e0d5c5;padding-top:8px">' +
           '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer;color:#6b5c4d;font-weight:600">' +
             '<input type="checkbox" id="brm-dc-recur-' + idx + '" onchange="window._brmToggleCardRecur(' + idx + ')" style="accent-color:#c8963e">' +
@@ -1524,19 +1526,15 @@
       cards.forEach(function(card) {
         var dateVal = card.getAttribute('data-date');
         var idx = card.id.replace('brm-dc-', '');
-        var pets = [];
-        card.querySelectorAll('.brm-dc-pet:checked').forEach(function(cb) {
-          pets.push({ id: cb.value, name: cb.getAttribute('data-name'), species: cb.getAttribute('data-species') });
-        });
         // Collect all time slots for this card
         var timeSelects = card.querySelectorAll('.brm-dc-time-sel');
         if (timeSelects.length === 0) {
           // Fallback: legacy single select
           var timeEl = document.getElementById('brm-dc-time-' + idx);
-          results.push({ date: dateVal, time: timeEl ? timeEl.value : '', pets: pets });
+          results.push({ date: dateVal, time: timeEl ? timeEl.value : '', pets: [] });
         } else {
           timeSelects.forEach(function(sel) {
-            results.push({ date: dateVal, time: sel.value || '', pets: pets });
+            results.push({ date: dateVal, time: sel.value || '', pets: [] });
           });
         }
       });
