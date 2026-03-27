@@ -988,8 +988,13 @@
     }
 
     // ── PORTAL SIDEBAR ITEMS ──
-    // activePortal already set for client-only users above; for others, need a portal active
-    if (!loggedIn || !activePortal) return;
+    if (!loggedIn) return;
+
+    // If no portal is active (e.g., on public home page), default to the user's role portal
+    if (!activePortal && role) {
+      activePortal = role === 'owner' ? 'pg-owner' : role === 'staff' ? 'pg-staff' : 'pg-client';
+    }
+    if (!activePortal) return;
 
     // Determine portal name — for clients, show "Home" instead of "Client Portal"
     var portalNames = {
@@ -998,6 +1003,9 @@
       'pg-client': isClientOnly ? 'Home' : 'Client Portal'
     };
     var portalName = portalNames[activePortal] || 'Portal';
+
+    // Default panels for each portal (clicking portal name goes here)
+    var portalDefaults = { 'pg-owner': ['o','o-overview'], 'pg-staff': ['s','s-sched'], 'pg-client': ['c','c-dash'] };
 
     // ── PORTAL HEADER WITH COLLAPSIBLE SWITCHER ──
     var header = document.createElement('div');
@@ -1014,30 +1022,50 @@
       homeBtn.textContent = portalName;
       homeBtn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;';
       homeBtn.addEventListener('click', function() {
-        var needsSwitch = !getActivePortal();
-        if (needsSwitch && typeof switchView === 'function') {
-          switchView('client');
-        }
+        if (typeof switchView === 'function') switchView('client');
         setTimeout(function() {
           if (typeof sTab === 'function') sTab('c', 'c-dash');
-        }, needsSwitch ? 150 : 0);
+        }, 150);
         closeDrawer();
       });
       header.appendChild(homeBtn);
     } else {
-      // Multi-role: portal name with dropdown chevron to switch portals
-      // Build allowed views (no Home for owner)
+      // Multi-role: portal name is clickable to go to overview/dashboard
+      // Plus dropdown chevron to switch portals
       var allowedViews = [];
-      if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal' });
-      if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal' });
-      if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal' });
-      var otherViews = allowedViews.filter(function(v) { return 'pg-' + v.value !== activePortal; });
+      if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal', portal: 'pg-client' });
+      if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal', portal: 'pg-staff' });
+      if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal', portal: 'pg-owner' });
+      var otherViews = allowedViews.filter(function(v) { return v.portal !== activePortal; });
 
-      // Title row — tappable to expand/collapse
+      // Title row — two click zones: name (navigate) and chevron (expand/collapse)
       var titleRow = document.createElement('div');
-      titleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:10px;cursor:pointer;';
-      titleRow.innerHTML = '<span style="color:#000;-webkit-text-fill-color:#000;font-size:1.1rem;font-weight:700;flex:1">' + portalName + '</span>' +
-        '<span id="drawer-switch-chevron" style="font-size:0.6rem;color:var(--mid,#888);transition:transform 0.25s ease;display:inline-block;margin-left:8px">▼</span>';
+      titleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:10px;';
+
+      // Portal name — clickable, navigates to default panel
+      var portalNameBtn = document.createElement('button');
+      portalNameBtn.type = 'button';
+      portalNameBtn.textContent = portalName;
+      portalNameBtn.style.cssText = 'color:#000;-webkit-text-fill-color:#000;font-size:1.1rem;font-weight:700;flex:1;text-align:left;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;';
+      portalNameBtn.addEventListener('click', function() {
+        var def = portalDefaults[activePortal];
+        var viewKey = activePortal.replace('pg-','');
+        if (typeof switchView === 'function') switchView(viewKey);
+        setTimeout(function() {
+          if (def && typeof sTab === 'function') sTab(def[0], def[1]);
+        }, 150);
+        closeDrawer();
+        setTimeout(updateDrawerContent, 400);
+      });
+      titleRow.appendChild(portalNameBtn);
+
+      // Chevron button — toggles dropdown
+      var chevronBtn = document.createElement('button');
+      chevronBtn.type = 'button';
+      chevronBtn.style.cssText = 'background:none;border:none;cursor:pointer;padding:6px 8px;margin-left:4px;';
+      chevronBtn.innerHTML = '<span id="drawer-switch-chevron" style="font-size:0.6rem;color:var(--mid,#888);transition:transform 0.25s ease;display:inline-block">▼</span>';
+      titleRow.appendChild(chevronBtn);
+
       header.appendChild(titleRow);
 
       // Collapsible list of other portals
@@ -1051,9 +1079,13 @@
         btn.style.cssText = 'color:#555!important;-webkit-text-fill-color:#555!important;display:block;width:100%;text-align:left;background:none;border:none;padding:8px 0;font-size:0.88rem;font-weight:500;cursor:pointer;font-family:inherit;';
         btn.addEventListener('click', function(e) {
           e.stopPropagation();
+          var def = portalDefaults[v.portal];
           if (typeof switchView === 'function') switchView(v.value);
+          setTimeout(function() {
+            if (def && typeof sTab === 'function') sTab(def[0], def[1]);
+          }, 150);
           closeDrawer();
-          setTimeout(updateDrawerContent, 300);
+          setTimeout(updateDrawerContent, 400);
         });
         switchList.appendChild(btn);
       });
@@ -1064,7 +1096,8 @@
       divider.style.cssText = 'border-bottom:2px solid #e0d5c5;margin-top:4px;';
       header.appendChild(divider);
 
-      titleRow.addEventListener('click', function() {
+      chevronBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
         var list = document.getElementById('drawer-switch-list');
         var chev = document.getElementById('drawer-switch-chevron');
         if (!list) return;
@@ -1105,6 +1138,14 @@
     var sidebarItems = portalEl.querySelectorAll('.sidebar .sb-item');
 
     sidebarItems.forEach(function(sbItem) {
+      // Skip Overview/Dashboard items — portal name header handles navigation there
+      var onclickRaw = sbItem.getAttribute('onclick') || '';
+      if (onclickRaw.indexOf('o-overview') > -1 || onclickRaw.indexOf('c-dash') > -1 || onclickRaw.indexOf('s-sched') > -1) {
+        // Only skip if this is the default panel for the current portal
+        var defPanels = { 'pg-owner': 'o-overview', 'pg-client': 'c-dash', 'pg-staff': 's-sched' };
+        if (onclickRaw.indexOf(defPanels[activePortal]) > -1) return;
+      }
+
       var link = document.createElement('button');
       link.className = 'hhp-drawer-item hhp-drawer-portal-item';
       // Copy text but strip out any badge numbers — get only icon + label text
@@ -1146,10 +1187,12 @@
             // Block navigation if in edit mode
             var editBtn = document.getElementById('mob-sb-edit-btn');
             if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
-            // For client-only users on public page, switch to portal first then navigate after delay
-            var needsSwitch = isClientOnly && !getActivePortal();
+            // If on public page or wrong portal, switch to the correct portal first
+            var currentPortal = getActivePortal();
+            var targetView = tabPortal === 'o' ? 'owner' : tabPortal === 's' ? 'staff' : 'client';
+            var needsSwitch = !currentPortal || currentPortal !== targetView;
             if (needsSwitch && typeof switchView === 'function') {
-              switchView('client');
+              switchView(targetView);
             }
             var tp = tabPortal, pn = tabPanel;
             setTimeout(function() {
