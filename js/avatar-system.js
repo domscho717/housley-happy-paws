@@ -321,27 +321,31 @@ const HHP_Avatar = {
     this.applySidebarAvatars();
   },
 
-  // ── Apply avatar to all sidebar user sections ──
+  // ── Apply avatar to the current user's own sidebar only ──
   applySidebarAvatars() {
     var url = this.getCurrentAvatarUrl();
     if (!url) return;
 
-    document.querySelectorAll('.sidebar-user .sb-ava').forEach(function(el) {
-      el.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
-    });
+    // Only apply to the user's own portal sidebar, not all portals
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+    var portalId = role === 'owner' ? 'pg-owner' : role === 'staff' ? 'pg-staff' : 'pg-client';
+    var portal = document.getElementById(portalId);
+    if (portal) {
+      var ava = portal.querySelector('.sidebar-user .sb-ava');
+      if (ava) ava.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
+    }
   },
 
   // ── Initialize: inject sections and wire up ──
   init() {
     var self = this;
 
-    // Immediately apply cached avatar (no auth needed) to prevent flash
+    // Immediately apply cached avatar to owner sidebar only (no auth needed) to prevent flash
     var cachedUrl = '';
     try { cachedUrl = sessionStorage.getItem('hhp_avatar_url') || ''; } catch(e) {}
     if (cachedUrl) {
-      document.querySelectorAll('.sidebar-user .sb-ava').forEach(function(el) {
-        el.innerHTML = '<img src="' + cachedUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
-      });
+      var ownerAva = document.querySelector('#pg-owner .sidebar-user .sb-ava');
+      if (ownerAva) ownerAva.innerHTML = '<img src="' + cachedUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
     }
 
     // Wait for auth to be ready, then inject upload sections

@@ -488,10 +488,12 @@
       data = res2.data || [];
     }
 
-    // Group by conversation partner
+    // Group by conversation partner (skip self-messages)
     var convos = {};
     for (var i = 0; i < data.length; i++) {
       var msg = data[i];
+      // Skip messages where sender and recipient are the same (auto-notifications to self)
+      if (msg.sender_id === msg.recipient_id) continue;
       var partnerId = msg.sender_id === user.id ? msg.recipient_id : msg.sender_id;
 
       if (!convos[partnerId]) {

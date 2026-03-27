@@ -41,8 +41,8 @@ try{
 try{var _st=JSON.parse(localStorage.getItem('hhp_settings')||'{}');if(_st.theme==='dark')document.documentElement.setAttribute('data-theme','dark');if(_st.textSize&&_st.textSize!=='medium')document.documentElement.setAttribute('data-text-size',_st.textSize);}catch(e){}
 </script>
 <script>
-// Instant avatar: apply cached profile picture to prevent flash of default emoji
-try{var _ca=sessionStorage.getItem('hhp_avatar_url');if(_ca){var st=document.createElement('style');st.textContent='.sb-ava{background:none!important;font-size:0!important;overflow:hidden}.sb-ava::before{content:none!important}.sb-ava img{width:100%;height:100%;border-radius:50%;object-fit:cover}';document.head.appendChild(st);document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('.sb-ava').forEach(function(el){el.innerHTML='<img src="'+_ca+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';});});}}catch(e){}
+// Instant avatar: apply cached owner profile picture to owner sidebar only
+try{var _ca=sessionStorage.getItem('hhp_avatar_url');if(_ca){var st=document.createElement('style');st.textContent='#pg-owner .sb-ava{background:none!important;font-size:0!important;overflow:hidden}#pg-owner .sb-ava::before{content:none!important}.sb-ava img{width:100%;height:100%;border-radius:50%;object-fit:cover}';document.head.appendChild(st);document.addEventListener('DOMContentLoaded',function(){var ownerAva=document.querySelector('#pg-owner .sb-ava');if(ownerAva)ownerAva.innerHTML='<img src="'+_ca+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';});}}catch(e){}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3888,6 +3888,24 @@ function selectViewAsClient(userId, fullName, profileId) {
     var sbRole = document.querySelector('#pg-client .sb-role');
     if (sbRole) sbRole.textContent = '👁 Viewing as Client';
 
+    // Update client sidebar avatar to the viewed client's picture
+    var clientAva = document.querySelector('#pg-client .sidebar-user .sb-ava');
+    if (clientAva) {
+      // Fetch the client's avatar from their profile
+      var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+      if (sb) {
+        sb.from('profiles').select('avatar_url').eq('user_id', userId).single().then(function(res) {
+          if (res.data && res.data.avatar_url) {
+            clientAva.innerHTML = '<img src="' + res.data.avatar_url + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
+          } else {
+            var initial = (fullName || '?').charAt(0).toUpperCase();
+            clientAva.innerHTML = '<span style="font-size:1.1rem">' + initial + '</span>';
+            clientAva.style.background = 'linear-gradient(135deg,var(--gold-light),var(--gold))';
+          }
+        });
+      }
+    }
+
     // Load dashboard for the viewed client
     if (typeof loadDashboardStats === 'function') loadDashboardStats();
     if (typeof loadMyPets === 'function') loadMyPets();
@@ -3923,11 +3941,13 @@ function exitViewAsClient() {
   if (banner) banner.remove();
   document.body.style.paddingTop = '';
 
-  // Restore sidebar welcome text
+  // Restore sidebar welcome text and avatar
   var sbName = document.querySelector('#pg-client .sb-name');
   if (sbName) sbName.textContent = 'Welcome!';
   var sbRole = document.querySelector('#pg-client .sb-role');
   if (sbRole) sbRole.textContent = 'Client Portal';
+  var clientAva = document.querySelector('#pg-client .sidebar-user .sb-ava');
+  if (clientAva) { clientAva.innerHTML = '🐾'; clientAva.style.background = ''; }
 
   // Navigate back to owner/staff portal
   var myRole = (HHP_Auth && HHP_Auth.currentRole) || 'owner';
