@@ -2627,6 +2627,9 @@
       var dashboard = document.getElementById('hhpAdminDashboard');
       if (!dashboard) return;
 
+      // If inside a customizer widget card, skip — the widget renders its own compact layout
+      if (dashboard.closest('.cust-widget')) return;
+
       dashboard.innerHTML = [
         '<div class="card-title" style="margin-bottom:14px">📋 Booking Requests</div>',
         '<div class="admin-filter-bar" id="adminFilterBar" style="margin-bottom:12px">',

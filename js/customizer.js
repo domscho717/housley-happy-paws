@@ -1095,19 +1095,28 @@
   _R._rwOwnerRequests=async function(sz){
     if(sz!=='full') return'<div style="font-size:0.75rem;color:var(--mid)">Booking requests</div>';
     var sb=_getSB();if(!sb){
-      return '<div id="hhpAdminDashboard"><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div></div>';
+      return '<div class="hhp-req-widget"><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div></div>';
     }
     try{
       var{data}=await sb.from('booking_requests').select('id,service,contact_name,preferred_date,preferred_time,status,pet_names,estimated_total').order('created_at',{ascending:false}).limit(50);
-      var h='<div id="hhpAdminDashboard"><div style="margin-bottom:10px"><select id="req-filter" onchange="HHP_Customizer.refresh()" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;cursor:pointer"><option value="pending">Pending (Default)</option><option value="accepted">Accepted</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="declined">Declined</option></select></div>';
-      var filter=document.getElementById('req-filter')?document.getElementById('req-filter').value:'pending';
-      var filtered=(data||[]).filter(function(b){return b.status===filter;});
+      var filter=window._owReqFilter||'pending';
+      var statuses=['pending','accepted','in_progress','completed','modified','declined','payment_hold','all'];
+      var labels={pending:'Pending',accepted:'Accepted',in_progress:'In Progress',completed:'Completed',modified:'Modified',declined:'Declined',payment_hold:'Payment Hold',all:'All'};
+      var h='<div class="hhp-req-widget">';
+      // Horizontal-scroll pill filter bar
+      h+='<div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0 10px;margin-bottom:8px">';
+      statuses.forEach(function(s){
+        var isActive=s===filter;
+        h+='<button onclick="window._owReqFilter=\''+s+'\';HHP_Customizer.refreshWidget(\'ow-requests\')" style="white-space:nowrap;padding:5px 14px;border-radius:20px;border:1px solid '+(isActive?'var(--gold,#C8963E)':'var(--border,#ddd)')+';background:'+(isActive?'var(--gold,#C8963E)':'white')+';color:'+(isActive?'white':'var(--mid,#888)')+';font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;transition:all 0.2s">'+(s==='payment_hold'?'⚠ ':'')+labels[s]+'</button>';
+      });
+      h+='</div>';
+      var filtered=filter==='all'?(data||[]):(data||[]).filter(function(b){return b.status===filter;});
       if(filtered&&filtered.length){filtered.slice(0,4).forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var sCol=b.status==='pending'?'#c8963e':b.status==='in_progress'?'var(--forest)':'var(--mid)';
-        h+='<div style="display:flex;gap:8px;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'o\',\'o-requests\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:0.72rem;color:var(--mid)">'+d+(t?' '+t:'')+'</div><div style="font-size:0.68rem;font-weight:700;color:'+sCol+';text-transform:uppercase;margin-top:2px">'+b.status+'</div>'+(b.estimated_total?'<div style="font-size:0.72rem;color:var(--forest);font-weight:600;margin-top:2px">$'+b.estimated_total.toFixed(2)+'</div>':'')+'</div></div>';});}
-      else{h+='<div style="padding:12px 0;text-align:center;color:var(--mid);font-size:0.82rem">No '+filter+' requests</div>';}
+        h+='<div style="display:flex;gap:10px;padding:10px 8px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:8px;transition:background 0.15s" onclick="sTab(\'o\',\'o-requests\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="flex:1;min-width:0"><div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right;white-space:nowrap;flex-shrink:0"><div style="font-size:0.72rem;color:var(--mid)">'+d+(t?' '+t:'')+'</div><div style="font-size:0.68rem;font-weight:700;color:'+sCol+';text-transform:uppercase;margin-top:2px">'+b.status.replace('_',' ')+'</div>'+(b.estimated_total?'<div style="font-size:0.72rem;color:var(--forest);font-weight:600;margin-top:2px">$'+b.estimated_total.toFixed(2)+'</div>':'')+'</div></div>';});}
+      else{h+='<div style="padding:16px 0;text-align:center;color:var(--mid);font-size:0.82rem">No '+labels[filter].toLowerCase()+' requests</div>';}
       return h+'</div>';
     }catch(e){
-      return '<div id="hhpAdminDashboard"><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Error loading</div></div>';
+      return '<div class="hhp-req-widget"><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Error loading</div></div>';
     }
   };
 
