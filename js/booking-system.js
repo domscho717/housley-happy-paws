@@ -3627,7 +3627,12 @@
           }
         } catch (chargeErr) {
           console.warn('Auto-charge failed:', chargeErr);
-          if (typeof toast === 'function') toast('⚠️ Booking accepted but could not charge card.');
+          // Set to payment_hold so it can be retried
+          await sb.from('booking_requests').update({
+            status: 'payment_hold',
+            admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but charge request failed: ' + (chargeErr.message || 'Network error')
+          }).eq('id', requestId);
+          if (typeof toast === 'function') toast('⚠️ Booking accepted but charge failed — on payment hold.');
         }
       } else {
         if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
