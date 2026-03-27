@@ -173,11 +173,146 @@ module.exports = async function handler(req, res) {
           // Card declined or other error — put on payment hold
           await supabase.from('booking_requests').update({
             status: 'payment_hold',
-            admin_notes: (booking.admin_notes || '') + '\n⚠️ Auto-charge failed: ' + chargeErr.message,
+            admin_notes: (booking.admin_notes || '') + '\n⚠️ Auto-charge failed (' + todayStr + '): ' + chargeErr.message,
           }).eq('id', booking.id);
           results.failed++;
           results.errors.push({ bookingId: booking.id, error: chargeErr.message });
           console.error(`Failed to charge booking ${booking.id}:`, chargeErr.message);
+
+          // Send 24-hour warning notification to client
+          try {
+            const notifBody = {
+              email: profile.email,
+              name: profile.full_name || 'Client',
+              service: booking.service || 'Pet Care',
+              status: 'payment_decline_warning',
+              scheduledDate: booking.scheduled_date || booking.preferred_date,
+              scheduledTime: booking.scheduled_time || booking.preferred_time,
+              estimatedTotal: booking.estimated_total,
+              declineMessage: chargeErr.message || 'Your card was declined.',
+            };
+            await fetch((process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://housleyhappypaws.com') + '/api/booking-status-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(notifBody),
+            });
+            console.log(`Sent decline warning to ${profile.email} for booking ${booking.id}`);
+          } catch (notifErr) {
+            console.warn('Failed to send decline notification:', notifErr.message);
+          }
+        }
+      }
+    }
+
+    // 2. Retry payment_hold bookings — if card is updated, charge succeeds; if 24hrs passed, auto-cancel
+    const { data: holdBookings, error: holdErr } = await supabase
+      .from('booking_requests')
+      .select('*, profiles!booking_requests_client_id_fkey(user_id, stripe_customer_id, full_name, email)')
+      .eq('status', 'payment_hold')
+      .not('scheduled_date', 'is', null);
+
+    if (!holdErr && holdBookings && holdBookings.length > 0) {
+      for (const booking of holdBookings) {
+        const profile = booking.profiles;
+        if (!profile) continue;
+
+        // Check how long it's been on payment_hold
+        const holdSince = new Date(booking.updated_at);
+        const hoursSinceHold = (today - holdSince) / (1000 * 60 * 60);
+
+        // Try to charge again (client may have updated their card)
+        let retrySuccess = false;
+        if (profile.stripe_customer_id) {
+          try {
+            const methods = await stripe.paymentMethods.list({
+              customer: profile.stripe_customer_id,
+              type: 'card',
+              limit: 1,
+            });
+
+            if (methods.data.length > 0) {
+              const retryIntent = await stripe.paymentIntents.create({
+                amount: Math.round(booking.estimated_total * 100),
+                currency: 'usd',
+                customer: profile.stripe_customer_id,
+                payment_method: methods.data[0].id,
+                off_session: true,
+                confirm: true,
+                capture_method: 'automatic',
+                description: `Housley Happy Paws — ${booking.service || 'Pet Care'} (retry)`,
+                metadata: { booking_request_id: booking.id, client_name: profile.full_name || '', service: booking.service || '' },
+              });
+
+              if (retryIntent.status === 'succeeded') {
+                retrySuccess = true;
+                // Payment succeeded — restore booking to accepted
+                await supabase.from('booking_requests').update({
+                  status: 'accepted',
+                  payment_intent_id: retryIntent.id,
+                  admin_notes: (booking.admin_notes || '') + '\n✅ Payment retry succeeded (' + todayStr + ')',
+                }).eq('id', booking.id);
+
+                await supabase.from('payments').insert({
+                  stripe_session_id: retryIntent.id,
+                  client_email: profile.email,
+                  client_name: profile.full_name,
+                  amount: booking.estimated_total,
+                  service: booking.service || 'Pet Care',
+                  status: 'paid',
+                  notes: 'Retry charge succeeded (Booking #' + booking.id.slice(0, 8) + ')',
+                  paid_at: new Date().toISOString(),
+                });
+
+                // Transfer 15%
+                const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+                if (connectedAccountId && retryIntent.latest_charge) {
+                  try {
+                    const devShareCents = Math.round(Math.round(booking.estimated_total * 100) * 0.15);
+                    await stripe.transfers.create({
+                      amount: devShareCents, currency: 'usd', destination: connectedAccountId,
+                      source_transaction: retryIntent.latest_charge,
+                      description: `15% dev share — retry charge for booking #${booking.id.slice(0, 8)}`,
+                    });
+                  } catch (te) { console.warn('Transfer failed (non-blocking):', te.message); }
+                }
+
+                results.charged++;
+                console.log(`Retry succeeded for booking ${booking.id}`);
+              }
+            }
+          } catch (retryErr) {
+            console.log(`Retry failed for booking ${booking.id}: ${retryErr.message}`);
+          }
+        }
+
+        // If retry failed AND 24 hours have passed — auto-cancel
+        if (!retrySuccess && hoursSinceHold >= 24) {
+          await supabase.from('booking_requests').update({
+            status: 'canceled',
+            admin_notes: (booking.admin_notes || '') + '\n❌ Auto-canceled: payment not resolved within 24 hours (' + todayStr + ')',
+          }).eq('id', booking.id);
+
+          // Notify client their booking was canceled
+          try {
+            await fetch((process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://housleyhappypaws.com') + '/api/booking-status-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: profile.email,
+                name: profile.full_name || 'Client',
+                service: booking.service || 'Pet Care',
+                status: 'payment_auto_canceled',
+                scheduledDate: booking.scheduled_date || booking.preferred_date,
+                scheduledTime: booking.scheduled_time || booking.preferred_time,
+                estimatedTotal: booking.estimated_total,
+              }),
+            });
+            console.log(`Auto-canceled booking ${booking.id} — notified ${profile.email}`);
+          } catch (notifErr) {
+            console.warn('Failed to send cancel notification:', notifErr.message);
+          }
+
+          results.failed++;
         }
       }
     }

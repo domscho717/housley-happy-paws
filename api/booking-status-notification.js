@@ -25,8 +25,8 @@ module.exports = async function handler(req, res) {
   }
 
   // Validate status is one of the expected values
-  if (!['accepted', 'modified', 'declined', 'payment_hold', 'canceled'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, canceled, or payment_hold' });
+  if (!['accepted', 'modified', 'declined', 'payment_hold', 'payment_decline_warning', 'payment_auto_canceled', 'canceled'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, canceled, payment_hold, payment_decline_warning, or payment_auto_canceled' });
   }
 
   try {
@@ -224,12 +224,60 @@ module.exports = async function handler(req, res) {
 
       <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Your booking is on hold and will be confirmed once payment is resolved. Questions? Reply to this email or call 717-715-7595.</p>
     `;
+
+  } else if (status === 'payment_decline_warning') {
+    const safeDeclineMsg = escHtml(req.body?.declineMessage || 'Your card was declined.');
+    subject = `🚨 Action Required: Payment declined for your ${safeService} booking — Housley Happy Paws`;
+    bodyHTML = `
+      <p>Hi ${safeName}!</p>
+      <p>Your <strong>${safeService}</strong> appointment is coming up soon, but we were unable to process your payment:</p>
+
+      <div style="background:#fde8e8;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c62828">
+        <div style="font-weight:700;margin-bottom:8px;color:#c62828">❌ Payment Declined</div>
+        <div style="color:#c62828">${safeDeclineMsg}</div>
+      </div>
+
+      ${dateFmt ? `<div style="margin-bottom:4px">📅 Appointment: ${dateFmt}</div>` : ''}
+      ${timeFmt ? `<div style="margin-bottom:4px">🕐 Time: ${timeFmt}</div>` : ''}
+      ${estimatedTotal ? `<div style="margin-bottom:4px">💰 Amount due: $${Number(estimatedTotal).toFixed(2)}</div>` : ''}
+
+      <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #ffc107">
+        <div style="font-weight:700;color:#856404;margin-bottom:6px">⏰ You have 24 hours to update your payment method</div>
+        <div style="color:#856404">If payment is not resolved within 24 hours, your booking will be automatically canceled.</div>
+      </div>
+
+      <p>Please log in and update your card to keep your appointment:</p>
+
+      <div style="margin-top:16px">
+        <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c62828;color:white;border-radius:8px;text-decoration:none;font-weight:700">Update Payment Now →</a>
+      </div>
+
+      <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Need help? Reply to this email or call 717-715-7595.</p>
+    `;
+
+  } else if (status === 'payment_auto_canceled') {
+    subject = `❌ Booking canceled — payment not received for ${safeService} — Housley Happy Paws`;
+    bodyHTML = `
+      <p>Hi ${safeName},</p>
+      <p>Unfortunately, your <strong>${safeService}</strong> booking has been automatically canceled because we were unable to process your payment within the 24-hour grace period.</p>
+
+      ${dateFmt ? `<div style="margin-bottom:4px">📅 Original date: ${dateFmt}</div>` : ''}
+      ${timeFmt ? `<div style="margin-bottom:4px">🕐 Original time: ${timeFmt}</div>` : ''}
+
+      <p>We'd love to still see you! You can update your payment method and book a new appointment anytime:</p>
+
+      <div style="margin-top:16px">
+        <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">Book Again →</a>
+      </div>
+
+      <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Questions? Reply to this email or call 717-715-7595.</p>
+    `;
   }
 
   const result = await sendEmail({
     to: email,
     subject,
-    title: isOwnerNotification ? (status === 'accepted' ? 'Time Change Accepted' : 'Booking Canceled') : status === 'accepted' ? 'Booking Confirmed!' : status === 'canceled' ? 'Booking Canceled' : status === 'payment_hold' ? 'Payment Issue' : status === 'modified' ? 'Booking Update' : 'Booking Update',
+    title: isOwnerNotification ? (status === 'accepted' ? 'Time Change Accepted' : 'Booking Canceled') : status === 'accepted' ? 'Booking Confirmed!' : status === 'canceled' ? 'Booking Canceled' : status === 'payment_hold' ? 'Payment Issue' : status === 'payment_decline_warning' ? 'Payment Declined' : status === 'payment_auto_canceled' ? 'Booking Canceled' : status === 'modified' ? 'Booking Update' : 'Booking Update',
     bodyHTML,
   });
 
