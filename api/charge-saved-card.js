@@ -91,8 +91,13 @@ module.exports = async function handler(req, res) {
     // Service is within 48 hours — charge immediately
     console.log('[charge] Service within 48hrs — charging immediately');
 
+    // Calculate 15% dev share for connected account
+    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    const amountCents = Math.round(amount * 100);
+    const devShareCents = connectedAccountId ? Math.round(amountCents * 0.15) : 0;
+
     const piParams = {
-      amount: Math.round(amount * 100), // cents
+      amount: amountCents,
       currency: 'usd',
       customer: stripeCustomerId,
       payment_method: paymentMethodId,
@@ -107,43 +112,20 @@ module.exports = async function handler(req, res) {
       },
     };
 
+    // For Standard connected accounts, use destination charges
+    // This sends devShareCents to the connected account automatically
+    if (connectedAccountId && devShareCents > 0) {
+      piParams.transfer_data = {
+        destination: connectedAccountId,
+        amount: devShareCents,
+      };
+      console.log('[charge] Destination charge: ' + devShareCents + ' cents (15%) to ' + connectedAccountId);
+    }
+
     // Create and confirm PaymentIntent
     let paymentIntent;
     paymentIntent = await stripe.paymentIntents.create(piParams);
-
-    // Transfer 15% to Dom's connected account after successful charge
-    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-    console.log('[charge] Connected account ID:', connectedAccountId || 'NOT SET');
-    console.log('[charge] PaymentIntent status:', paymentIntent.status);
-    console.log('[charge] latest_charge:', paymentIntent.latest_charge);
-    if (connectedAccountId && paymentIntent.status === 'succeeded') {
-      try {
-        // Retrieve the charge ID if latest_charge isn't populated
-        let chargeId = paymentIntent.latest_charge;
-        if (!chargeId) {
-          const charges = await stripe.charges.list({ payment_intent: paymentIntent.id, limit: 1 });
-          chargeId = charges.data.length > 0 ? charges.data[0].id : null;
-          console.log('[charge] Looked up charge ID:', chargeId);
-        }
-        const devShareCents = Math.round(Math.round(amount * 100) * 0.15);
-        console.log('[charge] Attempting transfer of', devShareCents, 'cents to', connectedAccountId);
-        const transferParams = {
-          amount: devShareCents,
-          currency: 'usd',
-          destination: connectedAccountId,
-          description: `15% dev share — ${service || 'Pet Care'} (${bookingRequestId ? '#' + bookingRequestId.slice(0, 8) : ''})`,
-        };
-        if (chargeId) {
-          transferParams.source_transaction = chargeId;
-        }
-        const transfer = await stripe.transfers.create(transferParams);
-        console.log('[charge] Transfer SUCCESS:', transfer.id, '— $' + (devShareCents / 100).toFixed(2));
-      } catch (transferErr) {
-        console.error('[charge] Transfer FAILED:', transferErr.type, transferErr.code, transferErr.message);
-      }
-    } else {
-      console.log('[charge] Skipping transfer — connectedAccountId:', !!connectedAccountId, 'status:', paymentIntent.status);
-    }
+    console.log('[charge] PaymentIntent status:', paymentIntent.status, '| ID:', paymentIntent.id);
 
     // Log payment to Supabase and store payment_intent_id on booking_request
     if (paymentIntent.status === 'succeeded') {

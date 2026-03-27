@@ -110,9 +110,13 @@ module.exports = async function handler(req, res) {
             continue;
           }
 
-          // Charge the card now
-          const paymentIntent = await stripe.paymentIntents.create({
-            amount: Math.round(booking.estimated_total * 100),
+          // Charge the card now — use destination charge for 15% split
+          const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+          const chargeCents = Math.round(booking.estimated_total * 100);
+          const devShareCents = connectedAccountId ? Math.round(chargeCents * 0.15) : 0;
+
+          const piParams = {
+            amount: chargeCents,
             currency: 'usd',
             customer: profile.stripe_customer_id,
             payment_method: methods.data[0].id,
@@ -125,7 +129,16 @@ module.exports = async function handler(req, res) {
               client_name: profile.full_name || '',
               service: booking.service || '',
             },
-          });
+          };
+
+          if (connectedAccountId && devShareCents > 0) {
+            piParams.transfer_data = {
+              destination: connectedAccountId,
+              amount: devShareCents,
+            };
+          }
+
+          const paymentIntent = await stripe.paymentIntents.create(piParams);
 
           if (paymentIntent.status === 'succeeded') {
             results.charged++;
@@ -147,24 +160,7 @@ module.exports = async function handler(req, res) {
               .update({ payment_intent_id: paymentIntent.id })
               .eq('id', booking.id);
 
-            // Transfer 15% to connected account
-            const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-            if (connectedAccountId && paymentIntent.latest_charge) {
-              try {
-                const devShareCents = Math.round(Math.round(booking.estimated_total * 100) * 0.15);
-                await stripe.transfers.create({
-                  amount: devShareCents,
-                  currency: 'usd',
-                  destination: connectedAccountId,
-                  source_transaction: paymentIntent.latest_charge,
-                  description: `15% dev share — auto-charged for booking #${booking.id.slice(0, 8)}`,
-                });
-              } catch (transferErr) {
-                console.warn('Transfer failed (non-blocking):', transferErr.message);
-              }
-            }
-
-            console.log(`Charged $${booking.estimated_total} for booking ${booking.id}`);
+            console.log(`Charged $${booking.estimated_total} for booking ${booking.id} (15%: $${(devShareCents/100).toFixed(2)} to connected)`);
           } else {
             results.failed++;
             results.errors.push({ bookingId: booking.id, error: 'Payment status: ' + paymentIntent.status });
@@ -231,8 +227,12 @@ module.exports = async function handler(req, res) {
             });
 
             if (methods.data.length > 0) {
-              const retryIntent = await stripe.paymentIntents.create({
-                amount: Math.round(booking.estimated_total * 100),
+              const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+              const retryCents = Math.round(booking.estimated_total * 100);
+              const retryDevShare = connectedAccountId ? Math.round(retryCents * 0.15) : 0;
+
+              const retryParams = {
+                amount: retryCents,
                 currency: 'usd',
                 customer: profile.stripe_customer_id,
                 payment_method: methods.data[0].id,
@@ -241,7 +241,16 @@ module.exports = async function handler(req, res) {
                 capture_method: 'automatic',
                 description: `Housley Happy Paws — ${booking.service || 'Pet Care'} (retry)`,
                 metadata: { booking_request_id: booking.id, client_name: profile.full_name || '', service: booking.service || '' },
-              });
+              };
+
+              if (connectedAccountId && retryDevShare > 0) {
+                retryParams.transfer_data = {
+                  destination: connectedAccountId,
+                  amount: retryDevShare,
+                };
+              }
+
+              const retryIntent = await stripe.paymentIntents.create(retryParams);
 
               if (retryIntent.status === 'succeeded') {
                 retrySuccess = true;
@@ -263,21 +272,8 @@ module.exports = async function handler(req, res) {
                   paid_at: new Date().toISOString(),
                 });
 
-                // Transfer 15%
-                const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-                if (connectedAccountId && retryIntent.latest_charge) {
-                  try {
-                    const devShareCents = Math.round(Math.round(booking.estimated_total * 100) * 0.15);
-                    await stripe.transfers.create({
-                      amount: devShareCents, currency: 'usd', destination: connectedAccountId,
-                      source_transaction: retryIntent.latest_charge,
-                      description: `15% dev share — retry charge for booking #${booking.id.slice(0, 8)}`,
-                    });
-                  } catch (te) { console.warn('Transfer failed (non-blocking):', te.message); }
-                }
-
                 results.charged++;
-                console.log(`Retry succeeded for booking ${booking.id}`);
+                console.log(`Retry succeeded for booking ${booking.id} (15%: $${(retryDevShare/100).toFixed(2)} to connected)`);
               }
             }
           } catch (retryErr) {
