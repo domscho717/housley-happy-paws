@@ -7266,8 +7266,8 @@ async function showBookingDetail(bookingId, role, source) {
       try {
         var email = b.contact_email || b.client_email || '';
         if (email && dateVal) {
-          // Match by email, service type, AND the booking date to avoid picking up old payments
-          var { data: pays } = await sb.from('payments').select('*').eq('client_email', email).ilike('service', '%' + svc.split(' - ')[0] + '%').gte('paid_at', dateVal + 'T00:00:00').order('paid_at', { ascending: false }).limit(1);
+          // Match by email, service type, and amount to find the correct payment
+          var { data: pays } = await sb.from('payments').select('*').eq('client_email', email).eq('service', svc).eq('amount', b.estimated_total).order('paid_at', { ascending: false }).limit(1);
           if (pays && pays.length > 0) {
             isPaid = true;
             paymentInfo = pays[0];
