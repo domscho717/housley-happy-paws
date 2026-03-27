@@ -112,20 +112,28 @@ module.exports = async function handler(req, res) {
       },
     };
 
-    // For Standard connected accounts, use destination charges
-    // This sends devShareCents to the connected account automatically
-    if (connectedAccountId && devShareCents > 0) {
-      piParams.transfer_data = {
-        destination: connectedAccountId,
-        amount: devShareCents,
-      };
-      console.log('[charge] Destination charge: ' + devShareCents + ' cents (15%) to ' + connectedAccountId);
-    }
-
     // Create and confirm PaymentIntent
+    // Try with destination charge first (15% split), fall back to plain charge
     let paymentIntent;
-    paymentIntent = await stripe.paymentIntents.create(piParams);
-    console.log('[charge] PaymentIntent status:', paymentIntent.status, '| ID:', paymentIntent.id);
+    if (connectedAccountId && devShareCents > 0) {
+      try {
+        piParams.transfer_data = {
+          destination: connectedAccountId,
+          amount: devShareCents,
+        };
+        paymentIntent = await stripe.paymentIntents.create(piParams);
+        console.log('[charge] Destination charge SUCCESS:', paymentIntent.id, '— 15% ($' + (devShareCents/100).toFixed(2) + ') to', connectedAccountId);
+      } catch (destErr) {
+        console.warn('[charge] Destination charge failed:', destErr.message, '— retrying without transfer_data');
+        delete piParams.transfer_data;
+        paymentIntent = await stripe.paymentIntents.create(piParams);
+        console.log('[charge] Plain charge SUCCESS (no split):', paymentIntent.id);
+      }
+    } else {
+      paymentIntent = await stripe.paymentIntents.create(piParams);
+      console.log('[charge] Plain charge (no connected account):', paymentIntent.id);
+    }
+    console.log('[charge] PaymentIntent status:', paymentIntent.status);
 
     // Log payment to Supabase and store payment_intent_id on booking_request
     if (paymentIntent.status === 'succeeded') {
