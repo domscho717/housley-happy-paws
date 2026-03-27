@@ -37,6 +37,7 @@ module.exports = async function handler(req, res) {
       type: 'express',
       email: email,
       capabilities: {
+        card_payments: { requested: true },
         transfers: { requested: true },
       },
       metadata: {
