@@ -45,77 +45,139 @@ module.exports = async function handler(req, res) {
 
   const results = {
     processed: 0,
-    captured: 0,
+    charged: 0,
     skipped: 0,
     failed: 0,
     recurringProcessed: 0,
     errors: [],
   };
 
+  // Calculate the date 2 days from now (48-hour window)
+  const twoDaysOut = new Date(today);
+  twoDaysOut.setDate(twoDaysOut.getDate() + 2);
+  const twoDaysStr = twoDaysOut.toISOString().split('T')[0];
+
   try {
-    // 1. Capture payment intents for one-time bookings scheduled today
-    const { data: bookings, error: fetchErr } = await supabase
+    // 1. Find accepted bookings within the next 48 hours that have NOT been charged yet
+    //    (no payment_intent_id means payment was deferred when accepted)
+    const { data: uncharged, error: fetchErr } = await supabase
       .from('booking_requests')
-      .select('*')
+      .select('*, profiles!booking_requests_client_id_fkey(user_id, stripe_customer_id, full_name, email)')
       .eq('status', 'accepted')
-      .eq('scheduled_date', todayStr)
-      .not('payment_intent_id', 'is', null);
+      .is('payment_intent_id', null)
+      .gte('scheduled_date', todayStr)
+      .lte('scheduled_date', twoDaysStr);
 
     if (fetchErr) throw fetchErr;
 
-    if (bookings && bookings.length > 0) {
-      for (const booking of bookings) {
+    if (uncharged && uncharged.length > 0) {
+      for (const booking of uncharged) {
         results.processed++;
 
+        // Skip free services
+        if (!booking.estimated_total || booking.estimated_total <= 0) {
+          results.skipped++;
+          continue;
+        }
+
+        const profile = booking.profiles;
+        if (!profile || !profile.stripe_customer_id) {
+          // No Stripe customer — put on payment hold
+          await supabase.from('booking_requests').update({
+            status: 'payment_hold',
+            admin_notes: (booking.admin_notes || '') + '\n⚠️ No payment method on file — moved to payment hold.',
+          }).eq('id', booking.id);
+          results.failed++;
+          results.errors.push({ bookingId: booking.id, error: 'No stripe_customer_id' });
+          continue;
+        }
+
         try {
-          const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
+          // Get the client's default card
+          const methods = await stripe.paymentMethods.list({
+            customer: profile.stripe_customer_id,
+            type: 'card',
+            limit: 1,
+          });
 
-          if (intent.status === 'requires_capture') {
-            // Capture the payment
-            const captured = await stripe.paymentIntents.capture(booking.payment_intent_id);
-            results.captured++;
+          if (methods.data.length === 0) {
+            await supabase.from('booking_requests').update({
+              status: 'payment_hold',
+              admin_notes: (booking.admin_notes || '') + '\n⚠️ No saved card — moved to payment hold.',
+            }).eq('id', booking.id);
+            results.failed++;
+            results.errors.push({ bookingId: booking.id, error: 'No saved card' });
+            continue;
+          }
 
-            // Update payment status in Supabase (check both session_id and payment_intent_id)
-            await supabase
-              .from('payments')
-              .update({ status: 'paid' })
-              .or('stripe_session_id.eq.' + booking.payment_intent_id + ',stripe_payment_intent_id.eq.' + booking.payment_intent_id);
+          // Charge the card now
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(booking.estimated_total * 100),
+            currency: 'usd',
+            customer: profile.stripe_customer_id,
+            payment_method: methods.data[0].id,
+            off_session: true,
+            confirm: true,
+            capture_method: 'automatic',
+            description: `Housley Happy Paws — ${booking.service || 'Pet Care Service'}`,
+            metadata: {
+              booking_request_id: booking.id,
+              client_name: profile.full_name || '',
+              service: booking.service || '',
+            },
+          });
 
-            // Transfer 15% to Dom's connected account after capture
+          if (paymentIntent.status === 'succeeded') {
+            results.charged++;
+
+            // Log payment
+            await supabase.from('payments').insert({
+              stripe_session_id: paymentIntent.id,
+              client_email: profile.email,
+              client_name: profile.full_name,
+              amount: booking.estimated_total,
+              service: booking.service || 'Pet Care',
+              status: 'paid',
+              notes: 'Auto-charged 48hrs before service (Booking #' + booking.id.slice(0, 8) + ')',
+              paid_at: new Date().toISOString(),
+            });
+
+            // Store payment_intent_id on booking
+            await supabase.from('booking_requests')
+              .update({ payment_intent_id: paymentIntent.id })
+              .eq('id', booking.id);
+
+            // Transfer 15% to connected account
             const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-            if (connectedAccountId && captured.latest_charge) {
+            if (connectedAccountId && paymentIntent.latest_charge) {
               try {
-                const devShareCents = Math.round(captured.amount * 0.15);
+                const devShareCents = Math.round(Math.round(booking.estimated_total * 100) * 0.15);
                 await stripe.transfers.create({
                   amount: devShareCents,
                   currency: 'usd',
                   destination: connectedAccountId,
-                  source_transaction: captured.latest_charge,
-                  description: `15% dev share — captured for booking #${booking.id.slice(0, 8)}`,
+                  source_transaction: paymentIntent.latest_charge,
+                  description: `15% dev share — auto-charged for booking #${booking.id.slice(0, 8)}`,
                 });
-                console.log(`Transferred 15% ($${(devShareCents / 100).toFixed(2)}) to connected account`);
               } catch (transferErr) {
-                console.warn('Transfer to connected account failed (non-blocking):', transferErr.message);
+                console.warn('Transfer failed (non-blocking):', transferErr.message);
               }
             }
 
-            console.log(`Captured payment for booking ${booking.id}: ${booking.payment_intent_id}`);
-          } else if (intent.status === 'succeeded') {
-            // Already captured
-            results.skipped++;
+            console.log(`Charged $${booking.estimated_total} for booking ${booking.id}`);
           } else {
-            // Some other status (canceled, failed, etc.)
-            results.skipped++;
-            console.log(`Payment intent ${booking.payment_intent_id} status: ${intent.status}`);
+            results.failed++;
+            results.errors.push({ bookingId: booking.id, error: 'Payment status: ' + paymentIntent.status });
           }
-        } catch (captureErr) {
+        } catch (chargeErr) {
+          // Card declined or other error — put on payment hold
+          await supabase.from('booking_requests').update({
+            status: 'payment_hold',
+            admin_notes: (booking.admin_notes || '') + '\n⚠️ Auto-charge failed: ' + chargeErr.message,
+          }).eq('id', booking.id);
           results.failed++;
-          results.errors.push({
-            bookingId: booking.id,
-            paymentIntentId: booking.payment_intent_id,
-            error: captureErr.message,
-          });
-          console.error(`Failed to capture payment for booking ${booking.id}:`, captureErr.message);
+          results.errors.push({ bookingId: booking.id, error: chargeErr.message });
+          console.error(`Failed to charge booking ${booking.id}:`, chargeErr.message);
         }
       }
     }

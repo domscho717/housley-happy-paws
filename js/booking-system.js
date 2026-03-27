@@ -2953,7 +2953,12 @@
               });
               var chargeData = await chargeResp.json();
 
-              if (chargeData.success) {
+              if (chargeData.success && chargeData.status === 'deferred') {
+                // Payment deferred — booking accepted, card will be charged 48hrs before service
+                autoCharged = false;
+                if (typeof toast === 'function') toast('✓ Booking accepted! Payment will charge 48hrs before service.');
+
+              } else if (chargeData.success) {
                 autoCharged = true;
                 if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + ' automatically!');
 
@@ -3606,7 +3611,10 @@
             body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
           });
           var chargeData = await chargeResp.json();
-          if (chargeData.success) {
+          if (chargeData.success && chargeData.status === 'deferred') {
+            // Payment deferred — will charge 48hrs before service
+            if (typeof toast === 'function') toast('✓ Booking accepted! Payment will charge 48hrs before service.');
+          } else if (chargeData.success) {
             autoCharged = true;
             if (typeof toast === 'function') toast('✓ Booking accepted & card charged $' + Number(req.estimated_total).toFixed(2) + '!');
           } else {

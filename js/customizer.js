@@ -1077,7 +1077,7 @@
         var ws=sow.toISOString().split('T')[0],we=eow.toISOString().split('T')[0];
         var{count:jc}=await sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('preferred_date',ws).lte('preferred_date',we).in('status',['accepted','confirmed','completed']);
         jobs=jc||0;
-        var{data:pw}=await sb.from('payments').select('amount').gte('created_at',ws).lte('created_at',we+'T23:59:59');
+        var{data:pw}=await sb.from('payments').select('amount').eq('status','paid').gte('created_at',ws).lte('created_at',we+'T23:59:59');
         if(pw&&pw.length){var t=pw.reduce(function(a,p){return a+(p.amount||0);},0);rev='$'+(t*0.85).toFixed(0);}else{rev='$0';}
         var{count:ic}=await sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59');
         inq=ic||0;
