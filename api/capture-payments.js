@@ -131,17 +131,27 @@ module.exports = async function handler(req, res) {
             },
           };
 
-          if (connectedAccountId && devShareCents > 0) {
-            piParams.transfer_data = {
-              destination: connectedAccountId,
-              amount: devShareCents,
-            };
-          }
-
           const paymentIntent = await stripe.paymentIntents.create(piParams);
 
           if (paymentIntent.status === 'succeeded') {
             results.charged++;
+
+            // Transfer 15% to connected account via separate transfer
+            if (connectedAccountId && devShareCents > 0) {
+              try {
+                const chargeId = paymentIntent.latest_charge;
+                const transfer = await stripe.transfers.create({
+                  amount: devShareCents,
+                  currency: 'usd',
+                  destination: connectedAccountId,
+                  source_transaction: chargeId,
+                  description: `15% dev share — ${booking.service || 'Pet Care'} (#${booking.id.slice(0, 8)})`,
+                });
+                console.log(`[cron] Transfer SUCCESS: ${transfer.id} $${(devShareCents/100).toFixed(2)}`);
+              } catch (transferErr) {
+                console.error(`[cron] Transfer FAILED (non-blocking): ${transferErr.message}`);
+              }
+            }
 
             // Log payment
             await supabase.from('payments').insert({
@@ -243,17 +253,28 @@ module.exports = async function handler(req, res) {
                 metadata: { booking_request_id: booking.id, client_name: profile.full_name || '', service: booking.service || '' },
               };
 
-              if (connectedAccountId && retryDevShare > 0) {
-                retryParams.transfer_data = {
-                  destination: connectedAccountId,
-                  amount: retryDevShare,
-                };
-              }
-
               const retryIntent = await stripe.paymentIntents.create(retryParams);
 
               if (retryIntent.status === 'succeeded') {
                 retrySuccess = true;
+
+                // Transfer 15% to connected account via separate transfer
+                if (connectedAccountId && retryDevShare > 0) {
+                  try {
+                    const chargeId = retryIntent.latest_charge;
+                    const transfer = await stripe.transfers.create({
+                      amount: retryDevShare,
+                      currency: 'usd',
+                      destination: connectedAccountId,
+                      source_transaction: chargeId,
+                      description: `15% dev share retry — ${booking.service || 'Pet Care'} (#${booking.id.slice(0, 8)})`,
+                    });
+                    console.log(`[cron-retry] Transfer SUCCESS: ${transfer.id} $${(retryDevShare/100).toFixed(2)}`);
+                  } catch (transferErr) {
+                    console.error(`[cron-retry] Transfer FAILED (non-blocking): ${transferErr.message}`);
+                  }
+                }
+
                 // Payment succeeded — restore booking to accepted
                 await supabase.from('booking_requests').update({
                   status: 'accepted',

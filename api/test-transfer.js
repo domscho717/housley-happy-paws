@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
     });
   }
 
-  // Test 2: Try a $1 destination charge (will refund immediately)
+  // Test 2: Try destination charge (transfer_data)
   try {
     const pi = await stripe.paymentIntents.create({
       amount: 100,
@@ -41,28 +41,37 @@ module.exports = async function handler(req, res) {
       customer: 'cus_UC0bu7MrQ7vwac',
       payment_method: (await stripe.paymentMethods.list({ customer: 'cus_UC0bu7MrQ7vwac', type: 'card', limit: 1 })).data[0]?.id,
       off_session: true,
-      confirm: false, // Don't actually charge, just see if creation works
+      confirm: false,
       transfer_data: {
         destination: connectedAccountId,
-        amount: 15, // 15 cents
+        amount: 15,
       },
     });
-    results.tests.push({
-      test: 'Create PI with transfer_data (not confirmed)',
-      success: true,
-      piId: pi.id,
-      status: pi.status,
-    });
-    // Cancel it immediately
+    results.tests.push({ test: 'Destination charge (transfer_data)', success: true, piId: pi.id });
     await stripe.paymentIntents.cancel(pi.id);
   } catch (e) {
-    results.tests.push({
-      test: 'Create PI with transfer_data',
-      success: false,
-      error: e.message,
-      code: e.code,
-      type: e.type,
-    });
+    results.tests.push({ test: 'Destination charge (transfer_data)', success: false, error: e.message, code: e.code });
+  }
+
+  // Test 3: Try separate transfer (using most recent succeeded charge)
+  try {
+    const charges = await stripe.charges.list({ limit: 1 });
+    const chargeId = charges.data[0]?.id;
+    if (chargeId) {
+      const transfer = await stripe.transfers.create({
+        amount: 100,
+        currency: 'usd',
+        destination: connectedAccountId,
+        source_transaction: chargeId,
+        description: 'Test transfer — will reverse',
+      });
+      results.tests.push({ test: 'Separate transfer (stripe.transfers.create)', success: true, transferId: transfer.id });
+      // Reverse it immediately
+      await stripe.transfers.createReversal(transfer.id, { amount: 100 });
+      results.tests.push({ test: 'Reversed test transfer', success: true });
+    }
+  } catch (e) {
+    results.tests.push({ test: 'Separate transfer', success: false, error: e.message, code: e.code });
   }
 
   res.status(200).json(results);

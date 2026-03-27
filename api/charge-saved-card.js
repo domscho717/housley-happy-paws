@@ -112,28 +112,26 @@ module.exports = async function handler(req, res) {
       },
     };
 
-    // Create and confirm PaymentIntent
-    // Try with destination charge first (15% split), fall back to plain charge
-    let paymentIntent;
-    if (connectedAccountId && devShareCents > 0) {
+    // Create and confirm PaymentIntent (plain charge on platform)
+    let paymentIntent = await stripe.paymentIntents.create(piParams);
+    console.log('[charge] PaymentIntent:', paymentIntent.id, 'status:', paymentIntent.status);
+
+    // Transfer 15% to connected account via separate transfer
+    if (connectedAccountId && devShareCents > 0 && paymentIntent.status === 'succeeded') {
       try {
-        piParams.transfer_data = {
-          destination: connectedAccountId,
+        const chargeId = paymentIntent.latest_charge;
+        const transfer = await stripe.transfers.create({
           amount: devShareCents,
-        };
-        paymentIntent = await stripe.paymentIntents.create(piParams);
-        console.log('[charge] Destination charge SUCCESS:', paymentIntent.id, '— 15% ($' + (devShareCents/100).toFixed(2) + ') to', connectedAccountId);
-      } catch (destErr) {
-        console.warn('[charge] Destination charge failed:', destErr.message, '— retrying without transfer_data');
-        delete piParams.transfer_data;
-        paymentIntent = await stripe.paymentIntents.create(piParams);
-        console.log('[charge] Plain charge SUCCESS (no split):', paymentIntent.id);
+          currency: 'usd',
+          destination: connectedAccountId,
+          source_transaction: chargeId,
+          description: `15% dev share — ${service || 'Pet Care'} (#${bookingRequestId ? bookingRequestId.slice(0, 8) : ''})`,
+        });
+        console.log('[charge] Transfer SUCCESS:', transfer.id, '$' + (devShareCents / 100).toFixed(2));
+      } catch (transferErr) {
+        console.error('[charge] Transfer FAILED (non-blocking):', transferErr.message);
       }
-    } else {
-      paymentIntent = await stripe.paymentIntents.create(piParams);
-      console.log('[charge] Plain charge (no connected account):', paymentIntent.id);
     }
-    console.log('[charge] PaymentIntent status:', paymentIntent.status);
 
     // Log payment to Supabase and store payment_intent_id on booking_request
     if (paymentIntent.status === 'succeeded') {
