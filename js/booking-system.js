@@ -3662,8 +3662,18 @@
 
   window.suggestTimeChange = function(requestId) {
     var container = document.createElement('div');
+    // Build entire HTML as string first to avoid browser auto-closing <select>
+    var timeOpts = '';
+    for (var h = 5; h <= 22; h++) {
+      for (var m = 0; m < 60; m += 30) {
+        var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+        var ampm = h >= 12 ? 'PM' : 'AM';
+        var mm = m === 0 ? '00' : '30';
+        timeOpts += '<option value="' + ((h<10?'0':'')+h) + ':' + mm + '">' + hr12 + ':' + mm + ' ' + ampm + '</option>';
+      }
+    }
     container.innerHTML = [
-      '<div style="background:var(--gold-pale);border-radius:8px;padding:14px;margin-top:12px;border:1px solid var(--gold)">',
+      '<div style="background:var(--gold-pale);border-radius:8px;padding:14px;margin-top:12px;border:1px solid var(--gold)" class="time-change-form">',
       '  <div style="font-weight:600;margin-bottom:10px">Suggest Different Time</div>',
       '  <div style="margin-bottom:10px">',
       '    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px">New Date</label>',
@@ -3672,18 +3682,7 @@
       '  <div style="margin-bottom:10px">',
       '    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px">New Time</label>',
       '    <select id="tc-time-' + requestId + '" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:0.85rem">',
-    ].join('');
-
-    for (var h = 5; h <= 22; h++) {
-      for (var m = 0; m < 60; m += 30) {
-        var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
-        var ampm = h >= 12 ? 'PM' : 'AM';
-        var mm = m === 0 ? '00' : '30';
-        container.innerHTML += '      <option value="' + ((h<10?'0':'')+h) + ':' + mm + '">' + hr12 + ':' + mm + ' ' + ampm + '</option>';
-      }
-    }
-
-    container.innerHTML += [
+      timeOpts,
       '    </select>',
       '  </div>',
       '  <div style="margin-bottom:10px">',
@@ -3692,7 +3691,7 @@
       '  </div>',
       '  <div style="display:flex;gap:8px">',
       '    <button class="btn btn-gold btn-sm" onclick="submitTimeChange(\'' + requestId + '\')" style="flex:1;justify-content:center">Send Suggestion</button>',
-      '    <button class="btn btn-outline btn-sm" onclick="this.closest(\'.card\').querySelector(\'.time-change-form\').style.display=\'none\'" style="flex:1;justify-content:center">Cancel</button>',
+      '    <button class="btn btn-outline btn-sm" onclick="this.closest(\'.time-change-form\').style.display=\'none\'" style="flex:1;justify-content:center">Cancel</button>',
       '  </div>',
       '</div>',
     ].join('');
