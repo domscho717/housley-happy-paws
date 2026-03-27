@@ -1026,40 +1026,43 @@
       header.appendChild(homeBtn);
     } else {
       // Multi-role: portal name with dropdown chevron to switch portals
-      var titleRow = document.createElement('button');
-      titleRow.type = 'button';
-      titleRow.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;cursor:pointer;padding:4px 0 12px;font-family:inherit;border-bottom:2px solid #e0d5c5;';
-      titleRow.innerHTML = '<span style="color:#000;-webkit-text-fill-color:#000;font-size:1.1rem;font-weight:700;flex:1;text-align:left">' + portalName + '</span>' +
-        '<span id="drawer-switch-chevron" style="font-size:0.7rem;color:var(--mid,#888);transition:transform 0.25s;display:inline-block">▼</span>';
-
-      var switchList = document.createElement('div');
-      switchList.id = 'drawer-switch-list';
-      switchList.style.cssText = 'max-height:0;overflow:hidden;transition:max-height 0.3s ease;';
-
       // Build allowed views (no Home for owner)
       var allowedViews = [];
       if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal' });
       if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal' });
       if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal' });
-
-      // Filter out current portal
       var otherViews = allowedViews.filter(function(v) { return 'pg-' + v.value !== activePortal; });
 
-      var switchInner = document.createElement('div');
-      switchInner.style.cssText = 'padding:8px 0 4px;';
+      // Title row — tappable to expand/collapse
+      var titleRow = document.createElement('div');
+      titleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:10px;cursor:pointer;';
+      titleRow.innerHTML = '<span style="color:#000;-webkit-text-fill-color:#000;font-size:1.1rem;font-weight:700;flex:1">' + portalName + '</span>' +
+        '<span id="drawer-switch-chevron" style="font-size:0.6rem;color:var(--mid,#888);transition:transform 0.25s ease;display:inline-block;margin-left:8px">▼</span>';
+      header.appendChild(titleRow);
+
+      // Collapsible list of other portals
+      var switchList = document.createElement('div');
+      switchList.id = 'drawer-switch-list';
+      switchList.style.cssText = 'max-height:0;overflow:hidden;transition:max-height 0.3s ease;';
       otherViews.forEach(function(v) {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.textContent = v.label;
-        btn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;padding:10px 0;font-size:0.88rem;font-weight:500;cursor:pointer;font-family:inherit;transition:color 0.15s;';
-        btn.addEventListener('click', function() {
+        btn.style.cssText = 'color:#555!important;-webkit-text-fill-color:#555!important;display:block;width:100%;text-align:left;background:none;border:none;padding:8px 0;font-size:0.88rem;font-weight:500;cursor:pointer;font-family:inherit;';
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
           if (typeof switchView === 'function') switchView(v.value);
           closeDrawer();
           setTimeout(updateDrawerContent, 300);
         });
-        switchInner.appendChild(btn);
+        switchList.appendChild(btn);
       });
-      switchList.appendChild(switchInner);
+      header.appendChild(switchList);
+
+      // Divider after the whole header block
+      var divider = document.createElement('div');
+      divider.style.cssText = 'border-bottom:2px solid #e0d5c5;margin-top:4px;';
+      header.appendChild(divider);
 
       titleRow.addEventListener('click', function() {
         var list = document.getElementById('drawer-switch-list');
@@ -1070,13 +1073,10 @@
           list.style.maxHeight = '0';
           if (chev) chev.style.transform = 'rotate(0deg)';
         } else {
-          list.style.maxHeight = (otherViews.length * 48 + 16) + 'px';
+          list.style.maxHeight = (otherViews.length * 44 + 8) + 'px';
           if (chev) chev.style.transform = 'rotate(180deg)';
         }
       });
-
-      header.appendChild(titleRow);
-      header.appendChild(switchList);
     }
     drawer.appendChild(header);
 
