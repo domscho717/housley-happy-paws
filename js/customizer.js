@@ -823,10 +823,13 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     try{
       var lim=sz==='full'?8:2;
-      // Get all recent messages
-      var{data}=await sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim);
-      // Get unread count separately
-      var{count:unreadCount}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false);
+      // Fetch messages and unread count in parallel
+      var[msgsRes,unreadRes]=await Promise.all([
+        sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim),
+        sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false)
+      ]);
+      var data=msgsRes.data;
+      var unreadCount=unreadRes.count;
       unreadCount=unreadCount||0;
       if(sz==='full'){
         var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px;display:flex;justify-content:space-between">Recent Messages'+
@@ -939,10 +942,13 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     try{
       var lim=sz==='full'?8:2;
-      // Get all recent messages
-      var{data}=await sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim);
-      // Get unread count separately
-      var{count:unreadCount}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false);
+      // Fetch messages and unread count in parallel
+      var[msgsRes,unreadRes]=await Promise.all([
+        sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim),
+        sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false)
+      ]);
+      var data=msgsRes.data;
+      var unreadCount=unreadRes.count;
       unreadCount=unreadCount||0;
       if(sz==='full'){
         var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px;display:flex;justify-content:space-between">Recent Messages'+
@@ -1043,6 +1049,10 @@
     var sb=_getSB();if(!sb){
       return '<div id="hhpAlertsCard"><div style="font-size:0.75rem;color:var(--mid)">Loading...</div></div>';
     }
+    // Helper: safely get body preview
+    function _bodyPreview(b,max){var s=b||'';return s.substring(0,max||80)+(s.length>(max||80)?'...':'');}
+    // Helper: safe sender name
+    function _sName(n,fallback){return n||fallback||'System';}
     try{
       var lim=sz==='full'?4:2;
       var[alertsRes,messagesRes]=await Promise.all([
@@ -1052,15 +1062,15 @@
       var alerts=alertsRes.data,messages=messagesRes.data;
       if(sz==='full'){
         var h='<div id="hhpAlertsCard">';
-        if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(a.sender_name||'Alert')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+a.body.substring(0,80)+(a.body.length>80?'...':'')+'</div></div>';});}
-        if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-top:10px;margin-bottom:6px">💬 Messages</div>';messages.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(m.sender_name||'Message')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+m.body.substring(0,80)+(m.body.length>80?'...':'')+'</div></div>';});}
+        if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(a.sender_name,'Alert')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+_bodyPreview(a.body)+'</div></div>';});}
+        if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-top:10px;margin-bottom:6px">💬 Messages</div>';messages.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(m.sender_name,'Message')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+_bodyPreview(m.body)+'</div></div>';});}
         if((!alerts||!alerts.length)&&(!messages||!messages.length)){h+='<div style="padding:16px 0;text-align:center;color:var(--mid);font-size:0.82rem">No alerts or messages</div>';}
         return h+'</div>';
       }
-      // Small: last 2 alerts + last 2 messages
+      // Small: last 2 alerts + last 2 messages — show body preview, not just name
       var h='<div id="hhpAlertsCard">';
-      if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-bottom:4px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){h+='<div style="padding:4px;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'">'+a.sender_name+'</div>';});}
-      if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-top:6px;margin-bottom:4px;color:var(--forest)">💬 Messages</div>';messages.forEach(function(m){h+='<div style="padding:4px;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'">'+m.sender_name+'</div>';});}
+      if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-bottom:4px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:4px 0;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(a.sender_name,'Alert')+'</span><span style="color:var(--mid);font-size:0.68rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_bodyPreview(a.body,50)+'</div></div>';});}
+      if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-top:6px;margin-bottom:4px;color:var(--forest)">💬 Messages</div>';messages.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:4px 0;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(m.sender_name,'Message')+'</span><span style="color:var(--mid);font-size:0.68rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_bodyPreview(m.body,50)+'</div></div>';});}
       if((!alerts||!alerts.length)&&(!messages||!messages.length)){h+='<div style="color:var(--mid);font-size:0.75rem">All clear</div>';}
       return h+'</div>';
     }catch(e){

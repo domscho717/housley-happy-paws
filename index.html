@@ -5519,7 +5519,7 @@ async function submitContact() {
         });
         // Also send as in-app message to owner
         if (user) {
-          await sb.from('messages').insert({ sender_id: user.id, recipient_id: ownerProf.user_id, body: '💬 Contact Form:\n' + cQuestion });
+          await sb.from('messages').insert({ sender_id: user.id, sender_name: cName || 'Contact Form', recipient_id: ownerProf.user_id, body: '💬 Contact Form:\n' + cQuestion });
         }
       }
     }
@@ -7600,7 +7600,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
     if (clientId) {
       var startMsg = '🟢 ' + staffName + ' has started ' + (petNames ? petNames + '\'s ' : 'your ') + service + '!' + (isDogWalk ? ' Live GPS tracking is active — follow along in your portal!' : ' You can track progress in your portal.');
       try {
-        await sb.from('messages').insert({ sender_id: user.id, recipient_id: clientId, body: startMsg });
+        await sb.from('messages').insert({ sender_id: user.id, sender_name: staffName || 'Housley Happy Paws', recipient_id: clientId, body: startMsg });
       } catch(e) { console.warn('Start notification error:', e); }
 
       // Send email notification
@@ -7625,6 +7625,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
     try {
       await sb.from('messages').insert({
         sender_id: user.id,
+        sender_name: staffName || 'Housley Happy Paws',
         recipient_id: user.id,
         body: '▶ SERVICE STARTED: ' + staffName + ' started ' + service + (petNames ? ' for ' + petNames : '') + (clientName ? ' (client: ' + clientName + ')' : '')
       });
@@ -8115,7 +8116,7 @@ async function endServiceFromPanel() {
       endMsg += '\n\nYou can view the full report in your portal under Walk Reports.';
 
       try {
-        await sb.from('messages').insert({ sender_id: user.id, recipient_id: d.clientId, body: endMsg });
+        await sb.from('messages').insert({ sender_id: user.id, sender_name: d.staffName || 'Housley Happy Paws', recipient_id: d.clientId, body: endMsg });
       } catch(e) { console.warn('End notification error:', e); }
 
       // ── Send service completed email to client ──
@@ -8160,6 +8161,7 @@ async function endServiceFromPanel() {
     try {
       await sb.from('messages').insert({
         sender_id: user.id,
+        sender_name: staffName || 'Housley Happy Paws',
         recipient_id: user.id,
         body: '✅ SERVICE COMPLETED: ' + staffName + ' completed ' + reportService + (reportPets ? ' for ' + reportPets : '') + ' (' + durMin + ' min)'
       });

@@ -500,6 +500,7 @@
       // Send as owner-to-self message so it shows up in their messages
       await sb.from('messages').insert({
         sender_id: user.id,
+        sender_name: 'Housley Happy Paws',
         recipient_id: user.id,
         body: msgBody
       });
