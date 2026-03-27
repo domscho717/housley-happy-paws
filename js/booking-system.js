@@ -3494,14 +3494,16 @@
 
   window.filterOwnerRequests = function(status, btn) {
     _bookingPanelState.currentFilter = status;
-    document.querySelectorAll('#ownerRequestsList .card').parentNode.querySelectorAll('.admin-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    var panel = document.getElementById('o-requests');
+    if (panel) panel.querySelectorAll('.admin-filter-btn').forEach(function(b) { b.classList.remove('active'); });
     if (btn) btn.classList.add('active');
     window.loadBookingRequestsPanel('owner');
   };
 
   window.filterStaffRequests = function(status, btn) {
     _bookingPanelState.currentFilter = status;
-    document.querySelectorAll('#staffRequestsList .card').parentNode.querySelectorAll('.admin-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    var panel = document.getElementById('s-requests');
+    if (panel) panel.querySelectorAll('.admin-filter-btn').forEach(function(b) { b.classList.remove('active'); });
     if (btn) btn.classList.add('active');
     window.loadBookingRequestsPanel('staff');
   };
