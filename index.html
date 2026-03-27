@@ -3710,7 +3710,7 @@ function switchView(view) {
   document.body.classList.remove('loading-auth');
   const dd = document.getElementById('viewDropdown');
   if(dd) dd.value = view;
-  if (typeof updateDrawerContent === 'function') setTimeout(updateDrawerContent, 200);
+  if (typeof updateDrawerContent === 'function') setTimeout(updateDrawerContent, 50);
   window.scrollTo(0,0);
   const nc = document.querySelector('.nav-center');
   if(nc) {
@@ -3733,9 +3733,13 @@ function switchView(view) {
     sessionStorage.removeItem('hhp_last_portal');
   } catch(e) {}
 
-  // Refresh customizer widgets when switching portals
+  // Refresh customizer widgets when switching portals (use refreshAll to avoid skeleton flash)
   if (typeof HHP_Customizer !== 'undefined' && view !== 'public') {
-    setTimeout(function() { HHP_Customizer.init(); }, 300);
+    if (HHP_Customizer._initialized && HHP_Customizer.refreshAll) {
+      setTimeout(function() { HHP_Customizer.refreshAll(); }, 100);
+    } else {
+      setTimeout(function() { HHP_Customizer.init(); }, 100);
+    }
   }
 }
 function switchViewFromDrop(view) { _userChosePublic = false; switchView(view); }

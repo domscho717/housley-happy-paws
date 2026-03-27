@@ -12,8 +12,8 @@
 
   // ── Utility ───────────────────────────────────────────────────
   function onReady(fn) {
-    if (document.readyState !== 'loading') setTimeout(fn, 400);
-    else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 400); });
+    if (document.readyState !== 'loading') setTimeout(fn, 50);
+    else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 50); });
   }
 
   // Placeholder images (warm-toned pet care themed gradients + emoji)

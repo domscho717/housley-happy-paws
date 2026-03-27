@@ -1549,6 +1549,7 @@
 
   // ── PUBLIC API ──
   window.HHP_Customizer={
+    get _initialized(){return _initialized;},
     init:function(){_initialized=false;init();},
     toggleEdit:_toggleEdit,
     toggleW:_toggleWidget,

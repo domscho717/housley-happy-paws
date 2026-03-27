@@ -453,6 +453,8 @@ const HHP_Photos = window.HHP_Photos = {
             };
           });
           console.log(`📸 Loaded ${data.length} photos:`, Object.keys(this.photos));
+          // Cache for instant restore on next page load
+          try { sessionStorage.setItem('hhp_photos_cache', JSON.stringify(this.photos)); } catch(e) {}
           // Update all previews and public site
           this.restoreAllPreviews();
           this.updatePublicSite();
@@ -565,8 +567,21 @@ const HHP_Photos = window.HHP_Photos = {
 
 // ── Auto-initialize when DOM is ready ─────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Delay to let Supabase JS library and auth initialize first
+  // Restore cached photos instantly (no waiting for Supabase)
+  try {
+    var cached = sessionStorage.getItem('hhp_photos_cache');
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      Object.assign(HHP_Photos.photos, parsed);
+      HHP_Photos.restoreAllPreviews();
+      HHP_Photos.updatePublicSite();
+      if (window.HHP_Gallery && HHP_Gallery.rebuildSlideshows) HHP_Gallery.rebuildSlideshows();
+      console.log('📸 Instant restore from sessionStorage cache');
+    }
+  } catch(e) {}
+
+  // Then load fresh data from Supabase (much shorter delay)
   setTimeout(() => {
     HHP_Photos.init();
-  }, 1200);
+  }, 300);
 });

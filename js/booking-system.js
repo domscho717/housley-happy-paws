@@ -2336,13 +2336,18 @@
       }
     }
 
-    // ── Payment method required for all paid services ──
+    // ── Payment method required for all paid services (cached for speed) ──
     var isFreeService = service.toLowerCase().indexOf('meet') !== -1 && service.toLowerCase().indexOf('greet') !== -1;
     if (!isFreeService && window.HHP_Auth && window.HHP_Auth.currentUser) {
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Checking payment method...'; }
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
       try {
-        var pmResp = await fetch('/api/get-payment-methods?profileId=' + encodeURIComponent(window.HHP_Auth.currentUser.id) + '&email=' + encodeURIComponent(window.HHP_Auth.currentUser.email));
-        var pmData = await pmResp.json();
+        var pmData = window._cachedPaymentMethods;
+        if (!pmData || Date.now() - (window._cachedPaymentMethodsAt || 0) > 60000) {
+          var pmResp = await fetch('/api/get-payment-methods?profileId=' + encodeURIComponent(window.HHP_Auth.currentUser.id) + '&email=' + encodeURIComponent(window.HHP_Auth.currentUser.email));
+          pmData = await pmResp.json();
+          window._cachedPaymentMethods = pmData;
+          window._cachedPaymentMethodsAt = Date.now();
+        }
         if (!pmData.hasCard || !pmData.methods || pmData.methods.length === 0) {
           if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Booking Request'; }
           if (errEl) errEl.innerHTML = '💳 <strong>Payment method required.</strong> Please add a card on file before booking a paid service. ' +
@@ -3595,53 +3600,56 @@
       // Optimistic: update card instantly
       _optimisticCard(requestId, 'accepted');
 
+      // Update DB (fast — just Supabase)
       await sb.from('booking_requests').update({
         status: 'accepted',
         scheduled_date: req.preferred_date,
         scheduled_time: req.preferred_time
       }).eq('id', requestId);
 
-      // ── Charge saved card if paid service ──
-      var autoCharged = false;
-      if (req.estimated_total > 0 && req.client_id) {
-        try {
-          var chargeResp = await fetch('/api/charge-saved-card', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
-          });
-          var chargeData = await chargeResp.json();
-          if (chargeData.success && chargeData.status === 'deferred') {
-            // Payment deferred — will charge 48hrs before service
-            if (typeof toast === 'function') toast('✓ Booking accepted! Payment will charge 48hrs before service.');
-          } else if (chargeData.success) {
-            autoCharged = true;
-            if (typeof toast === 'function') toast('✓ Booking accepted & card charged $' + Number(req.estimated_total).toFixed(2) + '!');
-          } else {
-            // Card failed — set payment_hold
-            await sb.from('booking_requests').update({
-              status: 'payment_hold',
-              admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but payment failed: ' + (chargeData.message || chargeData.error || 'Card declined')
-            }).eq('id', requestId);
-            if (typeof toast === 'function') toast('⚠️ Booking accepted but card was declined. Booking on payment hold.');
-          }
-        } catch (chargeErr) {
-          console.warn('Auto-charge failed:', chargeErr);
-          // Set to payment_hold so it can be retried
-          await sb.from('booking_requests').update({
-            status: 'payment_hold',
-            admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but charge request failed: ' + (chargeErr.message || 'Network error')
-          }).eq('id', requestId);
-          if (typeof toast === 'function') toast('⚠️ Booking accepted but charge failed — on payment hold.');
-        }
-      } else {
-        if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
-      }
-
+      // Show success immediately — don't wait for Stripe
       _optimisticDone(requestId, true);
       _sendBookingNotification(req, 'accepted');
       _afterBookingAction();
-      window.loadBookingRequestsPanel(_bookingPanelState.portal);
+      if (typeof toast === 'function') toast('✓ Booking accepted! Processing payment...');
+
+      // ── Charge saved card in background (non-blocking) ──
+      if (req.estimated_total > 0 && req.client_id) {
+        (async function() {
+          try {
+            var chargeResp = await fetch('/api/charge-saved-card', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
+            });
+            var chargeData = await chargeResp.json();
+            if (chargeData.success && chargeData.status === 'deferred') {
+              if (typeof toast === 'function') toast('💳 Payment deferred — will charge 48hrs before service.');
+            } else if (chargeData.success) {
+              if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + '!');
+            } else {
+              await sb.from('booking_requests').update({
+                status: 'payment_hold',
+                admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but payment failed: ' + (chargeData.message || chargeData.error || 'Card declined')
+              }).eq('id', requestId);
+              if (typeof toast === 'function') toast('⚠️ Card declined — booking on payment hold.');
+            }
+            // Refresh panel to show final payment status
+            _afterBookingAction();
+            window.loadBookingRequestsPanel(_bookingPanelState.portal);
+          } catch (chargeErr) {
+            console.warn('Auto-charge failed:', chargeErr);
+            await sb.from('booking_requests').update({
+              status: 'payment_hold',
+              admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but charge request failed: ' + (chargeErr.message || 'Network error')
+            }).eq('id', requestId);
+            if (typeof toast === 'function') toast('⚠️ Charge failed — booking on payment hold.');
+            _afterBookingAction();
+          }
+        })();
+      } else {
+        if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
+      }
     } catch (e) {
       _optimisticDone(requestId, false);
       console.error('Failed to accept booking:', e);
