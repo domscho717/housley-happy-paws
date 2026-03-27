@@ -113,20 +113,36 @@ module.exports = async function handler(req, res) {
 
     // Transfer 15% to Dom's connected account after successful charge
     const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    console.log('[charge] Connected account ID:', connectedAccountId || 'NOT SET');
+    console.log('[charge] PaymentIntent status:', paymentIntent.status);
+    console.log('[charge] latest_charge:', paymentIntent.latest_charge);
     if (connectedAccountId && paymentIntent.status === 'succeeded') {
       try {
+        // Retrieve the charge ID if latest_charge isn't populated
+        let chargeId = paymentIntent.latest_charge;
+        if (!chargeId) {
+          const charges = await stripe.charges.list({ payment_intent: paymentIntent.id, limit: 1 });
+          chargeId = charges.data.length > 0 ? charges.data[0].id : null;
+          console.log('[charge] Looked up charge ID:', chargeId);
+        }
         const devShareCents = Math.round(Math.round(amount * 100) * 0.15);
-        await stripe.transfers.create({
+        console.log('[charge] Attempting transfer of', devShareCents, 'cents to', connectedAccountId);
+        const transferParams = {
           amount: devShareCents,
           currency: 'usd',
           destination: connectedAccountId,
-          source_transaction: paymentIntent.latest_charge,
           description: `15% dev share — ${service || 'Pet Care'} (${bookingRequestId ? '#' + bookingRequestId.slice(0, 8) : ''})`,
-        });
-        console.log('[charge] Transferred 15% ($' + (devShareCents / 100).toFixed(2) + ') to connected account');
+        };
+        if (chargeId) {
+          transferParams.source_transaction = chargeId;
+        }
+        const transfer = await stripe.transfers.create(transferParams);
+        console.log('[charge] Transfer SUCCESS:', transfer.id, '— $' + (devShareCents / 100).toFixed(2));
       } catch (transferErr) {
-        console.warn('[charge] Transfer to connected account failed (non-blocking):', transferErr.message);
+        console.error('[charge] Transfer FAILED:', transferErr.type, transferErr.code, transferErr.message);
       }
+    } else {
+      console.log('[charge] Skipping transfer — connectedAccountId:', !!connectedAccountId, 'status:', paymentIntent.status);
     }
 
     // Log payment to Supabase and store payment_intent_id on booking_request
