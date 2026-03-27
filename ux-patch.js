@@ -987,41 +987,6 @@
       drawer.appendChild(navSection);
     }
 
-    // ── VIEW SWITCHER (only if logged in AND not client-only) ──
-    if (loggedIn && !isClientOnly) {
-        var viewSection = document.createElement('div');
-        viewSection.style.cssText = 'padding: 8px 20px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
-        var label = document.createElement('div');
-        label.style.cssText = 'font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#000!important;font-weight:700;margin-bottom:6px;-webkit-text-fill-color:#000!important;';
-        label.textContent = 'Switch View';
-        viewSection.appendChild(label);
-
-        var allowedViews = [{ value: 'public', label: 'Home' }];
-        if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal' });
-        if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal' });
-        if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal' });
-
-        allowedViews.forEach(function(v) {
-          var btn = document.createElement('button');
-          btn.className = 'hhp-drawer-item';
-          btn.textContent = v.label;
-          btn.type = 'button';
-          btn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:block;width:100%;text-align:left;background:none;border:none;padding:10px 0;font-size:0.9rem;font-weight:500;cursor:pointer;';
-          if (activePortal === 'pg-' + v.value || (!activePortal && v.value === 'public')) {
-            btn.style.fontWeight = '700';
-            btn.style.color = '#c8963e';
-            btn.style.setProperty('-webkit-text-fill-color', '#c8963e', 'important');
-          }
-          btn.addEventListener('click', function() {
-            if (typeof switchView === 'function') switchView(v.value);
-            closeDrawer();
-            setTimeout(updateDrawerContent, 300);
-          });
-          viewSection.appendChild(btn);
-        });
-        drawer.appendChild(viewSection);
-    }
-
     // ── PORTAL SIDEBAR ITEMS ──
     // activePortal already set for client-only users above; for others, need a portal active
     if (!loggedIn || !activePortal) return;
@@ -1034,11 +999,15 @@
     };
     var portalName = portalNames[activePortal] || 'Portal';
 
-    // Add portal title header — for clients, "Home" is clickable and goes to dashboard
+    // ── PORTAL HEADER WITH COLLAPSIBLE SWITCHER ──
     var header = document.createElement('div');
     header.className = 'hhp-drawer-header';
-    header.style.cssText = 'display:flex;align-items:center;padding:8px 20px 12px;border-bottom:2px solid #e0d5c5;';
+    header.style.cssText = 'padding:8px 20px 0;';
+
     if (isClientOnly) {
+      // Client-only: simple clickable title, no switcher
+      header.style.borderBottom = '2px solid #e0d5c5';
+      header.style.paddingBottom = '12px';
       var homeBtn = document.createElement('button');
       homeBtn.type = 'button';
       homeBtn.className = 'hhp-drawer-title';
@@ -1056,7 +1025,58 @@
       });
       header.appendChild(homeBtn);
     } else {
-      header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;">' + portalName + '</span>';
+      // Multi-role: portal name with dropdown chevron to switch portals
+      var titleRow = document.createElement('button');
+      titleRow.type = 'button';
+      titleRow.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;cursor:pointer;padding:4px 0 12px;font-family:inherit;border-bottom:2px solid #e0d5c5;';
+      titleRow.innerHTML = '<span style="color:#000;-webkit-text-fill-color:#000;font-size:1.1rem;font-weight:700;flex:1;text-align:left">' + portalName + '</span>' +
+        '<span id="drawer-switch-chevron" style="font-size:0.7rem;color:var(--mid,#888);transition:transform 0.25s;display:inline-block">▼</span>';
+
+      var switchList = document.createElement('div');
+      switchList.id = 'drawer-switch-list';
+      switchList.style.cssText = 'max-height:0;overflow:hidden;transition:max-height 0.3s ease;';
+
+      // Build allowed views (no Home for owner)
+      var allowedViews = [];
+      if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal' });
+      if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal' });
+      if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal' });
+
+      // Filter out current portal
+      var otherViews = allowedViews.filter(function(v) { return 'pg-' + v.value !== activePortal; });
+
+      var switchInner = document.createElement('div');
+      switchInner.style.cssText = 'padding:8px 0 4px;';
+      otherViews.forEach(function(v) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = v.label;
+        btn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:none;padding:10px 0;font-size:0.88rem;font-weight:500;cursor:pointer;font-family:inherit;transition:color 0.15s;';
+        btn.addEventListener('click', function() {
+          if (typeof switchView === 'function') switchView(v.value);
+          closeDrawer();
+          setTimeout(updateDrawerContent, 300);
+        });
+        switchInner.appendChild(btn);
+      });
+      switchList.appendChild(switchInner);
+
+      titleRow.addEventListener('click', function() {
+        var list = document.getElementById('drawer-switch-list');
+        var chev = document.getElementById('drawer-switch-chevron');
+        if (!list) return;
+        var isOpen = list.style.maxHeight && list.style.maxHeight !== '0px';
+        if (isOpen) {
+          list.style.maxHeight = '0';
+          if (chev) chev.style.transform = 'rotate(0deg)';
+        } else {
+          list.style.maxHeight = (otherViews.length * 48 + 16) + 'px';
+          if (chev) chev.style.transform = 'rotate(180deg)';
+        }
+      });
+
+      header.appendChild(titleRow);
+      header.appendChild(switchList);
     }
     drawer.appendChild(header);
 
