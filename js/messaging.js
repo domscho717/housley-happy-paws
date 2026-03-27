@@ -80,6 +80,147 @@
     return d.toLocaleDateString();
   }
 
+  // ============================================================
+  //  SWIPE-TO-DELETE (clear conversation)
+  //  Stores cleared conversations in localStorage per user.
+  //  Messages stay in DB; conversation is hidden until new messages arrive.
+  // ============================================================
+  var _CLEARED_KEY = 'hhp_cleared_convos';
+
+  function _getClearedConvos() {
+    try {
+      var user = getCurrentUser();
+      if (!user) return {};
+      var all = JSON.parse(localStorage.getItem(_CLEARED_KEY) || '{}');
+      return all[user.id] || {};
+    } catch (e) { return {}; }
+  }
+
+  function _setClearedConvo(partnerId) {
+    try {
+      var user = getCurrentUser();
+      if (!user) return;
+      var all = JSON.parse(localStorage.getItem(_CLEARED_KEY) || '{}');
+      if (!all[user.id]) all[user.id] = {};
+      all[user.id][partnerId] = new Date().toISOString();
+      localStorage.setItem(_CLEARED_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
+
+  function _isConvoCleared(partnerId, lastMessageDate) {
+    var cleared = _getClearedConvos();
+    if (!cleared[partnerId]) return false;
+    // If new messages came after clearing, show the convo again
+    return new Date(lastMessageDate) <= new Date(cleared[partnerId]);
+  }
+
+  // Attach swipe gestures to conversation rows inside a container
+  function _initSwipeToDelete(containerId) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+
+    var rows = container.querySelectorAll('.msg-swipe-wrap');
+    for (var i = 0; i < rows.length; i++) {
+      (function(wrap) {
+        var content = wrap.querySelector('.msg-swipe-content');
+        var startX = 0, startY = 0, currentX = 0, swiping = false, opened = false;
+        var THRESHOLD = 70; // px to reveal delete button
+
+        wrap.addEventListener('touchstart', function(e) {
+          var t = e.touches[0];
+          startX = t.clientX;
+          startY = t.clientY;
+          currentX = 0;
+          swiping = false;
+          content.style.transition = 'none';
+        }, { passive: true });
+
+        wrap.addEventListener('touchmove', function(e) {
+          var t = e.touches[0];
+          var dx = t.clientX - startX;
+          var dy = t.clientY - startY;
+
+          // If vertical scrolling, don't interfere
+          if (!swiping && Math.abs(dy) > Math.abs(dx)) return;
+
+          // Only allow left swipe (negative dx)
+          if (dx > 5 && !opened) return;
+
+          swiping = true;
+          if (opened) {
+            // Already showing delete, allow dragging back to close
+            currentX = Math.min(0, Math.max(-THRESHOLD, dx));
+            content.style.transform = 'translateX(' + (currentX - THRESHOLD) + 'px)';
+          } else {
+            currentX = Math.min(0, Math.max(-THRESHOLD - 20, dx));
+            content.style.transform = 'translateX(' + currentX + 'px)';
+          }
+          if (Math.abs(currentX) > 10) e.preventDefault();
+        }, { passive: false });
+
+        wrap.addEventListener('touchend', function() {
+          content.style.transition = 'transform 0.25s ease';
+          if (opened) {
+            // If swiped right enough, close
+            if (currentX > -THRESHOLD / 2) {
+              content.style.transform = 'translateX(0)';
+              opened = false;
+            } else {
+              content.style.transform = 'translateX(-' + THRESHOLD + 'px)';
+            }
+          } else {
+            if (currentX < -THRESHOLD / 2) {
+              content.style.transform = 'translateX(-' + THRESHOLD + 'px)';
+              opened = true;
+            } else {
+              content.style.transform = 'translateX(0)';
+              opened = false;
+            }
+          }
+          swiping = false;
+        }, { passive: true });
+
+        // Close if user taps elsewhere
+        content.addEventListener('click', function() {
+          if (opened) {
+            content.style.transition = 'transform 0.25s ease';
+            content.style.transform = 'translateX(0)';
+            opened = false;
+          }
+        });
+      })(rows[i]);
+    }
+  }
+
+  // Confirm and clear a conversation
+  function _clearConversation(partnerId, partnerName, reloadFn) {
+    // Build a custom confirm dialog
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.15s ease';
+    overlay.innerHTML =
+      '<div style="background:white;border-radius:16px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2)">' +
+        '<div style="font-size:1.6rem;margin-bottom:10px">🗑️</div>' +
+        '<div style="font-weight:700;font-size:1rem;margin-bottom:6px;color:var(--ink,#2C2C2C)">Clear Conversation</div>' +
+        '<div style="font-size:0.84rem;color:var(--mid,#888);margin-bottom:20px;line-height:1.4">Clear your chat with <strong>' + (partnerName || 'this person') + '</strong>? The conversation will be hidden until new messages arrive.</div>' +
+        '<div style="display:flex;gap:10px">' +
+          '<button id="hhp-clear-cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border,#ddd);background:white;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--ink,#2C2C2C)">Cancel</button>' +
+          '<button id="hhp-clear-confirm" style="flex:1;padding:10px;border-radius:10px;border:none;background:#e74c3c;color:white;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">Clear</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) { overlay.remove(); }
+    });
+    document.getElementById('hhp-clear-cancel').addEventListener('click', function() { overlay.remove(); });
+    document.getElementById('hhp-clear-confirm').addEventListener('click', function() {
+      _setClearedConvo(partnerId);
+      overlay.remove();
+      // Reload the inbox
+      if (typeof reloadFn === 'function') reloadFn();
+    });
+  }
+
   function formatTime(dateStr) {
     var d = new Date(dateStr);
     var h = d.getHours(), m = d.getMinutes();
@@ -748,6 +889,11 @@
 
     var convos = await getConversationList();
 
+    // Filter out cleared conversations (unless new messages came in after clearing)
+    convos = convos.filter(function(c) {
+      return !_isConvoCleared(c.partnerId, c.lastMessage.created_at);
+    });
+
     if (convos.length === 0) {
       panel.innerHTML =
         '<div class="p-header"><h2>All Messages 💬</h2><p>Every client & staff conversation in one inbox.</p></div>' +
@@ -773,18 +919,26 @@
         : '<span style="background:var(--gold-pale);color:var(--gold-deep);font-size:0.65rem;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:6px">Client</span>';
       var preview = c.lastMessage.body.length > 50 ? c.lastMessage.body.substring(0, 50) + '...' : c.lastMessage.body;
       var unreadDot = c.unread > 0 ? '<span style="background:var(--rose);color:white;border-radius:10px;padding:1px 7px;font-size:0.65rem;font-weight:800;margin-left:auto">' + c.unread + '</span>' : '';
+      var escapedName = escHTML(name).replace(/'/g,"\\'");
 
-      html += '<div onclick="HHP_Messaging.openConvo(\'' + c.partnerId + '\',\'' + escHTML(name).replace(/'/g,'\\\'') + '\')" ' +
-        'style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s' +
-        (c.unread > 0 ? ';background:rgba(200,150,62,0.08)' : '') + '"' +
-        ' onmouseover="this.style.background=\'rgba(200,150,62,0.12)\'" onmouseout="this.style.background=\'' + (c.unread > 0 ? 'rgba(200,150,62,0.08)' : '') + '\'">' +
+      // Swipe wrapper: delete button behind, content slides left to reveal
+      html += '<div class="msg-swipe-wrap" data-partner="' + c.partnerId + '" data-name="' + escHTML(name) + '" style="position:relative;overflow:hidden;border-bottom:1px solid var(--border)">';
+      // Delete button (sits behind content)
+      html += '<div class="msg-swipe-action" style="position:absolute;right:0;top:0;bottom:0;width:70px;display:flex;align-items:center;justify-content:center;background:#e74c3c;cursor:pointer" onclick="HHP_Messaging.clearConvo(\'' + c.partnerId + '\',\'' + escapedName + '\')">' +
+        '<div style="color:white;text-align:center;font-size:0.7rem;font-weight:600;line-height:1.3"><div style="font-size:1.2rem;margin-bottom:2px">🗑️</div>Clear</div></div>';
+      // Slideable content
+      html += '<div class="msg-swipe-content" style="position:relative;z-index:1;background:var(--warm,#FDF7EE);will-change:transform" ' +
+        'onclick="HHP_Messaging.openConvo(\'' + c.partnerId + '\',\'' + escapedName + '\')">' +
+        '<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;transition:background 0.15s' +
+        (c.unread > 0 ? ';background:rgba(200,150,62,0.08)' : '') + '">' +
         avatarHTML(name, 40, profile.avatar_url) +
         '<div style="flex:1;min-width:0">' +
         '<div style="display:flex;align-items:center;gap:4px"><span style="font-weight:600;font-size:0.88rem">' + escHTML(name) + '</span>' + roleBadge + unreadDot + '</div>' +
         '<div style="font-size:0.78rem;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(preview) + '</div>' +
         '</div>' +
         '<div style="font-size:0.7rem;color:var(--mid);flex-shrink:0">' + timeAgo(c.lastMessage.created_at) + '</div>' +
-        '</div>';
+        '</div></div>';
+      html += '</div>';
     }
 
     html += '</div>';
@@ -800,6 +954,9 @@
     html += '</div>';
 
     panel.innerHTML = html;
+
+    // Initialize swipe gestures on conversation rows
+    _initSwipeToDelete('ownerConvoList');
   }
 
   // Owner: open a specific conversation
@@ -1215,6 +1372,9 @@
     updateBadges: updateUnreadBadges,
     getUnreadCount: getUnreadCount,
     loadOlderChunk: _loadOlderChunk,
+    clearConvo: function(partnerId, partnerName) {
+      _clearConversation(partnerId, partnerName, loadOwnerInbox);
+    },
     cleanup: function() {
       if (_realtimeChannel) {
         _realtimeChannel.unsubscribe();
