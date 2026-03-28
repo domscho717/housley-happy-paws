@@ -2953,16 +2953,12 @@
         var userId = user ? user.id : null;
 
         // Fetch accepted/confirmed/in_progress bookings for these dates
+        // Owner sees all bookings (full business schedule), staff would see all too
         var query = sb.from('booking_requests')
-          .select('id,service,preferred_date,preferred_time,preferred_end_date,contact_name,pet_names,status,assigned_staff')
+          .select('id,service,preferred_date,preferred_time,preferred_end_date,contact_name,pet_names,status')
           .in('preferred_date', dates)
           .in('status', ['accepted', 'confirmed', 'in_progress'])
           .order('preferred_time', { ascending: true });
-
-        // Staff only sees their own schedule
-        if (role === 'staff' && userId) {
-          query = query.eq('assigned_staff', userId);
-        }
 
         var result = await query;
         var data = result.data;
