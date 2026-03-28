@@ -64,7 +64,7 @@ module.exports = async function handler(req, res) {
     //    (no payment_intent_id means payment was deferred when accepted)
     const { data: uncharged, error: fetchErr } = await supabase
       .from('booking_requests')
-      .select('*, profiles!booking_requests_client_id_fkey(user_id, stripe_customer_id, full_name, email)')
+      .select('*')
       .eq('status', 'accepted')
       .is('payment_intent_id', null)
       .gte('scheduled_date', todayStr)
@@ -82,7 +82,16 @@ module.exports = async function handler(req, res) {
           continue;
         }
 
-        const profile = booking.profiles;
+        // Look up client profile separately (FK points to auth.users, not profiles)
+        let profile = null;
+        if (booking.client_id) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('user_id, stripe_customer_id, full_name, email')
+            .eq('user_id', booking.client_id)
+            .single();
+          profile = prof;
+        }
         if (!profile || !profile.stripe_customer_id) {
           // No Stripe customer — put on payment hold
           await supabase.from('booking_requests').update({
@@ -215,13 +224,22 @@ module.exports = async function handler(req, res) {
     // 2. Retry payment_hold bookings — if card is updated, charge succeeds; if 24hrs passed, auto-cancel
     const { data: holdBookings, error: holdErr } = await supabase
       .from('booking_requests')
-      .select('*, profiles!booking_requests_client_id_fkey(user_id, stripe_customer_id, full_name, email)')
+      .select('*')
       .eq('status', 'payment_hold')
       .not('scheduled_date', 'is', null);
 
     if (!holdErr && holdBookings && holdBookings.length > 0) {
       for (const booking of holdBookings) {
-        const profile = booking.profiles;
+        // Look up client profile separately
+        let profile = null;
+        if (booking.client_id) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('user_id, stripe_customer_id, full_name, email')
+            .eq('user_id', booking.client_id)
+            .single();
+          profile = prof;
+        }
         if (!profile) continue;
 
         // Check how long it's been on payment_hold
