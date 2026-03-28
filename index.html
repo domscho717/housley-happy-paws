@@ -6672,104 +6672,155 @@ async function loadClientAppts(filter, tabBtn) {
       if (recurringAppts.length > 0 && filter !== 'past' && filter !== 'canceled') {
         html += '<div style="font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;gap:8px">📅 Appointments</div>';
       }
-      html += '<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">';
-      singleAppts.forEach(function(b) {
-        var svc = (b.service || '').toLowerCase();
-        var icon = '📅';
-        if (svc.indexOf('walk') !== -1) icon = '🦮';
-        else if (svc.indexOf('drop') !== -1) icon = '🐾';
-        else if (svc.indexOf('cat') !== -1) icon = '🐱';
-        else if (svc.indexOf('house') !== -1) icon = '🏡';
-        else if (svc.indexOf('meet') !== -1) icon = '🤝';
 
-        var shortId = b.id ? b.id.slice(0, 8) : '';
-        var isPaid = paidSet.has(shortId) || paidSet.has(user.email.toLowerCase() + '|' + b.estimated_total);
-
-        var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'payment_hold' ? '#fde8e8' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
-        var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'payment_hold' ? 'Payment Needed' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
-        var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Paid</span>' : '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Unpaid</span>') : '';
-
-        // Detect time change request — owner/staff suggested a new time
-        var isTimeChange = b.status === 'modified' && b.scheduled_date;
-        // Also check date_details for per-appointment time changes
-        var ddTimeChanges = [];
-        if (b.date_details && Array.isArray(b.date_details)) {
-          b.date_details.forEach(function(dd, di) {
-            if (dd.status === 'modified' && dd.suggested_date) ddTimeChanges.push({ idx: di, date: dd.suggested_date, time: dd.suggested_time || '', msg: dd.admin_message || '' });
-          });
-        }
-
-        var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
-        var timeDisplay = fmt12h(b.preferred_time) || '';
-
-        var borderColor = b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'payment_hold' ? '#c62828' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
-
-        // ── Time change banner (whole booking) ──
-        if (isTimeChange) {
-          var newDateFmt = new Date(b.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-          var newTimeFmt = b.scheduled_time ? ((typeof fmt12h === 'function') ? fmt12h(b.scheduled_time) : b.scheduled_time) : '';
-          var tcNote = b.admin_notes || '';
-          html += '<div style="background:#fff8e1;border:1.5px solid #e67e22;border-radius:12px;overflow:hidden;margin-bottom:4px" data-tc-booking="' + b.id + '">';
-          html += '<div style="background:#ffecd2;padding:12px 14px;display:flex;align-items:center;gap:8px">';
-          html += '<span style="font-size:1.2rem">⏰</span>';
-          html += '<div style="flex:1"><div style="font-weight:700;font-size:0.88rem;color:#bf5d00">Time Change Requested</div>';
-          html += '<div style="font-size:0.78rem;color:#8a4400">Rachel suggested a new time for your appointment</div></div></div>';
-          html += '<div style="padding:12px 14px">';
-          html += '<div style="display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap">';
-          html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:var(--mid);font-weight:600;margin-bottom:2px">Originally</div>';
-          html += '<div style="font-size:0.85rem;color:var(--mid);text-decoration:line-through">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div></div>';
-          html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:#bf5d00;font-weight:600;margin-bottom:2px">New Time</div>';
-          html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00">' + newDateFmt + (newTimeFmt ? ' at ' + newTimeFmt : '') + '</div></div></div>';
-          if (tcNote) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:10px;padding:8px;background:white;border-radius:6px">"' + tcNote + '"</div>';
-          html += '<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px">' + (b.service || 'Appointment') + '</div>';
-          if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid);margin-bottom:10px">Pets: ' + b.pet_names + '</div>';
-          html += '<div style="display:flex;gap:8px">';
-          html += '<button onclick="event.stopPropagation();clientAcceptTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept New Time</button>';
-          html += '<button onclick="event.stopPropagation();clientDeclineTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
-          html += '</div></div></div>';
-        }
-        // ── Per-appointment time changes (date_details) ──
-        else if (ddTimeChanges.length > 0) {
-          ddTimeChanges.forEach(function(tc) {
-            var tcDateFmt = new Date(tc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-            var tcTimeFmt = tc.time ? ((typeof fmt12h === 'function') ? fmt12h(tc.time) : tc.time) : '';
-            html += '<div style="background:#fff8e1;border:1.5px solid #e67e22;border-radius:12px;overflow:hidden;margin-bottom:4px">';
-            html += '<div style="background:#ffecd2;padding:10px 14px;display:flex;align-items:center;gap:8px">';
-            html += '<span style="font-size:1.1rem">⏰</span><div style="font-weight:700;font-size:0.84rem;color:#bf5d00">Time Change — ' + (b.service || 'Appointment') + '</div></div>';
-            html += '<div style="padding:10px 14px">';
-            html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00;margin-bottom:4px">New: ' + tcDateFmt + (tcTimeFmt ? ' at ' + tcTimeFmt : '') + '</div>';
-            if (tc.msg) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:8px">"' + tc.msg + '"</div>';
-            html += '<div style="display:flex;gap:8px">';
-            html += '<button onclick="event.stopPropagation();clientAcceptApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept</button>';
-            html += '<button onclick="event.stopPropagation();clientDeclineApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
-            html += '</div></div></div>';
-          });
-        }
-
-        html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + borderColor + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
-        html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
-        html += '<div style="flex:1;min-width:0">';
-        html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + '</div>';
-        html += '<div style="font-size:0.8rem;color:var(--mid)">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div>';
-        if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid)">Pets: ' + b.pet_names + '</div>';
-        html += '</div>';
-        html += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
-        html += '<span style="background:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + statusText + '</span>';
-        html += '<div style="display:flex;gap:4px;align-items:center">';
-        html += paidBadge;
-        if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
-        html += '</div></div></div>';
-
-        // Pay Early button for accepted bookings that haven't been charged yet
-        // Also shows for payment_hold bookings so clients can retry with updated card
-        if (((b.status === 'accepted' && !isPaid && !b.payment_intent_id) || b.status === 'payment_hold') && b.estimated_total > 0) {
-          var payBtnLabel = b.status === 'payment_hold' ? '💳 Update Payment — $' : '💳 Pay Now — $';
-          var payBtnBg = b.status === 'payment_hold' ? 'linear-gradient(135deg,#c62828,#e53935)' : 'linear-gradient(135deg,var(--forest),#2d8a4e)';
-          html += '<div style="padding:4px 12px 10px 12px">';
-          html += '<button onclick="event.stopPropagation();payEarly(\'' + b.id + '\',' + Number(b.estimated_total) + ',\'' + (b.service || 'Pet Care').replace(/'/g, "\\'") + '\',this)" style="width:100%;padding:10px;border:none;border-radius:8px;background:' + payBtnBg + ';color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity 0.15s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">';
-          html += payBtnLabel + Number(b.estimated_total).toFixed(2) + '</button></div>';
-        }
+      // ── Sort by date (newest first), then by time (earliest first) within each date ──
+      singleAppts.sort(function(a, b) {
+        var dateA = a.preferred_date || '0000-00-00';
+        var dateB = b.preferred_date || '0000-00-00';
+        if (dateA !== dateB) return dateB.localeCompare(dateA); // newest date first
+        var timeA = a.preferred_time || '00:00';
+        var timeB = b.preferred_time || '00:00';
+        return timeA.localeCompare(timeB); // earliest time first within same date
       });
+
+      // ── Group by date ──
+      var dateGroups = {};
+      var dateOrder = [];
+      singleAppts.forEach(function(b) {
+        var dateKey = b.preferred_date || 'no-date';
+        if (!dateGroups[dateKey]) {
+          dateGroups[dateKey] = [];
+          dateOrder.push(dateKey);
+        }
+        dateGroups[dateKey].push(b);
+      });
+
+      html += '<div style="display:flex;flex-direction:column;gap:16px;padding:4px 0">';
+
+      dateOrder.forEach(function(dateKey) {
+        var bookingsForDate = dateGroups[dateKey];
+
+        // ── Date header ──
+        var dateHeaderText = 'Date TBD';
+        if (dateKey !== 'no-date') {
+          var headerDate = new Date(dateKey + 'T12:00:00');
+          dateHeaderText = headerDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+          // Add relative label (Today, Tomorrow, Yesterday)
+          var todayDate = _localDateStr();
+          var tomorrowDate = (function() { var d = new Date(); d.setDate(d.getDate() + 1); return _localDateStr(d); })();
+          var yesterdayDate = (function() { var d = new Date(); d.setDate(d.getDate() - 1); return _localDateStr(d); })();
+          if (dateKey === todayDate) dateHeaderText += ' · Today';
+          else if (dateKey === tomorrowDate) dateHeaderText += ' · Tomorrow';
+          else if (dateKey === yesterdayDate) dateHeaderText += ' · Yesterday';
+        }
+
+        html += '<div>';
+        html += '<div style="font-weight:700;font-size:0.82rem;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;padding:6px 4px 8px;border-bottom:1.5px solid var(--border);margin-bottom:8px">' + dateHeaderText + '</div>';
+        html += '<div style="display:flex;flex-direction:column;gap:6px">';
+
+        bookingsForDate.forEach(function(b) {
+          var svc = (b.service || '').toLowerCase();
+          var icon = '📅';
+          if (svc.indexOf('walk') !== -1) icon = '🦮';
+          else if (svc.indexOf('drop') !== -1) icon = '🐾';
+          else if (svc.indexOf('cat') !== -1) icon = '🐱';
+          else if (svc.indexOf('house') !== -1) icon = '🏡';
+          else if (svc.indexOf('meet') !== -1) icon = '🤝';
+
+          var shortId = b.id ? b.id.slice(0, 8) : '';
+          var isPaid = paidSet.has(shortId) || !!b.payment_intent_id;
+
+          var isDeclined = b.status === 'rejected' || b.status === 'declined' || b.status === 'canceled';
+          var cardOpacity = isDeclined ? 'opacity:0.5;' : '';
+
+          var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'payment_hold' ? '#fde8e8' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
+          var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'payment_hold' ? 'Payment Needed' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
+          var paidBadge = b.estimated_total > 0 ? (isPaid ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Paid</span>' : '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Unpaid</span>') : '';
+
+          // Detect time change request — owner/staff suggested a new time
+          var isTimeChange = b.status === 'modified' && b.scheduled_date;
+          var ddTimeChanges = [];
+          if (b.date_details && Array.isArray(b.date_details)) {
+            b.date_details.forEach(function(dd, di) {
+              if (dd.status === 'modified' && dd.suggested_date) ddTimeChanges.push({ idx: di, date: dd.suggested_date, time: dd.suggested_time || '', msg: dd.admin_message || '' });
+            });
+          }
+
+          var timeDisplay = fmt12h(b.preferred_time) || '';
+          var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
+
+          var borderColor = b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'payment_hold' ? '#c62828' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
+
+          // ── Time change banner (whole booking) ──
+          if (isTimeChange) {
+            var newDateFmt = new Date(b.scheduled_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var newTimeFmt = b.scheduled_time ? ((typeof fmt12h === 'function') ? fmt12h(b.scheduled_time) : b.scheduled_time) : '';
+            var tcNote = b.admin_notes || '';
+            html += '<div style="background:#fff8e1;border:1.5px solid #e67e22;border-radius:12px;overflow:hidden;margin-bottom:4px" data-tc-booking="' + b.id + '">';
+            html += '<div style="background:#ffecd2;padding:12px 14px;display:flex;align-items:center;gap:8px">';
+            html += '<span style="font-size:1.2rem">⏰</span>';
+            html += '<div style="flex:1"><div style="font-weight:700;font-size:0.88rem;color:#bf5d00">Time Change Requested</div>';
+            html += '<div style="font-size:0.78rem;color:#8a4400">Rachel suggested a new time for your appointment</div></div></div>';
+            html += '<div style="padding:12px 14px">';
+            html += '<div style="display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap">';
+            html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:var(--mid);font-weight:600;margin-bottom:2px">Originally</div>';
+            html += '<div style="font-size:0.85rem;color:var(--mid);text-decoration:line-through">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div></div>';
+            html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:#bf5d00;font-weight:600;margin-bottom:2px">New Time</div>';
+            html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00">' + newDateFmt + (newTimeFmt ? ' at ' + newTimeFmt : '') + '</div></div></div>';
+            if (tcNote) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:10px;padding:8px;background:white;border-radius:6px">"' + tcNote + '"</div>';
+            html += '<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px">' + (b.service || 'Appointment') + '</div>';
+            if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid);margin-bottom:10px">Pets: ' + b.pet_names + '</div>';
+            html += '<div style="display:flex;gap:8px">';
+            html += '<button onclick="event.stopPropagation();clientAcceptTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept New Time</button>';
+            html += '<button onclick="event.stopPropagation();clientDeclineTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
+            html += '</div></div></div>';
+          }
+          // ── Per-appointment time changes (date_details) ──
+          else if (ddTimeChanges.length > 0) {
+            ddTimeChanges.forEach(function(tc) {
+              var tcDateFmt = new Date(tc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+              var tcTimeFmt = tc.time ? ((typeof fmt12h === 'function') ? fmt12h(tc.time) : tc.time) : '';
+              html += '<div style="background:#fff8e1;border:1.5px solid #e67e22;border-radius:12px;overflow:hidden;margin-bottom:4px">';
+              html += '<div style="background:#ffecd2;padding:10px 14px;display:flex;align-items:center;gap:8px">';
+              html += '<span style="font-size:1.1rem">⏰</span><div style="font-weight:700;font-size:0.84rem;color:#bf5d00">Time Change — ' + (b.service || 'Appointment') + '</div></div>';
+              html += '<div style="padding:10px 14px">';
+              html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00;margin-bottom:4px">New: ' + tcDateFmt + (tcTimeFmt ? ' at ' + tcTimeFmt : '') + '</div>';
+              if (tc.msg) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:8px">"' + tc.msg + '"</div>';
+              html += '<div style="display:flex;gap:8px">';
+              html += '<button onclick="event.stopPropagation();clientAcceptApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept</button>';
+              html += '<button onclick="event.stopPropagation();clientDeclineApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
+              html += '</div></div></div>';
+            });
+          }
+
+          html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="cursor:pointer;display:flex;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:10px;border-left:4px solid ' + borderColor + ';transition:box-shadow 0.15s;' + cardOpacity + '" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
+          html += '<div style="font-size:1.4rem;flex-shrink:0">' + icon + '</div>';
+          html += '<div style="flex:1;min-width:0">';
+          html += '<div style="font-weight:600;font-size:0.9rem">' + (b.service || 'Pet Care') + '</div>';
+          html += '<div style="font-size:0.8rem;color:var(--mid)">' + (timeDisplay ? timeDisplay : 'Time TBD') + '</div>';
+          if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid)">Pets: ' + b.pet_names + '</div>';
+          html += '</div>';
+          html += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">';
+          html += '<span style="background:' + statusColor + ';padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">' + statusText + '</span>';
+          html += '<div style="display:flex;gap:4px;align-items:center">';
+          html += paidBadge;
+          if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+          html += '</div></div></div>';
+
+          // Pay Early button for accepted bookings that haven't been charged yet
+          // Also shows for payment_hold bookings so clients can retry with updated card
+          if (((b.status === 'accepted' && !isPaid && !b.payment_intent_id) || b.status === 'payment_hold') && b.estimated_total > 0) {
+            var payBtnLabel = b.status === 'payment_hold' ? '💳 Update Payment — $' : '💳 Pay Now — $';
+            var payBtnBg = b.status === 'payment_hold' ? 'linear-gradient(135deg,#c62828,#e53935)' : 'linear-gradient(135deg,var(--forest),#2d8a4e)';
+            html += '<div style="padding:4px 12px 10px 12px">';
+            html += '<button onclick="event.stopPropagation();payEarly(\'' + b.id + '\',' + Number(b.estimated_total) + ',\'' + (b.service || 'Pet Care').replace(/'/g, "\\'") + '\',this)" style="width:100%;padding:10px;border:none;border-radius:8px;background:' + payBtnBg + ';color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity 0.15s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">';
+            html += payBtnLabel + Number(b.estimated_total).toFixed(2) + '</button></div>';
+          }
+        }); // end bookingsForDate loop
+
+        html += '</div></div>'; // end date group
+      }); // end dateOrder loop
+
       html += '</div>';
     }
 
