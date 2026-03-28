@@ -6807,15 +6807,7 @@ async function loadClientAppts(filter, tabBtn) {
           if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
           html += '</div></div></div>';
 
-          // Pay Early button for accepted bookings that haven't been charged yet
-          // Also shows for payment_hold bookings so clients can retry with updated card
-          if (((b.status === 'accepted' && !isPaid && !b.payment_intent_id) || b.status === 'payment_hold') && b.estimated_total > 0) {
-            var payBtnLabel = b.status === 'payment_hold' ? '💳 Update Payment — $' : '💳 Pay Now — $';
-            var payBtnBg = b.status === 'payment_hold' ? 'linear-gradient(135deg,#c62828,#e53935)' : 'linear-gradient(135deg,var(--forest),#2d8a4e)';
-            html += '<div style="padding:4px 12px 10px 12px">';
-            html += '<button onclick="event.stopPropagation();payEarly(\'' + b.id + '\',' + Number(b.estimated_total) + ',\'' + (b.service || 'Pet Care').replace(/'/g, "\\'") + '\',this)" style="width:100%;padding:10px;border:none;border-radius:8px;background:' + payBtnBg + ';color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity 0.15s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">';
-            html += payBtnLabel + Number(b.estimated_total).toFixed(2) + '</button></div>';
-          }
+          // Pay Now button moved to detail view (showBookingDetail)
         }); // end bookingsForDate loop
 
         html += '</div></div>'; // end date group
