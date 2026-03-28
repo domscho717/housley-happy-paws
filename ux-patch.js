@@ -77,7 +77,7 @@
 
   async function _checkBirthdayPets() {
     var today = new Date();
-    var cacheKey = today.toISOString().split('T')[0];
+    var cacheKey = _localDateStr(today);
     if (_birthdayCacheDate === cacheKey && _birthdayPetsCache !== null) return _birthdayPetsCache;
 
     var sb = window.HHP_Auth && window.HHP_Auth.supabase;

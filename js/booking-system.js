@@ -777,7 +777,7 @@
     }, 300);
 
     // Set min date to today (prevents booking in the past, but no auto-fill)
-    var today = new Date().toISOString().split('T')[0];
+    var today = _localDateStr();
     var dateInput = document.getElementById('brm-date');
     if (dateInput) { dateInput.setAttribute('min', today); dateInput.value = ''; }
     var endDateInput = document.getElementById('brm-enddate');
@@ -1076,7 +1076,7 @@
       if (endInput) endInput.required = isHS;
       if (dateLabel) dateLabel.textContent = isHS ? 'Start Date *' : 'Preferred Date *';
       // Block past dates on House Sitting date inputs
-      var todayISO = new Date().toISOString().split('T')[0];
+      var todayISO = _localDateStr();
       var startInput = document.getElementById('brm-date');
       if (startInput) startInput.setAttribute('min', todayISO);
       if (endInput) endInput.setAttribute('min', todayISO);
@@ -1122,13 +1122,13 @@
         if (startDate && !endInput.value) {
           var next = new Date(startDate + 'T12:00:00');
           next.setDate(next.getDate() + 1);
-          endInput.value = next.toISOString().split('T')[0];
+          endInput.value = _localDateStr(next);
         }
         // Set min of end date to day after start
         if (startDate) {
           var minEnd = new Date(startDate + 'T12:00:00');
           minEnd.setDate(minEnd.getDate() + 1);
-          endInput.setAttribute('min', minEnd.toISOString().split('T')[0]);
+          endInput.setAttribute('min', _localDateStr(minEnd));
         }
       }
     }
@@ -1270,7 +1270,7 @@
       var dateVal = dateInput.value;
 
       // Prevent past dates
-      var todayStr = new Date().toISOString().split('T')[0];
+      var todayStr = _localDateStr();
       if (dateVal < todayStr) {
         if (typeof toast === 'function') toast('Please select a future date.');
         dateInput.value = '';
@@ -1298,7 +1298,7 @@
 
       // Build the recurring options HTML for this card
       // No default end date — let the client choose their own
-      var todayStr = new Date().toISOString().split('T')[0];
+      var todayStr = _localDateStr();
 
       var card = document.createElement('div');
       card.id = 'brm-dc-' + idx;
@@ -1623,7 +1623,7 @@
 
       // Start from the card's date, repeat at same day-of-week
       for (var d = new Date(start); d <= end; d.setDate(d.getDate() + intervalDays)) {
-        dates.push(d.toISOString().split('T')[0]);
+        dates.push(_localDateStr(d));
       }
       return dates;
     }
@@ -3077,8 +3077,8 @@
     try {
       // Get current month's accepted bookings
       var now = new Date();
-      var firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      var lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      var firstDay = _localDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+      var lastDay = _localDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
       var { data, error } = await sb
         .from('booking_requests')

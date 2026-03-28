@@ -39,9 +39,10 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
 
-  // Today's date in YYYY-MM-DD (Eastern time, auto-adjusts for DST)
-  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const todayStr = today.toISOString().split('T')[0];
+  // Helper: YYYY-MM-DD in Eastern Time (auto-adjusts for DST)
+  function estDateStr(d) { return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); }
+
+  const todayStr = estDateStr();
 
   const results = {
     processed: 0,
@@ -53,9 +54,10 @@ module.exports = async function handler(req, res) {
   };
 
   // Calculate the date 2 days from now (48-hour window)
+  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const twoDaysOut = new Date(today);
   twoDaysOut.setDate(twoDaysOut.getDate() + 2);
-  const twoDaysStr = twoDaysOut.toISOString().split('T')[0];
+  const twoDaysStr = estDateStr(twoDaysOut);
 
   try {
     // 1. Find accepted bookings within the next 48 hours that have NOT been charged yet

@@ -632,7 +632,7 @@
   _R._rwClientUpcoming=async function(sz){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'<div style="color:var(--mid);font-size:0.82rem">No data</div>';
     var lim=sz==='full'?8:2;
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('id,service,preferred_date,preferred_time,scheduled_date,scheduled_time,estimated_total,status,pet_names').eq('client_id',u.id).in('status',['pending','accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(lim);
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('id,service,preferred_date,preferred_time,scheduled_date,scheduled_time,estimated_total,status,pet_names').eq('client_id',u.id).in('status',['pending','accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(lim);
       if(!data||!data.length)return'<div style="color:var(--mid);font-size:0.82rem;padding:8px 0">No upcoming appointments</div>';
       if(sz==='full'){
         return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var tcBanner='';if(b.status==='modified'&&b.scheduled_date){var nd=new Date(b.scheduled_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var nt=b.scheduled_time?((typeof fmt12h==='function')?fmt12h(b.scheduled_time):b.scheduled_time):'';tcBanner='<div style="background:#fff8e1;border:1px solid #e67e22;border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:0.75rem"><span style="font-weight:700;color:#bf5d00">⏰ Time Change:</span> '+nd+(nt?' at '+nt:'')+' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;font-weight:700;margin-left:4px">Review</a></div>';}var _wSLabel=b.status==='pending'?'Pending':b.status==='accepted'?'Confirmed':b.status==='modified'?'Time Change':b.status==='payment_hold'?'Payment Needed':b.status==='confirmed'?'Confirmed':'Pending';var _wSColor=b.status==='pending'?'#b08600':b.status==='modified'?'#e67e22':b.status==='payment_hold'?'#c62828':'var(--forest)';var _wPaidBadge=(b.status==='accepted'||b.status==='confirmed')?'<span style="font-size:0.6rem;color:#155724;font-weight:700">PAID</span>':'';return tcBanner+'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.85rem"><div style="flex:1"><div style="font-weight:700">'+b.service+(b.status==='modified'?' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;font-weight:700;font-size:0.78rem;text-decoration:underline">(Request Time Change)</a>':'')+'</div><div style="font-size:0.75rem;color:var(--mid)">'+d+(t?' · '+t:'')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right"><div style="font-weight:600;color:'+_wSColor+'">$'+(b.estimated_total||0).toFixed(2)+'</div><div style="font-size:0.65rem;color:'+_wSColor+';text-transform:uppercase">'+_wSLabel+'</div>'+_wPaidBadge+'</div></div>';}).join('');
@@ -679,7 +679,7 @@
       var walks=(activeWalks.data||[]).filter(function(w){return w.pets;});
 
       // Check today's scheduled services
-      var today=new Date().toISOString().split('T')[0];
+      var today=_localDateStr();
       var cid=(typeof getEffectiveClientId==='function'?getEffectiveClientId():null)||u.id;
       var todayBookings=await sb.from('booking_requests').select('service,preferred_time,status,pet_names').eq('client_id',cid).eq('preferred_date',today).in('status',['accepted','confirmed','in_progress']).limit(5);
       var todayJobs=todayBookings.data||[];
@@ -867,7 +867,7 @@
       try{
         var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());
         var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
-        var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]).order('preferred_date').order('preferred_time').limit(10);
+        var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',_localDateStr(startOfWeek)).lte('preferred_date',_localDateStr(endOfWeek)).order('preferred_date').order('preferred_time').limit(10);
         if(!data||!data.length) return '<div id="staffDashJobs" style="color:var(--mid);font-size:0.85rem;padding:12px 0;text-align:center">No jobs this week</div>';
         var h='';data.forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');
           h+='<div style="display:flex;gap:10px;padding:8px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'s\',\'s-jobs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="min-width:50px;color:var(--gold);font-weight:700;font-size:0.78rem">'+d.split(',')[0]+'</div><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+(t?' · '+t:'')+'</div></div><div style="font-size:0.68rem;color:var(--forest);font-weight:600;text-transform:uppercase">'+b.status+'</div></div>';
@@ -878,7 +878,7 @@
     // Small: just count
     var sb2=_getSB();if(!sb2)return'';
     try{var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
-      var{count}=await sb2.from('booking_requests').select('id',{count:'exact',head:true}).in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]);
+      var{count}=await sb2.from('booking_requests').select('id',{count:'exact',head:true}).in('status',['accepted','confirmed','in_progress']).gte('preferred_date',_localDateStr(startOfWeek)).lte('preferred_date',_localDateStr(endOfWeek));
       return '<div id="staffDashJobs">'+_bigNum(count||0,'jobs this week',sz)+'</div>';
     }catch(e){return '<div id="staffDashJobs" style="color:var(--mid);font-size:0.78rem">Loading...</div>';}
   };
@@ -915,7 +915,7 @@
   _R._rwStaffClients=async function(sz){
     var sb=_getSB();if(!sb)return'';
     if(sz!=='full') return _bigNum(0,'clients',sz);
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('contact_name,contact_email,pet_names,service').in('status',['accepted','confirmed']).gte('preferred_date',today).limit(50);
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('contact_name,contact_email,pet_names,service').in('status',['accepted','confirmed']).gte('preferred_date',today).limit(50);
       var clients={};(data||[]).forEach(function(b){if(b.contact_name&&!clients[b.contact_name])clients[b.contact_name]={name:b.contact_name,pets:b.pet_names||'',service:b.service||''};});
       var n=Object.values(clients);
       var h=_bigNum(n.length,'active clients',sz);
@@ -974,16 +974,16 @@
         var monthStart=new Date(firstDay);monthStart.setDate(firstDay.getDate()-firstDay.getDay());
         var monthEnd=new Date(lastDay);monthEnd.setDate(lastDay.getDate()+(6-lastDay.getDay()));
         var monthStr=firstDay.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-        var{data}=await sb.from('booking_requests').select('preferred_date').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',monthStart.toISOString().split('T')[0]).lte('preferred_date',monthEnd.toISOString().split('T')[0]);
+        var{data}=await sb.from('booking_requests').select('preferred_date').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',_localDateStr(monthStart)).lte('preferred_date',_localDateStr(monthEnd));
         var jobDates={};(data||[]).forEach(function(b){jobDates[b.preferred_date]=true;});
         var h='<div style="font-weight:600;font-size:0.85rem;margin-bottom:10px">'+monthStr+'</div>';
         h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px">';
         var dayLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
         dayLabels.forEach(function(d){h+='<div style="text-align:center;font-weight:600;font-size:0.7rem;color:var(--mid);padding:4px 0">'+d+'</div>';});
         for(var d=new Date(monthStart);d<=monthEnd;d.setDate(d.getDate()+1)){
-          var dateStr=d.toISOString().split('T')[0];
+          var dateStr=_localDateStr(d);
           var hasJob=jobDates[dateStr];
-          var isToday=dateStr===today.toISOString().split('T')[0];
+          var isToday=dateStr===_localDateStr(today);
           var isCurrentMonth=d.getMonth()===today.getMonth();
           h+='<div style="position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:background 0.15s;background:'+(isCurrentMonth?'var(--warm)':'rgba(0,0,0,0.02)')+';border:'+(isToday?'2px solid var(--gold)':'1px solid var(--border)')+';color:'+(isCurrentMonth?'var(--ink)':'var(--mid)')+';" onclick="sTab(\'s\',\'s-cal\')" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\''+(isCurrentMonth?'var(--warm)':'rgba(0,0,0,0.02)')+'\'">'+d.getDate()+(hasJob?'<span style="position:absolute;width:4px;height:4px;background:var(--forest);border-radius:50%;margin-top:14px"></span>':'')+'</div>';
         }
@@ -995,14 +995,14 @@
     try{
       var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());
       var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
-      var{data:weekJobs}=await sb.from('booking_requests').select('preferred_date,service,preferred_time').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]).order('preferred_date').order('preferred_time');
+      var{data:weekJobs}=await sb.from('booking_requests').select('preferred_date,service,preferred_time').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',_localDateStr(startOfWeek)).lte('preferred_date',_localDateStr(endOfWeek)).order('preferred_date').order('preferred_time');
       var jobsByDay={};(weekJobs||[]).forEach(function(b){if(!jobsByDay[b.preferred_date])jobsByDay[b.preferred_date]=[];jobsByDay[b.preferred_date].push(b);});
       var dayLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       var h='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
       for(var i=0;i<7;i++){
         var d=new Date(startOfWeek);d.setDate(startOfWeek.getDate()+i);
-        var dateStr=d.toISOString().split('T')[0];
-        var isToday=dateStr===today.toISOString().split('T')[0];
+        var dateStr=_localDateStr(d);
+        var isToday=dateStr===_localDateStr(today);
         var jobs=jobsByDay[dateStr]||[];
         h+='<div style="text-align:center;padding:3px 1px;border-radius:6px;cursor:pointer;background:'+(isToday?'rgba(61,90,71,0.1)':'var(--warm)')+';border:'+(isToday?'1.5px solid var(--forest)':'1px solid var(--border)')+'" onclick="sTab(\'s\',\'s-cal\')">';
         h+='<div style="font-size:0.6rem;font-weight:700;color:var(--mid)">'+dayLabels[i]+'</div>';
@@ -1087,7 +1087,7 @@
         var today=new Date();today.setHours(0,0,0,0);
         var sow=new Date(today);sow.setDate(today.getDate()-today.getDay());
         var eow=new Date(sow);eow.setDate(eow.getDate()+6);
-        var ws=sow.toISOString().split('T')[0],we=eow.toISOString().split('T')[0];
+        var ws=_localDateStr(sow),we=_localDateStr(eow);
         var[jobsRes,pwRes,inqRes,rptsRes]=await Promise.all([
           sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('preferred_date',ws).lte('preferred_date',we).in('status',['accepted','confirmed','completed']),
           sb.from('payments').select('amount').eq('status','paid').gte('created_at',ws).lte('created_at',we+'T23:59:59'),
@@ -1142,7 +1142,7 @@
       return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:0.82rem;color:var(--mid)" id="todayDateLabel">Loading...</div></div>'+
         '<div id="ownerTodayScheduleList" style="display:flex;flex-direction:column;gap:6px;min-height:60px"><div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem">Loading...</div></div>';
     }
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('service,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
       var h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:0.85rem;color:var(--mid);font-weight:600" id="todayDateLabel">'+new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})+'</div>'+
         '<button class="btn btn-outline btn-sm" onclick="sTab(\'o\',\'o-sched\')" style="font-size:0.75rem;padding:4px 8px">Full Schedule →</button></div>';
       if(data&&data.length){
@@ -1389,14 +1389,14 @@
   // ── DETAIL RENDERERS ──
   _D._rwClientUpcoming=async function(){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'No data';
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('*').eq('client_id',u.id).in('status',['accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(10);
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('*').eq('client_id',u.id).in('status',['accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(10);
       if(!data||!data.length)return'<div style="color:var(--mid);padding:16px 0">No upcoming appointments.</div>';
       return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||b.time_slot||''):(b.preferred_time||'');return'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:700;font-size:0.9rem">'+b.service+'</div><div style="font-size:0.78rem;color:var(--mid)">'+d+(t?' · '+t:'')+'</div></div><div style="font-size:0.82rem;font-weight:600;color:var(--forest)">$'+(b.estimated_total||0).toFixed(2)+'</div></div>';}).join('');
     }catch(e){return'Could not load';}
   };
   _D._rwOwnerToday=async function(){
     var sb=_getSB();if(!sb)return'';
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('*').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('*').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
       if(!data||!data.length)return'<div style="padding:16px 0;color:var(--mid)">No services today.</div>';
       return data.map(function(b){var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||b.time_slot||''):(b.preferred_time||'');return'<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div style="min-width:60px;font-weight:700;font-size:0.85rem;color:var(--gold)">'+t+'</div><div style="flex:1"><div style="font-weight:600;font-size:0.9rem">'+b.service+'</div><div style="font-size:0.78rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div></div>';}).join('');
     }catch(e){return'';}

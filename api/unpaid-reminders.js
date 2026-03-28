@@ -37,12 +37,12 @@ module.exports = async function handler(req, res) {
   );
 
   // Calculate today and tomorrow in Eastern time (auto-adjusts for DST)
-  const now = new Date();
-  const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const todayStr = estNow.toISOString().split('T')[0];
+  function estDateStr(d) { return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); }
+  const todayStr = estDateStr();
+  const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const tomorrow = new Date(estNow);
   tomorrow.setDate(estNow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const tomorrowStr = estDateStr(tomorrow);
 
   const results = { today_reminders: 0, tomorrow_reminders: 0, errors: [] };
 

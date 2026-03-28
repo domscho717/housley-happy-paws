@@ -191,7 +191,7 @@
     var rows = [];
 
     while (cur <= end) {
-      var ds = cur.toISOString().split('T')[0];
+      var ds = _localDateStr(cur);
       rows.push({ user_id: userId, block_date: ds, reason: reason || '' });
       cur.setDate(cur.getDate() + 1);
     }

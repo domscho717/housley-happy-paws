@@ -397,7 +397,7 @@
     var role = user.user_metadata && user.user_metadata.role;
     if (role !== 'owner' && role !== 'staff') return;
 
-    var today = new Date().toISOString().split('T')[0];
+    var today = _localDateStr();
     var nowMin = new Date().getHours() * 60 + new Date().getMinutes();
 
     try {

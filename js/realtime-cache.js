@@ -73,12 +73,12 @@
       var user = window.HHP_Auth.currentUser;
       if (!user) return;
 
-      var today = new Date().toISOString().split('T')[0];
+      var today = _localDateStr();
       var now = new Date();
       var sow = new Date(now); sow.setDate(now.getDate() - now.getDay());
       var eow = new Date(sow); eow.setDate(sow.getDate() + 6);
-      var ws = sow.toISOString().split('T')[0];
-      var we = eow.toISOString().split('T')[0];
+      var ws = _localDateStr(sow);
+      var we = _localDateStr(eow);
 
       var queries = [];
 

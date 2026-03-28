@@ -191,7 +191,7 @@ async function createStaffMember() {
       await new Promise(r => setTimeout(r, 1000));
 
       const { error: updateError } = await sb.from('profiles')
-        .update({ phone, hourly_rate: rate, email, hire_date: new Date().toISOString().split('T')[0] })
+        .update({ phone, hourly_rate: rate, email, hire_date: _localDateStr() })
         .eq('user_id', signUpData.user.id);
 
       if (updateError) console.warn('Profile update warning:', updateError);

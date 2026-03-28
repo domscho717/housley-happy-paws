@@ -3313,6 +3313,17 @@ try {
 </div>
 
 <script>
+// ── GLOBAL: Local date helper (avoids UTC timezone offset bug) ──
+// toISOString() returns UTC which can be a day ahead after ~7 PM ET.
+// This returns YYYY-MM-DD in the user's LOCAL timezone.
+function _localDateStr(d) {
+  d = d || new Date();
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + dd;
+}
+
 // ---- ABOUT SLIDESHOW ----
 const aboutSS = {
   current: 0, timer: null, slides: [],
@@ -5967,7 +5978,7 @@ async function openReportFromService(data) {
 
   // Set date to today
   var dateEl = document.getElementById(pre + 'date');
-  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+  if (dateEl) dateEl.value = _localDateStr();
 
   // Calculate duration from start/end times
   if (data.startTime && data.endTime) {
@@ -6160,7 +6171,7 @@ async function loadCalendarBookings(year, month) {
         var cur = new Date(useDate);
         var end = new Date(b.preferred_end_date);
         while (cur <= end) {
-          var dk = cur.toISOString().split('T')[0];
+          var dk = _localDateStr(cur);
           if (dk >= firstDay && dk <= lastDay && dates.indexOf(dk) === -1) dates.push(dk);
           cur.setDate(cur.getDate() + 1);
         }
@@ -6172,7 +6183,7 @@ async function loadCalendarBookings(year, month) {
         var cur = new Date(firstDay + 'T12:00:00');
         var last = new Date(lastDay + 'T12:00:00');
         while (cur <= last) {
-          var dk = cur.toISOString().split('T')[0];
+          var dk = _localDateStr(cur);
           if (isRecurringOnDate(b, dk) && dates.indexOf(dk) === -1) dates.push(dk);
           cur.setDate(cur.getDate() + 1);
         }
@@ -6505,7 +6516,7 @@ async function loadClientAppts(filter, tabBtn) {
   try {
     var _cid = getEffectiveClientId() || user.id;
     var query = sb.from('booking_requests').select('*').eq('client_id', _cid).order('preferred_date', { ascending: false });
-    var today = new Date().toISOString().split('T')[0];
+    var today = _localDateStr();
     if (filter === 'upcoming') query = query.gte('preferred_date', today).order('preferred_date', { ascending: true });
     else if (filter === 'past') query = query.lt('preferred_date', today);
     else if (filter === 'canceled') query = query.eq('status', 'canceled');
@@ -6539,7 +6550,7 @@ async function loadClientAppts(filter, tabBtn) {
       var limit = new Date(d);
       limit.setDate(limit.getDate() + 90); // look ahead 90 days
       while (d <= limit && dates.length < count) {
-        var dk = d.toISOString().split('T')[0];
+        var dk = _localDateStr(d);
         if (dk >= today && typeof isRecurringOnDate === 'function' && isRecurringOnDate(booking, dk)) {
           var t = (typeof getRecurringTime === 'function') ? getRecurringTime(booking, dk) : '';
           dates.push({ date: dk, time: t });
@@ -7403,7 +7414,7 @@ async function showBookingDetail(bookingId, role, source) {
     h += '</div>'; // end info rows
 
     // ── ACTION BUTTONS ──
-    var today = new Date().toISOString().split('T')[0];
+    var today = _localDateStr();
     var isToday = dateVal === today;
     var isActive = (st === 'accepted' || st === 'confirmed');
 
@@ -7646,7 +7657,7 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
 
   var startTimeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   var dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  var dateVal = new Date().toISOString().split('T')[0];
+  var dateVal = _localDateStr();
   // Convert start time to 24h for input
   var now = new Date();
   var arrivalVal = (now.getHours() < 10 ? '0' : '') + now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
@@ -8011,7 +8022,7 @@ async function endServiceFromPanel() {
     var endTime = new Date().toISOString();
 
     // ── Read values from editable report fields BEFORE any DOM changes ──
-    var reportDate = (document.getElementById('lsp-date') || {}).value || new Date().toISOString().split('T')[0];
+    var reportDate = (document.getElementById('lsp-date') || {}).value || _localDateStr();
     var reportService = (document.getElementById('lsp-service') || {}).value || d.service;
     var reportPets = (document.getElementById('lsp-pets') || {}).value || d.petNames || '';
     var reportDuration = (document.getElementById('lsp-duration') || {}).value || '30 min';
@@ -8652,7 +8663,7 @@ async function createNewStaff() {
         email: email,
         full_name: name,
         job_title: title || 'Staff',
-        hire_date: new Date().toISOString().split('T')[0]
+        hire_date: _localDateStr()
       }).eq('id', signUpData.user.id);
     }
 
@@ -9274,8 +9285,8 @@ async function deactivateDeal(dealId) {
     if (endInput && startVal) {
       var minEnd = new Date(startVal + 'T12:00:00');
       minEnd.setDate(minEnd.getDate() + 1);
-      endInput.setAttribute('min', minEnd.toISOString().split('T')[0]);
-      if (!endVal) endInput.value = minEnd.toISOString().split('T')[0];
+      endInput.setAttribute('min', _localDateStr(minEnd));
+      if (!endVal) endInput.value = _localDateStr(minEnd);
     }
   }
   document.addEventListener('DOMContentLoaded', function() {
@@ -10650,14 +10661,14 @@ async function loadStaffSchedule() {
     if (clientUserIds.length > 0) {
       bookingsQuery = bookingsQuery.in('client_id', clientUserIds);
     }
-    bookingsQuery = bookingsQuery.gte('preferred_date', startOfWeek.toISOString().split('T')[0])
+    bookingsQuery = bookingsQuery.gte('preferred_date', _localDateStr(startOfWeek))
       .order('preferred_date', { ascending: true }).limit(20);
 
     var bookingsRes = await bookingsQuery;
     var bookings = bookingsRes.data || [];
 
     // Also include recurring bookings for today
-    var todayStr = today.toISOString().split('T')[0];
+    var todayStr = _localDateStr(today);
     if (typeof isRecurringOnDate === 'function') {
       var { data: staffRecurring } = await sb.from('booking_requests').select('*')
         .in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']).not('recurrence_pattern', 'is', null);
@@ -10832,8 +10843,8 @@ async function loadStaffEarnings() {
 
     // Get completed bookings for earnings calc
     var now = new Date();
-    var startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    var startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1).toISOString().split('T')[0];
+    var startOfMonth = _localDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+    var startOfQuarter = _localDateStr(new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1));
 
     var allBookings = [];
     if (clientUserIds.length > 0) {
@@ -10882,7 +10893,7 @@ async function loadStaffEarnings() {
       var d = new Date(b.date + 'T00:00:00');
       var weekStart = new Date(d);
       weekStart.setDate(d.getDate() - d.getDay());
-      var weekKey = weekStart.toISOString().split('T')[0];
+      var weekKey = _localDateStr(weekStart);
       if (!weeks[weekKey]) weeks[weekKey] = [];
       weeks[weekKey].push(b);
     });
@@ -11195,7 +11206,7 @@ async function loadClientUpcomingCharges() {
     for (var d = 0; d < 14; d++) {
       var checkDate = new Date(today);
       checkDate.setDate(today.getDate() + d);
-      var dateStr = checkDate.toISOString().split('T')[0];
+      var dateStr = _localDateStr(checkDate);
       bookings.forEach(function(b) {
         var isScheduled = (b.scheduled_date === dateStr || b.preferred_date === dateStr);
         var isMulti = b.booking_dates && Array.isArray(b.booking_dates) && b.booking_dates.indexOf(dateStr) !== -1;
@@ -11286,7 +11297,7 @@ function formatReportTime(t) {
 
 function initReportDate() {
   var now = new Date();
-  var isoDate = now.toISOString().split('T')[0];
+  var isoDate = _localDateStr(now);
   var rptDate = document.getElementById('rpt-date');
   if (rptDate) rptDate.value = isoDate;
   var srptDate = document.getElementById('srpt-date');
@@ -11432,7 +11443,7 @@ async function submitServiceReport() {
       client_id: clientId,
       author_id: HHP_Auth.currentUser.id,
       service: service,
-      report_date: reportDate || new Date().toISOString().split('T')[0],
+      report_date: reportDate || _localDateStr(),
       duration: duration || '30 min',
       arrival_time: arrivalTime,
       departure_time: departureTime,
@@ -11498,7 +11509,7 @@ async function submitStaffServiceReport() {
       client_id: clientId,
       author_id: HHP_Auth.currentUser.id,
       service: service,
-      report_date: reportDate || new Date().toISOString().split('T')[0],
+      report_date: reportDate || _localDateStr(),
       duration: duration || '30 min',
       arrival_time: arrivalTime,
       departure_time: departureTime,
@@ -12997,7 +13008,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // ── Upcoming Appointments + Notifications — fetch in parallel ──
         var upEl = document.getElementById('clientDashUpcoming');
         var notifEl = document.getElementById('clientDashNotifications');
-        var today = new Date().toISOString().split('T')[0];
+        var today = _localDateStr();
 
         var [upcomingRes, notifsRes] = await Promise.all([
           upEl ? sb.from('bookings').select('id, service, date, time_slot, status, pet_names').eq('client_id', effectiveUserId).gte('date', today).order('date', { ascending: true }).limit(4) : Promise.resolve({data:null}),
@@ -13082,10 +13093,10 @@ document.addEventListener('DOMContentLoaded', function() {
           staffAllBookings = staffBkRes.data || [];
         }
 
-        var weekStr = startOfWeek.toISOString().split('T')[0];
+        var weekStr = _localDateStr(startOfWeek);
         var endOfWeek = new Date(startOfWeek); endOfWeek.setDate(endOfWeek.getDate() + 7);
-        var endWeekStr = endOfWeek.toISOString().split('T')[0];
-        var monthStr = startOfMonth.toISOString().split('T')[0];
+        var endWeekStr = _localDateStr(endOfWeek);
+        var monthStr = _localDateStr(startOfMonth);
 
         var thisWeekCount = staffAllBookings.filter(function(b) { return b.date >= weekStr && b.date < endWeekStr; }).length;
         var allTimeCount = staffAllBookings.length;
@@ -13172,7 +13183,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Today's Jobs — count accepted/confirmed booking_requests for today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const todayStr2 = today.toISOString().split('T')[0];
+        const todayStr2 = _localDateStr(today);
         const { count: todayJobs } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('preferred_date', todayStr2).in('status', ['accepted', 'confirmed', 'completed']);
         const el4 = document.getElementById('stat-todayJobs');
         if (el4) el4.textContent = todayJobs || '0';
@@ -13182,8 +13193,8 @@ document.addEventListener('DOMContentLoaded', function() {
         startOfWeek.setDate(today.getDate() - today.getDay());
         const endOfWeek = new Date(startOfWeek);
         endOfWeek.setDate(endOfWeek.getDate() + 6);
-        const weekStartStr = startOfWeek.toISOString().split('T')[0];
-        const weekEndStr = endOfWeek.toISOString().split('T')[0];
+        const weekStartStr = _localDateStr(startOfWeek);
+        const weekEndStr = _localDateStr(endOfWeek);
         const { count: jobsWeek } = await sb.from('booking_requests').select('*', { count: 'exact', head: true }).gte('preferred_date', weekStartStr).lte('preferred_date', weekEndStr).in('status', ['accepted', 'confirmed', 'completed']);
         const el5 = document.getElementById('stat-jobsThisWeek');
         if (el5) el5.textContent = jobsWeek || '0';
@@ -13236,7 +13247,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var dateLabel = document.getElementById('todayDateLabel');
     var todayDate = new Date();
-    var todayStr = todayDate.toISOString().split('T')[0];
+    var todayStr = _localDateStr(todayDate);
     if (dateLabel) dateLabel.textContent = todayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
     try {
@@ -13445,7 +13456,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       var h = '';
       var lastDate = '';
-      var todayStr = new Date().toISOString().split('T')[0];
+      var todayStr = _localDateStr();
       bookings.forEach(function(b) {
         var bDate = b._displayDate || b.scheduled_date || '';
         // Date header
@@ -14380,7 +14391,7 @@ document.addEventListener('DOMContentLoaded', function() {
       function getIcon(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
 
       var h = '', lastDate = '';
-      var todayStr = new Date().toISOString().split('T')[0];
+      var todayStr = _localDateStr();
 
       // Group by staff if "all" view
       bookings.forEach(function(b) {
