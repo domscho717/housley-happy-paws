@@ -57,11 +57,12 @@ module.exports = async function handler(req, res) {
 
     const paymentMethodId = methods.data[0].id;
 
-    // Determine if service is within 48 hours
-    let isWithin48 = true; // default: charge immediately
+    // Determine if service is in the current Mon-Sun week → charge now
+    // If service is in a future week → defer (Sunday cron will charge)
+    let chargeNow = true; // default: charge immediately
     if (forceCharge) {
-      console.log('[charge] forceCharge=true — skipping 48hr check, charging immediately');
-      isWithin48 = true;
+      console.log('[charge] forceCharge=true — Pay Early, charging immediately');
+      chargeNow = true;
     } else if (bookingRequestId) {
       const { data: booking } = await supabase
         .from('booking_requests')
@@ -72,27 +73,38 @@ module.exports = async function handler(req, res) {
       if (booking) {
         const svcDateStr = booking.scheduled_date || booking.preferred_date;
         if (svcDateStr) {
+          // Get current Monday and next Sunday in Eastern Time
           const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+          const dayOfWeek = estNow.getDay(); // 0=Sun, 1=Mon...6=Sat
+          // Monday of current week: subtract (dayOfWeek - 1) days, but if Sunday subtract 6
+          const daysToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          const monday = new Date(estNow);
+          monday.setDate(monday.getDate() - daysToMon);
+          monday.setHours(0, 0, 0, 0);
+          const sunday = new Date(monday);
+          sunday.setDate(sunday.getDate() + 6);
+          sunday.setHours(23, 59, 59, 999);
+
           const serviceDate = new Date(svcDateStr + 'T12:00:00');
-          const hoursUntilService = (serviceDate - estNow) / (1000 * 60 * 60);
-          isWithin48 = hoursUntilService <= 48;
+          chargeNow = serviceDate >= monday && serviceDate <= sunday;
+          console.log(`[charge] Service date: ${svcDateStr}, Week: ${monday.toISOString().slice(0,10)} to ${sunday.toISOString().slice(0,10)}, chargeNow: ${chargeNow}`);
         }
       }
     }
 
-    // If service is MORE than 48 hours away, don't charge at all — defer payment
-    if (!isWithin48) {
-      console.log('[charge] Service >48hrs — deferring payment (no hold, no charge)');
+    // If service is in a FUTURE week, defer — Sunday cron will handle it
+    if (!chargeNow) {
+      console.log('[charge] Service in future week — deferring to Sunday auto-charge');
       return res.status(200).json({
         success: true,
         status: 'deferred',
         amount: amount,
-        message: 'Payment deferred until 48 hours before service',
+        message: 'Payment deferred — will be charged Sunday the week of your appointment',
       });
     }
 
-    // Service is within 48 hours — charge immediately
-    console.log('[charge] Service within 48hrs — charging immediately');
+    // Service is this week — charge immediately
+    console.log('[charge] Service is this week — charging immediately');
 
     // Calculate 15% dev share for connected account
     const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
@@ -145,7 +157,7 @@ module.exports = async function handler(req, res) {
         amount: amount,
         service: service || 'Pet Care',
         status: 'paid',
-        notes: bookingRequestId ? 'Charged on booking accept (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Charged',
+        notes: bookingRequestId ? 'Charged — same-week booking (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Charged',
         paid_at: new Date().toISOString(),
       });
       if (payInsertErr) console.error('Payment insert error:', payInsertErr.message);

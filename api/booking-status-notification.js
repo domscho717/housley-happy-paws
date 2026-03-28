@@ -119,7 +119,7 @@ module.exports = async function handler(req, res) {
             <div style="background:#eef4ef;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #c5d8c9">
               <div style="font-weight:700;margin-bottom:8px">📅 Recurring Schedule</div>
               ${lines}
-              <div style="margin-top:10px;font-size:0.85rem;color:#3d5a47">💳 You will be automatically charged 48 hours before each appointment. Cancel anytime by contacting Rachel.</div>
+              <div style="margin-top:10px;font-size:0.85rem;color:#3d5a47">💳 You will be automatically charged on Sunday the week of each appointment. You can also pay early from your appointments page. Cancel anytime by contacting Rachel.</div>
             </div>`;
         }
       } catch (e) { /* ignore parse errors */ }

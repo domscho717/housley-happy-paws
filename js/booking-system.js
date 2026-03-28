@@ -738,7 +738,7 @@
       '        <strong style="color:#bf5d00">Cancellation Policy:</strong> Cancellations made within 48 hours of your scheduled appointment will be charged the full service fee. Cancellations made more than 48 hours in advance are fully refundable.',
       '      </div>',
       '      <div style="margin-top:8px;padding:10px 12px;background:#f0f7f0;border:1px solid #c5dcc5;border-radius:8px;font-size:0.76rem;color:#3d5c3d;line-height:1.5">',
-      '        <strong style="color:#2e7d32">💳 Payment Info:</strong> Once your booking is accepted, appointments within the next 48 hours will be charged automatically. Appointments scheduled further out will be held until 48 hours before your service, at which point payment will process.',
+      '        <strong style="color:#2e7d32">💳 Payment Info:</strong> Once your booking is accepted, appointments this week are charged immediately. Appointments for future weeks will be charged automatically on Sunday the week of your service. You can also pay early anytime from your appointments page.',
       '      </div>',
       '    </div>',
       '',
@@ -3116,9 +3116,9 @@
               var chargeData = await chargeResp.json();
 
               if (chargeData.success && chargeData.status === 'deferred') {
-                // Payment deferred — booking accepted, card will be charged 48hrs before service
+                // Payment deferred — booking accepted, card will be charged Sunday the week of service
                 autoCharged = false;
-                if (typeof toast === 'function') toast('✓ Booking accepted! Payment will charge 48hrs before service.');
+                if (typeof toast === 'function') toast('✓ Booking accepted! Payment will charge Sunday the week of service.');
 
               } else if (chargeData.success) {
                 autoCharged = true;
@@ -3808,7 +3808,7 @@
             });
             var chargeData = await chargeResp.json();
             if (chargeData.success && chargeData.status === 'deferred') {
-              if (typeof toast === 'function') toast('💳 Payment deferred — will charge 48hrs before service.');
+              if (typeof toast === 'function') toast('💳 Payment deferred — will charge Sunday the week of service.');
             } else if (chargeData.success) {
               if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + '!');
             } else {
@@ -4004,6 +4004,32 @@
           var noteMsg = apptDate ? 'Regarding your ' + apptDate + ' appointment.' : '';
           await _sendBookingNotification(booking, notifyStatus, { adminNotes: noteMsg });
         }
+
+        // If overall booking just became 'accepted', trigger charge flow
+        if (result.status === 'accepted' && booking.estimated_total > 0 && booking.client_id) {
+          (async function() {
+            try {
+              var chargeResp = await fetch('/api/charge-saved-card', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bookingRequestId: requestId, amount: booking.estimated_total, service: booking.service, clientProfileId: booking.client_id }),
+              });
+              var chargeData = await chargeResp.json();
+              if (chargeData.success && chargeData.status === 'deferred') {
+                if (typeof toast === 'function') toast('\uD83D\uDCB3 Payment deferred \u2014 will charge Sunday the week of service.');
+              } else if (chargeData.success) {
+                if (typeof toast === 'function') toast('\uD83D\uDCB3 Card charged $' + Number(booking.estimated_total).toFixed(2) + '!');
+              } else {
+                await sb.from('booking_requests').update({ status: 'payment_hold', admin_notes: '\u26A0\uFE0F Payment failed: ' + (chargeData.message || chargeData.error || 'Card declined') }).eq('id', requestId);
+                if (typeof toast === 'function') toast('\u26A0\uFE0F Card declined \u2014 booking on payment hold.');
+              }
+            } catch (chargeErr) {
+              console.warn('Auto-charge on multi-date accept failed:', chargeErr);
+            }
+            if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
+          })();
+        }
+
         if (typeof HHP_BookingAdmin !== 'undefined' && HHP_BookingAdmin.loadRequests) HHP_BookingAdmin.loadRequests();
         _afterBookingAction();
         if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);

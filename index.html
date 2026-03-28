@@ -1721,7 +1721,7 @@ try {
               <div id="savedCardActions" style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
                 <button id="addCardBtn" class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="addPaymentMethod()">💳 Add Payment Method</button>
               </div>
-              <div style="font-size:0.75rem;color:var(--mid);margin-top:10px;text-align:center">Your card is saved securely through Stripe. Recurring services are auto-charged 48 hours before each visit.</div>
+              <div style="font-size:0.75rem;color:var(--mid);margin-top:10px;text-align:center">Your card is saved securely through Stripe. Bookings are auto-charged the Sunday before your service week.</div>
               <div style="font-size:0.75rem;color:var(--mid);margin-top:8px;text-align:center;background:var(--gold-pale);padding:8px 12px;border-radius:8px"><strong>Cancellation policy:</strong> Cancel more than 48 hours before service for a full refund. Late cancellations within 48 hours are still charged.</div>
             </div>
             <div class="card"><div class="card-title">Payment History</div>
@@ -6784,7 +6784,7 @@ async function loadClientAppts(filter, tabBtn) {
   }
 }
 
-// ── Client: Pay Early (voluntary payment before 48hr window) ──
+// ── Client: Pay Early (voluntary payment before Sunday auto-charge) ──
 async function payEarly(bookingId, amount, service, btn) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
@@ -7391,11 +7391,11 @@ async function showBookingDetail(bookingId, role, source) {
           if (b.deal_discount && b.deal_discount > 0) h += '<div style="font-size:0.75rem;color:#155724;font-style:italic">🏷️ Deal applied: -$' + Number(b.deal_discount).toFixed(2) + '</div>';
           h += '</div></div>';
         } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id) {
-          // Accepted but no charge yet — payment deferred until 48hrs before service
+          // Accepted but no charge yet — payment deferred to Sunday auto-charge
           h += '<div style="background:#e8f0fe;border:1.5px solid #4285f4;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">🕐</div>';
           h += '<div><div style="font-weight:700;color:#1a56db;font-size:0.9rem">Payment Scheduled</div>';
-          h += '<div style="font-size:0.78rem;color:#1a56db">$' + Number(b.estimated_total || 0).toFixed(2) + ' will charge 48hrs before service</div></div></div>';
+          h += '<div style="font-size:0.78rem;color:#1a56db">$' + Number(b.estimated_total || 0).toFixed(2) + ' will be charged Sunday the week of your appointment</div></div></div>';
         } else {
           h += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">❌</div>';
