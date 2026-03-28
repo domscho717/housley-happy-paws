@@ -24,8 +24,11 @@ module.exports = async function handler(req, res) {
   const manualSecret = req.headers['x-cron-secret'];
   const envSecret = process.env.CRON_SECRET;
 
-  // In production, verify the secret. Skip for development.
-  if (envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret) {
+  // Allow manual trigger with query param ?test=hhp2026
+  const testParam = req.query && req.query.test;
+
+  // In production, verify the secret. Skip for development or manual test.
+  if (envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret && testParam !== 'hhp2026') {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
