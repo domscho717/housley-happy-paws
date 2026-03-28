@@ -7396,22 +7396,15 @@ async function showBookingDetail(bookingId, role, source) {
     var stColor = statusColors[st] || '#6c757d';
     var stLabel = statusLabels[st] || st;
 
-    // Check payment status (look in payments table)
-    // Only check for statuses where payment is relevant (not pending/declined)
-    var isPaid = false;
+    // Check payment status — use payment_intent_id on booking as primary check
+    var isPaid = !!b.payment_intent_id;
     var paymentInfo = null;
-    var paymentRelevantStatuses = ['accepted','confirmed','completed','in_progress','payment_hold','modified'];
-    if (paymentRelevantStatuses.indexOf(st) !== -1) {
+    if (isPaid) {
+      // Look up the payment record for display info (paid date, etc.)
       try {
-        var email = b.contact_email || b.client_email || '';
-        if (email && dateVal) {
-          // Match by email, service type, and amount to find the correct payment
-          var { data: pays } = await sb.from('payments').select('*').eq('client_email', email).eq('service', svc).eq('amount', b.estimated_total).order('paid_at', { ascending: false }).limit(1);
-          if (pays && pays.length > 0) {
-            isPaid = true;
-            paymentInfo = pays[0];
-          }
-        }
+        var shortId = b.id ? b.id.slice(0, 8) : '';
+        var { data: pays } = await sb.from('payments').select('*').ilike('notes', '%' + shortId + '%').order('paid_at', { ascending: false }).limit(1);
+        if (pays && pays.length > 0) paymentInfo = pays[0];
       } catch(pe) { console.warn('Payment check:', pe); }
     }
 
@@ -7443,10 +7436,10 @@ async function showBookingDetail(bookingId, role, source) {
           h += '</div></div>';
         } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id) {
           // Accepted but no charge yet — payment deferred to Sunday auto-charge
-          h += '<div style="background:#e8f0fe;border:1.5px solid #4285f4;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
+          h += '<div style="background:#fff8e1;border:1.5px solid #e0a800;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">🕐</div>';
-          h += '<div><div style="font-weight:700;color:#1a56db;font-size:0.9rem">Payment Scheduled</div>';
-          h += '<div style="font-size:0.78rem;color:#1a56db">$' + Number(b.estimated_total || 0).toFixed(2) + ' will be charged Sunday the week of your appointment</div></div></div>';
+          h += '<div><div style="font-weight:700;color:#7a6200;font-size:0.9rem">Payment Pending</div>';
+          h += '<div style="font-size:0.78rem;color:#7a6200">$' + Number(b.estimated_total || 0).toFixed(2) + ' — auto-charges Sunday the week of service</div></div></div>';
         } else {
           h += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">❌</div>';
@@ -7523,7 +7516,7 @@ async function showBookingDetail(bookingId, role, source) {
     if (role === 'client' && b.estimated_total > 0) {
       h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
       h += '<div style="font-size:1.1rem">💲</div>';
-      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Amount</div>';
+      h += '<div style="flex:1"><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Amount</div>';
       h += '<div style="font-weight:700;color:var(--ink);font-size:1rem">$' + Number(b.estimated_total).toFixed(2) + '</div>';
       if (b.deal_discount && b.deal_discount > 0) {
         h += '<div style="font-size:0.78rem;color:#2e7d32;font-weight:600">🏷️ You saved $' + Number(b.deal_discount).toFixed(2) + ' with a deal!</div>';
@@ -7531,8 +7524,23 @@ async function showBookingDetail(bookingId, role, source) {
       if (b.price_breakdown) {
         h += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">' + b.price_breakdown.split(' | ').join(' · ') + '</div>';
       }
-      h += '<div style="font-size:0.78rem;color:var(--mid)">' + (isPaid ? '✅ Paid' : '⏳ Payment pending') + '</div>';
+      if (isPaid) {
+        h += '<div style="font-size:0.78rem;color:#155724;font-weight:600">✅ Paid' + (paymentInfo && paymentInfo.paid_at ? ' on ' + new Date(paymentInfo.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') + '</div>';
+      } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id) {
+        h += '<div style="font-size:0.78rem;color:#7a6200;font-weight:600">🕐 Auto-charges Sunday the week of your appointment</div>';
+      } else {
+        h += '<div style="font-size:0.78rem;color:var(--mid)">⏳ Payment pending</div>';
+      }
       h += '</div></div>';
+    }
+
+    // Pay Now button in detail view (client only, deferred or payment_hold)
+    if (role === 'client' && b.estimated_total > 0 && ((st === 'accepted' && !isPaid && !b.payment_intent_id) || st === 'payment_hold')) {
+      var detailPayLabel = st === 'payment_hold' ? '💳 Update Payment — $' : '💳 Pay Now — $';
+      var detailPayBg = st === 'payment_hold' ? 'linear-gradient(135deg,#c62828,#e53935)' : 'linear-gradient(135deg,var(--forest),#2d8a4e)';
+      h += '<div style="margin-bottom:12px">';
+      h += '<button onclick="payEarly(\'' + b.id + '\',' + Number(b.estimated_total) + ',\'' + svc.replace(/'/g, "\\'") + '\',this)" style="width:100%;padding:14px;border:none;border-radius:10px;background:' + detailPayBg + ';color:white;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">';
+      h += detailPayLabel + Number(b.estimated_total).toFixed(2) + '</button></div>';
     }
 
     // 48-hour cancellation policy (client view only, for active bookings)
