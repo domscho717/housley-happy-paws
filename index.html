@@ -7418,8 +7418,9 @@ async function showBookingDetail(bookingId, role, source) {
     var isToday = dateVal === today;
     var isActive = (st === 'accepted' || st === 'confirmed');
 
-    // Start / Stop Service button (owner + staff, only for today's confirmed bookings)
-    if ((role === 'owner' || role === 'staff') && isToday && isActive) {
+    // Start / Stop Service button (owner + staff, only for today's confirmed/accepted/payment_hold bookings)
+    var canStartService = (st === 'accepted' || st === 'confirmed' || st === 'payment_hold');
+    if ((role === 'owner' || role === 'staff') && isToday && canStartService) {
       // Check if there's an active walk/service for this booking
       var activeService = null;
       try {
