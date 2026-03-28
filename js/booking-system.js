@@ -1847,6 +1847,13 @@
       '.arc-btn.modify:hover { background: var(--gold-pale, #FDF7EE); }',
       '',
       '/* ── Schedule Preview on Booking Cards ── */',
+      '.sched-peek-btn {',
+      '  background: #eef2ff; border: 1.5px solid #b8c8f0; border-radius: 8px;',
+      '  width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;',
+      '  font-size: 1.1rem; cursor: pointer; transition: all 0.2s; padding: 0; flex-shrink: 0;',
+      '}',
+      '.sched-peek-btn:hover { background: #d8e2ff; border-color: #8ca0e0; }',
+      '.sched-peek-btn.active { background: #d0daff; border-color: #6b8cdb; box-shadow: 0 0 0 2px rgba(107,140,219,0.25); }',
       '.sched-preview-bar {',
       '  display: flex; align-items: center; justify-content: space-between;',
       '  padding: 8px 12px; margin-top: 10px;',
@@ -2919,21 +2926,35 @@
     },
 
     // ── Schedule Preview: toggle + async load ──
-    toggleSchedulePreview: async function(bar, bookingId, datesStr) {
-      var content = document.getElementById('sched-preview-' + bookingId);
+    // Can be called as toggleSchedulePreview(contentEl, bookingId, datesStr, triggerBtn)
+    // or toggleSchedulePreview(barEl, bookingId, datesStr) for the old bar-style
+    toggleSchedulePreview: async function(contentOrBar, bookingId, datesStr, triggerBtn) {
+      var content;
+      var arrow;
+      var btn = triggerBtn || null;
+
+      if (contentOrBar && contentOrBar.classList && contentOrBar.classList.contains('sched-preview-content')) {
+        // Called from the peek button — first arg is the content div directly
+        content = contentOrBar;
+      } else if (contentOrBar && contentOrBar.classList && contentOrBar.classList.contains('sched-preview-bar')) {
+        // Called from the old bar-style
+        content = document.getElementById('sched-preview-' + bookingId);
+        arrow = contentOrBar.querySelector('.sched-preview-arrow');
+      } else {
+        content = document.getElementById('sched-preview-' + bookingId);
+      }
       if (!content) return;
-      var arrow = bar.querySelector('.sched-preview-arrow');
 
       // Toggle collapse/expand
       if (content.style.display !== 'none') {
         content.style.display = 'none';
-        if (arrow) arrow.textContent = '\u25B8';
-        bar.style.borderRadius = '8px';
+        if (arrow) { arrow.textContent = '\u25B8'; contentOrBar.style.borderRadius = '8px'; }
+        if (btn) btn.classList.remove('active');
         return;
       }
       content.style.display = 'block';
-      if (arrow) arrow.textContent = '\u25BE';
-      bar.style.borderRadius = '8px 8px 0 0';
+      if (arrow) { arrow.textContent = '\u25BE'; contentOrBar.style.borderRadius = '8px 8px 0 0'; }
+      if (btn) btn.classList.add('active');
 
       // Only fetch once per card
       if (content.dataset.loaded) return;
@@ -3632,20 +3653,49 @@
         actionsHTML = '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-forest btn-sm" onclick="viewBookingReport(\'' + r.id + '\')">📋 View Report</button></div>';
       }
 
+      // ── Schedule Preview: collect dates for this booking ──
+      var spDates = [];
+      if (r.date_details && Array.isArray(r.date_details) && r.date_details.length > 0) {
+        spDates = r.date_details.map(function(dc) { return dc.date; });
+      } else if (r.booking_dates && Array.isArray(r.booking_dates) && r.booking_dates.length > 1) {
+        spDates = r.booking_dates.slice();
+      } else if (r.preferred_date) {
+        if (isHS && r.preferred_end_date) {
+          var _c = new Date(r.preferred_date + 'T12:00:00');
+          var _e = new Date(r.preferred_end_date + 'T12:00:00');
+          while (_c <= _e) {
+            var yy = _c.getFullYear(), mm = String(_c.getMonth()+1).padStart(2,'0'), dd = String(_c.getDate()).padStart(2,'0');
+            spDates.push(yy+'-'+mm+'-'+dd);
+            _c.setDate(_c.getDate() + 1);
+          }
+        } else {
+          spDates = [r.preferred_date];
+        }
+      }
+      var schedBtnHTML = '';
+      if (spDates.length > 0 && (r.status === 'pending' || r.status === 'modified')) {
+        var _spDatesAttr = spDates.join(',');
+        schedBtnHTML = '<button class="sched-peek-btn" onclick="event.stopPropagation();HHP_BookingAdmin.toggleSchedulePreview(this.closest(\'.card\').querySelector(\'.sched-preview-content\'),\'' + r.id + '\',\'' + _spDatesAttr + '\',this)" title="Check your schedule for this date">\uD83D\uDCC5</button>';
+      }
+
       return [
-        '<div class="card" data-request-id="' + r.id + '" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + '">',
+        '<div class="card" data-request-id="' + r.id + '" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + ';position:relative">',
         '  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">',
         '    <div><strong style="font-size:1rem">' + (r.service || 'Service') + '</strong><div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</div></div>',
-        '    <span class="badge" style="background:' + (r.status === 'pending' ? 'var(--gold-light)' : r.status === 'accepted' ? 'var(--forest-light)' : r.status === 'completed' ? '#d4edda' : 'var(--rose-light)') + ';color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">' + r.status + '</span>',
+        '    <div style="display:flex;align-items:center;gap:6px">',
+        schedBtnHTML,
+        '      <span class="badge" style="background:' + (r.status === 'pending' ? 'var(--gold-light)' : r.status === 'accepted' ? 'var(--forest-light)' : r.status === 'completed' ? '#d4edda' : 'var(--rose-light)') + ';color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">' + r.status + '</span>',
+        '    </div>',
         '  </div>',
+        '  <div class="sched-preview-content" id="sched-preview-' + r.id + '" style="display:none;margin-bottom:12px"></div>',
         '  <div style="display:flex;gap:12px;align-items:start;margin-bottom:12px">',
         '    ' + clientAvaHTML,
         '    <div style="flex:1;min-width:0">',
         '      <div style="font-weight:600;margin-bottom:4px">' + (r.contact_name || 'Client') + '</div>',
-        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:6px">📅 ' + dateStr + ' at ' + fmt12(r.preferred_time || '') + '</div>',
-        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">🐾 ' + (r.pet_names || 'Pets') + '</div>',
-        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">📍 ' + (r.address || 'Address') + '</div>',
-        (r.estimated_total ? '      <div style="font-weight:600;color:var(--gold-deep);margin-top:6px">💰 $' + Number(r.estimated_total).toFixed(2) + '</div>' : ''),
+        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:6px">\uD83D\uDCC5 ' + dateStr + ' at ' + fmt12(r.preferred_time || '') + '</div>',
+        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">\uD83D\uDC3E ' + (r.pet_names || 'Pets') + '</div>',
+        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">\uD83D\uDCCD ' + (r.address || 'Address') + '</div>',
+        (r.estimated_total ? '      <div style="font-weight:600;color:var(--gold-deep);margin-top:6px">\uD83D\uDCB0 $' + Number(r.estimated_total).toFixed(2) + '</div>' : ''),
         '    </div>',
         '  </div>',
         (r.special_notes ? '  <div style="background:var(--gold-pale);padding:8px 10px;border-radius:6px;font-size:0.82rem;margin-bottom:12px"><strong>Notes:</strong> ' + r.special_notes + '</div>' : ''),
