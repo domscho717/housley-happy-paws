@@ -6759,6 +6759,16 @@ async function loadClientAppts(filter, tabBtn) {
         html += paidBadge;
         if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
         html += '</div></div></div>';
+
+        // Pay Early button for accepted bookings that haven't been charged yet
+        // Also shows for payment_hold bookings so clients can retry with updated card
+        if (((b.status === 'accepted' && !isPaid && !b.payment_intent_id) || b.status === 'payment_hold') && b.estimated_total > 0) {
+          var payBtnLabel = b.status === 'payment_hold' ? '💳 Update Payment — $' : '💳 Pay Now — $';
+          var payBtnBg = b.status === 'payment_hold' ? 'linear-gradient(135deg,#c62828,#e53935)' : 'linear-gradient(135deg,var(--forest),#2d8a4e)';
+          html += '<div style="padding:4px 12px 10px 12px">';
+          html += '<button onclick="event.stopPropagation();payEarly(\'' + b.id + '\',' + Number(b.estimated_total) + ',\'' + (b.service || 'Pet Care').replace(/'/g, "\\'") + '\',this)" style="width:100%;padding:10px;border:none;border-radius:8px;background:' + payBtnBg + ';color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity 0.15s" onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">';
+          html += payBtnLabel + Number(b.estimated_total).toFixed(2) + '</button></div>';
+        }
       });
       html += '</div>';
     }
@@ -6771,6 +6781,76 @@ async function loadClientAppts(filter, tabBtn) {
   } catch (err) {
     console.error('Load client appts error:', err);
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
+  }
+}
+
+// ── Client: Pay Early (voluntary payment before 48hr window) ──
+async function payEarly(bookingId, amount, service, btn) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { if (typeof toast === 'function') toast('Please sign in first.'); return; }
+
+  // Confirm with client
+  if (!confirm('Pay $' + Number(amount).toFixed(2) + ' now for ' + service + '?')) return;
+
+  // Disable button and show loading
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Processing...'; }
+
+  try {
+    var resp = await fetch('/api/charge-saved-card', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bookingRequestId: bookingId,
+        amount: amount,
+        service: service,
+        clientProfileId: user.id,
+        forceCharge: true
+      })
+    });
+    var data = await resp.json();
+
+    if (data.success && data.status === 'succeeded') {
+      if (typeof toast === 'function') toast('✅ Payment of $' + Number(amount).toFixed(2) + ' successful!');
+      // If booking was on payment_hold, restore to accepted
+      try {
+        var { data: bk } = await sb.from('booking_requests').select('status, admin_notes').eq('id', bookingId).maybeSingle();
+        if (bk && bk.status === 'payment_hold') {
+          await sb.from('booking_requests').update({
+            status: 'accepted',
+            payment_intent_id: data.paymentIntentId,
+            admin_notes: (bk.admin_notes || '') + '\n✅ Client paid early — restored from payment hold'
+          }).eq('id', bookingId);
+        } else if (bk) {
+          await sb.from('booking_requests').update({ payment_intent_id: data.paymentIntentId }).eq('id', bookingId);
+        }
+      } catch(e) { console.warn('Failed to update booking status after pay early:', e); }
+      // Replace button with paid badge
+      if (btn && btn.parentElement) {
+        btn.parentElement.innerHTML = '<div style="text-align:center;padding:4px 0;color:#155724;font-weight:600;font-size:0.84rem">✅ Paid — $' + Number(amount).toFixed(2) + '</div>';
+      }
+      // Also update the unpaid badge on the card if visible
+      try {
+        var card = btn ? btn.closest('[onclick*="showBookingDetail"]') || btn.parentElement.previousElementSibling : null;
+        if (card) {
+          var unpaidBadge = card.querySelector('span[style*="fde8e8"]');
+          if (unpaidBadge) { unpaidBadge.style.background = '#d4edda'; unpaidBadge.style.color = '#155724'; unpaidBadge.textContent = 'Paid'; }
+          // Also update status badge if was payment_hold
+          var statusBadge = card.querySelector('span[style*="fde8e8"][style*="font-size:0.72rem"]');
+          if (statusBadge && statusBadge.textContent === 'Payment Needed') { statusBadge.style.background = '#d4edda'; statusBadge.textContent = 'Confirmed'; }
+        }
+      } catch(e) {}
+    } else if (data.error === 'no_card') {
+      if (typeof toast === 'function') toast('⚠️ No saved card found. Please add a payment method.');
+      if (btn) { btn.disabled = false; btn.innerHTML = '💳 Pay Now — $' + Number(amount).toFixed(2); }
+    } else {
+      if (typeof toast === 'function') toast('⚠️ ' + (data.message || data.error || 'Payment failed. Please try again.'));
+      if (btn) { btn.disabled = false; btn.innerHTML = '💳 Pay Now — $' + Number(amount).toFixed(2); }
+    }
+  } catch (err) {
+    console.error('Pay early error:', err);
+    if (typeof toast === 'function') toast('⚠️ Payment failed. Please try again.');
+    if (btn) { btn.disabled = false; btn.innerHTML = '💳 Pay Now — $' + Number(amount).toFixed(2); }
   }
 }
 

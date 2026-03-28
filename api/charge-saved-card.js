@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   );
 
   try {
-    const { bookingRequestId, amount, service, clientProfileId } = req.body;
+    const { bookingRequestId, amount, service, clientProfileId, forceCharge } = req.body;
     if (!amount || !clientProfileId) {
       return res.status(400).json({ error: 'amount and clientProfileId are required' });
     }
@@ -59,7 +59,10 @@ module.exports = async function handler(req, res) {
 
     // Determine if service is within 48 hours
     let isWithin48 = true; // default: charge immediately
-    if (bookingRequestId) {
+    if (forceCharge) {
+      console.log('[charge] forceCharge=true — skipping 48hr check, charging immediately');
+      isWithin48 = true;
+    } else if (bookingRequestId) {
       const { data: booking } = await supabase
         .from('booking_requests')
         .select('preferred_date, scheduled_date, recurrence_pattern')
@@ -72,7 +75,7 @@ module.exports = async function handler(req, res) {
           const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
           const serviceDate = new Date(svcDateStr + 'T12:00:00');
           const hoursUntilService = (serviceDate - estNow) / (1000 * 60 * 60);
-          isWithin48 = hoursUntilService <= 48 && !booking.recurrence_pattern;
+          isWithin48 = hoursUntilService <= 48;
         }
       }
     }
