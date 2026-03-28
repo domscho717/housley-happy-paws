@@ -1047,7 +1047,7 @@
 
   _R._rwOwnerAlerts=async function(sz){
     var sb=_getSB();if(!sb){
-      return '<div id="hhpAlertsCard"><div style="font-size:0.75rem;color:var(--mid)">Loading...</div></div>';
+      return '<div style="font-size:0.75rem;color:var(--mid)">Loading...</div>';
     }
     // Helper: safely get body preview
     function _bodyPreview(b,max){var s=b||'';return s.substring(0,max||80)+(s.length>(max||80)?'...':'');}
@@ -1061,20 +1061,20 @@
       ]);
       var alerts=alertsRes.data,messages=messagesRes.data;
       if(sz==='full'){
-        var h='<div id="hhpAlertsCard">';
+        var h='<div>';
         if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(a.sender_name,'Alert')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+_bodyPreview(a.body)+'</div></div>';});}
         if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-top:10px;margin-bottom:6px">💬 Messages</div>';messages.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(m.sender_name,'Message')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+_bodyPreview(m.body)+'</div></div>';});}
         if((!alerts||!alerts.length)&&(!messages||!messages.length)){h+='<div style="padding:16px 0;text-align:center;color:var(--mid);font-size:0.82rem">No alerts or messages</div>';}
         return h+'</div>';
       }
       // Small: last 2 alerts + last 2 messages — show body preview, not just name
-      var h='<div id="hhpAlertsCard">';
+      var h='<div>';
       if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-bottom:4px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:4px 0;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(a.sender_name,'Alert')+'</span><span style="color:var(--mid);font-size:0.68rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_bodyPreview(a.body,50)+'</div></div>';});}
       if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-top:6px;margin-bottom:4px;color:var(--forest)">💬 Messages</div>';messages.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:4px 0;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(m.sender_name,'Message')+'</span><span style="color:var(--mid);font-size:0.68rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_bodyPreview(m.body,50)+'</div></div>';});}
       if((!alerts||!alerts.length)&&(!messages||!messages.length)){h+='<div style="color:var(--mid);font-size:0.75rem">All clear</div>';}
       return h+'</div>';
     }catch(e){
-      return '<div id="hhpAlertsCard"><div style="font-size:0.75rem;color:var(--mid)">Error loading</div></div>';
+      return '<div style="font-size:0.75rem;color:var(--mid)">Error loading</div>';
     }
   };
 
@@ -1409,11 +1409,11 @@
   // Re-fire the existing data-loading functions so they populate.
   function _retrigger(portal){
     console.log('Customizer: retriggering data loaders for', portal);
+    // Only retrigger loadDashboardStats — it fills stat IDs that the customizer banner creates.
+    // Do NOT call loadAlertMessages / HHP_BookingAdmin / loadOwnerTodaySchedule — the customizer
+    // has its own widget renderers for those and the legacy loaders would overwrite them.
     if(portal==='owner'){
       if(typeof window.loadDashboardStats==='function') try{window.loadDashboardStats();}catch(e){console.warn('retrigger loadDashboardStats:',e);}
-      if(typeof window.loadOwnerTodaySchedule==='function') try{window.loadOwnerTodaySchedule();}catch(e){console.warn('retrigger loadOwnerTodaySchedule:',e);}
-      if(window.HHP_BookingAdmin&&typeof window.HHP_BookingAdmin.init==='function') try{window.HHP_BookingAdmin.init();}catch(e){console.warn('retrigger BookingAdmin:',e);}
-      if(window.HHP_Messaging&&typeof window.HHP_Messaging.loadAlertMessages==='function') try{window.HHP_Messaging.loadAlertMessages();}catch(e){console.warn('retrigger alerts:',e);}
     }else if(portal==='client'){
       if(typeof window.loadDashboardStats==='function') try{window.loadDashboardStats();}catch(e){console.warn('retrigger client stats:',e);}
     }else if(portal==='staff'){

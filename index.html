@@ -1504,20 +1504,21 @@ try {
       <!-- DASH -->
       <div class="p-panel active" id="c-dash">
         <div class="p-header"><h2 id="clientDashGreeting">Welcome to your Client Portal 🐾</h2><p id="clientDashSubGreeting">Your appointments, photos, and walk reports will appear here once you're booked.</p></div>
-        <div class="stats-row">
-          <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num" id="stat-totalVisits">—</div><div class="stat-lbl">Total Visits</div></div>
-          <div class="stat-box"><div class="stat-icon">🦮</div><div class="stat-num" id="stat-walksDone">—</div><div class="stat-lbl">Walks Done</div></div>
-          <div class="stat-box"><div class="stat-icon">📋</div><div class="stat-num" id="stat-avgRatingGiven">—</div><div class="stat-lbl">Reports Received</div></div>
-          <div class="stat-box"><div class="stat-icon">🐾</div><div class="stat-num" id="stat-petsInCare">—</div><div class="stat-lbl">Pets in Care</div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-          <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span class="card-title">Upcoming</span><button class="btn btn-outline btn-sm" onclick="sTab('c','c-appts')">See all</button></div>
-            <div id="clientDashUpcoming" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
+        <!-- Static fallback — hidden by default; customizer replaces with widget grid -->
+        <div style="display:none" data-static-fallback>
+          <div class="stats-row">
+            <div class="stat-box"><div class="stat-icon">📅</div><div class="stat-num" id="stat-totalVisitsStatic">—</div><div class="stat-lbl">Total Visits</div></div>
+            <div class="stat-box"><div class="stat-icon">🦮</div><div class="stat-num" id="stat-walksDoneStatic">—</div><div class="stat-lbl">Walks Done</div></div>
+            <div class="stat-box"><div class="stat-icon">📋</div><div class="stat-num" id="stat-avgRatingGivenStatic">—</div><div class="stat-lbl">Reports Received</div></div>
+            <div class="stat-box"><div class="stat-icon">🐾</div><div class="stat-num" id="stat-petsInCareStatic">—</div><div class="stat-lbl">Pets in Care</div></div>
           </div>
-          <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><span class="card-title">Recent Notifications</span></div>
-            <div id="clientDashNotifications" style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+            <div class="card">
+              <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
+            </div>
+            <div class="card">
+              <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
+            </div>
           </div>
         </div>
       </div>
@@ -1970,52 +1971,28 @@ try {
     <div class="portal-main">
 
       <div class="p-panel active" id="o-overview">
-        <div class="owner-banner">
+        <!-- Static fallback — hidden by default; customizer replaces with widget grid -->
+        <div class="owner-banner" style="display:none" data-static-fallback>
           <div class="ob-top"><div><div class="ob-h" id="ownerDashGreeting">Welcome, Rachel 🐾</div><div class="ob-p">Your business is growing beautifully. Here's today at a glance.</div></div><button class="btn btn-gold btn-sm" onclick="openModal('announceModal')">📢 Post Announcement</button></div>
           <div class="ob-stats"><div><div class="ob-sn" id="stat-activeClients">—</div><div class="ob-sl">Active Clients</div></div><div><div class="ob-sn" id="stat-newSignups">—</div><div class="ob-sl">New Sign‑ups</div></div><div><div class="ob-sn" id="stat-bookingsThisMonth">—</div><div class="ob-sl">This Month</div></div><div><div class="ob-sn" id="stat-avgRating">— 📋</div><div class="ob-sl">Reports Sent</div></div><div><div class="ob-sn" id="stat-todayJobs">—</div><div class="ob-sl">Today's Jobs</div></div></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
-          <!-- ALERTS / NEW MESSAGES (populated by HHP_Messaging.loadAlertMessages) -->
-          <div class="card" id="hhpAlertsCard">
-            <div class="card-title" style="margin-bottom:14px">🔔 Alerts & Messages</div>
-            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
-          </div>
-          <!-- QUICK STATS -->
-          <div class="card"><div class="card-title" style="margin-bottom:14px">📊 This Week at a Glance</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-              <div style="background:var(--gold-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-jobsThisWeek">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Jobs This Week</div></div>
-              <div style="background:var(--forest-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-weekRevenue">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Revenue</div></div>
-              <div style="background:var(--rose-pale);border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-newInquiries">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">New Inquiries</div></div>
-              <div style="background:#e0f2fe;border-radius:8px;padding:14px;text-align:center"><div style="font-family:'Cormorant Garamond',serif;font-size:1.8rem;font-weight:700" id="stat-weekRating">—</div><div style="font-size:0.72rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Week Rating</div></div>
+        <div style="display:none" data-static-fallback>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+            <div class="card" id="hhpAlertsCardStatic">
+              <div class="card-title" style="margin-bottom:14px">🔔 Alerts & Messages</div>
+              <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
             </div>
-            <div style="background:var(--gold-pale);border-radius:8px;padding:12px 14px;font-size:0.83rem;font-weight:600;color:var(--gold-deep)">🔔 Auto-notifications active — clients get start & end alerts for every appointment.</div>
-          </div>
-        </div>
-
-        <!-- BOOKING REQUESTS (populated by HHP_BookingAdmin) -->
-        <div class="card" id="hhpAdminDashboard" style="margin-bottom:18px">
-          <div class="card-title" style="margin-bottom:14px">📋 Booking Requests</div>
-          <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading requests...</div>
-        </div>
-
-        <!-- TODAY'S SCHEDULE -->
-        <div class="card" style="border:2px solid rgba(200,150,62,0.25)">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-            <div>
-              <div class="card-title" style="font-size:1.05rem;margin-bottom:3px">📅 Today's Schedule</div>
-              <div style="font-size:0.78rem;color:var(--mid)" id="todayDateLabel">Loading...</div>
-            </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-outline btn-sm" onclick="sTab('o','o-sched')">Full Schedule</button>
-              <button class="btn btn-gold btn-sm" onclick="toast('📢 Notification feature coming soon — clients currently receive auto-notifications for bookings.')">Notify All</button>
+            <div class="card"><div class="card-title" style="margin-bottom:14px">📊 This Week at a Glance</div>
+              <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading...</div>
             </div>
           </div>
-          <div id="ownerTodayScheduleList" style="display:flex;flex-direction:column;gap:8px">
-            <div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading today's schedule...</div>
+          <div class="card" id="hhpAdminDashboardStatic" style="margin-bottom:18px">
+            <div class="card-title" style="margin-bottom:14px">📋 Booking Requests</div>
+            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading requests...</div>
           </div>
-          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-            <div style="font-size:0.8rem;color:var(--mid);display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span>Auto-notifications ON — clients receive start & end alerts automatically</div>
-            <button class="btn btn-outline btn-sm" onclick="sTab('o','o-auto')" style="font-size:0.74rem;padding:5px 14px">Manage Notification Settings</button>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:14px">📅 Today's Schedule</div>
+            <div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">Loading today's schedule...</div>
           </div>
         </div>
       </div>
@@ -4096,22 +4073,26 @@ function sTab(portal, panelId) {
   if (panelId === 'o-requests' && typeof loadBookingRequestsPanel === 'function') loadBookingRequestsPanel('owner');
   if (panelId === 's-requests' && typeof loadBookingRequestsPanel === 'function') loadBookingRequestsPanel('staff');
   // Load dashboard stats when switching to dashboard/overview panels
-  if ((panelId === 'c-dash' || panelId === 's-sched' || panelId === 'o-overview') && typeof loadDashboardStats === 'function') loadDashboardStats();
-  // Reload alerts & booking requests when returning to overview
+  // When customizer is active, use refreshAll() instead of legacy loaders to avoid conflicts
   if (panelId === 'o-overview') {
-    if (window.HHP_Messaging && typeof window.HHP_Messaging.loadAlertMessages === 'function') window.HHP_Messaging.loadAlertMessages();
-    if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') {
-      window.HHP_BookingAdmin.init();
+    if (window.HHP_Customizer && window.HHP_Customizer._initialized) {
+      // Customizer owns the DOM — refresh widgets + stats only
+      if (window.HHP_Customizer.refreshAll) window.HHP_Customizer.refreshAll();
+      if (typeof loadDashboardStats === 'function') loadDashboardStats();
     } else {
-      // booking-system.js may not have loaded yet — retry
-      setTimeout(function() {
-        if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
-      }, 1500);
-      setTimeout(function() {
-        if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
-      }, 4000);
+      // Customizer not ready — use legacy loaders as fallback
+      if (typeof loadDashboardStats === 'function') loadDashboardStats();
+      if (window.HHP_Messaging && typeof window.HHP_Messaging.loadAlertMessages === 'function') window.HHP_Messaging.loadAlertMessages();
+      if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
+      if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
     }
-    if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+  } else if ((panelId === 'c-dash' || panelId === 's-sched') && typeof loadDashboardStats === 'function') {
+    if (window.HHP_Customizer && window.HHP_Customizer._initialized) {
+      window.HHP_Customizer.refreshAll();
+      loadDashboardStats();
+    } else {
+      loadDashboardStats();
+    }
   }
   if (panelId === 'o-sched' && typeof loadMasterSchedule === 'function') loadMasterSchedule();
   // update sidebar active state by matching onclick attribute
