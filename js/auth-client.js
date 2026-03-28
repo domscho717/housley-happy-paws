@@ -279,11 +279,14 @@ const HHP_Auth = window.HHP_Auth = {
         try { if (window.HHP_Messaging && window.HHP_Messaging.cleanup) window.HHP_Messaging.cleanup(); } catch(e) { console.warn('Messaging cleanup:', e); }
         try { if (window.HHP_Notif && window.HHP_Notif.cleanup) window.HHP_Notif.cleanup(); } catch(e) { console.warn('Notif cleanup:', e); }
         try { if (window.HHP_ServiceTimer) window.HHP_ServiceTimer.stopTimer(); } catch(e) {}
+        // Reset customizer so next login does a full init (not stale refreshAll)
+        try { if (window.HHP_Customizer) window.HHP_Customizer._forceReinit = true; } catch(e) {}
         await this.supabase.auth.signOut();
         this.currentUser = null;
         this.currentRole = null;
         this.session = null;
         this._handledSessionId = null;
+        this._initialLoad = false; // Keep false — _forceReinit handles customizer reset
         try { sessionStorage.removeItem('hhp_cached_role'); sessionStorage.removeItem('hhp_cached_profile'); sessionStorage.removeItem('hhp_cached_stats'); sessionStorage.removeItem('hhp_avatar_url'); sessionStorage.removeItem('hhp_last_view'); sessionStorage.removeItem('hhp_last_panel'); sessionStorage.removeItem('hhp_last_portal'); } catch(e) {}
         if (typeof switchView === 'function') switchView('public');
         this.showLoginScreen();

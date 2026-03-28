@@ -3723,7 +3723,11 @@ function switchView(view) {
 
   // Refresh customizer widgets when switching portals (use refreshAll to avoid skeleton flash)
   if (typeof HHP_Customizer !== 'undefined' && view !== 'public') {
-    if (HHP_Customizer._initialized && HHP_Customizer.refreshAll) {
+    if (HHP_Customizer._forceReinit) {
+      // After sign-out/sign-in: full reinit with new user context
+      HHP_Customizer._forceReinit = false;
+      setTimeout(function() { HHP_Customizer.init(); }, 150);
+    } else if (HHP_Customizer._initialized && HHP_Customizer.refreshAll) {
       setTimeout(function() { HHP_Customizer.refreshAll(); }, 100);
     } else {
       setTimeout(function() { HHP_Customizer.init(); }, 100);
