@@ -2885,7 +2885,7 @@
           var _dateLabel = schedPreviewDates.length === 1
             ? new Date(schedPreviewDates[0] + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
             : schedPreviewDates.length + ' dates';
-          schedPreviewHTML = '<div class="sched-preview-bar" onclick="HHP_BookingAdmin.toggleSchedulePreview(this,\'' + r.id + '\',\'' + _datesAttr + '\')">' +
+          schedPreviewHTML = '<div class="sched-preview-bar" onclick="HHP_BookingAdmin.toggleSchedulePreview(\'' + r.id + '\',\'' + _datesAttr + '\',this)">' +
             '<span>\uD83D\uDCC5 View your schedule for ' + _dateLabel + '</span>' +
             '<span class="sched-preview-arrow">\u25B8</span>' +
             '</div>' +
@@ -2926,34 +2926,18 @@
     },
 
     // ── Schedule Preview: toggle + async load ──
-    // Can be called as toggleSchedulePreview(contentEl, bookingId, datesStr, triggerBtn)
-    // or toggleSchedulePreview(barEl, bookingId, datesStr) for the old bar-style
-    toggleSchedulePreview: async function(contentOrBar, bookingId, datesStr, triggerBtn) {
-      var content;
-      var arrow;
-      var btn = triggerBtn || null;
-
-      if (contentOrBar && contentOrBar.classList && contentOrBar.classList.contains('sched-preview-content')) {
-        // Called from the peek button — first arg is the content div directly
-        content = contentOrBar;
-      } else if (contentOrBar && contentOrBar.classList && contentOrBar.classList.contains('sched-preview-bar')) {
-        // Called from the old bar-style
-        content = document.getElementById('sched-preview-' + bookingId);
-        arrow = contentOrBar.querySelector('.sched-preview-arrow');
-      } else {
-        content = document.getElementById('sched-preview-' + bookingId);
-      }
-      if (!content) return;
+    // Called as toggleSchedulePreview(bookingId, datesStr, triggerBtn)
+    toggleSchedulePreview: async function(bookingId, datesStr, btn) {
+      var content = document.getElementById('sched-preview-' + bookingId);
+      if (!content) { console.warn('Schedule preview container not found for', bookingId); return; }
 
       // Toggle collapse/expand
       if (content.style.display !== 'none') {
         content.style.display = 'none';
-        if (arrow) { arrow.textContent = '\u25B8'; contentOrBar.style.borderRadius = '8px'; }
         if (btn) btn.classList.remove('active');
         return;
       }
       content.style.display = 'block';
-      if (arrow) { arrow.textContent = '\u25BE'; contentOrBar.style.borderRadius = '8px 8px 0 0'; }
       if (btn) btn.classList.add('active');
 
       // Only fetch once per card
@@ -3025,7 +3009,7 @@
         content.dataset.loaded = '1';
       } catch(err) {
         console.error('Schedule preview error:', err);
-        content.innerHTML = '<div style="padding:8px;font-size:0.82rem;color:#c00">Failed to load schedule</div>';
+        content.innerHTML = '<div style="padding:8px;font-size:0.82rem;color:#c00">Failed to load schedule: ' + (err.message || err) + '</div>';
       }
     },
 
@@ -3675,17 +3659,15 @@
       var schedBtnHTML = '';
       if (spDates.length > 0 && (r.status === 'pending' || r.status === 'modified')) {
         var _spDatesAttr = spDates.join(',');
-        schedBtnHTML = '<button class="sched-peek-btn" onclick="event.stopPropagation();HHP_BookingAdmin.toggleSchedulePreview(this.closest(\'.card\').querySelector(\'.sched-preview-content\'),\'' + r.id + '\',\'' + _spDatesAttr + '\',this)" title="Check your schedule for this date">\uD83D\uDCC5</button>';
+        schedBtnHTML = '<button class="sched-peek-btn" onclick="event.stopPropagation();HHP_BookingAdmin.toggleSchedulePreview(\'' + r.id + '\',\'' + _spDatesAttr + '\',this)" title="Check your schedule for this date">\uD83D\uDCC5</button>';
       }
 
       return [
         '<div class="card" data-request-id="' + r.id + '" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + ';position:relative">',
-        '  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">',
+        (schedBtnHTML ? '<div style="position:absolute;top:12px;right:12px;z-index:2">' + schedBtnHTML + '</div>' : ''),
+        '  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;padding-right:' + (schedBtnHTML ? '44px' : '0') + '">',
         '    <div><strong style="font-size:1rem">' + (r.service || 'Service') + '</strong><div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</div></div>',
-        '    <div style="display:flex;align-items:center;gap:6px">',
-        schedBtnHTML,
-        '      <span class="badge" style="background:' + (r.status === 'pending' ? 'var(--gold-light)' : r.status === 'accepted' ? 'var(--forest-light)' : r.status === 'completed' ? '#d4edda' : 'var(--rose-light)') + ';color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">' + r.status + '</span>',
-        '    </div>',
+        '    <span class="badge" style="background:' + (r.status === 'pending' ? 'var(--gold-light)' : r.status === 'accepted' ? 'var(--forest-light)' : r.status === 'completed' ? '#d4edda' : 'var(--rose-light)') + ';color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">' + r.status + '</span>',
         '  </div>',
         '  <div class="sched-preview-content" id="sched-preview-' + r.id + '" style="display:none;margin-bottom:12px"></div>',
         '  <div style="display:flex;gap:12px;align-items:start;margin-bottom:12px">',
