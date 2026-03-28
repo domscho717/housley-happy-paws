@@ -1846,6 +1846,39 @@
       '.arc-btn.modify { background: #fff; color: var(--gold, #C8963E); border-color: var(--gold, #C8963E); }',
       '.arc-btn.modify:hover { background: var(--gold-pale, #FDF7EE); }',
       '',
+      '/* ── Schedule Preview on Booking Cards ── */',
+      '.sched-preview-bar {',
+      '  display: flex; align-items: center; justify-content: space-between;',
+      '  padding: 8px 12px; margin-top: 10px;',
+      '  background: #f0f4ff; border: 1px solid #c8d6f0; border-radius: 8px;',
+      '  cursor: pointer; font-size: 0.82rem; color: #3b5998; font-weight: 600;',
+      '  transition: background 0.2s;',
+      '}',
+      '.sched-preview-bar:hover { background: #e3ebff; }',
+      '.sched-preview-arrow { font-size: 0.9rem; transition: transform 0.2s; }',
+      '.sched-preview-content {',
+      '  background: #f8faff; border: 1px solid #d8e2f4; border-top: none;',
+      '  border-radius: 0 0 8px 8px; padding: 10px 12px; margin-top: -1px;',
+      '}',
+      '.sched-preview-day-label {',
+      '  font-weight: 600; font-size: 0.78rem; color: #6b5c4d;',
+      '  margin: 6px 0 2px; padding-bottom: 2px; border-bottom: 1px solid #e8e0d8;',
+      '}',
+      '.sched-preview-item {',
+      '  display: flex; align-items: center; gap: 8px;',
+      '  padding: 5px 8px; margin: 3px 0; background: #fff;',
+      '  border: 1px solid #e8e0d8; border-radius: 6px; font-size: 0.8rem;',
+      '}',
+      '.sched-preview-time {',
+      '  font-weight: 700; color: var(--ink, #1e1409); white-space: nowrap; min-width: 70px;',
+      '}',
+      '.sched-preview-service { color: #3D5A47; font-weight: 600; }',
+      '.sched-preview-client { color: #888; margin-left: auto; font-size: 0.75rem; }',
+      '.sched-preview-clear {',
+      '  padding: 8px 10px; font-size: 0.82rem; color: #4caf50;',
+      '  background: #f0faf0; border-radius: 6px; text-align: center;',
+      '}',
+      '',
       '.admin-filter-bar {',
       '  display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;',
       '}',
@@ -2820,6 +2853,38 @@
           clientAvaHTML = '<div style="width:36px;height:36px;border-radius:50%;background:var(--gold-light,#f5e6c8);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--ink,#1e1409);flex-shrink:0;border:2px solid #e0d5c5">' + initials + '</div>';
         }
 
+        // ── Schedule Preview: collect dates for this booking ──
+        var schedPreviewDates = [];
+        if (r.date_details && Array.isArray(r.date_details) && r.date_details.length > 0) {
+          schedPreviewDates = r.date_details.map(function(dc) { return dc.date; });
+        } else if (r.booking_dates && Array.isArray(r.booking_dates) && r.booking_dates.length > 1) {
+          schedPreviewDates = r.booking_dates.slice();
+        } else if (r.preferred_date) {
+          if (isHS && r.preferred_end_date) {
+            // House sitting: generate all dates in the range
+            var _cur = new Date(r.preferred_date + 'T12:00:00');
+            var _end = new Date(r.preferred_end_date + 'T12:00:00');
+            while (_cur <= _end) {
+              schedPreviewDates.push(typeof _localDateStr === 'function' ? _localDateStr(_cur) : _cur.toISOString().split('T')[0]);
+              _cur.setDate(_cur.getDate() + 1);
+            }
+          } else {
+            schedPreviewDates = [r.preferred_date];
+          }
+        }
+        var schedPreviewHTML = '';
+        if (schedPreviewDates.length > 0 && (r.status === 'pending' || r.status === 'modified')) {
+          var _datesAttr = schedPreviewDates.join(',');
+          var _dateLabel = schedPreviewDates.length === 1
+            ? new Date(schedPreviewDates[0] + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            : schedPreviewDates.length + ' dates';
+          schedPreviewHTML = '<div class="sched-preview-bar" onclick="HHP_BookingAdmin.toggleSchedulePreview(this,\'' + r.id + '\',\'' + _datesAttr + '\')">' +
+            '<span>\uD83D\uDCC5 View your schedule for ' + _dateLabel + '</span>' +
+            '<span class="sched-preview-arrow">\u25B8</span>' +
+            '</div>' +
+            '<div class="sched-preview-content" id="sched-preview-' + r.id + '" style="display:none"></div>';
+        }
+
         return [
           '<div class="admin-request-card" id="arc-' + r.id + '">',
           '  <div class="arc-header">',
@@ -2839,6 +2904,7 @@
           '  <div class="arc-detail" style="font-size:12px;color:#aaa;">Requested: ' + createdStr + '</div>',
           '  <div id="arc-modify-' + r.id + '"></div>',
           actionsHTML,
+          schedPreviewHTML,
           '</div>',
         ].join('');
       }).join('');
@@ -2850,6 +2916,96 @@
       document.querySelectorAll('.admin-filter-btn').forEach(function(b) { b.classList.remove('active'); });
       if (btn) btn.classList.add('active');
       this.loadRequests();
+    },
+
+    // ── Schedule Preview: toggle + async load ──
+    toggleSchedulePreview: async function(bar, bookingId, datesStr) {
+      var content = document.getElementById('sched-preview-' + bookingId);
+      if (!content) return;
+      var arrow = bar.querySelector('.sched-preview-arrow');
+
+      // Toggle collapse/expand
+      if (content.style.display !== 'none') {
+        content.style.display = 'none';
+        if (arrow) arrow.textContent = '\u25B8';
+        bar.style.borderRadius = '8px';
+        return;
+      }
+      content.style.display = 'block';
+      if (arrow) arrow.textContent = '\u25BE';
+      bar.style.borderRadius = '8px 8px 0 0';
+
+      // Only fetch once per card
+      if (content.dataset.loaded) return;
+      content.innerHTML = '<div style="padding:8px;font-size:0.82rem;color:#888">Loading schedule\u2026</div>';
+
+      try {
+        var sb = getSB();
+        if (!sb) throw new Error('Database not ready');
+        var dates = datesStr.split(',');
+        var user = window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser : null;
+        var role = user && user.profile ? (user.profile.role || 'owner') : 'owner';
+        var userId = user ? user.id : null;
+
+        // Fetch accepted/confirmed/in_progress bookings for these dates
+        var query = sb.from('booking_requests')
+          .select('id,service,preferred_date,preferred_time,preferred_end_date,contact_name,pet_names,status,assigned_staff')
+          .in('preferred_date', dates)
+          .in('status', ['accepted', 'confirmed', 'in_progress'])
+          .order('preferred_time', { ascending: true });
+
+        // Staff only sees their own schedule
+        if (role === 'staff' && userId) {
+          query = query.eq('assigned_staff', userId);
+        }
+
+        var result = await query;
+        var data = result.data;
+        var error = result.error;
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          content.innerHTML = '<div class="sched-preview-clear">\u2705 No existing bookings \u2014 schedule is clear!</div>';
+        } else {
+          // Group by date
+          var byDate = {};
+          dates.forEach(function(d) { byDate[d] = []; });
+          data.forEach(function(b) {
+            if (byDate[b.preferred_date]) byDate[b.preferred_date].push(b);
+            else byDate[b.preferred_date] = [b];
+          });
+
+          var html = '';
+          dates.forEach(function(d) {
+            var dayBookings = byDate[d] || [];
+            if (dates.length > 1) {
+              var dayLabel = new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+              html += '<div class="sched-preview-day-label">' + dayLabel + '</div>';
+            }
+            if (dayBookings.length === 0) {
+              html += '<div style="font-size:0.8rem;color:#4caf50;padding:2px 0">\u2705 Clear</div>';
+            } else {
+              dayBookings.forEach(function(b) {
+                var timeStr = typeof fmt12 === 'function' ? fmt12(b.preferred_time || '') : (b.preferred_time || 'TBD');
+                html += '<div class="sched-preview-item">' +
+                  '<span class="sched-preview-time">' + timeStr + '</span>' +
+                  '<span class="sched-preview-service">' + (b.service || 'Service') + '</span>' +
+                  '<span class="sched-preview-client">' + (b.contact_name || '') + '</span>' +
+                  '</div>';
+              });
+            }
+          });
+
+          // Summary line
+          var totalCount = data.length;
+          html = '<div style="font-size:0.75rem;color:#888;margin-bottom:4px">' + totalCount + ' existing booking' + (totalCount !== 1 ? 's' : '') + '</div>' + html;
+          content.innerHTML = html;
+        }
+        content.dataset.loaded = '1';
+      } catch(err) {
+        console.error('Schedule preview error:', err);
+        content.innerHTML = '<div style="padding:8px;font-size:0.82rem;color:#c00">Failed to load schedule</div>';
+      }
     },
 
     showModify(requestId) {
