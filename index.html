@@ -13450,6 +13450,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
       }
 
+      // Also fetch house sitting bookings that span today (start <= today <= end)
+      var { data: hsBookings } = await sb.from('booking_requests').select('*')
+        .not('preferred_end_date', 'is', null)
+        .lte('preferred_date', todayStr)
+        .gte('preferred_end_date', todayStr)
+        .in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']);
+      if (hsBookings) {
+        hsBookings.forEach(function(hb) {
+          if ((hb.service || '').toLowerCase().indexOf('house sitting') !== -1) {
+            var alreadyIn = bookings.some(function(b) { return b.id === hb.id; });
+            if (!alreadyIn) bookings.push(hb);
+          }
+        });
+      }
+
       if (bookings.length === 0) {
         listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments scheduled today.</div>';
         return;
@@ -13470,19 +13485,57 @@ document.addEventListener('DOMContentLoaded', function() {
       var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
       function getIcon(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
 
+      // Sort: house sitting bookings first (banner at top), then by time
+      bookings.sort(function(a, b) {
+        var aIsHS = (a.service || '').toLowerCase().indexOf('house sitting') !== -1 && a.preferred_end_date;
+        var bIsHS = (b.service || '').toLowerCase().indexOf('house sitting') !== -1 && b.preferred_end_date;
+        if (aIsHS && !bIsHS) return -1;
+        if (!aIsHS && bIsHS) return 1;
+        var aTime = a.scheduled_time || a.preferred_time || '99:99';
+        var bTime = b.scheduled_time || b.preferred_time || '99:99';
+        return aTime.localeCompare(bTime);
+      });
+
       var h = '';
       bookings.forEach(function(b) {
         var icon = getIcon(b.service);
+        var bIsHS = (b.service || '').toLowerCase().indexOf('house sitting') !== -1 && b.preferred_end_date;
         var timeStr = b.scheduled_time || b.preferred_time || 'No time set';
         // Format time nicely (e.g. "14:00" → "2:00 PM")
-        if (timeStr && timeStr.indexOf(':') !== -1) {
-          var parts = timeStr.split(':');
+        function _fmt12(t) {
+          if (!t || t.indexOf(':') === -1) return t || 'TBD';
+          var parts = t.split(':');
           var hr = parseInt(parts[0]), mn = parts[1];
           var ampm = hr >= 12 ? 'PM' : 'AM';
           hr = hr > 12 ? hr - 12 : (hr === 0 ? 12 : hr);
-          timeStr = hr + ':' + mn + ' ' + ampm;
+          return hr + ':' + mn + ' ' + ampm;
         }
+        timeStr = _fmt12(timeStr);
         var clientName = b.contact_name || 'Client';
+
+        // House sitting banner — displayed differently from regular bookings
+        if (bIsHS) {
+          var hsStart = new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          var hsEnd = new Date(b.preferred_end_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          var hsNights = Math.round((new Date(b.preferred_end_date + 'T12:00:00') - new Date(b.preferred_date + 'T12:00:00')) / (1000*60*60*24));
+          var isStartDay = todayStr === b.preferred_date;
+          var isEndDay = todayStr === b.preferred_end_date;
+          var dayTag = isStartDay ? 'Arrival' + (b.preferred_time ? ' ' + _fmt12(b.preferred_time) : '') :
+                       isEndDay ? 'Departure' + (b.preferred_end_time ? ' ' + _fmt12(b.preferred_end_time) : '') : 'Ongoing';
+          h += '<div onclick="showBookingDetail(\'' + b.id + '\',\'owner\',\'booking_requests\')" style="cursor:pointer;padding:12px 14px;background:linear-gradient(135deg,#e8f0fe,#f0e6ff);border:1.5px solid #b3c6e7;border-radius:10px;margin-bottom:2px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 12px rgba(0,0,0,0.08)\'" onmouseout="this.style.boxShadow=\'none\'">';
+          h += '<div style="display:flex;justify-content:space-between;align-items:center">';
+          h += '<div style="display:flex;align-items:center;gap:10px">';
+          h += '<div style="font-size:1.3rem">🏠</div>';
+          h += '<div><div style="font-weight:600;font-size:0.88rem">' + (b.service || 'House Sitting') + '</div>';
+          h += '<div style="font-size:0.78rem;color:#555">' + hsStart + ' → ' + hsEnd + ' (' + hsNights + ' night' + (hsNights !== 1 ? 's' : '') + ') · ' + clientName + '</div>';
+          if (b.pet_names) h += '<div style="font-size:0.72rem;color:#666">🐾 ' + b.pet_names + '</div>';
+          h += '</div></div>';
+          h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
+          h += '<span style="background:#5c6bc0;color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px">' + dayTag + '</span>';
+          h += '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Tap for details →</div>';
+          h += '</div></div></div>';
+          return; // skip normal rendering
+        }
 
         // Build walk button for dog walking services
         var walkBtnHtml = '';
@@ -13594,14 +13647,50 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           });
         });
-        // Re-sort after adding multi-date entries
-        bookings.sort(function(a, b) {
-          var dA = a._displayDate || a.scheduled_date || '';
-          var dB = b._displayDate || b.scheduled_date || '';
-          if (dA !== dB) return dA < dB ? -1 : 1;
-          return (a.scheduled_time || '') < (b.scheduled_time || '') ? -1 : 1;
+      }
+
+      // Also include house sitting bookings that span into this month
+      var { data: hsMonthData } = await sb.from('booking_requests').select('*')
+        .not('preferred_end_date', 'is', null)
+        .lte('preferred_date', endStr)
+        .gte('preferred_end_date', startStr)
+        .in('status', ['accepted', 'confirmed', 'payment_hold']);
+      if (hsMonthData) {
+        hsMonthData.forEach(function(hb) {
+          if ((hb.service || '').toLowerCase().indexOf('house sitting') === -1) return;
+          // Add an entry for each day the house sitting spans within this month
+          var cur = new Date(hb.preferred_date + 'T12:00:00');
+          var end = new Date(hb.preferred_end_date + 'T12:00:00');
+          while (cur <= end) {
+            var dStr = typeof _localDateStr === 'function' ? _localDateStr(cur) : cur.toISOString().split('T')[0];
+            if (dStr >= startStr && dStr <= endStr) {
+              var alreadyIn = bookings.some(function(b) { return b.id === hb.id && (b._displayDate || b.scheduled_date) === dStr; });
+              if (!alreadyIn) {
+                var copy = Object.assign({}, hb);
+                copy._displayDate = dStr;
+                copy._isHSDay = true;
+                copy._hsStartDay = dStr === hb.preferred_date;
+                copy._hsEndDay = dStr === hb.preferred_end_date;
+                bookings.push(copy);
+              }
+            }
+            cur.setDate(cur.getDate() + 1);
+          }
         });
       }
+
+      // Sort all entries by date, then house sitting first, then time
+      bookings.sort(function(a, b) {
+        var dA = a._displayDate || a.scheduled_date || '';
+        var dB = b._displayDate || b.scheduled_date || '';
+        if (dA !== dB) return dA < dB ? -1 : 1;
+        // House sitting entries sort to top of each day
+        var aIsHS = a._isHSDay || false;
+        var bIsHS = b._isHSDay || false;
+        if (aIsHS && !bIsHS) return -1;
+        if (!aIsHS && bIsHS) return 1;
+        return (a.scheduled_time || '') < (b.scheduled_time || '') ? -1 : 1;
+      });
 
       if (bookings.length === 0) {
         listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments this month.</div>';
@@ -13624,6 +13713,29 @@ document.addEventListener('DOMContentLoaded', function() {
           h += '<div style="margin-top:' + (lastDate ? '16px' : '0') + ';padding:6px 12px;background:' + (isToday ? 'var(--gold)' : 'var(--ink)') + ';color:white;border-radius:8px;font-size:0.78rem;font-weight:700">';
           h += dayLabel + (isToday ? ' — TODAY' : '') + '</div>';
           lastDate = bDate;
+        }
+
+        // House sitting banner rendering
+        if (b._isHSDay) {
+          var hsTag = b._hsStartDay ? 'Arrival' : b._hsEndDay ? 'Departure' : 'Ongoing';
+          function _f12ms(t) {
+            if (!t || t.indexOf(':') === -1) return '';
+            var pts = t.split(':'), h2 = parseInt(pts[0]), mn2 = pts[1];
+            var ap = h2 >= 12 ? 'PM' : 'AM'; h2 = h2 > 12 ? h2 - 12 : (h2 === 0 ? 12 : h2);
+            return h2 + ':' + mn2 + ' ' + ap;
+          }
+          if (b._hsStartDay && b.preferred_time) hsTag += ' ' + _f12ms(b.preferred_time);
+          if (b._hsEndDay && b.preferred_end_time) hsTag += ' ' + _f12ms(b.preferred_end_time);
+          h += '<div onclick="showBookingDetail(\'' + b.id + '\',\'owner\',\'booking_requests\')" style="cursor:pointer;padding:10px 14px;background:linear-gradient(135deg,#e8f0fe,#f0e6ff);border:1.5px solid #b3c6e7;border-radius:8px;display:flex;align-items:center;gap:10px">';
+          h += '<div style="font-size:1.2rem">🏠</div>';
+          h += '<div style="flex:1"><div style="font-weight:600;font-size:0.85rem">' + (b.service || 'House Sitting') + '</div>';
+          h += '<div style="font-size:0.76rem;color:#555">' + (b.contact_name || 'Client') + ' · ' + hsTag + '</div>';
+          if (b.pet_names) h += '<div style="font-size:0.72rem;color:#666">🐾 ' + b.pet_names + '</div>';
+          h += '</div>';
+          if (b.estimated_total) h += '<div style="font-weight:700;font-size:0.85rem;color:var(--forest)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
+          h += '<div style="font-size:0.72rem;color:var(--gold-deep);font-weight:600;white-space:nowrap">Details →</div>';
+          h += '</div>';
+          return;
         }
 
         var icon = getIconMS(b.service);
