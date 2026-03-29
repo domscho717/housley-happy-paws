@@ -293,14 +293,14 @@ module.exports = async function handler(req, res) {
       personal_note: reportNotes || '',
       pet_name: booking.pet_names || '',
       mood: reportRating ? ['😟 Poor', '😐 Fair', '🙂 Good', '😊 Great', '⭐ Excellent'][reportRating - 1] : null,
-      media: JSON.stringify({
+      media: {
         original_nights: originalNights,
         final_nights: finalNights,
         per_night_rate: perNightRate,
         original_total: booking.estimated_total,
         final_total: finalAmount,
         rating: reportRating || null,
-      }),
+      },
       arrival_time: booking.preferred_time || null,
       departure_time: booking.preferred_end_time || null,
     });
