@@ -25,8 +25,8 @@ module.exports = async function handler(req, res) {
   }
 
   // Validate status is one of the expected values
-  if (!['accepted', 'modified', 'declined', 'payment_hold', 'payment_decline_warning', 'payment_auto_canceled', 'canceled'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, canceled, payment_hold, payment_decline_warning, or payment_auto_canceled' });
+  if (!['accepted', 'modified', 'declined', 'payment_hold', 'payment_decline_warning', 'payment_auto_canceled', 'owner_payment_decline_alert', 'canceled'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, canceled, payment_hold, payment_decline_warning, payment_auto_canceled, or owner_payment_decline_alert' });
   }
 
   try {
@@ -272,12 +272,38 @@ module.exports = async function handler(req, res) {
 
       <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Questions? Reply to this email or call 717-715-7595.</p>
     `;
+
+  } else if (status === 'owner_payment_decline_alert') {
+    const safeClientName = escHtml(req.body?.clientName || 'A client');
+    const safeClientEmail = escHtml(req.body?.clientEmail || '');
+    const safeDeclineMsg = escHtml(req.body?.declineMessage || 'Card was declined.');
+    subject = `⚠️ Payment Declined — ${safeClientName}'s ${safeService} booking`;
+    bodyHTML = `
+      <p>Hi ${safeName},</p>
+      <p>A payment attempt <strong>failed</strong> for one of your client's upcoming bookings:</p>
+
+      <div style="background:#fff3e0;border:1.5px solid #e0a800;border-radius:10px;padding:14px 18px;margin:12px 0">
+        <div style="font-weight:700;margin-bottom:6px">Client: ${safeClientName}</div>
+        ${safeClientEmail ? `<div style="margin-bottom:4px">📧 ${safeClientEmail}</div>` : ''}
+        <div style="margin-bottom:4px">🐾 Service: ${safeService}</div>
+        ${dateFmt ? `<div style="margin-bottom:4px">📅 Date: ${dateFmt}</div>` : ''}
+        ${timeFmt ? `<div style="margin-bottom:4px">🕐 Time: ${timeFmt}</div>` : ''}
+        ${req.body?.estimatedTotal ? `<div style="margin-bottom:4px">💰 Amount: $${Number(req.body.estimatedTotal).toFixed(2)}</div>` : ''}
+        <div style="margin-top:8px;color:#c62828;font-weight:600">❌ Reason: ${safeDeclineMsg}</div>
+      </div>
+
+      <p>The system will retry once more tonight at 10 PM. If it still fails, the booking will be marked as <strong>unpaid</strong> and you may need to reach out to the client directly.</p>
+
+      <div style="margin-top:16px">
+        <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">View Dashboard →</a>
+      </div>
+    `;
   }
 
   const result = await sendEmail({
     to: email,
     subject,
-    title: isOwnerNotification ? (status === 'accepted' ? 'Time Change Accepted' : 'Booking Canceled') : status === 'accepted' ? 'Booking Confirmed!' : status === 'canceled' ? 'Booking Canceled' : status === 'payment_hold' ? 'Payment Issue' : status === 'payment_decline_warning' ? 'Payment Declined' : status === 'payment_auto_canceled' ? 'Booking Canceled' : status === 'modified' ? 'Booking Update' : 'Booking Update',
+    title: isOwnerNotification ? (status === 'accepted' ? 'Time Change Accepted' : 'Booking Canceled') : status === 'accepted' ? 'Booking Confirmed!' : status === 'canceled' ? 'Booking Canceled' : status === 'payment_hold' ? 'Payment Issue' : status === 'payment_decline_warning' ? 'Payment Declined' : status === 'payment_auto_canceled' ? 'Booking Canceled' : status === 'owner_payment_decline_alert' ? 'Payment Declined' : status === 'modified' ? 'Booking Update' : 'Booking Update',
     bodyHTML,
   });
 

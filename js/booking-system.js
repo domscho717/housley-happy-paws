@@ -738,7 +738,7 @@
       '        <strong style="color:#bf5d00">Cancellation Policy:</strong> Cancellations made within 48 hours of your scheduled appointment will be charged the full service fee. Cancellations made more than 48 hours in advance are fully refundable.',
       '      </div>',
       '      <div style="margin-top:8px;padding:10px 12px;background:#f0f7f0;border:1px solid #c5dcc5;border-radius:8px;font-size:0.76rem;color:#3d5c3d;line-height:1.5">',
-      '        <strong style="color:#2e7d32">💳 Payment Info:</strong> Once your booking is accepted, appointments this week are charged immediately. Appointments for future weeks will be charged automatically the Sunday before your appointment week. You can also pay early anytime from your appointments page.',
+      '        <strong style="color:#2e7d32">💳 Payment Info:</strong> Once your booking is accepted, a hold is placed on your card. The hold captures (charges) 48 hours before your appointment. For future weeks, the hold is placed the Sunday before your appointment week. You can also pay early anytime from your appointments page.',
       '      </div>',
       '    </div>',
       '',
@@ -3116,9 +3116,14 @@
               var chargeData = await chargeResp.json();
 
               if (chargeData.success && chargeData.status === 'deferred') {
-                // Payment deferred — booking accepted, card will be charged the Sunday before your appointment week
+                // Payment deferred — hold placed the Sunday before appointment week
                 autoCharged = false;
-                if (typeof toast === 'function') toast('✓ Booking accepted! Payment will charge the Sunday before your appointment week.');
+                if (typeof toast === 'function') toast('✓ Booking accepted! Payment hold placed the Sunday before appointment week.');
+
+              } else if (chargeData.success && chargeData.held) {
+                // Hold placed now — captures 48hrs before service
+                autoCharged = true;
+                if (typeof toast === 'function') toast('🔒 Hold placed for $' + Number(req.estimated_total).toFixed(2) + ' — charges 48hrs before service.');
 
               } else if (chargeData.success) {
                 autoCharged = true;

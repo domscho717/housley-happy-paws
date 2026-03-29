@@ -113,13 +113,29 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Service is this week — charge immediately
-    console.log('[charge] Service is this week — charging immediately');
+    // Service is this week — determine hold vs instant charge
+    // Within 48hrs of service OR Pay Early → charge directly
+    // More than 48hrs out → place hold (capture-holds cron will capture at 48hrs)
+    let useHold = false;
+    if (!forceCharge && bookingRequestId) {
+      const { data: bk } = await supabase.from('booking_requests')
+        .select('preferred_date, scheduled_date, preferred_end_date')
+        .eq('id', bookingRequestId).single();
+      if (bk) {
+        const sd = bk.scheduled_date || bk.preferred_date;
+        if (sd) {
+          const svcD = new Date(sd + 'T00:00:00');
+          const estN = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+          const hrsUntil = (svcD - estN) / (1000 * 60 * 60);
+          if (hrsUntil > 48) useHold = true;
+        }
+      }
+    }
 
-    // Calculate 15% dev share for connected account
     const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
     const amountCents = Math.round(amount * 100);
     const devShareCents = connectedAccountId ? Math.round(amountCents * 0.15) : 0;
+    const isHouseSitting = (service || '').toLowerCase().includes('house sitting');
 
     const piParams = {
       amount: amountCents,
@@ -128,7 +144,7 @@ module.exports = async function handler(req, res) {
       payment_method: paymentMethodId,
       off_session: true,
       confirm: true,
-      capture_method: 'automatic',
+      capture_method: useHold ? 'manual' : 'automatic',
       description: `Housley Happy Paws — ${service || 'Pet Care Service'}`,
       metadata: {
         booking_request_id: bookingRequestId || '',
@@ -137,29 +153,33 @@ module.exports = async function handler(req, res) {
       },
     };
 
-    // Create and confirm PaymentIntent (plain charge on platform)
+    // Extended auth for house sitting (holds up to 31 days)
+    if (useHold && isHouseSitting) {
+      piParams.payment_method_options = { card: { request_extended_authorization: 'if_available' } };
+    }
+
+    console.log(`[charge] Service is this week — ${useHold ? 'placing HOLD' : 'charging immediately'}`);
     let paymentIntent = await stripe.paymentIntents.create(piParams);
     console.log('[charge] PaymentIntent:', paymentIntent.id, 'status:', paymentIntent.status);
 
-    // Transfer 15% to connected account via separate transfer
-    if (connectedAccountId && devShareCents > 0 && paymentIntent.status === 'succeeded') {
-      try {
-        const chargeId = paymentIntent.latest_charge;
-        const transfer = await stripe.transfers.create({
-          amount: devShareCents,
-          currency: 'usd',
-          destination: connectedAccountId,
-          source_transaction: chargeId,
-          description: `15% dev share — ${service || 'Pet Care'} (#${bookingRequestId ? bookingRequestId.slice(0, 8) : ''})`,
-        });
-        console.log('[charge] Transfer SUCCESS:', transfer.id, '$' + (devShareCents / 100).toFixed(2));
-      } catch (transferErr) {
-        console.error('[charge] Transfer FAILED (non-blocking):', transferErr.message);
-      }
-    }
-
-    // Log payment to Supabase and store payment_intent_id on booking_request
     if (paymentIntent.status === 'succeeded') {
+      // Immediate charge — do 15% transfer now
+      if (connectedAccountId && devShareCents > 0) {
+        try {
+          const chargeId = paymentIntent.latest_charge;
+          const transfer = await stripe.transfers.create({
+            amount: devShareCents,
+            currency: 'usd',
+            destination: connectedAccountId,
+            source_transaction: chargeId,
+            description: `15% dev share — ${service || 'Pet Care'} (#${bookingRequestId ? bookingRequestId.slice(0, 8) : ''})`,
+          });
+          console.log('[charge] Transfer SUCCESS:', transfer.id, '$' + (devShareCents / 100).toFixed(2));
+        } catch (transferErr) {
+          console.error('[charge] Transfer FAILED (non-blocking):', transferErr.message);
+        }
+      }
+
       const { error: payInsertErr } = await supabase.from('payments').insert({
         stripe_session_id: paymentIntent.id,
         client_email: profile.email,
@@ -171,20 +191,34 @@ module.exports = async function handler(req, res) {
         paid_at: new Date().toISOString(),
       });
       if (payInsertErr) console.error('Payment insert error:', payInsertErr.message);
+    } else if (paymentIntent.status === 'requires_capture') {
+      // Hold placed — transfer happens when capture-holds cron captures it
+      const { error: payInsertErr } = await supabase.from('payments').insert({
+        stripe_session_id: paymentIntent.id,
+        client_email: profile.email,
+        client_name: profile.full_name,
+        amount: amount,
+        service: service || 'Pet Care',
+        status: 'held',
+        notes: bookingRequestId ? 'Hold placed — captures 48hrs before service (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Hold placed',
+        paid_at: new Date().toISOString(),
+      });
+      if (payInsertErr) console.error('Payment insert error:', payInsertErr.message);
+    }
 
-      if (bookingRequestId) {
-        await supabase
-          .from('booking_requests')
-          .update({ payment_intent_id: paymentIntent.id })
-          .eq('id', bookingRequestId);
-      }
+    if (bookingRequestId && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'requires_capture')) {
+      await supabase
+        .from('booking_requests')
+        .update({ payment_intent_id: paymentIntent.id })
+        .eq('id', bookingRequestId);
     }
 
     res.status(200).json({
       success: true,
-      status: paymentIntent.status,
+      status: paymentIntent.status === 'requires_capture' ? 'held' : paymentIntent.status,
       paymentIntentId: paymentIntent.id,
       amount: amount,
+      held: paymentIntent.status === 'requires_capture',
     });
   } catch (err) {
     console.error('Charge saved card error:', err.message, err.code || '');

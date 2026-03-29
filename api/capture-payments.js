@@ -156,10 +156,10 @@ module.exports = async function handler(req, res) {
             continue;
           }
 
-          // Charge the card — platform charge with 15% transfer
-          const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+          // HOLD the card — authorize only, capture happens 48hrs before service
+          // Transfers happen at capture time (can't transfer uncaptured charges)
           const chargeCents = Math.round(booking.estimated_total * 100);
-          const devShareCents = connectedAccountId ? Math.round(chargeCents * 0.15) : 0;
+          const isHouseSitting = (booking.service || '').toLowerCase().includes('house sitting');
 
           const piParams = {
             amount: chargeCents,
@@ -168,7 +168,7 @@ module.exports = async function handler(req, res) {
             payment_method: methods.data[0].id,
             off_session: true,
             confirm: true,
-            capture_method: 'automatic',
+            capture_method: 'manual', // HOLD — not captured yet
             description: `Housley Happy Paws — ${booking.service || 'Pet Care Service'}`,
             metadata: {
               booking_request_id: booking.id,
@@ -177,29 +177,37 @@ module.exports = async function handler(req, res) {
             },
           };
 
+          // Extended auth for house sitting (holds up to 31 days)
+          if (isHouseSitting) {
+            piParams.payment_method_options = { card: { request_extended_authorization: 'if_available' } };
+          }
+
           const paymentIntent = await stripe.paymentIntents.create(piParams);
 
-          if (paymentIntent.status === 'succeeded') {
+          if (paymentIntent.status === 'requires_capture') {
             results.charged++;
 
-            // Transfer 15% to connected account
-            if (connectedAccountId && devShareCents > 0) {
-              try {
-                const chargeId = paymentIntent.latest_charge;
-                const transfer = await stripe.transfers.create({
-                  amount: devShareCents,
-                  currency: 'usd',
-                  destination: connectedAccountId,
-                  source_transaction: chargeId,
-                  description: `15% dev share — ${booking.service || 'Pet Care'} (#${booking.id.slice(0, 8)})`,
-                });
-                console.log(`[cron] Transfer SUCCESS: ${transfer.id} $${(devShareCents/100).toFixed(2)}`);
-              } catch (transferErr) {
-                console.error(`[cron] Transfer FAILED (non-blocking): ${transferErr.message}`);
-              }
-            }
+            // Log payment as held (not yet captured)
+            await supabase.from('payments').insert({
+              stripe_session_id: paymentIntent.id,
+              client_email: profile.email,
+              client_name: profile.full_name,
+              amount: booking.estimated_total,
+              service: booking.service || 'Pet Care',
+              status: 'held',
+              notes: 'Sunday hold for week of ' + weekStartStr + ' (Booking #' + booking.id.slice(0, 8) + ')',
+              paid_at: new Date().toISOString(),
+            });
 
-            // Log payment
+            // Store payment_intent_id on booking
+            await supabase.from('booking_requests')
+              .update({ payment_intent_id: paymentIntent.id })
+              .eq('id', booking.id);
+
+            console.log(`[cron] HELD $${booking.estimated_total} for booking ${booking.id} — awaiting 48hr capture`);
+          } else if (paymentIntent.status === 'succeeded') {
+            // Some cards auto-capture — handle gracefully
+            results.charged++;
             await supabase.from('payments').insert({
               stripe_session_id: paymentIntent.id,
               client_email: profile.email,
@@ -210,13 +218,10 @@ module.exports = async function handler(req, res) {
               notes: 'Sunday auto-charge for week of ' + weekStartStr + ' (Booking #' + booking.id.slice(0, 8) + ')',
               paid_at: new Date().toISOString(),
             });
-
-            // Store payment_intent_id on booking
             await supabase.from('booking_requests')
               .update({ payment_intent_id: paymentIntent.id })
               .eq('id', booking.id);
-
-            console.log(`[cron] Charged $${booking.estimated_total} for booking ${booking.id} (15%: $${(devShareCents/100).toFixed(2)} to connected)`);
+            console.log(`[cron] Charged $${booking.estimated_total} for booking ${booking.id} (auto-captured)`);
           } else {
             results.failed++;
             results.errors.push({ bookingId: booking.id, error: 'Payment status: ' + paymentIntent.status });
@@ -232,8 +237,9 @@ module.exports = async function handler(req, res) {
           console.error(`[cron] Failed to charge booking ${booking.id}:`, chargeErr.message);
 
           // Send decline notification to client
+          const notifUrl = (process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://housleyhappypaws.com') + '/api/booking-status-notification';
           try {
-            await fetch((process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://housleyhappypaws.com') + '/api/booking-status-notification', {
+            await fetch(notifUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -250,6 +256,29 @@ module.exports = async function handler(req, res) {
             console.log(`[cron] Sent decline warning to ${profile.email}`);
           } catch (notifErr) {
             console.warn('[cron] Failed to send decline notification:', notifErr.message);
+          }
+
+          // Also notify owner/staff about the decline
+          try {
+            await fetch(notifUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: process.env.OWNER_EMAIL || 'rlhousley05@gmail.com',
+                name: 'Rachel',
+                service: booking.service || 'Pet Care',
+                status: 'owner_payment_decline_alert',
+                scheduledDate: booking.scheduled_date || booking.preferred_date,
+                scheduledTime: booking.scheduled_time || booking.preferred_time,
+                estimatedTotal: booking.estimated_total,
+                clientName: profile.full_name || 'Unknown client',
+                clientEmail: profile.email || '',
+                declineMessage: chargeErr.message || 'Card was declined.',
+              }),
+            });
+            console.log(`[cron] Sent owner decline alert for ${profile.full_name}`);
+          } catch (ownerNotifErr) {
+            console.warn('[cron] Failed to send owner decline notification:', ownerNotifErr.message);
           }
         }
       }
@@ -293,40 +322,32 @@ module.exports = async function handler(req, res) {
               const retryCents = Math.round(booking.estimated_total * 100);
               const retryDevShare = connectedAccountId ? Math.round(retryCents * 0.15) : 0;
 
-              const retryIntent = await stripe.paymentIntents.create({
+              const retryIsHouseSitting = (booking.service || '').toLowerCase().includes('house sitting');
+              const retryParams = {
                 amount: retryCents,
                 currency: 'usd',
                 customer: profile.stripe_customer_id,
                 payment_method: methods.data[0].id,
                 off_session: true,
                 confirm: true,
-                capture_method: 'automatic',
+                capture_method: 'manual', // HOLD — same as initial attempt
                 description: `Housley Happy Paws — ${booking.service || 'Pet Care'} (retry)`,
                 metadata: { booking_request_id: booking.id, client_name: profile.full_name || '', service: booking.service || '' },
-              });
+              };
+              if (retryIsHouseSitting) {
+                retryParams.payment_method_options = { card: { request_extended_authorization: 'if_available' } };
+              }
 
-              if (retryIntent.status === 'succeeded') {
+              const retryIntent = await stripe.paymentIntents.create(retryParams);
+
+              if (retryIntent.status === 'requires_capture' || retryIntent.status === 'succeeded') {
                 retrySuccess = true;
-
-                if (connectedAccountId && retryDevShare > 0) {
-                  try {
-                    const transfer = await stripe.transfers.create({
-                      amount: retryDevShare,
-                      currency: 'usd',
-                      destination: connectedAccountId,
-                      source_transaction: retryIntent.latest_charge,
-                      description: `15% dev share retry — ${booking.service || 'Pet Care'} (#${booking.id.slice(0, 8)})`,
-                    });
-                    console.log(`[cron-retry] Transfer SUCCESS: ${transfer.id} $${(retryDevShare/100).toFixed(2)}`);
-                  } catch (transferErr) {
-                    console.error(`[cron-retry] Transfer FAILED (non-blocking): ${transferErr.message}`);
-                  }
-                }
+                const retryStatus = retryIntent.status === 'requires_capture' ? 'held' : 'paid';
 
                 await supabase.from('booking_requests').update({
                   status: 'accepted',
                   payment_intent_id: retryIntent.id,
-                  admin_notes: (booking.admin_notes || '') + '\n✅ Payment retry succeeded (' + todayStr + ')',
+                  admin_notes: (booking.admin_notes || '') + '\n✅ Payment retry succeeded — ' + retryStatus + ' (' + todayStr + ')',
                 }).eq('id', booking.id);
 
                 await supabase.from('payments').insert({
@@ -335,13 +356,13 @@ module.exports = async function handler(req, res) {
                   client_name: profile.full_name,
                   amount: booking.estimated_total,
                   service: booking.service || 'Pet Care',
-                  status: 'paid',
-                  notes: 'Retry charge succeeded (Booking #' + booking.id.slice(0, 8) + ')',
+                  status: retryStatus,
+                  notes: 'Retry ' + retryStatus + ' succeeded (Booking #' + booking.id.slice(0, 8) + ')',
                   paid_at: new Date().toISOString(),
                 });
 
                 results.charged++;
-                console.log(`[cron-retry] Succeeded for booking ${booking.id}`);
+                console.log(`[cron-retry] ${retryStatus} for booking ${booking.id}`);
               }
             }
           } catch (retryErr) {
