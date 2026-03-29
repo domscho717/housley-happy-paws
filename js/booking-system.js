@@ -3856,7 +3856,17 @@
       } else if (r.status === 'modified') {
         actionsHTML = '<div style="margin-top:12px;padding:8px 12px;background:var(--gold-pale);border-radius:6px;font-size:0.83rem;color:var(--gold-deep)"><strong>⏱ Awaiting client response</strong> to your time suggestion</div>';
       } else if (r.status === 'accepted') {
-        actionsHTML = '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="cancelBooking(\'' + r.id + '\',\'' + (r.service || '').replace(/'/g, "\\'") + '\')">✕ Cancel</button></div>';
+        var hsReportBtn = '';
+        if (isHS && r.preferred_end_date) {
+          var today = _localDateStr();
+          // Show report button if end date is today or in the past
+          if (r.preferred_end_date <= today) {
+            hsReportBtn = '<button class="btn btn-forest btn-sm" onclick="openHouseSittingReport(\'' + r.id + '\')">📋 Complete & Report</button>';
+          } else if (r.preferred_date <= today) {
+            hsReportBtn = '<button class="btn btn-gold btn-sm" onclick="openHouseSittingReport(\'' + r.id + '\')" title="Stay is still in progress — you can complete early if needed">📋 Early Report</button>';
+          }
+        }
+        actionsHTML = '<div style="display:flex;gap:8px;margin-top:12px">' + hsReportBtn + '<button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="cancelBooking(\'' + r.id + '\',\'' + (r.service || '').replace(/'/g, "\\'") + '\')">✕ Cancel</button></div>';
       } else if (r.status === 'in_progress') {
         actionsHTML = '<div style="margin-top:12px;padding:8px 12px;background:var(--forest-pale);border-radius:6px;font-size:0.83rem;color:var(--forest)"><strong>⚙ In Progress</strong></div>';
       } else if (r.status === 'completed') {
@@ -4214,6 +4224,207 @@
 
   window.viewBookingReport = function(requestId) {
     if (typeof toast === 'function') toast('📋 Report viewing coming soon');
+  };
+
+  // ── House Sitting Report Modal ──
+  window.openHouseSittingReport = async function(requestId) {
+    var sb = getSB();
+    if (!sb) return;
+
+    try {
+      var { data: booking, error } = await sb.from('booking_requests').select('*').eq('id', requestId).single();
+      if (error || !booking) { if (typeof toast === 'function') toast('Could not load booking'); return; }
+
+      var startDate = new Date(booking.preferred_date + 'T12:00:00');
+      var endDate = new Date(booking.preferred_end_date + 'T12:00:00');
+      var originalNights = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+      var perNight = originalNights > 0 ? (booking.estimated_total / originalNights) : booking.estimated_total;
+
+      // Store state
+      window._hsReport = {
+        bookingId: requestId,
+        booking: booking,
+        originalNights: originalNights,
+        currentNights: originalNights,
+        perNight: perNight,
+        originalTotal: parseFloat(booking.estimated_total),
+      };
+
+      var fmtDate = function(d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); };
+      var fmt12 = function(t) { if (!t) return ''; var p = t.split(':'); var h = parseInt(p[0]); var m = p[1] || '00'; return (h > 12 ? h-12 : h||12) + ':' + m + (h >= 12 ? ' PM' : ' AM'); };
+
+      var html = [
+        '<div id="hs-report-backdrop" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this)closeHouseSittingReport()">',
+        '<div style="background:#fdf8f0;border-radius:16px;max-width:440px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);font-family:inherit">',
+
+        // Header
+        '<div style="background:linear-gradient(135deg,#3d5a47,#4a7c59);padding:20px 24px;border-radius:16px 16px 0 0;color:white">',
+        '<div style="display:flex;justify-content:space-between;align-items:center">',
+        '<div style="font-size:1.15rem;font-weight:800">🏠 House Sitting Report</div>',
+        '<button onclick="closeHouseSittingReport()" style="background:rgba(255,255,255,0.2);border:none;color:white;width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>',
+        '</div>',
+        '<div style="font-size:0.82rem;opacity:0.9;margin-top:6px">' + (booking.contact_name || 'Client') + ' · ' + (booking.pet_names || 'Pets') + '</div>',
+        '</div>',
+
+        // Stay Summary
+        '<div style="padding:20px 24px">',
+        '<div style="background:linear-gradient(135deg,#e8f0fe,#f0e6ff);border-radius:12px;padding:14px;margin-bottom:16px">',
+        '<div style="font-weight:700;font-size:0.88rem;color:#4a3d6b;margin-bottom:8px">Stay Summary</div>',
+        '<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#5b4f7a;margin-bottom:4px"><span>📅 ' + fmtDate(booking.preferred_date) + ' → ' + fmtDate(booking.preferred_end_date) + '</span></div>',
+        '<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#5b4f7a;margin-bottom:4px"><span>🕐 Arrival: ' + fmt12(booking.preferred_time) + '</span><span>🕐 Departure: ' + fmt12(booking.preferred_end_time) + '</span></div>',
+        '<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#5b4f7a"><span>🌙 ' + originalNights + ' night' + (originalNights !== 1 ? 's' : '') + '</span><span>💰 $' + perNight.toFixed(2) + '/night</span></div>',
+        '</div>',
+
+        // Night Adjustment
+        '<div style="background:#fff;border:1.5px solid #e0d5c5;border-radius:12px;padding:14px;margin-bottom:16px">',
+        '<div style="font-weight:700;font-size:0.88rem;color:#6b5c4d;margin-bottom:10px">Adjust Nights</div>',
+        '<div style="font-size:0.78rem;color:#999;margin-bottom:10px">Did the stay end early or extend? Adjust the nights below.</div>',
+        '<div style="display:flex;align-items:center;justify-content:center;gap:16px">',
+        '<button onclick="adjustHSNights(-1)" style="width:40px;height:40px;border-radius:50%;border:2px solid #c8963e;background:transparent;color:#c8963e;font-size:1.3rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>',
+        '<div style="text-align:center;min-width:80px"><div id="hs-report-nights" style="font-size:2rem;font-weight:800;color:#3d5a47">' + originalNights + '</div><div style="font-size:0.72rem;color:#999;text-transform:uppercase">nights</div></div>',
+        '<button onclick="adjustHSNights(1)" style="width:40px;height:40px;border-radius:50%;border:2px solid #c8963e;background:transparent;color:#c8963e;font-size:1.3rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>',
+        '</div>',
+        '<div id="hs-report-total" style="text-align:center;margin-top:10px;font-size:1.1rem;font-weight:700;color:#c8963e">$' + booking.estimated_total + '</div>',
+        '<div id="hs-report-adjust-note" style="text-align:center;font-size:0.75rem;color:#999;margin-top:4px"></div>',
+        '</div>',
+
+        // Report Notes
+        '<div style="margin-bottom:16px">',
+        '<label style="font-weight:700;font-size:0.88rem;color:#6b5c4d;display:block;margin-bottom:6px">Notes for Client</label>',
+        '<textarea id="hs-report-notes" placeholder="How did the stay go? How were the pets? Any notes for the client..." style="width:100%;min-height:100px;padding:12px;border:1.5px solid #e0d5c5;border-radius:10px;font-family:inherit;font-size:0.85rem;resize:vertical;box-sizing:border-box;background:#fff"></textarea>',
+        '</div>',
+
+        // Pet Rating
+        '<div style="margin-bottom:20px">',
+        '<label style="font-weight:700;font-size:0.88rem;color:#6b5c4d;display:block;margin-bottom:6px">Pet Behavior Rating</label>',
+        '<div id="hs-report-rating" style="display:flex;gap:6px">',
+        '<button onclick="setHSRating(1)" class="hs-rate-btn" data-val="1" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">😟 1</button>',
+        '<button onclick="setHSRating(2)" class="hs-rate-btn" data-val="2" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">😐 2</button>',
+        '<button onclick="setHSRating(3)" class="hs-rate-btn" data-val="3" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">🙂 3</button>',
+        '<button onclick="setHSRating(4)" class="hs-rate-btn" data-val="4" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">😊 4</button>',
+        '<button onclick="setHSRating(5)" class="hs-rate-btn" data-val="5" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">⭐ 5</button>',
+        '</div>',
+        '</div>',
+
+        // Submit Button
+        '<button id="hs-report-submit" onclick="submitHouseSittingReport()" style="width:100%;padding:16px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:0.3px">',
+        '📋 Complete Stay & Charge $' + Number(booking.estimated_total).toFixed(2),
+        '</button>',
+        '<div style="text-align:center;font-size:0.72rem;color:#999;margin-top:8px;padding-bottom:4px">This will capture the payment hold and send the report to the client.</div>',
+
+        '</div>', // end padding
+        '</div>', // end modal
+        '</div>', // end backdrop
+      ].join('');
+
+      // Remove existing if any
+      var existing = document.getElementById('hs-report-backdrop');
+      if (existing) existing.remove();
+
+      document.body.insertAdjacentHTML('beforeend', html);
+      document.body.style.overflow = 'hidden';
+    } catch (e) {
+      console.error('Error opening HS report:', e);
+      if (typeof toast === 'function') toast('Error loading report');
+    }
+  };
+
+  window.closeHouseSittingReport = function() {
+    var el = document.getElementById('hs-report-backdrop');
+    if (el) el.remove();
+    document.body.style.overflow = '';
+    window._hsReport = null;
+    window._hsRating = null;
+  };
+
+  window.adjustHSNights = function(delta) {
+    if (!window._hsReport) return;
+    var newNights = window._hsReport.currentNights + delta;
+    if (newNights < 1) return;
+    window._hsReport.currentNights = newNights;
+
+    var nightsEl = document.getElementById('hs-report-nights');
+    var totalEl = document.getElementById('hs-report-total');
+    var noteEl = document.getElementById('hs-report-adjust-note');
+    var submitBtn = document.getElementById('hs-report-submit');
+
+    var newTotal = (window._hsReport.perNight * newNights);
+    if (nightsEl) nightsEl.textContent = newNights;
+    if (totalEl) totalEl.textContent = '$' + newTotal.toFixed(2);
+
+    var diff = newNights - window._hsReport.originalNights;
+    if (noteEl) {
+      if (diff > 0) noteEl.textContent = '+' + diff + ' night' + (diff !== 1 ? 's' : '') + ' added ($' + (diff * window._hsReport.perNight).toFixed(2) + ' extra)';
+      else if (diff < 0) noteEl.textContent = Math.abs(diff) + ' night' + (Math.abs(diff) !== 1 ? 's' : '') + ' removed (−$' + (Math.abs(diff) * window._hsReport.perNight).toFixed(2) + ' refund)';
+      else noteEl.textContent = '';
+    }
+    if (submitBtn) submitBtn.textContent = '📋 Complete Stay & Charge $' + newTotal.toFixed(2);
+  };
+
+  window._hsRating = null;
+  window.setHSRating = function(val) {
+    window._hsRating = val;
+    var btns = document.querySelectorAll('.hs-rate-btn');
+    btns.forEach(function(b) {
+      var bv = parseInt(b.getAttribute('data-val'));
+      b.style.background = bv === val ? '#c8963e' : 'white';
+      b.style.color = bv === val ? 'white' : '#333';
+      b.style.borderColor = bv === val ? '#c8963e' : '#e0d5c5';
+    });
+  };
+
+  window.submitHouseSittingReport = async function() {
+    if (!window._hsReport) return;
+    var rpt = window._hsReport;
+    var notes = document.getElementById('hs-report-notes');
+    var submitBtn = document.getElementById('hs-report-submit');
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ Processing...';
+      submitBtn.style.opacity = '0.7';
+    }
+
+    try {
+      var resp = await fetch('/api/complete-housesitting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingRequestId: rpt.bookingId,
+          adjustedNights: rpt.currentNights !== rpt.originalNights ? rpt.currentNights : null,
+          reportNotes: notes ? notes.value : '',
+          reportRating: window._hsRating,
+        }),
+      });
+
+      var data = await resp.json();
+
+      if (data.success) {
+        closeHouseSittingReport();
+        if (typeof toast === 'function') toast('✅ House sitting completed! $' + data.finalAmount.toFixed(2) + ' charged. Report sent to client.');
+
+        // Refresh all relevant views
+        if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
+        if (typeof window.loadOwnerTodaySchedule === 'function') window.loadOwnerTodaySchedule();
+        if (typeof window.loadMasterSchedule === 'function') window.loadMasterSchedule();
+        if (typeof window.loadCalendarBookings === 'function') window.loadCalendarBookings();
+      } else {
+        if (typeof toast === 'function') toast('⚠️ Error: ' + (data.error || 'Could not complete'));
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = '📋 Complete Stay & Charge $' + (rpt.perNight * rpt.currentNights).toFixed(2);
+          submitBtn.style.opacity = '1';
+        }
+      }
+    } catch (e) {
+      console.error('HS report submit error:', e);
+      if (typeof toast === 'function') toast('⚠️ Network error — please try again');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '📋 Complete Stay & Charge $' + (rpt.perNight * rpt.currentNights).toFixed(2);
+        submitBtn.style.opacity = '1';
+      }
+    }
   };
 
   // ── Per-appointment actions (for multi-date bookings) ──

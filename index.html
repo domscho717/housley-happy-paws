@@ -7574,9 +7574,27 @@ async function showBookingDetail(bookingId, role, source) {
     var isToday = dateVal === today;
     var isActive = (st === 'accepted' || st === 'confirmed');
 
+    // House Sitting: Complete & Report button (owner/staff, when end date is today or past)
+    var isHouseSittingSvc = svc && svc.toLowerCase().indexOf('house sitting') !== -1;
+    if ((role === 'owner' || role === 'staff') && isHouseSittingSvc && isActive && b.preferred_end_date) {
+      var hsEndPast = b.preferred_end_date <= today;
+      var hsStarted = b.preferred_date <= today;
+      if (hsEndPast) {
+        h += '<div style="margin-bottom:12px">';
+        h += '<button onclick="closeBookingDetail();openHouseSittingReport(\'' + bookingId + '\')" style="width:100%;padding:14px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">';
+        h += '📋 Complete Stay & Send Report</button>';
+        h += '</div>';
+      } else if (hsStarted) {
+        h += '<div style="margin-bottom:12px">';
+        h += '<button onclick="closeBookingDetail();openHouseSittingReport(\'' + bookingId + '\')" style="width:100%;padding:14px;background:var(--gold,#c8963e);color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">';
+        h += '📋 Complete Early & Send Report</button>';
+        h += '</div>';
+      }
+    }
+
     // Start / Stop Service button (owner + staff, only for today's confirmed/accepted/payment_hold bookings)
     var canStartService = (st === 'accepted' || st === 'confirmed' || st === 'payment_hold');
-    if ((role === 'owner' || role === 'staff') && isToday && canStartService) {
+    if ((role === 'owner' || role === 'staff') && isToday && canStartService && !isHouseSittingSvc) {
       // Check if there's an active walk/service for this booking
       var activeService = null;
       try {
@@ -13532,7 +13550,11 @@ document.addEventListener('DOMContentLoaded', function() {
           h += '</div></div>';
           h += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">';
           h += '<span style="background:#5c6bc0;color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px">' + dayTag + '</span>';
-          h += '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Tap for details →</div>';
+          if (isEndDay) {
+            h += '<button onclick="event.stopPropagation();openHouseSittingReport(\'' + b.id + '\')" style="background:#3d5a47;color:white;font-size:0.68rem;font-weight:700;padding:4px 12px;border-radius:50px;border:none;cursor:pointer;margin-top:2px">📋 Complete</button>';
+          } else {
+            h += '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Tap for details →</div>';
+          }
           h += '</div></div></div>';
           return; // skip normal rendering
         }
