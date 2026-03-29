@@ -210,7 +210,8 @@
         'overflow-x: hidden !important;' +
         'max-width: 100vw !important;' +
       '}' +
-      'html { scroll-behavior: auto !important; overflow-y: scroll !important; }' +
+      'html { scroll-behavior: auto !important; overflow-y: scroll !important; overscroll-behavior: none !important; }' +
+      'body { overscroll-behavior: none !important; }' +
       '*, *::before, *::after { max-width: 100vw; }' +
       '.nav, .hero, section, footer, .portal-wrap, .portal-main,' +
       '#pg-public, #pg-client, #pg-staff, #pg-owner {' +

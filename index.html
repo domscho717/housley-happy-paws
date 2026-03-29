@@ -88,8 +88,8 @@ try{var _ca=sessionStorage.getItem('hhp_avatar_url');if(_ca){var st=document.cre
 }
 [data-theme="dark"] body{background:#141210;color:#E8E0D4}
 *{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:auto;overflow-y:scroll;overflow-x:hidden;width:100%}
-body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;width:100%;max-width:100vw;-webkit-text-size-adjust:100%}
+html{scroll-behavior:auto;overflow-y:scroll;overflow-x:hidden;width:100%;overscroll-behavior:none}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;width:100%;max-width:100vw;-webkit-text-size-adjust:100%;overscroll-behavior:none}
 .page{display:none;min-height:100vh}
 .page.active{display:block}
 /* Hide everything until auth settles — prevents any flash of wrong view */

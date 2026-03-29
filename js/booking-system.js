@@ -674,16 +674,12 @@
       '',
       '    <!-- Hidden fields: keep brm-date/brm-time for House Sitting & recurring compat -->',
       '    <div id="brm-hs-date-row" style="display:none">',
-      '      <div class="brm-row">',
-      '        <div class="brm-col">',
-      '          <label class="brm-label" id="brm-date-label">Start Date *</label>',
-      '          <input type="date" id="brm-date" class="brm-input">',
-      '        </div>',
-      '        <div class="brm-col" id="brm-enddate-col">',
-      '          <label class="brm-label">End Date *</label>',
-      '          <input type="date" id="brm-enddate" class="brm-input">',
-      '        </div>',
-      '      </div>',
+      '      <label class="brm-label">Select your stay dates *</label>',
+      '      <div id="brm-hs-cal" style="background:#f9f6f0;border:1px solid #e0d5c5;border-radius:10px;padding:12px;margin-bottom:8px"></div>',
+      '      <div id="brm-hs-range-display" style="text-align:center;font-size:0.88rem;font-weight:600;color:#6b5c4d;padding:4px 0;margin-bottom:8px"></div>',
+      '      <input type="hidden" id="brm-date" value="">',
+      '      <input type="hidden" id="brm-enddate" value="">',
+      '      <div id="brm-enddate-col" style="display:none"></div>',
       '      <div class="brm-row" id="brm-hs-times-row">',
       '        <div class="brm-col">',
       '          <label class="brm-label">Arrival Time *</label>',
@@ -1080,25 +1076,13 @@
       var isHS = svcName.indexOf('house sitting') !== -1;
       var endCol = document.getElementById('brm-enddate-col');
       var endInput = document.getElementById('brm-enddate');
-      var dateLabel = document.getElementById('brm-date-label');
       var timeCol = document.getElementById('brm-time-col');
 
-      if (endCol) endCol.style.display = isHS ? '' : 'none';
       if (endInput) endInput.required = isHS;
-      if (dateLabel) dateLabel.textContent = isHS ? 'Start Date *' : 'Preferred Date *';
-      // Block past dates on House Sitting date inputs
-      var todayISO = _localDateStr();
-      var startInput = document.getElementById('brm-date');
-      if (startInput) startInput.setAttribute('min', todayISO);
-      if (endInput) endInput.setAttribute('min', todayISO);
-      // Also set end date min to start date if start date is selected
-      if (startInput && startInput.value) {
-        if (endInput) endInput.setAttribute('min', startInput.value);
-      }
-      // For house sitting, change time label to check-in time
-      if (timeCol) {
-        var timeLabel = timeCol.querySelector('.brm-label');
-        if (timeLabel) timeLabel.textContent = isHS ? 'Check-In Time *' : 'Preferred Time *';
+
+      // Build the HS calendar range picker when house sitting is selected
+      if (isHS && typeof window._buildHsCalendar === 'function') {
+        window._buildHsCalendar();
       }
 
       // Populate arrival/departure time selects for house sitting
@@ -1128,17 +1112,6 @@
         if (hiddenTime) hiddenTime.value = arrivalSel.value || '';
       }
 
-      // Auto-calculate nights display
-      if (isHS) {
-        var sd = document.getElementById('brm-date').value;
-        var ed = endInput ? endInput.value : '';
-        if (sd && ed) {
-          var nightsCount = Math.round((new Date(ed + 'T12:00:00') - new Date(sd + 'T12:00:00')) / (1000*60*60*24));
-          var nightsEl = document.getElementById('brm-hs-nights-row');
-          if (nightsEl) nightsEl.textContent = '🌙 ' + nightsCount + ' night' + (nightsCount !== 1 ? 's' : '');
-        }
-      }
-
       // Filter pet combo options based on selected service
       var combo = document.getElementById('brm-petcombo');
       if (combo) {
@@ -1165,21 +1138,6 @@
         }
       }
 
-      // Auto-set end date to next day if start date is set and end date is empty
-      if (isHS && endInput) {
-        var startDate = document.getElementById('brm-date').value;
-        if (startDate && !endInput.value) {
-          var next = new Date(startDate + 'T12:00:00');
-          next.setDate(next.getDate() + 1);
-          endInput.value = _localDateStr(next);
-        }
-        // Set min of end date to day after start
-        if (startDate) {
-          var minEnd = new Date(startDate + 'T12:00:00');
-          minEnd.setDate(minEnd.getDate() + 1);
-          endInput.setAttribute('min', _localDateStr(minEnd));
-        }
-      }
     }
 
     // Attach listeners for live update
@@ -1577,6 +1535,139 @@
       // Update no-dates message
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = (window._brmDateCards.length > 0) ? 'none' : '';
+    };
+
+    // ── House Sitting Calendar Range Picker ──
+    window._hsCalYear = new Date().getFullYear();
+    window._hsCalMonth = new Date().getMonth();
+    window._hsRangeStart = null; // 'YYYY-MM-DD'
+    window._hsRangeEnd = null;
+
+    window._buildHsCalendar = function() {
+      var container = document.getElementById('brm-hs-cal');
+      if (!container) return;
+      var year = window._hsCalYear;
+      var month = window._hsCalMonth;
+      var names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      var dayLabels = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+      var firstDay = new Date(year, month, 1).getDay();
+      var daysInMonth = new Date(year, month + 1, 0).getDate();
+      var today = new Date();
+      var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+      var ownerBlocked = window._calOwnerBlocks || {};
+      var monthHolidays = (typeof getMonthHolidays === 'function') ? getMonthHolidays(year, month) : {};
+
+      var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+      html += '<button type="button" onclick="window._hsCalMonth--;if(window._hsCalMonth<0){window._hsCalMonth=11;window._hsCalYear--;}window._buildHsCalendar()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409">&#8592;</button>';
+      html += '<span style="font-weight:700;font-size:0.9rem;color:#1e1409">' + names[month] + ' ' + year + '</span>';
+      html += '<button type="button" onclick="window._hsCalMonth++;if(window._hsCalMonth>11){window._hsCalMonth=0;window._hsCalYear++;}window._buildHsCalendar()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409">&#8594;</button>';
+      html += '</div>';
+
+      html += '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;text-align:center">';
+      dayLabels.forEach(function(dl) {
+        html += '<div style="font-size:0.7rem;font-weight:700;color:#8c6b4a;padding:4px 0">' + dl + '</div>';
+      });
+
+      for (var i = 0; i < firstDay; i++) html += '<div></div>';
+
+      for (var d = 1; d <= daysInMonth; d++) {
+        var key = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        var isPast = key < todayStr;
+        var isBlocked = ownerBlocked[key] ? true : false;
+        var holiday = monthHolidays[key] || null;
+        var isStart = key === window._hsRangeStart;
+        var isEnd = key === window._hsRangeEnd;
+        var isInRange = false;
+        if (window._hsRangeStart && window._hsRangeEnd) {
+          isInRange = key > window._hsRangeStart && key < window._hsRangeEnd;
+        }
+
+        var bg = 'white'; var color = '#1e1409'; var border = '1px solid #e8dece'; var cursor = 'pointer'; var opacity = '1'; var radius = '8px';
+        if (isPast) { bg = '#f5f2ed'; color = '#bbb'; cursor = 'default'; opacity = '0.5'; }
+        else if (isBlocked) { bg = '#fce8e6'; color = '#c4756a'; cursor = 'not-allowed'; }
+        else if (isStart) { bg = '#5c6bc0'; color = '#fff'; border = '1px solid #3f51b5'; radius = '8px 0 0 8px'; }
+        else if (isEnd) { bg = '#5c6bc0'; color = '#fff'; border = '1px solid #3f51b5'; radius = '0 8px 8px 0'; }
+        else if (isInRange) { bg = '#e8eaf6'; color = '#3f51b5'; border = '1px solid #c5cae9'; radius = '0'; }
+        else if (key === todayStr) { bg = '#fff8ec'; border = '1px solid #c8963e'; }
+
+        var onclick = '';
+        if (!isPast && !isBlocked) onclick = ' onclick="window._hsCalTapDate(\'' + key + '\')"';
+
+        var title = '';
+        if (holiday) title = holiday;
+        if (isBlocked) title = (title ? title + ' — ' : '') + 'Rachel is unavailable';
+        if (isStart) title = 'Start date';
+        if (isEnd) title = 'End date';
+
+        html += '<div' + onclick + ' title="' + title + '" style="';
+        html += 'background:' + bg + ';color:' + color + ';border:' + border + ';';
+        html += 'border-radius:' + radius + ';padding:6px 2px;cursor:' + cursor + ';opacity:' + opacity + ';';
+        html += 'font-size:0.82rem;font-weight:600;position:relative;min-height:32px;';
+        html += 'display:flex;flex-direction:column;align-items:center;justify-content:center;';
+        html += 'transition:all 0.15s;user-select:none">';
+        html += d;
+        if (holiday) html += '<div style="font-size:0.5rem;line-height:1;color:' + ((isStart || isEnd) ? 'rgba(255,255,255,0.8)' : '#c8963e') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">' + holiday + '</div>';
+        if (isBlocked && !isPast) html += '<div style="font-size:0.5rem;line-height:1;color:#c4756a">closed</div>';
+        html += '</div>';
+      }
+      html += '</div>';
+
+      // Instruction text
+      if (!window._hsRangeStart) {
+        html += '<div style="text-align:center;font-size:0.78rem;color:#8c6b4a;margin-top:8px">Tap your <strong>start date</strong></div>';
+      } else if (!window._hsRangeEnd) {
+        html += '<div style="text-align:center;font-size:0.78rem;color:#5c6bc0;margin-top:8px">Now tap your <strong>end date</strong></div>';
+      }
+
+      container.innerHTML = html;
+
+      // Update hidden inputs and display
+      var startInput = document.getElementById('brm-date');
+      var endInput = document.getElementById('brm-enddate');
+      if (startInput) startInput.value = window._hsRangeStart || '';
+      if (endInput) endInput.value = window._hsRangeEnd || '';
+
+      var displayEl = document.getElementById('brm-hs-range-display');
+      var nightsEl = document.getElementById('brm-hs-nights-row');
+      if (window._hsRangeStart && window._hsRangeEnd) {
+        var sDate = new Date(window._hsRangeStart + 'T12:00:00');
+        var eDate = new Date(window._hsRangeEnd + 'T12:00:00');
+        var sLabel = sDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        var eLabel = eDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        var nights = Math.round((eDate - sDate) / (1000*60*60*24));
+        if (displayEl) displayEl.innerHTML = '📅 ' + sLabel + ' → ' + eLabel;
+        if (nightsEl) nightsEl.textContent = '🌙 ' + nights + ' night' + (nights !== 1 ? 's' : '');
+      } else if (window._hsRangeStart) {
+        var sDate2 = new Date(window._hsRangeStart + 'T12:00:00');
+        var sLabel2 = sDate2.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        if (displayEl) displayEl.innerHTML = '📅 ' + sLabel2 + ' → ...';
+        if (nightsEl) nightsEl.textContent = '';
+      } else {
+        if (displayEl) displayEl.innerHTML = '';
+        if (nightsEl) nightsEl.textContent = '';
+      }
+
+      // Trigger price estimate update
+      if (typeof updatePriceEstimate === 'function') updatePriceEstimate();
+      if (typeof toggleHouseSittingFields === 'function') toggleHouseSittingFields();
+    };
+
+    window._hsCalTapDate = function(dateStr) {
+      if (!window._hsRangeStart || (window._hsRangeStart && window._hsRangeEnd)) {
+        // First tap or reset: set start
+        window._hsRangeStart = dateStr;
+        window._hsRangeEnd = null;
+      } else {
+        // Second tap: set end (must be after start)
+        if (dateStr <= window._hsRangeStart) {
+          // Tapped same or earlier — reset to this as new start
+          window._hsRangeStart = dateStr;
+          window._hsRangeEnd = null;
+        } else {
+          window._hsRangeEnd = dateStr;
+        }
+      }
+      window._buildHsCalendar();
     };
 
     // Get all selected date cards data (used by submission)
@@ -2645,6 +2736,9 @@
         if (addDateInput) addDateInput.value = '';
         var noMsg = document.getElementById('brm-no-dates-msg');
         if (noMsg) noMsg.style.display = '';
+        // Reset HS calendar range
+        window._hsRangeStart = null;
+        window._hsRangeEnd = null;
         closeBookingModal();
         if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Request to Rachel'; }
         if (successEl) successEl.textContent = '';
