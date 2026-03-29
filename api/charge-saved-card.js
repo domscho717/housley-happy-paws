@@ -57,8 +57,10 @@ module.exports = async function handler(req, res) {
 
     const paymentMethodId = methods.data[0].id;
 
-    // Determine if service is in the current Mon-Sun week → charge now
-    // If service is in a future week → defer (Sunday cron will charge)
+    // Determine if we charge now or defer to Sunday cron
+    // Policy: cron runs on the Sunday BEFORE the service week (Mon-Sun)
+    // If that "charge Sunday" is today or already past → charge now
+    // If that "charge Sunday" is in the future → defer (cron will handle it)
     let chargeNow = true; // default: charge immediately
     if (forceCharge) {
       console.log('[charge] forceCharge=true — Pay Early, charging immediately');
@@ -73,21 +75,29 @@ module.exports = async function handler(req, res) {
       if (booking) {
         const svcDateStr = booking.scheduled_date || booking.preferred_date;
         if (svcDateStr) {
-          // Get current Monday and next Sunday in Eastern Time
           const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-          const dayOfWeek = estNow.getDay(); // 0=Sun, 1=Mon...6=Sat
-          // Monday of current week: subtract (dayOfWeek - 1) days, but if Sunday subtract 6
-          const daysToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-          const monday = new Date(estNow);
-          monday.setDate(monday.getDate() - daysToMon);
-          monday.setHours(0, 0, 0, 0);
-          const sunday = new Date(monday);
-          sunday.setDate(sunday.getDate() + 6);
-          sunday.setHours(23, 59, 59, 999);
-
           const serviceDate = new Date(svcDateStr + 'T12:00:00');
-          chargeNow = serviceDate >= monday && serviceDate <= sunday;
-          console.log(`[charge] Service date: ${svcDateStr}, Week: ${monday.toISOString().slice(0,10)} to ${sunday.toISOString().slice(0,10)}, chargeNow: ${chargeNow}`);
+
+          // Find Monday of the service date's week
+          const svcDay = serviceDate.getDay(); // 0=Sun..6=Sat
+          const svcDaysToMon = svcDay === 0 ? 6 : svcDay - 1;
+          const svcMonday = new Date(serviceDate);
+          svcMonday.setDate(svcMonday.getDate() - svcDaysToMon);
+          svcMonday.setHours(0, 0, 0, 0);
+
+          // Charge Sunday = the day before that week's Monday
+          const chargeSunday = new Date(svcMonday);
+          chargeSunday.setDate(chargeSunday.getDate() - 1);
+          chargeSunday.setHours(0, 0, 0, 0);
+
+          // Today at midnight EST
+          const todayMidnight = new Date(estNow);
+          todayMidnight.setHours(0, 0, 0, 0);
+
+          // If charge Sunday is today or past → charge now (cron already ran or we're in the service week)
+          // If charge Sunday is future → defer to cron
+          chargeNow = chargeSunday <= todayMidnight;
+          console.log(`[charge] Service: ${svcDateStr}, svcWeek Mon: ${svcMonday.toISOString().slice(0,10)}, chargeSunday: ${chargeSunday.toISOString().slice(0,10)}, today: ${todayMidnight.toISOString().slice(0,10)}, chargeNow: ${chargeNow}`);
         }
       }
     }
@@ -99,7 +109,7 @@ module.exports = async function handler(req, res) {
         success: true,
         status: 'deferred',
         amount: amount,
-        message: 'Payment deferred — will be charged Sunday the week of your appointment',
+        message: 'Payment deferred — will be charged the Sunday before your appointment week',
       });
     }
 

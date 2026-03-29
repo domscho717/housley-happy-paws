@@ -6,7 +6,7 @@
  * - Bookings within the current Mon-Sun week are charged instantly at acceptance
  * - Bookings for future weeks are deferred
  * - This cron runs on Sunday and charges ALL accepted, uncharged bookings
- *   for the upcoming Mon-Sun week (today Sun through next Sat)
+ *   for the UPCOMING Mon-Sun week (tomorrow Mon through next Sun)
  * - Also retries payment_hold bookings; auto-cancels after 24hrs on hold
  * - Also handles recurring invoices scheduled for today
  */
@@ -56,13 +56,14 @@ module.exports = async function handler(req, res) {
     errors: [],
   };
 
-  // Calculate the week range: this Sunday (today) through next Saturday
-  // The cron runs Sunday morning — charge for Mon through Sun of that week
-  // Since this Sunday IS the start of the week, we charge Sun-Sat
+  // Calculate the week range: NEXT Monday through Sunday
+  // The cron runs Sunday morning — charge for the UPCOMING Mon-Sun week
+  // Monday = tomorrow (today + 1), Sunday = Monday + 6
   const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() + 1); // Monday (tomorrow)
   weekStart.setHours(0, 0, 0, 0);
   const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6); // Saturday
+  weekEnd.setDate(weekEnd.getDate() + 6); // Sunday (end of upcoming week)
 
   const weekStartStr = estDateStr(weekStart);
   const weekEndStr = estDateStr(weekEnd);
