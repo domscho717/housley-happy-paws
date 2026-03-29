@@ -153,13 +153,20 @@ module.exports = async function handler(req, res) {
       },
     };
 
-    // Extended auth for house sitting (holds up to 31 days)
-    if (useHold && isHouseSitting) {
-      piParams.payment_method_options = { card: { request_extended_authorization: 'if_available' } };
-    }
-
+    // Extended auth for house sitting (holds up to 31 days) — fallback to normal hold if not eligible
     console.log(`[charge] Service is this week — ${useHold ? 'placing HOLD' : 'charging immediately'}`);
-    let paymentIntent = await stripe.paymentIntents.create(piParams);
+    let paymentIntent;
+    if (useHold && isHouseSitting) {
+      try {
+        const hsParams = { ...piParams, payment_method_options: { card: { request_extended_authorization: 'if_available' } } };
+        paymentIntent = await stripe.paymentIntents.create(hsParams);
+      } catch (extErr) {
+        console.log('[charge] Extended auth not available, falling back to normal hold:', extErr.message);
+        paymentIntent = await stripe.paymentIntents.create(piParams);
+      }
+    } else {
+      paymentIntent = await stripe.paymentIntents.create(piParams);
+    }
     console.log('[charge] PaymentIntent:', paymentIntent.id, 'status:', paymentIntent.status);
 
     if (paymentIntent.status === 'succeeded') {

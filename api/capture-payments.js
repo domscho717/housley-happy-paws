@@ -177,12 +177,19 @@ module.exports = async function handler(req, res) {
             },
           };
 
-          // Extended auth for house sitting (holds up to 31 days)
+          // Extended auth for house sitting (holds up to 31 days) — fallback to normal hold if not eligible
+          let paymentIntent;
           if (isHouseSitting) {
-            piParams.payment_method_options = { card: { request_extended_authorization: 'if_available' } };
+            try {
+              const hsParams = { ...piParams, payment_method_options: { card: { request_extended_authorization: 'if_available' } } };
+              paymentIntent = await stripe.paymentIntents.create(hsParams);
+            } catch (extErr) {
+              console.log('[cron] Extended auth not available, falling back to normal hold:', extErr.message);
+              paymentIntent = await stripe.paymentIntents.create(piParams);
+            }
+          } else {
+            paymentIntent = await stripe.paymentIntents.create(piParams);
           }
-
-          const paymentIntent = await stripe.paymentIntents.create(piParams);
 
           if (paymentIntent.status === 'requires_capture') {
             results.charged++;
@@ -334,11 +341,19 @@ module.exports = async function handler(req, res) {
                 description: `Housley Happy Paws — ${booking.service || 'Pet Care'} (retry)`,
                 metadata: { booking_request_id: booking.id, client_name: profile.full_name || '', service: booking.service || '' },
               };
+              // Extended auth for house sitting — fallback to normal hold if not eligible
+              let retryIntent;
               if (retryIsHouseSitting) {
-                retryParams.payment_method_options = { card: { request_extended_authorization: 'if_available' } };
+                try {
+                  const hsRetryParams = { ...retryParams, payment_method_options: { card: { request_extended_authorization: 'if_available' } } };
+                  retryIntent = await stripe.paymentIntents.create(hsRetryParams);
+                } catch (extErr) {
+                  console.log('[cron] Extended auth retry not available, falling back:', extErr.message);
+                  retryIntent = await stripe.paymentIntents.create(retryParams);
+                }
+              } else {
+                retryIntent = await stripe.paymentIntents.create(retryParams);
               }
-
-              const retryIntent = await stripe.paymentIntents.create(retryParams);
 
               if (retryIntent.status === 'requires_capture' || retryIntent.status === 'succeeded') {
                 retrySuccess = true;
