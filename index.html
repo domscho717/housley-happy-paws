@@ -946,6 +946,17 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .hero{padding:80px 16px 48px}
   .hero h1{font-size:2rem}
+  /* Hero decorative circles: scale down on tablet */
+  .hero-wash{width:400px;height:400px;right:-60px;top:-40px}
+  .hero-wash2{width:280px;height:280px;left:-40px;bottom:-40px}
+  /* Footer tighten for tablet */
+  footer{padding:40px 16px 20px}
+  .footer-grid{gap:24px;margin-bottom:24px}
+  /* Report grids: 2 columns on tablet */
+  .report-stats{grid-template-columns:repeat(2,1fr)!important}
+  .report-photos{grid-template-columns:repeat(3,1fr)!important}
+  /* Auth modal: tighten padding */
+  .auth-card{padding:36px 32px}
 }
 
 /* ── Phone breakpoint (600px) ── */
@@ -954,6 +965,8 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .hero{padding:70px 14px 40px}
   .hero h1{font-size:1.6rem}
   .hero p{font-size:0.9rem}
+  /* Hide hero decorative circles on phones */
+  .hero-wash,.hero-wash2{display:none!important}
   .portal-main{padding:10px 8px!important}
   .p-header h2{font-size:1.05rem!important}
   /* Touch targets: minimum 44px height */
@@ -966,6 +979,48 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .card{padding:12px!important}
   .modal{width:96vw!important;max-width:96vw!important}
   .toast{right:12px;left:12px;bottom:20px;max-width:none;width:auto}
+  /* Form inputs: 16px font prevents iOS zoom, 44px height for touch */
+  .form-lbl{font-size:0.8rem;letter-spacing:0.03em;margin-bottom:8px}
+  .form-in,.form-sel,.form-ta{font-size:16px!important;padding:12px 14px;min-height:44px}
+  .form-ta{min-height:100px}
+  /* Footer tighten */
+  footer{padding:32px 12px 16px}
+  .footer-grid{gap:16px}
+  /* Auth modal */
+  .auth-card{padding:32px 24px}
+  /* Report grids stack on phones */
+  .report-stats{grid-template-columns:1fr!important}
+  .report-photos{grid-template-columns:repeat(2,1fr)!important}
+  /* Calendar extra tighten */
+  .cal-grid{gap:2px!important}
+  .cal-day{min-height:48px!important;padding:3px!important}
+  .cal-day-num{font-size:0.68rem!important}
+  /* Notification rows: stack on mobile */
+  .notif-row{flex-direction:column;gap:8px}
+  .ntxt{font-size:0.82rem}
+  /* Message thread optimize */
+  .msg-thread{max-height:50vh;min-height:280px}
+  /* About slideshow optimize */
+  .about-slideshow{aspect-ratio:16/9;min-height:200px}
+  /* Loading screen */
+  .hhp-loader-text{font-size:0.78rem}
+}
+
+/* ── Larger phone breakpoint (480px) ── */
+@media(max-width:480px){
+  .hero{padding:64px 12px 36px}
+  .hero h1{font-size:1.5rem}
+  .hero p{font-size:0.85rem}
+  .stats-row{gap:8px}
+  .stat-box{padding:14px 12px}
+  .stat-num{font-size:1.6rem}
+  /* Filter tabs: smaller on narrow phones */
+  .admin-filter-btn{padding:4px 8px;font-size:0.7rem}
+  .filter-scroll{flex-wrap:wrap;gap:3px}
+  /* Auth modal */
+  .auth-card{padding:28px 18px}
+  .auth-logo{font-size:1.5rem}
+  .auth-subtitle{font-size:0.82rem;margin-bottom:20px}
 }
 
 /* ── Small phone breakpoint (400px) ── */
@@ -975,6 +1030,25 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .stat-num{font-size:1.4rem}
   .stat-lbl{font-size:0.65rem}
   .portal-main{padding:8px 6px!important}
+  .auth-card{padding:24px 16px;border-radius:12px}
+  .modal-title{font-size:1.4rem!important}
+  /* Calendar: absolute minimum sizing */
+  .cal-grid{gap:1px!important}
+  .cal-day{min-height:42px!important;padding:2px!important}
+  .cal-day-num{font-size:0.62rem!important}
+  .cal-event-dot{font-size:0.5rem!important}
+  /* Message thread smaller */
+  .msg-thread{min-height:220px}
+}
+
+/* ── Landscape orientation (phones + small tablets) ── */
+@media(max-width:900px) and (orientation:landscape){
+  .hero{padding:60px 20px 40px}
+  .portal-main{padding:8px 12px!important}
+}
+@media(max-width:600px) and (orientation:landscape){
+  .modal{max-height:90vh!important;overflow-y:auto!important}
+  .msg-thread{max-height:40vh;min-height:160px}
 }
 
 /* ── Booking Request Panel Mobile Fixes ── */
@@ -1016,6 +1090,9 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   #scrollTopBtn{top:calc(18px + env(safe-area-inset-top))}
   .portal-back-btn{top:calc(82px + env(safe-area-inset-top))}
   #settingsDrawerOverlay .settings-body{padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+  #bookingDetailDrawer{padding-bottom:env(safe-area-inset-bottom)}
+  .modal{padding-bottom:env(safe-area-inset-bottom)}
+  .toast{bottom:calc(20px + env(safe-area-inset-bottom))}
 }
 
 /* Collapsible sidebar nav */

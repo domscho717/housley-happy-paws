@@ -416,6 +416,21 @@
       '  body { padding-top: 44px !important; }',
       '  #hhpMobileMenu { top: 44px !important; }',
       '}',
+      '',
+      '/* ── Tablet landscape ── */',
+      '@media (max-width: 768px) and (orientation: landscape) {',
+      '  #aiChatLog { max-height: 200px !important; }',
+      '  .portal-main { padding: 8px 12px !important; }',
+      '}',
+      '',
+      '/* ── Admin request cards mobile ── */',
+      '@media (max-width: 600px) {',
+      '  .admin-request-card { padding: 14px !important; }',
+      '  .arc-service { font-size: 15px; }',
+      '  .arc-detail { font-size: 13px; }',
+      '  .arc-actions { gap: 6px; }',
+      '  .arc-btn { padding: 8px 14px; font-size: 12px; min-height: 44px; }',
+      '}',
     ].join('\n');
     document.head.appendChild(css);
 
@@ -1330,7 +1345,7 @@
         '</div>' +
         '<div id="brm-dc-times-' + idx + '">' +
           '<div class="brm-time-slot" data-slot="0" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
-            '<select id="brm-dc-time-' + idx + '" class="brm-input brm-dc-time-sel" data-card="' + idx + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:120px;max-width:180px;margin:0;padding:6px 8px;font-size:0.82rem">' +
+            '<select id="brm-dc-time-' + idx + '" class="brm-input brm-dc-time-sel" data-card="' + idx + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:0;margin:0;padding:8px;font-size:1rem;min-height:44px">' +
               _brmTimeOptionsHTML() +
             '</select>' +
           '</div>' +
@@ -1345,14 +1360,14 @@
             '<div style="display:flex;flex-direction:column;gap:8px">' +
               '<div>' +
                 '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Frequency</label>' +
-                '<select id="brm-dc-freq-' + idx + '" class="brm-input" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:6px 10px;font-size:0.85rem;width:100%;box-sizing:border-box;height:38px;border:1px solid #d4c5b0;border-radius:6px;background:#fff;color:#4a3728">' +
+                '<select id="brm-dc-freq-' + idx + '" class="brm-input" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:8px 10px;font-size:1rem;width:100%;box-sizing:border-box;min-height:44px;border:1px solid #d4c5b0;border-radius:6px;background:#fff;color:#4a3728">' +
                   '<option value="weekly">Every week</option>' +
                   '<option value="biweekly">Every other week</option>' +
                 '</select>' +
               '</div>' +
               '<div id="brm-dc-end-wrap-' + idx + '">' +
                 '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Until</label>' +
-                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:6px 10px;font-size:0.85rem;width:100%;box-sizing:border-box;height:38px;-webkit-appearance:none;appearance:none;border:1px solid #d4c5b0;border-radius:6px;background:#fff;color:#4a3728">' +
+                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:8px 10px;font-size:1rem;width:100%;box-sizing:border-box;min-height:44px;-webkit-appearance:none;appearance:none;border:1px solid #d4c5b0;border-radius:6px;background:#fff;color:#4a3728">' +
               '</div>' +
               '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#6b5c4d;cursor:pointer">' +
                 '<input type="checkbox" id="brm-dc-ongoing-' + idx + '" onchange="window._brmToggleOngoing(' + idx + ')" style="accent-color:#c8963e;width:16px;height:16px"> Until stopped (no end date)' +
@@ -1394,7 +1409,7 @@
       div.setAttribute('data-slot', slotIdx);
       div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px';
       div.innerHTML =
-        '<select class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:120px;max-width:180px;margin:0;padding:6px 8px;font-size:0.82rem">' +
+        '<select class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:0;margin:0;padding:8px;font-size:1rem;min-height:44px">' +
           _brmTimeOptionsHTML() +
         '</select>' +
         '<button type="button" onclick="window._brmRemoveTimeSlot(this,' + cardIdx + ')" style="background:none;border:none;color:#c4756a;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px">&times;</button>';
@@ -1944,6 +1959,24 @@
       '  .brm-row { flex-direction: column; gap: 0; }',
       '  .brm-title { font-size: 22px; }',
       '  .brm-close { width: 32px; height: 32px; font-size: 0.95rem; top: 12px; right: 12px; }',
+      '  .brm-input, .brm-dc-time-sel { font-size: 16px !important; min-height: 44px !important; }',
+      '  select.brm-input, input[type="date"].brm-input, input[type="time"].brm-input { font-size: 16px !important; min-height: 44px !important; max-width: 100% !important; }',
+      '  .brm-dc-time-sel { min-width: 100% !important; max-width: 100% !important; }',
+      '  .brm-label { font-size: 13px; }',
+      '}',
+      '@media (max-width: 480px) {',
+      '  .brm-content { padding: 16px 12px; width: 96vw; max-width: 96vw; }',
+      '  .brm-title { font-size: 20px; }',
+      '  .brm-label { font-size: 12px; }',
+      '  .brm-day-chip { padding: 4px 8px; font-size: 0.78rem; }',
+      '  .brm-date-tag { padding: 4px 8px; font-size: 0.78rem; }',
+      '}',
+      '@media (max-width: 375px) {',
+      '  .brm-content { padding: 14px 10px; }',
+      '  .brm-title { font-size: 18px; }',
+      '}',
+      '@media (max-width: 600px) and (orientation: landscape) {',
+      '  .brm-content { max-height: 85vh !important; padding: 12px !important; }',
       '}',
       '',
       // ── Admin dashboard styles ──
@@ -4122,17 +4155,17 @@
       '  <div style="font-weight:600;margin-bottom:10px">Suggest Different Time</div>',
       '  <div style="margin-bottom:10px">',
       '    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px">New Date</label>',
-      '    <input type="date" id="tc-date-' + requestId + '" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-size:0.85rem">',
+      '    <input type="date" id="tc-date-' + requestId + '" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box;font-size:1rem;min-height:44px">',
       '  </div>',
       '  <div style="margin-bottom:10px">',
       '    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px">New Time</label>',
-      '    <select id="tc-time-' + requestId + '" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:0.85rem">',
+      '    <select id="tc-time-' + requestId + '" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:1rem;min-height:44px">',
       timeOpts,
       '    </select>',
       '  </div>',
       '  <div style="margin-bottom:10px">',
       '    <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:4px">Message to Client</label>',
-      '    <textarea id="tc-msg-' + requestId + '" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;font-family:inherit;font-size:0.85rem;min-height:60px" placeholder="e.g., That day works but I can only do mornings..."></textarea>',
+      '    <textarea id="tc-msg-' + requestId + '" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-family:inherit;font-size:1rem;min-height:60px;box-sizing:border-box" placeholder="e.g., That day works but I can only do mornings..."></textarea>',
       '  </div>',
       '  <div style="display:flex;gap:8px">',
       '    <button class="btn btn-gold btn-sm" onclick="submitTimeChange(\'' + requestId + '\')" style="flex:1;justify-content:center">Send Suggestion</button>',
@@ -4291,7 +4324,7 @@
         // Report Notes
         '<div style="margin-bottom:16px">',
         '<label style="font-weight:700;font-size:0.88rem;color:#6b5c4d;display:block;margin-bottom:6px">Notes for Client</label>',
-        '<textarea id="hs-report-notes" placeholder="How did the stay go? How were the pets? Any notes for the client..." style="width:100%;min-height:100px;padding:12px;border:1.5px solid #e0d5c5;border-radius:10px;font-family:inherit;font-size:0.85rem;resize:vertical;box-sizing:border-box;background:#fff"></textarea>',
+        '<textarea id="hs-report-notes" placeholder="How did the stay go? How were the pets? Any notes for the client..." style="width:100%;min-height:100px;padding:12px;border:1.5px solid #e0d5c5;border-radius:10px;font-family:inherit;font-size:1rem;resize:vertical;box-sizing:border-box;background:#fff"></textarea>',
         '</div>',
 
         // Pet Rating
@@ -4524,10 +4557,10 @@
     var formHTML = '<div class="appt-time-form" style="background:var(--gold-pale,#fdf6e3);border-radius:6px;padding:10px;margin-top:8px;border:1px solid var(--gold,#c8963e)">' +
       '<div style="font-weight:600;font-size:0.78rem;margin-bottom:6px">Suggest Different Time</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">' +
-      '<input type="date" id="' + formId + '-date" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;flex:1;min-width:120px">' +
-      '<select id="' + formId + '-time" style="padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;flex:1;min-width:100px"></select>' +
+      '<input type="date" id="' + formId + '-date" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:1rem;flex:1;min-width:0;min-height:44px">' +
+      '<select id="' + formId + '-time" style="padding:8px;border:1px solid #ddd;border-radius:6px;font-size:1rem;flex:1;min-width:0;min-height:44px"></select>' +
       '</div>' +
-      '<textarea id="' + formId + '-msg" placeholder="Message to client..." style="width:100%;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.78rem;font-family:inherit;min-height:40px;box-sizing:border-box;margin-bottom:6px"></textarea>' +
+      '<textarea id="' + formId + '-msg" placeholder="Message to client..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:1rem;font-family:inherit;min-height:48px;box-sizing:border-box;margin-bottom:6px"></textarea>' +
       '<div style="display:flex;gap:6px">' +
       '<button class="arc-btn accept" style="font-size:0.72rem;padding:4px 10px" onclick="submitSingleApptTime(\'' + requestId + '\',' + apptIdx + ',\'' + formId + '\')">Send</button>' +
       '<button class="arc-btn decline" style="font-size:0.72rem;padding:4px 10px;background:#999" onclick="this.closest(\'.appt-time-form\').remove()">Cancel</button>' +
