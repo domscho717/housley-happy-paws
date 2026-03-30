@@ -24,9 +24,8 @@ module.exports = async function handler(req, res) {
   const cronSecret = req.headers['authorization'];
   const manualSecret = req.headers['x-cron-secret'];
   const envSecret = process.env.CRON_SECRET;
-  const testParam = req.query && req.query.test;
 
-  if (envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret && testParam !== 'hhp2026') {
+  if (envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -271,7 +270,7 @@ module.exports = async function handler(req, res) {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                email: process.env.OWNER_EMAIL || 'rlhousley05@gmail.com',
+                email: process.env.OWNER_EMAIL || '',
                 name: 'Rachel',
                 service: booking.service || 'Pet Care',
                 status: 'owner_payment_decline_alert',

@@ -1408,7 +1408,6 @@
   // After widgets render, the DOM elements (stat IDs, containers) exist again.
   // Re-fire the existing data-loading functions so they populate.
   function _retrigger(portal){
-    console.log('Customizer: retriggering data loaders for', portal);
     // Only retrigger loadDashboardStats — it fills stat IDs that the customizer banner creates.
     // Do NOT call loadAlertMessages / HHP_BookingAdmin / loadOwnerTodaySchedule — the customizer
     // has its own widget renderers for those and the legacy loaders would overwrite them.
@@ -1430,7 +1429,6 @@
   async function init(){
     var portal=_getPortal();
     if(!portal) return;
-    console.log('Customizer: init',portal);
 
     // Kick off preload in background (parallel data fetch)
     if(window.HHP_Preload) HHP_Preload.forPortal(portal);
@@ -1451,8 +1449,6 @@
 
     // Register realtime callbacks to auto-refresh widgets on data changes
     _hookRealtime(portal);
-
-    console.log('Customizer: ready');
   }
 
   // Map tables to widgets that need refreshing
@@ -1476,7 +1472,6 @@
       // Also retrigger stat loaders (they populate by element ID)
       setTimeout(function(){_retrigger(portal);},200);
     });
-    console.log('[RT] Customizer hooked for',portal);
   }
 
   // Hook into auth callback system for fastest possible init

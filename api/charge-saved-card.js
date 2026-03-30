@@ -17,6 +17,17 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'amount and clientProfileId are required' });
     }
 
+    // Validate amount field
+    if (typeof amount !== 'number') {
+      return res.status(400).json({ error: 'amount must be a number' });
+    }
+    if (amount <= 0) {
+      return res.status(400).json({ error: 'amount must be positive' });
+    }
+    if (amount >= 10000) {
+      return res.status(400).json({ error: 'amount must be less than 10000' });
+    }
+
     // Get the client's Stripe customer ID
     // Note: clientProfileId is the auth user ID, profiles use user_id column
     const { data: profile } = await supabase

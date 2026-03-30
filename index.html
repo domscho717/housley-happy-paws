@@ -134,6 +134,11 @@ body.loading-auth .nav{visibility:hidden}
 .nbtn-gold{background:var(--gold);color:white}
 .nbtn-gold:hover{background:var(--gold-deep)}
 
+/* PUBLIC HAMBURGER (hide on desktop) */
+.nav-hamburger{display:none}
+.nav-menu-overlay{display:none}
+.nav-menu-drawer{display:none}
+
 /* PAGE SWITCHER */
 .view-switcher{
   display:flex;background:var(--warm);border:1.5px solid var(--border);
@@ -841,6 +846,8 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 
 @media(max-width:900px){
   .nav{padding:0 20px}.nav-center{display:none}
+  /* ── Public hamburger menu (mobile) ── */
+  .nav-hamburger{display:flex;flex-direction:column;gap:6px;width:44px;height:44px;align-items:center;justify-content:center;background:transparent;border:none;cursor:pointer;padding:0;margin-left:auto}.nav-hamburger .hamburger-line{display:block;width:24px;height:2.5px;background:var(--brown);border-radius:2px;transition:all 0.3s}.nav-hamburger[aria-expanded="true"] .hamburger-line:nth-child(1){transform:rotate(45deg) translate(8px,8px)}.nav-hamburger[aria-expanded="true"] .hamburger-line:nth-child(2){opacity:0}.nav-hamburger[aria-expanded="true"] .hamburger-line:nth-child(3){transform:rotate(-45deg) translate(7px,-7px)}.nav-menu-overlay{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(30,20,9,0.4);z-index:998;opacity:0;transition:opacity 0.3s}.nav-menu-overlay.open{display:block;opacity:1}.nav-menu-drawer{display:none;position:fixed;top:56px;left:0;width:100%;background:var(--cream);border-top:1px solid var(--border);z-index:999;max-height:calc(100vh - 56px);overflow-y:auto;opacity:0;transform:translateY(-10px);transition:opacity 0.3s,transform 0.3s}.nav-menu-drawer.open{display:block;opacity:1;transform:translateY(0)}.nav-menu-item{display:block;padding:16px 20px;color:var(--brown);font-size:0.95rem;font-weight:500;text-decoration:none;border-bottom:1px solid var(--border);font-family:inherit;transition:background 0.2s}.nav-menu-item:hover{background:var(--gold-pale)}.nav-menu-item.nav-menu-book{color:white;background:var(--gold);font-weight:600;border-bottom:none;margin-top:8px;padding:12px 20px}
   .hero{grid-template-columns:1fr;padding:100px 20px 60px}
   .hero-photo-col{display:none}
   .about-grid,.services-grid,.future-grid{grid-template-columns:1fr}
@@ -1169,6 +1176,12 @@ try {
     <li><a href="#reviews">Reviews</a></li>
     <li><a href="#coming-soon">Coming Soon</a></li>
   </ul>
+  <!-- Public site hamburger (mobile only) -->
+  <button id="pubHamburgerBtn" class="nav-hamburger" aria-label="Menu" aria-expanded="false">
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+  </button>
   <div class="nav-right">
     <div id="viewSwitcher" style="position:relative;display:none;align-items:center">
       <select id="viewDropdown" onchange="switchViewFromDrop(this.value)" style="appearance:none;-webkit-appearance:none;background:var(--warm);border:1.5px solid var(--border);border-radius:8px;padding:8px 38px 8px 14px;font-family:'Jost',sans-serif;font-size:0.82rem;font-weight:600;color:var(--ink);cursor:pointer;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
@@ -1183,6 +1196,17 @@ try {
     <button id="navLogoutBtn" onclick="if(typeof HHP_Auth!=='undefined')HHP_Auth.logout()" style="display:none;font-size:0.78rem;background:none;border:none;color:var(--rose);cursor:pointer;padding:6px 10px;font-family:inherit;font-weight:500">Sign Out</button>
   </div>
 </nav>
+
+<!-- Public site mobile menu (hamburger drawer) -->
+<div id="pubMenuOverlay" class="nav-menu-overlay"></div>
+<div id="pubMenuDrawer" class="nav-menu-drawer">
+  <a href="#about" class="nav-menu-item">About Rachel</a>
+  <a href="#services" class="nav-menu-item">Services & Pricing</a>
+  <a href="#calendar-pub" class="nav-menu-item">Calendar</a>
+  <a href="#reviews" class="nav-menu-item">Reviews</a>
+  <a href="#coming-soon" class="nav-menu-item">Coming Soon</a>
+  <a href="#book" class="nav-menu-item nav-menu-book">Book Now</a>
+</div>
 
 <!-- ========= PUBLIC PAGE ========= -->
 <div class="page active" id="pg-public">
@@ -3705,6 +3729,20 @@ function switchView(view) {
     // On mobile/tablet, always hide nav-center (hamburger handles it)
     if(window.innerWidth <= 1024) { nc.style.display = 'none'; }
     else { nc.style.display = view === 'public' ? '' : 'none'; }
+  }
+
+  // Show/hide public hamburger menu (only on public page & < 900px)
+  const hamburger = document.getElementById('pubHamburgerBtn');
+  if(hamburger) {
+    if(view === 'public' && window.innerWidth <= 900) {
+      hamburger.style.display = 'flex';
+    } else {
+      hamburger.style.display = 'none';
+      // Close menu if switching away from public
+      if(window._publicHamburgerCloseOnPortal) {
+        window._publicHamburgerCloseOnPortal();
+      }
+    }
   }
 
   // Show/hide logout button
@@ -12845,6 +12883,79 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Cloudinary Photo Manager -->
 <script src="/js/cloudinary-client.js" defer></script>
+    <!-- Public site hamburger menu controller -->
+    <script>
+      (function() {
+        function initPublicHamburger() {
+          const hamburger = document.getElementById('pubHamburgerBtn');
+          const overlay = document.getElementById('pubMenuOverlay');
+          const drawer = document.getElementById('pubMenuDrawer');
+          const menuItems = document.querySelectorAll('.nav-menu-item');
+
+          if (!hamburger || !overlay || !drawer) return;
+
+          function closeMenu() {
+            hamburger.setAttribute('aria-expanded', 'false');
+            overlay.classList.remove('open');
+            drawer.classList.remove('open');
+          }
+
+          function toggleMenu() {
+            const isOpen = hamburger.getAttribute('aria-expanded') === 'true';
+            hamburger.setAttribute('aria-expanded', !isOpen);
+            overlay.classList.toggle('open');
+            drawer.classList.toggle('open');
+          }
+
+          // Toggle menu on hamburger click
+          hamburger.addEventListener('click', toggleMenu);
+
+          // Close menu on overlay click
+          overlay.addEventListener('click', closeMenu);
+
+          // Close menu on menu item click
+          menuItems.forEach(item => {
+            item.addEventListener('click', closeMenu);
+          });
+
+          // Close menu on escape key
+          document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && hamburger.getAttribute('aria-expanded') === 'true') {
+              closeMenu();
+            }
+          });
+
+          // Handle window resize: close menu and hide/show hamburger based on breakpoint
+          window.addEventListener('resize', function() {
+            closeMenu();
+            const currentView = sessionStorage.getItem('hhp_last_view') || 'public';
+            if (currentView === 'public' && window.innerWidth <= 900) {
+              hamburger.style.display = 'flex';
+            } else {
+              hamburger.style.display = 'none';
+            }
+          });
+
+          // Prevent menu from showing on portal pages
+          window._publicHamburgerCloseOnPortal = function() {
+            closeMenu();
+            hamburger.style.display = 'none';
+          };
+          window._publicHamburgerShowOnPublic = function() {
+            if (window.innerWidth <= 900) {
+              hamburger.style.display = 'flex';
+            }
+          };
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initPublicHamburger);
+        } else {
+          initPublicHamburger();
+        }
+      })();
+    </script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
     <script src="/ux-patch.js?v=20260327a" defer></script>
 <script>
