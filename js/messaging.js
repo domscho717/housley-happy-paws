@@ -274,6 +274,7 @@
   async function sendMessage(recipientUserId, body) {
     var sb = getSB();
     if (!sb || !body || !body.trim()) return null;
+    if (!recipientUserId) { if (typeof toast === 'function') toast('Recipient not found. Please reload.'); return null; }
     var user = getCurrentUser();
     if (!user) { if (typeof toast === 'function') toast('Please sign in to send messages.'); return null; }
 

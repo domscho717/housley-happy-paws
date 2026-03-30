@@ -366,12 +366,15 @@
       var html = '';
       res.data.forEach(function(a) {
         var date = new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px;background:var(--bg-soft,#faf6ee);border-radius:10px;margin-bottom:8px;gap:10px">';
+        html += '<div id="announce-row-' + a.id + '" style="display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px;background:var(--bg-soft,#faf6ee);border-radius:10px;margin-bottom:8px;gap:10px">';
         html += '<div style="flex:1;min-width:0">';
         html += '<div style="font-size:0.84rem;color:var(--dark,#1e1409);line-height:1.4;word-break:break-word">' + escapeHtml(a.body) + '</div>';
         html += '<div style="font-size:0.7rem;color:var(--mid,#8c6b4a);margin-top:4px">' + date + ' · Sent to: ' + (a.send_to || 'everyone') + '</div>';
         html += '</div>';
-        html += '<button onclick="window.HHP_Notif.resend(\'' + a.id + '\')" style="flex-shrink:0;background:var(--gold,#c8963e);color:white;border:none;padding:6px 14px;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Re-send</button>';
+        html += '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">';
+        html += '<button onclick="window.HHP_Notif.resend(\'' + a.id + '\')" style="background:var(--gold,#c8963e);color:white;border:none;padding:6px 14px;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">Re-send</button>';
+        html += '<button onclick="window.HHP_Notif.deleteAnnouncement(\'' + a.id + '\')" style="background:none;color:var(--rose,#c0392b);border:1px solid var(--rose,#c0392b);padding:5px 14px;border-radius:6px;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">Remove</button>';
+        html += '</div>';
         html += '</div>';
       });
 
@@ -402,6 +405,44 @@
     } catch (e) {
       console.error('Resend error:', e);
       if (typeof toast === 'function') toast('Error loading announcement.');
+    }
+  }
+
+  // ── Delete an announcement (owner only) ─────────────────────
+  async function deleteAnnouncement(announcementId) {
+    var sb = getSB();
+    if (!sb) return;
+
+    if (!confirm('Remove this announcement? It will be deleted from history and clients\' notification feeds.')) return;
+
+    try {
+      var { error } = await sb.from('announcements').delete().eq('id', announcementId);
+      if (error) {
+        if (typeof toast === 'function') toast('Failed to remove announcement.');
+        console.error('Delete announcement error:', error);
+        return;
+      }
+
+      // Remove from local list
+      _announcements = _announcements.filter(function(a) { return a.id !== announcementId; });
+
+      // Remove the row from the history UI
+      var row = document.getElementById('announce-row-' + announcementId);
+      if (row) {
+        row.style.transition = 'opacity 0.3s, transform 0.3s';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(20px)';
+        setTimeout(function() { row.remove(); }, 300);
+      }
+
+      // Update badge and drawer
+      updateBadge();
+      if (_drawerOpen) renderDrawer();
+
+      if (typeof toast === 'function') toast('✅ Announcement removed.');
+    } catch (e) {
+      console.error('Delete announcement error:', e);
+      if (typeof toast === 'function') toast('Error removing announcement.');
     }
   }
 
@@ -514,6 +555,7 @@
     dismiss: dismissNotif,
     dismissAll: dismissAll,
     resend: resendAnnouncement,
+    deleteAnnouncement: deleteAnnouncement,
     loadHistory: loadAnnouncementHistory,
     saveAnnouncement: saveAnnouncement,
     refresh: async function() {

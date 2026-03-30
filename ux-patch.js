@@ -1860,9 +1860,11 @@
       var viewSwitcher = document.getElementById('viewSwitcher');
       if (viewSwitcher) viewSwitcher.style.setProperty('display', 'none', 'important');
 
-      // Hide old hamburger, show drawer tab
+      // Hide old hamburger(s), show drawer tab
       var oldHam = document.querySelector('.hhp-hamburger-v10');
       if (oldHam) oldHam.style.setProperty('display', 'none', 'important');
+      var pubHam = document.getElementById('pubHamburgerBtn');
+      if (pubHam) pubHam.style.setProperty('display', 'none', 'important');
 
       // Ensure drawer tab is visible and in navbar
       var drawerTab = document.querySelector('.hhp-drawer-tab');
@@ -1890,6 +1892,8 @@
       if (navRight) navRight.style.setProperty('display', 'flex', 'important');
       var oldHam = document.querySelector('.hhp-hamburger-v10');
       if (oldHam) oldHam.style.setProperty('display', 'none', 'important');
+      var pubHam = document.getElementById('pubHamburgerBtn');
+      if (pubHam) pubHam.style.setProperty('display', 'none', 'important');
       var drawerTab = document.querySelector('.hhp-drawer-tab');
       if (drawerTab) drawerTab.style.setProperty('display', 'none', 'important');
       var mobileSignin = document.querySelector('.hhp-mobile-signin-btn');

@@ -3809,17 +3809,12 @@ function switchView(view) {
     else { nc.style.display = view === 'public' ? '' : 'none'; }
   }
 
-  // Show/hide public hamburger menu (only on public page & < 900px)
+  // Hide original public hamburger (ux-patch drawer-tab replaces it)
   const hamburger = document.getElementById('pubHamburgerBtn');
   if(hamburger) {
-    if(view === 'public' && window.innerWidth <= 900) {
-      hamburger.style.display = 'flex';
-    } else {
-      hamburger.style.display = 'none';
-      // Close menu if switching away from public
-      if(window._publicHamburgerCloseOnPortal) {
-        window._publicHamburgerCloseOnPortal();
-      }
+    hamburger.style.display = 'none';
+    if(view !== 'public' && window._publicHamburgerCloseOnPortal) {
+      window._publicHamburgerCloseOnPortal();
     }
   }
 
@@ -3985,12 +3980,18 @@ function selectViewAsClient(userId, fullName, profileId) {
   // Set the viewing-as state
   window._viewingAsClient = { userId: userId, fullName: fullName, profileId: profileId };
 
+  // Invalidate cached data so fresh data loads for the new client
+  if (window.HHP_Cache && HHP_Cache.clear) { HHP_Cache.clear(); }
+  if (window.HHP_Preload) { HHP_Preload._loaded = {}; }
+
   // Show the persistent "Viewing as" banner
   showViewAsBanner(fullName);
 
   // Bypass the intercept and actually navigate to client portal
   window._viewAsBypass = true;
   switchView('client');
+  // Safety: ensure bypass flag is always cleared even if switchView exits early
+  window._viewAsBypass = false;
 
   // Refresh client portal data with the selected client's data
   setTimeout(function() {
@@ -4007,6 +4008,8 @@ function selectViewAsClient(userId, fullName, profileId) {
       var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
       if (sb) {
         sb.from('profiles').select('avatar_url').eq('user_id', userId).single().then(function(res) {
+          // Guard: don't update if user exited view-as mode before fetch resolved
+          if (!window._viewingAsClient || window._viewingAsClient.userId !== userId) return;
           if (res.data && res.data.avatar_url) {
             clientAva.innerHTML = '<img src="' + res.data.avatar_url + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
           } else {
@@ -4021,7 +4024,13 @@ function selectViewAsClient(userId, fullName, profileId) {
     // Load dashboard for the viewed client
     if (typeof loadDashboardStats === 'function') loadDashboardStats();
     if (typeof loadMyPets === 'function') loadMyPets();
-  }, 200);
+    // Re-fetch deals for the viewed client's usage history
+    if (window.BookingRequestModule && typeof window.BookingRequestModule.refreshDeals === 'function') window.BookingRequestModule.refreshDeals();
+    // Refresh customizer widgets with new client data
+    if (window.HHP_Customizer && typeof window.HHP_Customizer.refreshAll === 'function') {
+      setTimeout(function() { window.HHP_Customizer.refreshAll(); }, 300);
+    }
+  }, 400);
 }
 
 // Show persistent banner at top of client portal
@@ -4047,15 +4056,24 @@ function showViewAsBanner(clientName) {
 // Exit "View As" mode
 function exitViewAsClient() {
   window._viewingAsClient = null;
+  window._viewAsBypass = false;
+  // Clear messaging view-as state
+  window._msgViewAsClientId = null;
+
+  // Invalidate cached data so owner's own data reloads
+  if (window.HHP_Cache && HHP_Cache.clear) { HHP_Cache.clear(); }
+  if (window.HHP_Preload) { HHP_Preload._loaded = {}; }
 
   // Remove banner
   var banner = document.getElementById('hhp-view-as-banner');
   if (banner) banner.remove();
   document.body.style.paddingTop = '';
 
-  // Restore sidebar welcome text and avatar
+  // Restore sidebar to owner's actual identity
+  var ownerName = 'Welcome!';
+  try { if (window.HHP_Auth && HHP_Auth.currentUser && HHP_Auth.currentUser.profile) ownerName = HHP_Auth.currentUser.profile.full_name || 'Welcome!'; } catch(e) {}
   var sbName = document.querySelector('#pg-client .sb-name');
-  if (sbName) sbName.textContent = 'Welcome!';
+  if (sbName) sbName.textContent = ownerName;
   var sbRole = document.querySelector('#pg-client .sb-role');
   if (sbRole) sbRole.textContent = 'Client Portal';
   var clientAva = document.querySelector('#pg-client .sidebar-user .sb-ava');
@@ -9441,6 +9459,8 @@ function saveStripe(){ const k=document.getElementById('stripeKey')?.value.trim(
 // ---- SCROLL REVEAL ----
 const obs = new IntersectionObserver(entries => entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('vis'); }), {threshold:0.1});
 document.querySelectorAll('.fadeup').forEach(el => obs.observe(el));
+// Fallback: reveal any remaining hidden fadeup elements after 3s (prevents blank sections)
+setTimeout(function() { document.querySelectorAll('.fadeup:not(.vis)').forEach(function(el) { el.classList.add('vis'); }); }, 3000);
 
 
 // ── Specials & Deals ──
@@ -13000,15 +13020,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           });
 
-          // Handle window resize: close menu and hide/show hamburger based on breakpoint
+          // Resize: close the old public menu (ux-patch drawer-tab handles mobile nav now)
           window.addEventListener('resize', function() {
             closeMenu();
-            const currentView = sessionStorage.getItem('hhp_last_view') || 'public';
-            if (currentView === 'public' && window.innerWidth <= 900) {
-              hamburger.style.display = 'flex';
-            } else {
-              hamburger.style.display = 'none';
-            }
+            hamburger.style.display = 'none';
           });
 
           // Prevent menu from showing on portal pages
@@ -13017,9 +13032,7 @@ document.addEventListener('DOMContentLoaded', function() {
             hamburger.style.display = 'none';
           };
           window._publicHamburgerShowOnPublic = function() {
-            if (window.innerWidth <= 900) {
-              hamburger.style.display = 'flex';
-            }
+            // No-op: ux-patch drawer-tab handles mobile nav now
           };
         }
 

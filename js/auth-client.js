@@ -30,6 +30,9 @@ const HHP_Auth = window.HHP_Auth = {
             await this.handleSession(session);
         }
 
+        // Initial session check is done — any future logins are FRESH, not restores
+        this._initialLoad = false;
+
         // Listen for auth state changes
         this.supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session) {

@@ -100,11 +100,13 @@
           sb.from('staff_assignments').select('client_id').eq('staff_id', user.id),
         ];
       } else if (portal === 'client') {
+        // Use effective client ID for "View As Client" mode
+        var effectiveId = (window._viewingAsClient && window._viewingAsClient.userId) ? window._viewingAsClient.userId : user.id;
         queries = [
-          sb.from('booking_requests').select('*').eq('client_id', user.id).order('created_at', { ascending: false }).limit(20),
-          sb.from('messages').select('*').or('sender_id.eq.' + user.id + ',recipient_id.eq.' + user.id).order('created_at', { ascending: false }).limit(10),
-          sb.from('pets').select('*').eq('owner_id', user.id),
-          sb.from('payments').select('amount,created_at,status').eq('client_id', user.id).order('created_at', { ascending: false }).limit(10),
+          sb.from('booking_requests').select('*').eq('client_id', effectiveId).order('created_at', { ascending: false }).limit(20),
+          sb.from('messages').select('*').or('sender_id.eq.' + effectiveId + ',recipient_id.eq.' + effectiveId).order('created_at', { ascending: false }).limit(10),
+          sb.from('pets').select('*').eq('owner_id', effectiveId),
+          sb.from('payments').select('amount,created_at,status').eq('client_id', effectiveId).order('created_at', { ascending: false }).limit(10),
         ];
       }
 

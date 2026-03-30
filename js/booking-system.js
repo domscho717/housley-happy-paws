@@ -63,7 +63,7 @@
 
       // Fetch which deals the current client has already used (for once_per_client limits)
       _clientUsedDealIds = [];
-      var clientId = window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null;
+      var clientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null);
       if (clientId) {
         var usageRes = await sb.from('booking_requests')
           .select('deal_id')
@@ -2604,10 +2604,7 @@
       var sb = getSB();
       if (!sb) throw new Error('Unable to connect to booking system. Please try again.');
 
-      var clientId = null;
-      if (window.HHP_Auth && window.HHP_Auth.currentUser) {
-        clientId = window.HHP_Auth.currentUser.id;
-      }
+      var clientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null);
 
       // Re-validate deal usage right before submission (prevents multi-tab bypass)
       if (window._brmDealDiscount && clientId) {
@@ -3804,6 +3801,23 @@
       console.error('Failed to load booking requests:', err);
       container.innerHTML = '<div style="padding:12px;color:#c00;font-size:0.85rem">Failed to load requests. Please refresh.</div>';
     }
+  };
+
+  // Filter functions called from owner/staff portal filter buttons
+  window.filterOwnerRequests = function(status, btn) {
+    _bookingPanelState.currentFilter = status;
+    var btns = document.querySelectorAll('#o-requests .admin-filter-btn');
+    btns.forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    window.loadBookingRequestsPanel('owner');
+  };
+
+  window.filterStaffRequests = function(status, btn) {
+    _bookingPanelState.currentFilter = status;
+    var btns = document.querySelectorAll('#s-requests .admin-filter-btn');
+    btns.forEach(function(b) { b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
+    window.loadBookingRequestsPanel('staff');
   };
 
   function _renderBookingRequestsList(container, portal) {
