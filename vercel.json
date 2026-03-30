@@ -39,11 +39,7 @@
           },
           {
                   "path": "/api/capture-payments?retry=true",
-                  "schedule": "0 3 * * 1"
-          },
-          {
-                  "path": "/api/capture-holds",
-                  "schedule": "0 */6 * * *"
+                  "schedule": "0 23 * * 0"
           },
           {
                   "path": "/api/unpaid-reminders",

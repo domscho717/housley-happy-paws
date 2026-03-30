@@ -1,5 +1,5 @@
 /**
- * Complete House Sitting — Captures hold, adjusts nights if needed, marks complete
+ * Complete House Sitting — Adjusts nights if needed, marks complete
  *
  * POST /api/complete-housesitting
  * Body: {
@@ -9,12 +9,12 @@
  *   reportRating: number|null,      // 1-5 pet behavior rating (optional)
  * }
  *
- * Flow:
- * 1. Fetch booking + validate it's a house sitting with a hold
+ * Rover-model flow (payment already captured at acceptance):
+ * 1. Fetch booking + validate it's a house sitting
  * 2. Calculate final amount (original or adjusted)
- * 3. If same or less: capture partial/full hold amount
- * 4. If more nights: capture full hold + create new charge for the difference
- * 5. 15% dev share transfer on captured amount
+ * 3. If fewer nights: issue partial refund for the difference
+ * 4. If more nights: charge extra for additional nights
+ * 5. 15% dev share transfer on any extra charge
  * 6. Store report in service_reports table
  * 7. Update booking status to 'completed'
  * 8. Send notification to client
@@ -56,10 +56,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Not a house sitting booking' });
     }
 
-    if (!booking.payment_intent_id) {
-      return res.status(400).json({ error: 'No payment hold found for this booking' });
-    }
-
     // 2. Calculate nights and amounts
     const originalStart = new Date(booking.preferred_date + 'T12:00:00');
     const originalEnd = new Date(booking.preferred_end_date + 'T12:00:00');
@@ -75,94 +71,48 @@ module.exports = async function handler(req, res) {
 
     console.log(`[hs-complete] Booking ${bookingRequestId}: ${originalNights} nights → ${finalNights} nights, $${booking.estimated_total} → $${finalAmount}`);
 
-    // 3. Check hold status
-    const paymentIntent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
-    let capturedAmount = 0;
+    // 3. Handle payment adjustments
+    //    Payment was already captured at acceptance — just adjust the difference
     let extraChargeId = null;
 
-    if (paymentIntent.status === 'requires_capture') {
-      // Hold is still active — capture it
-      if (finalAmountCents <= originalAmountCents) {
-        // Same or fewer nights — capture partial or full amount
-        const captureResult = await stripe.paymentIntents.capture(booking.payment_intent_id, {
-          amount_to_capture: finalAmountCents,
-        });
-        capturedAmount = finalAmountCents;
-        console.log(`[hs-complete] Captured $${(finalAmountCents / 100).toFixed(2)} of $${(originalAmountCents / 100).toFixed(2)} hold`);
-      } else {
-        // More nights — capture full hold + charge the difference
-        const captureResult = await stripe.paymentIntents.capture(booking.payment_intent_id);
-        capturedAmount = originalAmountCents;
-        console.log(`[hs-complete] Captured full hold $${(originalAmountCents / 100).toFixed(2)}`);
-
-        // Charge difference
-        const diffCents = finalAmountCents - originalAmountCents;
-        if (diffCents > 0) {
-          // Get client's payment method
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('stripe_customer_id, email, full_name')
-            .eq('id', booking.client_id)
-            .single();
-
-          if (profile && profile.stripe_customer_id) {
-            const methods = await stripe.paymentMethods.list({
-              customer: profile.stripe_customer_id,
-              type: 'card',
-            });
-
-            if (methods.data.length > 0) {
-              const extraCharge = await stripe.paymentIntents.create({
-                amount: diffCents,
-                currency: 'usd',
-                customer: profile.stripe_customer_id,
-                payment_method: methods.data[0].id,
-                off_session: true,
-                confirm: true,
-                capture_method: 'automatic',
-                description: `Housley Happy Paws — ${booking.service} extra ${finalNights - originalNights} night(s)`,
-                metadata: {
-                  booking_request_id: booking.id,
-                  type: 'house_sitting_extra_nights',
-                },
-              });
-              extraChargeId = extraCharge.id;
-              capturedAmount += diffCents;
-              console.log(`[hs-complete] Extra charge $${(diffCents / 100).toFixed(2)} for ${finalNights - originalNights} extra night(s)`);
-            }
-          }
-        }
-      }
-    } else if (paymentIntent.status === 'succeeded') {
-      // Already captured (maybe by cron) — just adjust if needed
-      capturedAmount = paymentIntent.amount;
-      console.log(`[hs-complete] Hold already captured — $${(capturedAmount / 100).toFixed(2)}`);
-
-      // If fewer nights, issue partial refund
-      if (finalAmountCents < capturedAmount) {
-        const refundAmount = capturedAmount - finalAmountCents;
+    if (finalAmountCents < originalAmountCents && booking.payment_intent_id) {
+      // Fewer nights — issue partial refund
+      const refundAmount = originalAmountCents - finalAmountCents;
+      try {
         await stripe.refunds.create({
           payment_intent: booking.payment_intent_id,
           amount: refundAmount,
         });
-        console.log(`[hs-complete] Refunded $${(refundAmount / 100).toFixed(2)} for fewer nights`);
-        capturedAmount = finalAmountCents;
-      }
-      // If more nights, charge the difference
-      else if (finalAmountCents > capturedAmount) {
-        const diffCents = finalAmountCents - capturedAmount;
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('stripe_customer_id, email, full_name')
-          .eq('id', booking.client_id)
-          .single();
+        console.log(`[hs-complete] Refunded $${(refundAmount / 100).toFixed(2)} for fewer nights (${originalNights} → ${finalNights})`);
 
-        if (profile && profile.stripe_customer_id) {
-          const methods = await stripe.paymentMethods.list({
-            customer: profile.stripe_customer_id,
-            type: 'card',
-          });
-          if (methods.data.length > 0) {
+        // Update payment record
+        await supabase.from('payments')
+          .update({
+            amount: finalAmount,
+            notes: `House sitting — adjusted ${originalNights} → ${finalNights} nights, partial refund $${(refundAmount / 100).toFixed(2)}`,
+          })
+          .eq('stripe_session_id', booking.payment_intent_id);
+      } catch (refundErr) {
+        console.error('[hs-complete] Partial refund failed:', refundErr.message);
+      }
+    } else if (finalAmountCents > originalAmountCents) {
+      // More nights — charge the difference
+      const diffCents = finalAmountCents - originalAmountCents;
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('stripe_customer_id, email, full_name')
+        .eq('user_id', booking.client_id)
+        .single();
+
+      if (profile && profile.stripe_customer_id) {
+        const methods = await stripe.paymentMethods.list({
+          customer: profile.stripe_customer_id,
+          type: 'card',
+          limit: 1,
+        });
+
+        if (methods.data.length > 0) {
+          try {
             const extraCharge = await stripe.paymentIntents.create({
               amount: diffCents,
               currency: 'usd',
@@ -172,117 +122,69 @@ module.exports = async function handler(req, res) {
               confirm: true,
               capture_method: 'automatic',
               description: `Housley Happy Paws — ${booking.service} extra ${finalNights - originalNights} night(s)`,
-              metadata: { booking_request_id: booking.id, type: 'house_sitting_extra_nights' },
+              metadata: {
+                booking_request_id: booking.id,
+                type: 'house_sitting_extra_nights',
+              },
             });
             extraChargeId = extraCharge.id;
-            capturedAmount += diffCents;
-          }
-        }
-      }
-    } else {
-      // Hold expired or canceled
-      console.log(`[hs-complete] Hold status: ${paymentIntent.status} — creating fresh charge`);
+            console.log(`[hs-complete] Extra charge $${(diffCents / 100).toFixed(2)} for ${finalNights - originalNights} extra night(s)`);
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('stripe_customer_id, email, full_name')
-        .eq('id', booking.client_id)
-        .single();
-
-      if (profile && profile.stripe_customer_id) {
-        const methods = await stripe.paymentMethods.list({
-          customer: profile.stripe_customer_id,
-          type: 'card',
-        });
-        if (methods.data.length > 0) {
-          const freshCharge = await stripe.paymentIntents.create({
-            amount: finalAmountCents,
-            currency: 'usd',
-            customer: profile.stripe_customer_id,
-            payment_method: methods.data[0].id,
-            off_session: true,
-            confirm: true,
-            capture_method: 'automatic',
-            description: `Housley Happy Paws — ${booking.service} (${finalNights} nights)`,
-            metadata: { booking_request_id: booking.id },
-          });
-          capturedAmount = finalAmountCents;
-          extraChargeId = freshCharge.id;
-          console.log(`[hs-complete] Fresh charge $${(finalAmountCents / 100).toFixed(2)}`);
-        }
-      }
-    }
-
-    // 4. 15% dev share transfer
-    if (connectedAccountId && capturedAmount > 0) {
-      const devShareCents = Math.round(capturedAmount * 0.15);
-      if (devShareCents > 0) {
-        try {
-          // Get the charge ID from the captured payment intent
-          const capturedPI = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
-          const chargeId = capturedPI.latest_charge;
-          if (chargeId) {
-            await stripe.transfers.create({
-              amount: devShareCents,
-              currency: 'usd',
-              destination: connectedAccountId,
-              source_transaction: chargeId,
-              description: `15% dev share — ${booking.service} (#${booking.id.slice(0, 8)})`,
-            });
-            console.log(`[hs-complete] Transfer $${(devShareCents / 100).toFixed(2)} to connected account`);
-          }
-
-          // If there was an extra charge, transfer from that too
-          if (extraChargeId) {
-            const extraPI = await stripe.paymentIntents.retrieve(extraChargeId);
-            const extraChargeRef = extraPI.latest_charge;
-            if (extraChargeRef) {
-              const extraDevShare = Math.round((finalAmountCents - originalAmountCents) * 0.15);
+            // 15% dev share transfer on extra charge
+            if (connectedAccountId) {
+              const extraDevShare = Math.round(diffCents * 0.15);
               if (extraDevShare > 0) {
-                await stripe.transfers.create({
-                  amount: extraDevShare,
-                  currency: 'usd',
-                  destination: connectedAccountId,
-                  source_transaction: extraChargeRef,
-                  description: `15% dev share — ${booking.service} extra nights (#${booking.id.slice(0, 8)})`,
-                });
+                try {
+                  const extraPI = await stripe.paymentIntents.retrieve(extraCharge.id);
+                  const extraChargeRef = extraPI.latest_charge;
+                  if (extraChargeRef) {
+                    await stripe.transfers.create({
+                      amount: extraDevShare,
+                      currency: 'usd',
+                      destination: connectedAccountId,
+                      source_transaction: extraChargeRef,
+                      description: `15% dev share — ${booking.service} extra nights (#${booking.id.slice(0, 8)})`,
+                    });
+                  }
+                } catch (transferErr) {
+                  console.error('[hs-complete] Extra nights transfer error (non-blocking):', transferErr.message);
+                }
               }
             }
+
+            // Insert payment record for extra charge
+            await supabase.from('payments').insert({
+              stripe_session_id: extraCharge.id,
+              client_email: profile.email,
+              client_name: profile.full_name,
+              amount: diffCents / 100,
+              service: booking.service + ' (extra nights)',
+              status: 'paid',
+              notes: `Extra ${finalNights - originalNights} night(s) charge`,
+              paid_at: new Date().toISOString(),
+            });
+          } catch (chargeErr) {
+            console.error('[hs-complete] Extra nights charge failed:', chargeErr.message);
           }
-        } catch (transferErr) {
-          console.error('[hs-complete] Transfer error (non-blocking):', transferErr.message);
         }
       }
     }
 
-    // 5. Update payments table
-    await supabase.from('payments')
-      .update({ status: 'paid', notes: `House sitting completed — ${finalNights} nights, $${finalAmount.toFixed(2)}` })
-      .eq('stripe_session_id', booking.payment_intent_id);
+    // 4. Update original payment record with completion note
+    if (booking.payment_intent_id && finalAmountCents === originalAmountCents) {
+      await supabase.from('payments')
+        .update({ notes: `House sitting completed — ${finalNights} nights, $${finalAmount.toFixed(2)}` })
+        .eq('stripe_session_id', booking.payment_intent_id);
+    }
 
-    // Fetch client profile for notifications
+    // 5. Fetch client profile for notifications
     const { data: clientProfile } = await supabase
       .from('profiles')
       .select('email, full_name')
-      .eq('id', booking.client_id)
+      .eq('user_id', booking.client_id)
       .single();
 
-    // Also insert if extra charge
-    if (extraChargeId) {
-      await supabase.from('payments').insert({
-        stripe_session_id: extraChargeId,
-        client_email: clientProfile ? clientProfile.email : '',
-        client_name: clientProfile ? clientProfile.full_name : '',
-        amount: (finalAmountCents - originalAmountCents) / 100,
-        service: booking.service + ' (extra nights)',
-        status: 'paid',
-        notes: `Extra ${finalNights - originalNights} night(s) charge`,
-        paid_at: new Date().toISOString(),
-      });
-    }
-
     // 6. Store service report
-
     await supabase.from('service_reports').insert({
       booking_id: bookingRequestId,
       client_id: booking.client_id,
@@ -371,7 +273,6 @@ module.exports = async function handler(req, res) {
       finalNights,
       originalAmount: booking.estimated_total,
       finalAmount,
-      captured: capturedAmount / 100,
       message: `House sitting completed — ${finalNights} nights, $${finalAmount.toFixed(2)} charged`,
     });
 

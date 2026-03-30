@@ -760,7 +760,7 @@
       '        <strong style="color:#bf5d00">Cancellation Policy:</strong> Cancellations made within 48 hours of your scheduled appointment will be charged the full service fee. Cancellations made more than 48 hours in advance are fully refundable.',
       '      </div>',
       '      <div style="margin-top:8px;padding:10px 12px;background:#f0f7f0;border:1px solid #c5dcc5;border-radius:8px;font-size:0.76rem;color:#3d5c3d;line-height:1.5">',
-      '        <strong style="color:#2e7d32">💳 Payment Info:</strong> Once your booking is accepted, a hold is placed on your card. The hold captures (charges) 48 hours before your appointment. For future weeks, the hold is placed the Sunday before your appointment week. You can also pay early anytime from your appointments page.',
+      '        <strong style="color:#2e7d32">💳 Payment Info:</strong> Your card is charged when your booking is accepted. Cancellations made 48+ hours before your appointment receive a full refund. For recurring services, your card is charged the Sunday before each appointment week.',
       '      </div>',
       '    </div>',
       '',
@@ -3373,17 +3373,7 @@
               });
               var chargeData = await chargeResp.json();
 
-              if (chargeData.success && chargeData.status === 'deferred') {
-                // Payment deferred — hold placed the Sunday before appointment week
-                autoCharged = false;
-                if (typeof toast === 'function') toast('✓ Booking accepted! Payment hold placed the Sunday before appointment week.');
-
-              } else if (chargeData.success && chargeData.held) {
-                // Hold placed now — captures 48hrs before service
-                autoCharged = true;
-                if (typeof toast === 'function') toast('🔒 Hold placed for $' + Number(req.estimated_total).toFixed(2) + ' — charges 48hrs before service.');
-
-              } else if (chargeData.success) {
+              if (chargeData.success) {
                 autoCharged = true;
                 if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + ' automatically!');
 
@@ -4080,9 +4070,7 @@
               body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
             });
             var chargeData = await chargeResp.json();
-            if (chargeData.success && chargeData.status === 'deferred') {
-              if (typeof toast === 'function') toast('💳 Payment deferred — will charge the Sunday before your appointment week.');
-            } else if (chargeData.success) {
+            if (chargeData.success) {
               if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + '!');
             } else {
               await sb.from('booking_requests').update({
@@ -4489,9 +4477,7 @@
                 body: JSON.stringify({ bookingRequestId: requestId, amount: booking.estimated_total, service: booking.service, clientProfileId: booking.client_id }),
               });
               var chargeData = await chargeResp.json();
-              if (chargeData.success && chargeData.status === 'deferred') {
-                if (typeof toast === 'function') toast('\uD83D\uDCB3 Payment deferred \u2014 will charge the Sunday before your appointment week.');
-              } else if (chargeData.success) {
+              if (chargeData.success) {
                 if (typeof toast === 'function') toast('\uD83D\uDCB3 Card charged $' + Number(booking.estimated_total).toFixed(2) + '!');
               } else {
                 await sb.from('booking_requests').update({ status: 'payment_hold', admin_notes: '\u26A0\uFE0F Payment failed: ' + (chargeData.message || chargeData.error || 'Card declined') }).eq('id', requestId);

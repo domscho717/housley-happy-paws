@@ -12,7 +12,7 @@ module.exports = async function handler(req, res) {
   );
 
   try {
-    const { bookingRequestId, amount, service, clientProfileId, forceCharge } = req.body;
+    const { bookingRequestId, amount, service, clientProfileId } = req.body;
     if (!amount || !clientProfileId) {
       return res.status(400).json({ error: 'amount and clientProfileId are required' });
     }
@@ -68,120 +68,33 @@ module.exports = async function handler(req, res) {
 
     const paymentMethodId = methods.data[0].id;
 
-    // Determine if we charge now or defer to Sunday cron
-    // Policy: cron runs on the Sunday BEFORE the service week (Mon-Sun)
-    // If that "charge Sunday" is today or already past → charge now
-    // If that "charge Sunday" is in the future → defer (cron will handle it)
-    let chargeNow = true; // default: charge immediately
-    if (forceCharge) {
-      console.log('[charge] forceCharge=true — Pay Early, charging immediately');
-      chargeNow = true;
-    } else if (bookingRequestId) {
-      const { data: booking } = await supabase
-        .from('booking_requests')
-        .select('preferred_date, scheduled_date, recurrence_pattern')
-        .eq('id', bookingRequestId)
-        .single();
-
-      if (booking) {
-        const svcDateStr = booking.scheduled_date || booking.preferred_date;
-        if (svcDateStr) {
-          const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-          const serviceDate = new Date(svcDateStr + 'T12:00:00');
-
-          // Find Monday of the service date's week
-          const svcDay = serviceDate.getDay(); // 0=Sun..6=Sat
-          const svcDaysToMon = svcDay === 0 ? 6 : svcDay - 1;
-          const svcMonday = new Date(serviceDate);
-          svcMonday.setDate(svcMonday.getDate() - svcDaysToMon);
-          svcMonday.setHours(0, 0, 0, 0);
-
-          // Charge Sunday = the day before that week's Monday
-          const chargeSunday = new Date(svcMonday);
-          chargeSunday.setDate(chargeSunday.getDate() - 1);
-          chargeSunday.setHours(0, 0, 0, 0);
-
-          // Today at midnight EST
-          const todayMidnight = new Date(estNow);
-          todayMidnight.setHours(0, 0, 0, 0);
-
-          // If charge Sunday is today or past → charge now (cron already ran or we're in the service week)
-          // If charge Sunday is future → defer to cron
-          chargeNow = chargeSunday <= todayMidnight;
-          console.log(`[charge] Service: ${svcDateStr}, svcWeek Mon: ${svcMonday.toISOString().slice(0,10)}, chargeSunday: ${chargeSunday.toISOString().slice(0,10)}, today: ${todayMidnight.toISOString().slice(0,10)}, chargeNow: ${chargeNow}`);
-        }
-      }
-    }
-
-    // If service is in a FUTURE week, defer — Sunday cron will handle it
-    if (!chargeNow) {
-      console.log('[charge] Service in future week — deferring to Sunday auto-charge');
-      return res.status(200).json({
-        success: true,
-        status: 'deferred',
-        amount: amount,
-        message: 'Payment deferred — will be charged the Sunday before your appointment week',
-      });
-    }
-
-    // Service is this week — determine hold vs instant charge
-    // Within 48hrs of service OR Pay Early → charge directly
-    // More than 48hrs out → place hold (capture-holds cron will capture at 48hrs)
-    let useHold = false;
-    if (!forceCharge && bookingRequestId) {
-      const { data: bk } = await supabase.from('booking_requests')
-        .select('preferred_date, scheduled_date, preferred_end_date')
-        .eq('id', bookingRequestId).single();
-      if (bk) {
-        const sd = bk.scheduled_date || bk.preferred_date;
-        if (sd) {
-          const svcD = new Date(sd + 'T00:00:00');
-          const estN = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-          const hrsUntil = (svcD - estN) / (1000 * 60 * 60);
-          if (hrsUntil > 48) useHold = true;
-        }
-      }
-    }
-
+    // Charge immediately — Rover model: charge at acceptance, refund on cancel
     const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
     const amountCents = Math.round(amount * 100);
     const devShareCents = connectedAccountId ? Math.round(amountCents * 0.15) : 0;
-    const isHouseSitting = (service || '').toLowerCase().includes('house sitting');
 
-    const piParams = {
+    console.log(`[charge] Charging $${amount} immediately for ${service || 'Pet Care'}`);
+
+    const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: 'usd',
       customer: stripeCustomerId,
       payment_method: paymentMethodId,
       off_session: true,
       confirm: true,
-      capture_method: useHold ? 'manual' : 'automatic',
+      capture_method: 'automatic',
       description: `Housley Happy Paws — ${service || 'Pet Care Service'}`,
       metadata: {
         booking_request_id: bookingRequestId || '',
         client_name: profile.full_name || '',
         service: service || '',
       },
-    };
+    });
 
-    // Extended auth for house sitting (holds up to 31 days) — fallback to normal hold if not eligible
-    console.log(`[charge] Service is this week — ${useHold ? 'placing HOLD' : 'charging immediately'}`);
-    let paymentIntent;
-    if (useHold && isHouseSitting) {
-      try {
-        const hsParams = { ...piParams, payment_method_options: { card: { request_extended_authorization: 'if_available' } } };
-        paymentIntent = await stripe.paymentIntents.create(hsParams);
-      } catch (extErr) {
-        console.log('[charge] Extended auth not available, falling back to normal hold:', extErr.message);
-        paymentIntent = await stripe.paymentIntents.create(piParams);
-      }
-    } else {
-      paymentIntent = await stripe.paymentIntents.create(piParams);
-    }
     console.log('[charge] PaymentIntent:', paymentIntent.id, 'status:', paymentIntent.status);
 
     if (paymentIntent.status === 'succeeded') {
-      // Immediate charge — do 15% transfer now
+      // 15% dev share transfer
       if (connectedAccountId && devShareCents > 0) {
         try {
           const chargeId = paymentIntent.latest_charge;
@@ -198,33 +111,19 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      const { error: payInsertErr } = await supabase.from('payments').insert({
+      await supabase.from('payments').insert({
         stripe_session_id: paymentIntent.id,
         client_email: profile.email,
         client_name: profile.full_name,
         amount: amount,
         service: service || 'Pet Care',
         status: 'paid',
-        notes: bookingRequestId ? 'Charged — same-week booking (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Charged',
+        notes: bookingRequestId ? 'Charged at acceptance (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Charged',
         paid_at: new Date().toISOString(),
       });
-      if (payInsertErr) console.error('Payment insert error:', payInsertErr.message);
-    } else if (paymentIntent.status === 'requires_capture') {
-      // Hold placed — transfer happens when capture-holds cron captures it
-      const { error: payInsertErr } = await supabase.from('payments').insert({
-        stripe_session_id: paymentIntent.id,
-        client_email: profile.email,
-        client_name: profile.full_name,
-        amount: amount,
-        service: service || 'Pet Care',
-        status: 'held',
-        notes: bookingRequestId ? 'Hold placed — captures 48hrs before service (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Hold placed',
-        paid_at: new Date().toISOString(),
-      });
-      if (payInsertErr) console.error('Payment insert error:', payInsertErr.message);
     }
 
-    if (bookingRequestId && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'requires_capture')) {
+    if (bookingRequestId && paymentIntent.status === 'succeeded') {
       await supabase
         .from('booking_requests')
         .update({ payment_intent_id: paymentIntent.id })
@@ -233,10 +132,9 @@ module.exports = async function handler(req, res) {
 
     res.status(200).json({
       success: true,
-      status: paymentIntent.status === 'requires_capture' ? 'held' : paymentIntent.status,
+      status: paymentIntent.status,
       paymentIntentId: paymentIntent.id,
       amount: amount,
-      held: paymentIntent.status === 'requires_capture',
     });
   } catch (err) {
     console.error('Charge saved card error:', err.message, err.code || '');
@@ -246,7 +144,6 @@ module.exports = async function handler(req, res) {
     const isCardDecline = err.type === 'StripeCardError' || err.code === 'card_declined';
     const isAuthRequired = err.code === 'authentication_required';
     const isExpired = declineCode === 'expired_card';
-    const isInsufficientFunds = declineCode === 'insufficient_funds';
 
     // Friendly decline messages for the client
     const declineMessages = {
