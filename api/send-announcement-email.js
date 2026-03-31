@@ -16,6 +16,35 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Authentication: Verify the request comes from an authenticated owner
+  const authHeader = req.headers.authorization;
+  const announcementSecret = process.env.ANNOUNCEMENT_EMAIL_SECRET;
+
+  if (!authHeader && !announcementSecret) {
+    return res.status(500).json({ error: 'Authentication not configured' });
+  }
+
+  // Check for shared secret authentication
+  if (announcementSecret) {
+    const token = authHeader?.replace('Bearer ', '');
+    if (token !== announcementSecret) {
+      return res.status(401).json({ error: 'Invalid or missing authentication' });
+    }
+  } else if (authHeader) {
+    // Fall back to Supabase auth token verification
+    const supabaseForAuth = createClient(
+      process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
+      process.env.SUPABASE_ANON_KEY
+    );
+    supabaseForAuth.auth.getUser(authHeader.replace('Bearer ', ''));
+    const { data: { user }, error: authError } = await supabaseForAuth.auth.getUser();
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid auth token' });
+    }
+  } else {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
   const supabase = createClient(
     process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY

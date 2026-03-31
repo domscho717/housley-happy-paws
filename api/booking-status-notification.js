@@ -25,8 +25,8 @@ module.exports = async function handler(req, res) {
   }
 
   // Validate status is one of the expected values
-  if (!['accepted', 'modified', 'declined', 'payment_hold', 'canceled'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, canceled, or payment_hold' });
+  if (!['accepted', 'modified', 'declined', 'payment_hold', 'payment_decline_warning', 'payment_auto_canceled', 'owner_payment_decline_alert', 'canceled'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: accepted, modified, declined, canceled, payment_hold, payment_decline_warning, payment_auto_canceled, or owner_payment_decline_alert' });
   }
 
   try {
@@ -119,7 +119,7 @@ module.exports = async function handler(req, res) {
             <div style="background:#eef4ef;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #c5d8c9">
               <div style="font-weight:700;margin-bottom:8px">📅 Recurring Schedule</div>
               ${lines}
-              <div style="margin-top:10px;font-size:0.85rem;color:#3d5a47">💳 You will be automatically charged 48 hours before each appointment. Cancel anytime by contacting Rachel.</div>
+              <div style="margin-top:10px;font-size:0.85rem;color:#3d5a47">💳 Your card is charged at booking acceptance. For recurring weeks, you are charged the Sunday before each appointment week. Cancellations 48+ hours before service receive a full refund. Cancel anytime by contacting Rachel.</div>
             </div>`;
         }
       } catch (e) { /* ignore parse errors */ }
@@ -224,12 +224,86 @@ module.exports = async function handler(req, res) {
 
       <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Your booking is on hold and will be confirmed once payment is resolved. Questions? Reply to this email or call 717-715-7595.</p>
     `;
+
+  } else if (status === 'payment_decline_warning') {
+    const safeDeclineMsg = escHtml(req.body?.declineMessage || 'Your card was declined.');
+    subject = `🚨 Action Required: Payment declined for your ${safeService} booking — Housley Happy Paws`;
+    bodyHTML = `
+      <p>Hi ${safeName}!</p>
+      <p>Your <strong>${safeService}</strong> appointment is coming up soon, but we were unable to process your payment:</p>
+
+      <div style="background:#fde8e8;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c62828">
+        <div style="font-weight:700;margin-bottom:8px;color:#c62828">❌ Payment Declined</div>
+        <div style="color:#c62828">${safeDeclineMsg}</div>
+      </div>
+
+      ${dateFmt ? `<div style="margin-bottom:4px">📅 Appointment: ${dateFmt}</div>` : ''}
+      ${timeFmt ? `<div style="margin-bottom:4px">🕐 Time: ${timeFmt}</div>` : ''}
+      ${estimatedTotal ? `<div style="margin-bottom:4px">💰 Amount due: $${Number(estimatedTotal).toFixed(2)}</div>` : ''}
+
+      <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border:1px solid #ffc107">
+        <div style="font-weight:700;color:#856404;margin-bottom:6px">⏰ You have 24 hours to update your payment method</div>
+        <div style="color:#856404">If payment is not resolved within 24 hours, your booking will be automatically canceled.</div>
+      </div>
+
+      <p>Please log in and update your card to keep your appointment:</p>
+
+      <div style="margin-top:16px">
+        <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c62828;color:white;border-radius:8px;text-decoration:none;font-weight:700">Update Payment Now →</a>
+      </div>
+
+      <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Need help? Reply to this email or call 717-715-7595.</p>
+    `;
+
+  } else if (status === 'payment_auto_canceled') {
+    subject = `❌ Booking canceled — payment not received for ${safeService} — Housley Happy Paws`;
+    bodyHTML = `
+      <p>Hi ${safeName},</p>
+      <p>Unfortunately, your <strong>${safeService}</strong> booking has been automatically canceled because we were unable to process your payment within the 24-hour grace period.</p>
+
+      ${dateFmt ? `<div style="margin-bottom:4px">📅 Original date: ${dateFmt}</div>` : ''}
+      ${timeFmt ? `<div style="margin-bottom:4px">🕐 Original time: ${timeFmt}</div>` : ''}
+
+      <p>We'd love to still see you! You can update your payment method and book a new appointment anytime:</p>
+
+      <div style="margin-top:16px">
+        <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">Book Again →</a>
+      </div>
+
+      <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Questions? Reply to this email or call 717-715-7595.</p>
+    `;
+
+  } else if (status === 'owner_payment_decline_alert') {
+    const safeClientName = escHtml(req.body?.clientName || 'A client');
+    const safeClientEmail = escHtml(req.body?.clientEmail || '');
+    const safeDeclineMsg = escHtml(req.body?.declineMessage || 'Card was declined.');
+    subject = `⚠️ Payment Declined — ${safeClientName}'s ${safeService} booking`;
+    bodyHTML = `
+      <p>Hi ${safeName},</p>
+      <p>A payment attempt <strong>failed</strong> for one of your client's upcoming bookings:</p>
+
+      <div style="background:#fff3e0;border:1.5px solid #e0a800;border-radius:10px;padding:14px 18px;margin:12px 0">
+        <div style="font-weight:700;margin-bottom:6px">Client: ${safeClientName}</div>
+        ${safeClientEmail ? `<div style="margin-bottom:4px">📧 ${safeClientEmail}</div>` : ''}
+        <div style="margin-bottom:4px">🐾 Service: ${safeService}</div>
+        ${dateFmt ? `<div style="margin-bottom:4px">📅 Date: ${dateFmt}</div>` : ''}
+        ${timeFmt ? `<div style="margin-bottom:4px">🕐 Time: ${timeFmt}</div>` : ''}
+        ${req.body?.estimatedTotal ? `<div style="margin-bottom:4px">💰 Amount: $${Number(req.body.estimatedTotal).toFixed(2)}</div>` : ''}
+        <div style="margin-top:8px;color:#c62828;font-weight:600">❌ Reason: ${safeDeclineMsg}</div>
+      </div>
+
+      <p>The system will retry once more tonight at 10 PM. If it still fails, the booking will be marked as <strong>unpaid</strong> and you may need to reach out to the client directly.</p>
+
+      <div style="margin-top:16px">
+        <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700">View Dashboard →</a>
+      </div>
+    `;
   }
 
   const result = await sendEmail({
     to: email,
     subject,
-    title: isOwnerNotification ? (status === 'accepted' ? 'Time Change Accepted' : 'Booking Canceled') : status === 'accepted' ? 'Booking Confirmed!' : status === 'canceled' ? 'Booking Canceled' : status === 'payment_hold' ? 'Payment Issue' : status === 'modified' ? 'Booking Update' : 'Booking Update',
+    title: isOwnerNotification ? (status === 'accepted' ? 'Time Change Accepted' : 'Booking Canceled') : status === 'accepted' ? 'Booking Confirmed!' : status === 'canceled' ? 'Booking Canceled' : status === 'payment_hold' ? 'Payment Issue' : status === 'payment_decline_warning' ? 'Payment Declined' : status === 'payment_auto_canceled' ? 'Booking Canceled' : status === 'owner_payment_decline_alert' ? 'Payment Declined' : status === 'modified' ? 'Booking Update' : 'Booking Update',
     bodyHTML,
   });
 

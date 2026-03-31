@@ -113,12 +113,13 @@
     el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;background:var(--forest,#3d5a47);color:white;border-radius:18px;padding:16px 20px;min-width:240px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:inherit;transition:all 0.3s;cursor:pointer;user-select:none;';
     el.innerHTML = '<div id="hhp-timer-inner"></div>';
 
-    // Click timer to reopen the live service panel (if it exists but is hidden)
+    // Click timer to reopen the live service panel
     el.addEventListener('click', function(e) {
       if (e.target.tagName === 'BUTTON') return;
+      // Always try to reopen the live service panel first
       if (typeof reopenLiveServicePanel === 'function') {
         var panel = document.getElementById('hhp-live-service-panel');
-        if (panel && panel.style.display === 'none') {
+        if (!panel || panel.style.display === 'none') {
           reopenLiveServicePanel();
           return;
         }
@@ -305,9 +306,19 @@
   // ============================================================
   function endFromTimer() {
     if (!_timerWalkId) return;
+    // Open the live service panel so the owner can fill in the note/report before ending
+    if (typeof reopenLiveServicePanel === 'function') {
+      reopenLiveServicePanel();
+      // Scroll to the End Service button
+      setTimeout(function() {
+        var endBtn = document.getElementById('lsp-end-btn');
+        if (endBtn) endBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 400);
+      return;
+    }
+    // Fallback: end directly if panel not available
     var walkId = _timerWalkId;
     stopTimer();
-    // Delegate to HHP_Tracking (handles DB update, report auto-fill, notifications)
     if (typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.endWalk === 'function') {
       HHP_Tracking.endWalk(walkId);
     } else if (typeof stopServiceFromDrawer === 'function') {
@@ -356,6 +367,19 @@
         activeWalk.booking_id,
         address
       );
+
+      // Also set _liveServiceData so the live panel can be rebuilt on click
+      window._liveServiceData = {
+        walkId: activeWalk.id,
+        bookingId: activeWalk.booking_id,
+        clientId: activeWalk.client_id,
+        service: activeWalk.service,
+        petNames: activeWalk.pet_name || '',
+        clientName: clientName,
+        address: address,
+        startTime: activeWalk.start_time,
+        mediaUrls: []
+      };
     } catch (e) {
       console.warn('[service-timer] Resume check error:', e);
     }
@@ -373,7 +397,7 @@
     var role = user.user_metadata && user.user_metadata.role;
     if (role !== 'owner' && role !== 'staff') return;
 
-    var today = new Date().toISOString().split('T')[0];
+    var today = _localDateStr();
     var nowMin = new Date().getHours() * 60 + new Date().getMinutes();
 
     try {
@@ -476,6 +500,7 @@
       // Send as owner-to-self message so it shows up in their messages
       await sb.from('messages').insert({
         sender_id: user.id,
+        sender_name: 'Housley Happy Paws',
         recipient_id: user.id,
         body: msgBody
       });

@@ -231,11 +231,12 @@
     // Default view options based on role
     var viewOpts = '<option value="auto">Auto (last visited)</option>';
     if (role === 'client') {
-      viewOpts += '<option value="c-dash"' + (s.defaultView === 'c-dash' ? ' selected' : '') + '>Dashboard</option>';
+      viewOpts += '<option value="c-dash"' + (s.defaultView === 'c-dash' ? ' selected' : '') + '>Home</option>';
       viewOpts += '<option value="c-pets"' + (s.defaultView === 'c-pets' ? ' selected' : '') + '>My Pets</option>';
       viewOpts += '<option value="c-appts"' + (s.defaultView === 'c-appts' ? ' selected' : '') + '>Appointments</option>';
       viewOpts += '<option value="c-msgs"' + (s.defaultView === 'c-msgs' ? ' selected' : '') + '>Messages</option>';
-      viewOpts += '<option value="c-bill"' + (s.defaultView === 'c-bill' ? ' selected' : '') + '>Billing</option>';
+      viewOpts += '<option value="c-cal"' + (s.defaultView === 'c-cal' ? ' selected' : '') + '>Calendar</option>';
+      viewOpts += '<option value="c-general"' + (s.defaultView === 'c-general' ? ' selected' : '') + '>General</option>';
     } else if (role === 'staff') {
       viewOpts += '<option value="s-sched"' + (s.defaultView === 's-sched' ? ' selected' : '') + '>My Schedule</option>';
       viewOpts += '<option value="s-clients"' + (s.defaultView === 's-clients' ? ' selected' : '') + '>My Clients</option>';
@@ -450,24 +451,14 @@
 
   /* ── Inject Settings Buttons into Sidebars ── */
   function injectSettingsButtons() {
-    // Client sidebar
-    var cSidebar = document.querySelector('#pg-client .sidebar');
-    if (cSidebar && !cSidebar.querySelector('.sb-settings-btn')) {
-      var cBtn = createSettingsButton();
-      cSidebar.appendChild(cBtn);
-    }
+    // Client sidebar — Settings is now inside the General tab, skip standalone button
     // Staff sidebar
     var sSidebar = document.querySelector('#pg-staff .sidebar');
     if (sSidebar && !sSidebar.querySelector('.sb-settings-btn')) {
       var sBtn = createSettingsButton();
       sSidebar.appendChild(sBtn);
     }
-    // Owner sidebar
-    var oSidebar = document.querySelector('#pg-owner .sidebar');
-    if (oSidebar && !oSidebar.querySelector('.sb-settings-btn')) {
-      var oBtn = createSettingsButton();
-      oSidebar.appendChild(oBtn);
-    }
+    // Owner sidebar — Settings is now inside the General tab, skip standalone button
   }
 
   function createSettingsButton() {

@@ -12,12 +12,12 @@
       { wid:'cw-upcoming', icon:'📅', label:'Upcoming Appointments', size:'half',  preset:true,  fixed:false, renderFn:'_rwClientUpcoming' },
       { wid:'cw-notif',    icon:'🔔', label:'Recent Notifications',  size:'half',  preset:true,  fixed:false, renderFn:'_rwClientNotif' },
       { wid:'cw-pets',     icon:'🐾', label:'My Pets',               size:'full',  preset:false, fixed:true,  renderFn:'_rwClientPets' },
-      { wid:'cw-tracking', icon:'🗺️', label:'Live Tracking',         size:'full',  preset:false, fixed:true,  renderFn:'_rwClientTracking' },
       { wid:'cw-photos',   icon:'📸', label:'Photo Gallery',         size:'full',  preset:false, fixed:true,  renderFn:'_rwClientPhotos' },
       { wid:'cw-reports',  icon:'📋', label:'Walk Reports',          size:'half',  preset:false, fixed:false, renderFn:'_rwClientReports' },
       { wid:'cw-reviews',  icon:'⭐', label:'My Reviews',            size:'half',  preset:false, fixed:false, renderFn:'_rwClientReviews' },
       { wid:'cw-msgs',     icon:'💬', label:'Messages',              size:'half',  preset:false, fixed:false, renderFn:'_rwClientMsgs' },
-      { wid:'cw-billing',  icon:'💳', label:'Billing',               size:'half',  preset:false, fixed:false, renderFn:'_rwClientBilling' }
+      { wid:'cw-billing',  icon:'💳', label:'Billing',               size:'half',  preset:false, fixed:false, renderFn:'_rwClientBilling' },
+      { wid:'cw-tracking', icon:'🗺️', label:'Live Tracking',         size:'full',  preset:true,  fixed:true,  renderFn:'_rwClientTracking' }
     ],
     staff: [
       { wid:'sw-stats',    icon:'📊', label:'My Stats',              size:'full',  preset:true,  fixed:false,  renderFn:'_rwStaffStats' },
@@ -39,20 +39,19 @@
       { wid:'ow-reviews',   icon:'⭐', label:'Reviews',               size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerReviews' },
       { wid:'ow-payments',  icon:'💳', label:'Payments',              size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerPayments' },
       { wid:'ow-deals',     icon:'🏷️', label:'Specials & Deals',      size:'half',  preset:false, fixed:false, renderFn:'_rwOwnerDeals' },
-      { wid:'ow-photos',    icon:'🖼️', label:'Photos & Media',        size:'full',  preset:false, fixed:true,  renderFn:'_rwOwnerPhotos' },
       { wid:'ow-activity',  icon:'📜', label:'Activity Log',          size:'full',  preset:false, fixed:true,  renderFn:'_rwOwnerActivity' }
     ]
   };
 
   var _panelNav = {
-    'cw-upcoming':"sTab('c','c-appts')",'cw-pets':"sTab('c','c-pets')",'cw-tracking':"sTab('c','c-track')",
+    'cw-upcoming':"sTab('c','c-appts')",'cw-notif':"sTab('c','c-msgs')",'cw-pets':"sTab('c','c-pets')",
     'cw-photos':"sTab('c','c-photos')",'cw-reports':"sTab('c','c-reports')",'cw-reviews':"sTab('c','c-reviews')",
     'cw-msgs':"sTab('c','c-msgs')",'cw-billing':"sTab('c','c-bill')",
     'sw-jobs':"sTab('s','s-jobs')",'sw-requests':"sTab('s','s-requests')",'sw-clients':"sTab('s','s-clients')",'sw-earnings':"sTab('s','s-earn')",
     'sw-msgs':"sTab('s','s-msgs')",'sw-cal':"sTab('s','s-cal')",
     'ow-requests':"sTab('o','o-requests')",'ow-clients':"sTab('o','o-clients')",'ow-staff':"sTab('o','o-staff')",
     'ow-reviews':"sTab('o','o-reviews')",'ow-payments':"sTab('o','o-payments')",'ow-deals':"sTab('o','o-deals')",
-    'ow-photos':"sTab('o','o-photos')",'ow-activity':"sTab('o','o-activity')"
+    'ow-activity':"sTab('o','o-activity')"
   };
 
   function _defaults(p) { return (WIDGETS[p]||[]).filter(function(w){return w.preset;}).map(function(w){return w.wid;}); }
@@ -80,6 +79,18 @@
         var sizes=(!Array.isArray(ow)&&ow.sizes)?ow.sizes:{};
         _prefs[r.portal]={sidebar_order:r.sidebar_order||[],widgets:wids,sizes:sizes};
       });
+      // Migration: auto-add cw-tracking to existing client prefs if missing
+      if(_prefs.client&&_prefs.client.widgets&&_prefs.client.widgets.length>0){
+        if(_prefs.client.widgets.indexOf('cw-tracking')===-1){
+          _prefs.client.widgets.push('cw-tracking');
+          _savePrefs('client');
+        }
+      }
+      // Migration: remove ow-photos widget (replaced by Gallery panel)
+      if(_prefs.owner&&_prefs.owner.widgets&&_prefs.owner.widgets.length>0){
+        var idx=_prefs.owner.widgets.indexOf('ow-photos');
+        if(idx!==-1){_prefs.owner.widgets.splice(idx,1);_savePrefs('owner');}
+      }
     }catch(e){console.warn('Cust load:',e);}
   }
 
@@ -345,8 +356,10 @@
     var canResize=!w.fixed; // Don't show resize on fixed-size widgets
     return '<div class="cust-widget" data-wid="'+w.wid+'" style="'+span+'background:white;border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.04)">'+
       '<div style="display:flex;align-items:center;gap:8px;padding:12px 14px 0;user-select:none">'+
+        (nav?'<a href="javascript:void(0)" onclick="event.stopPropagation();'+nav+'" style="display:flex;align-items:center;gap:8px;flex:1;text-decoration:none;cursor:pointer;transition:opacity 0.15s" onmouseenter="this.style.opacity=0.7" onmouseleave="this.style.opacity=1">':'<div style="display:flex;align-items:center;gap:8px;flex:1">')+
         '<span style="font-size:1.1rem">'+w.icon+'</span>'+
-        '<span style="font-size:0.78rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;flex:1">'+w.label+'</span>'+
+        '<span style="font-size:0.78rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">'+w.label+'</span>'+
+        (nav?'</a>':'</div>')+
         (canResize?'<button onclick="event.stopPropagation();HHP_Customizer.setSize(\''+portal+'\',\''+w.wid+'\',\''+otherSize+'\')" title="'+(full?'Shrink':'Expand full width')+'" style="background:none;border:none;cursor:pointer;font-size:1rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">'+sIcon+'</button>':'')+
         (nav?'<button onclick="event.stopPropagation();HHP_Customizer.detail(\''+portal+'\',\''+w.wid+'\')" title="Detail view" style="background:none;border:none;cursor:pointer;font-size:0.85rem;color:var(--mid);padding:2px 4px;opacity:0.4;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.4">🔍</button>':'')+
         (nav?'<button onclick="event.stopPropagation();'+nav+'" title="Go to panel" style="background:none;border:none;cursor:pointer;font-size:0.7rem;color:var(--gold);font-weight:700;padding:2px 6px;opacity:0.5;transition:opacity 0.15s" onmouseenter="this.style.opacity=1" onmouseleave="this.style.opacity=0.5">View →</button>':'')+
@@ -619,12 +632,12 @@
   _R._rwClientUpcoming=async function(sz){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'<div style="color:var(--mid);font-size:0.82rem">No data</div>';
     var lim=sz==='full'?8:2;
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('id,service,preferred_date,preferred_time,scheduled_date,scheduled_time,estimated_total,status,pet_names').eq('client_id',u.id).in('status',['accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(lim);
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('id,service,preferred_date,preferred_time,scheduled_date,scheduled_time,estimated_total,status,pet_names').eq('client_id',u.id).in('status',['pending','accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(lim);
       if(!data||!data.length)return'<div style="color:var(--mid);font-size:0.82rem;padding:8px 0">No upcoming appointments</div>';
       if(sz==='full'){
-        return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var tcBanner='';if(b.status==='modified'&&b.scheduled_date){var nd=new Date(b.scheduled_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var nt=b.scheduled_time?((typeof fmt12h==='function')?fmt12h(b.scheduled_time):b.scheduled_time):'';tcBanner='<div style="background:#fff8e1;border:1px solid #e67e22;border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:0.75rem"><span style="font-weight:700;color:#bf5d00">⏰ Time Change:</span> '+nd+(nt?' at '+nt:'')+' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;font-weight:700;margin-left:4px">Review</a></div>';}var _wSLabel=b.status==='accepted'?'Confirmed':b.status==='modified'?'Time Change':b.status==='payment_hold'?'Payment Needed':b.status==='confirmed'?'Confirmed':'Pending';var _wSColor=b.status==='modified'?'#e67e22':b.status==='payment_hold'?'#c62828':'var(--forest)';var _wPaidBadge=(b.status==='accepted'||b.status==='confirmed')?'<span style="font-size:0.6rem;color:#155724;font-weight:700">PAID</span>':'';return tcBanner+'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.85rem"><div style="flex:1"><div style="font-weight:700">'+b.service+(b.status==='modified'?' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;font-weight:700;font-size:0.78rem;text-decoration:underline">(Request Time Change)</a>':'')+'</div><div style="font-size:0.75rem;color:var(--mid)">'+d+(t?' · '+t:'')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right"><div style="font-weight:600;color:'+_wSColor+'">$'+(b.estimated_total||0).toFixed(2)+'</div><div style="font-size:0.65rem;color:'+_wSColor+';text-transform:uppercase">'+_wSLabel+'</div>'+_wPaidBadge+'</div></div>';}).join('');
+        return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var tcBanner='';if(b.status==='modified'&&b.scheduled_date){var nd=new Date(b.scheduled_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var nt=b.scheduled_time?((typeof fmt12h==='function')?fmt12h(b.scheduled_time):b.scheduled_time):'';tcBanner='<div style="background:#fff8e1;border:1px solid #e67e22;border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:0.75rem"><span style="font-weight:700;color:#bf5d00">⏰ Time Change:</span> '+nd+(nt?' at '+nt:'')+' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;font-weight:700;margin-left:4px">Review</a></div>';}var _wSLabel=b.status==='pending'?'Pending':b.status==='accepted'?'Confirmed':b.status==='modified'?'Time Change':b.status==='payment_hold'?'Payment Needed':b.status==='confirmed'?'Confirmed':'Pending';var _wSColor=b.status==='pending'?'#b08600':b.status==='modified'?'#e67e22':b.status==='payment_hold'?'#c62828':'var(--forest)';var _wPaidBadge=(b.status==='accepted'||b.status==='confirmed')?'<span style="font-size:0.6rem;color:#155724;font-weight:700">PAID</span>':'';return tcBanner+'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:0.85rem"><div style="flex:1"><div style="font-weight:700">'+b.service+(b.status==='modified'?' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;font-weight:700;font-size:0.78rem;text-decoration:underline">(Request Time Change)</a>':'')+'</div><div style="font-size:0.75rem;color:var(--mid)">'+d+(t?' · '+t:'')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right"><div style="font-weight:600;color:'+_wSColor+'">$'+(b.estimated_total||0).toFixed(2)+'</div><div style="font-size:0.65rem;color:'+_wSColor+';text-transform:uppercase">'+_wSLabel+'</div>'+_wPaidBadge+'</div></div>';}).join('');
       }
-      return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});if(b.status==='modified'){return'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.78rem"><span style="font-weight:600;color:#e67e22">⏰ '+b.service+' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;text-decoration:underline;font-weight:700">(Request Time Change)</a></span><span style="color:var(--mid)">'+d+'</span></div>';}var _cSLabel=b.status==='accepted'||b.status==='confirmed'?'Confirmed':'';return'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.78rem"><span style="font-weight:600">'+b.service+(_cSLabel?' <span style="color:var(--forest);font-size:0.68rem;font-weight:700">'+_cSLabel+'</span>':'')+'</span><span style="color:var(--mid)">'+d+'</span></div>';}).join('');
+      return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});if(b.status==='modified'){return'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.78rem"><span style="font-weight:600;color:#e67e22">⏰ '+b.service+' <a href="javascript:void(0)" onclick="event.stopPropagation();sTab(\'c\',\'c-appts\')" style="color:#e67e22;text-decoration:underline;font-weight:700">(Request Time Change)</a></span><span style="color:var(--mid)">'+d+'</span></div>';}var _cSLabel=b.status==='accepted'||b.status==='confirmed'?'Confirmed':b.status==='pending'?'Pending':'';var _cSColor=b.status==='pending'?'#b08600':'var(--forest)';return'<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.78rem"><span style="font-weight:600">'+b.service+(_cSLabel?' <span style="color:'+_cSColor+';font-size:0.68rem;font-weight:700">'+_cSLabel+'</span>':'')+'</span><span style="color:var(--mid)">'+d+'</span></div>';}).join('');
     }catch(e){return'';}
   };
 
@@ -660,15 +673,68 @@
 
   _R._rwClientTracking=async function(sz){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
-    if(sz==='full'){
-      try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_time,status').eq('client_id',u.id).eq('preferred_date',today).in('status',['accepted','confirmed','in_progress']).limit(3);
-        var h='<div style="font-size:0.85rem;color:var(--mid);margin-bottom:10px">Track your pet\'s walk in real time when a service is active.</div>';
-        if(data&&data.length){h+='<div style="font-weight:600;font-size:0.8rem;margin-bottom:6px">Today\'s Services:</div>';data.forEach(function(b){var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');h+='<div style="display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;transition:background 0.15s;border-radius:6px" '+(b.status==='in_progress'?'onclick="sTab(\'c\',\'c-track\')"':'')+'  onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span style="font-weight:600">'+b.service+'</span><span style="color:var(--forest);font-weight:600">'+(t||b.status)+'</span></div>';});}
-        else{h+='<div style="color:var(--mid);font-size:0.8rem;font-style:italic">No services scheduled today</div>';}
-        return h;
-      }catch(e){return'';}
-    }
-    return'<div style="font-size:0.75rem;color:var(--mid)">Live GPS tracking</div>';
+    try{
+      // Check for active walks
+      var activeWalks=await sb.from('walks').select('*, pets(name, species)').eq('status','in_progress').order('start_time',{ascending:false});
+      var walks=(activeWalks.data||[]).filter(function(w){return w.pets;});
+
+      // Check today's scheduled services
+      var today=_localDateStr();
+      var cid=(typeof getEffectiveClientId==='function'?getEffectiveClientId():null)||u.id;
+      var todayBookings=await sb.from('booking_requests').select('service,preferred_time,status,pet_names').eq('client_id',cid).eq('preferred_date',today).in('status',['accepted','confirmed','in_progress']).limit(5);
+      var todayJobs=todayBookings.data||[];
+
+      // Show/hide floating paw button based on active walks
+      if(typeof window._hhpUpdatePawBtn==='function') window._hhpUpdatePawBtn(walks.length>0);
+
+      if(walks.length===0&&todayJobs.length===0){
+        return '<div id="cw-tracking-content" style="text-align:center;padding:20px 10px;color:var(--mid)">' +
+          '<div style="font-size:2.2rem;margin-bottom:10px">🗺️</div>' +
+          '<div style="font-weight:600;margin-bottom:4px">No active walk right now</div>' +
+          '<div style="font-size:0.82rem">Live GPS tracking will appear here during your pet\'s walk.</div></div>';
+      }
+
+      var h='<div id="cw-tracking-content">';
+
+      // Active walks — full display with map placeholder + info
+      if(walks.length>0){
+        walks.forEach(function(w){
+          var petName=w.pets?w.pets.name:'Your pet';
+          var startTime=new Date(w.start_time).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+          var elapsed=Math.floor((Date.now()-new Date(w.start_time).getTime())/60000);
+          h+='<div style="padding:16px;background:linear-gradient(135deg,rgba(61,90,71,0.08),rgba(200,150,62,0.05));border-radius:14px;margin-bottom:14px;border:1px solid rgba(61,90,71,0.18)">' +
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
+            '<div style="width:12px;height:12px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;flex-shrink:0"></div>' +
+            '<div style="font-weight:700;font-size:1.05rem;color:var(--forest,#3d5a47)">Walk in Progress!</div></div>' +
+            '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">' +
+            '<div style="flex:1;min-width:120px"><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--mid);margin-bottom:2px">Pet</div><div style="font-weight:700;font-size:0.95rem">'+petName+'</div></div>' +
+            '<div style="flex:1;min-width:120px"><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--mid);margin-bottom:2px">Started</div><div style="font-weight:600;font-size:0.95rem">'+startTime+'</div></div>' +
+            '<div style="flex:1;min-width:120px"><div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--mid);margin-bottom:2px">Duration</div><div style="font-weight:600;font-size:0.95rem">'+elapsed+' min</div></div></div>' +
+            '<div style="height:220px;border-radius:12px;background:linear-gradient(135deg,var(--forest-pale,#e8f0ea),var(--gold-pale,#faf3e0));display:flex;align-items:center;justify-content:center;border:1px solid var(--border)">' +
+            '<div style="text-align:center;color:var(--mid)"><div style="font-size:2.2rem">📍</div><div style="font-size:0.82rem;margin-top:6px;font-weight:600">GPS map coming soon</div></div></div>' +
+            '</div>';
+        });
+      }
+
+      // Today's scheduled jobs
+      if(todayJobs.length>0){
+        h+='<div style="font-weight:700;font-size:0.88rem;color:var(--dark);margin:8px 0 8px">📅 Today\'s Scheduled Visits</div>';
+        var svcIcons={'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
+        todayJobs.forEach(function(b){
+          var icon=svcIcons[b.service]||'🐾';
+          var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');
+          var statusColor=b.status==='in_progress'?'#22c55e':b.status==='confirmed'?'var(--forest)':'var(--gold)';
+          h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--warm,#faf6ee);border-radius:10px;margin-bottom:6px">' +
+            '<div style="font-size:1.2rem">'+icon+'</div>' +
+            '<div style="flex:1"><div style="font-weight:600;font-size:0.85rem">'+b.service+'</div>' +
+            '<div style="font-size:0.78rem;color:var(--mid)">'+(t||'Time TBD')+(b.pet_names?' · '+b.pet_names:'')+'</div></div>' +
+            '<div style="font-size:0.7rem;font-weight:700;color:'+statusColor+';text-transform:uppercase">'+b.status+'</div></div>';
+        });
+      }
+
+      h+='</div>';
+      return h;
+    }catch(e){return'';}
   };
 
   _R._rwClientPhotos=async function(sz){
@@ -690,16 +756,49 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     try{
       if(sz==='full'){
-        var{data}=await sb.from('walk_reports').select('*').eq('client_id',u.id).order('created_at',{ascending:false}).limit(4);
-        var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+        var{data}=await sb.from('service_reports').select('*').eq('client_id',u.id).order('created_at',{ascending:false}).limit(4);
+        var{count}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+        var{count:_unreadFull}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id).is('client_read_at',null);
+        // Inject header badge for full size too
+        setTimeout(function(){
+          var cardEl=document.querySelector('[data-wid="cw-reports"]');
+          if(cardEl){
+            var oldBadge=cardEl.querySelector('.cw-hdr-badge');if(oldBadge)oldBadge.remove();
+            if(_unreadFull>0){
+              var labelSpan=cardEl.querySelector('[style*="text-transform:uppercase"]');
+              if(labelSpan){
+                var b=document.createElement('span');b.className='cw-hdr-badge';
+                b.style.cssText='background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;line-height:1;padding:0 4px';
+                b.textContent=Math.min(_unreadFull,9);
+                labelSpan.parentNode.insertBefore(b,labelSpan.nextSibling);
+              }
+            }
+          }
+        },50);
         var h=_bigNum(count||0,'reports received',sz);
-        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(r){var d=new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var isNew=new Date(r.created_at)>new Date(Date.now()-3*24*60*60*1000);h+='<div style="position:relative;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'c\',\'c-reports\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(r.service||'Walk')+'</span><span style="color:var(--mid)">'+d+'</span></div>'+(r.notes?'<div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+r.notes.substring(0,60)+(r.notes.length>60?'...':'')+'</div>':'')+
+        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(r){var d=new Date(r.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var isNew=!r.client_read_at;h+='<div style="position:relative;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'c\',\'c-reports\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(r.service||'Walk')+'</span><span style="color:var(--mid)">'+d+'</span></div>'+((r.personal_note||r.notes)?'<div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+(r.personal_note||r.notes).substring(0,60)+((r.personal_note||r.notes).length>60?'...':'')+'</div>':'')+
           (isNew?'<span style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center">+1</span>':'')+'</div>';});h+='</div>';h+='<div style="margin-top:12px;text-align:center"><a href="javascript:sTab(\'c\',\'c-reports\')" style="color:var(--forest);font-weight:600;font-size:0.85rem;text-decoration:none;cursor:pointer">View All Reports →</a></div>';}
         return h;
       }
-      var{count}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
-      var{count:recentCount}=await sb.from('walk_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id).gte('created_at',new Date(Date.now()-7*24*60*60*1000).toISOString());
-      return '<div style="position:relative;display:inline-block"><div>'+_bigNum(count||0,'reports',sz)+'</div><span style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="sTab(\'c\',\'c-reports\')">+'+Math.min(recentCount||0,9)+'</span></div>';
+      var{count}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id);
+      var{count:unreadCount}=await sb.from('service_reports').select('id',{count:'exact',head:true}).eq('client_id',u.id).is('client_read_at',null);
+      // Inject badge into widget card header (next to title)
+      setTimeout(function(){
+        var cardEl=document.querySelector('[data-wid="cw-reports"]');
+        if(cardEl){
+          var oldBadge=cardEl.querySelector('.cw-hdr-badge');if(oldBadge)oldBadge.remove();
+          if(unreadCount>0){
+            var labelSpan=cardEl.querySelector('[style*="text-transform:uppercase"]');
+            if(labelSpan){
+              var b=document.createElement('span');b.className='cw-hdr-badge';
+              b.style.cssText='background:#e74c3c;color:white;font-size:0.55rem;font-weight:700;border-radius:50%;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;line-height:1;padding:0 4px';
+              b.textContent=Math.min(unreadCount,9);
+              labelSpan.parentNode.insertBefore(b,labelSpan.nextSibling);
+            }
+          }
+        }
+      },50);
+      return _bigNum(count||0,'reports',sz);
     }catch(e){return'';}
   };
 
@@ -724,10 +823,13 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     try{
       var lim=sz==='full'?8:2;
-      // Get all recent messages
-      var{data}=await sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim);
-      // Get unread count separately
-      var{count:unreadCount}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false);
+      // Fetch messages and unread count in parallel
+      var[msgsRes,unreadRes]=await Promise.all([
+        sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim),
+        sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false)
+      ]);
+      var data=msgsRes.data;
+      var unreadCount=unreadRes.count;
       unreadCount=unreadCount||0;
       if(sz==='full'){
         var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px;display:flex;justify-content:space-between">Recent Messages'+
@@ -749,7 +851,7 @@
       var lim=sz==='full'?8:2;
       var{data}=await sb.from('payments').select('amount,created_at,status').eq('client_id',u.id).order('created_at',{ascending:false}).limit(lim);
       var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px">Payment History</div>';
-      if(data&&data.length){data.forEach(function(p){var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var st=p.status==='succeeded'?'✅':'⏳';h+='<div style="display:flex;justify-content:space-between;padding:6px;margin-bottom:4px;font-size:0.78rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'c\',\'c-bill\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span>'+st+' '+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)/100).toFixed(2)+'</span></div>';});}
+      if(data&&data.length){data.forEach(function(p){var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var st=p.status==='succeeded'?'✅':'⏳';h+='<div style="display:flex;justify-content:space-between;padding:6px;margin-bottom:4px;font-size:0.78rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'c\',\'c-bill\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span>'+st+' '+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)).toFixed(2)+'</span></div>';});}
       else{h+='<div style="color:var(--mid);font-size:0.8rem">No payments yet</div>';}
       h+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"><a href="javascript:sTab(\'c\',\'c-bill\')" style="color:var(--forest);font-weight:600;font-size:0.78rem;text-decoration:none;cursor:pointer">💳 Manage Card on File</a></div>';
       return h;
@@ -765,7 +867,7 @@
       try{
         var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());
         var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
-        var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]).order('preferred_date').order('preferred_time').limit(10);
+        var{data}=await sb.from('booking_requests').select('service,preferred_date,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',_localDateStr(startOfWeek)).lte('preferred_date',_localDateStr(endOfWeek)).order('preferred_date').order('preferred_time').limit(10);
         if(!data||!data.length) return '<div id="staffDashJobs" style="color:var(--mid);font-size:0.85rem;padding:12px 0;text-align:center">No jobs this week</div>';
         var h='';data.forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');
           h+='<div style="display:flex;gap:10px;padding:8px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'s\',\'s-jobs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="min-width:50px;color:var(--gold);font-weight:700;font-size:0.78rem">'+d.split(',')[0]+'</div><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+(t?' · '+t:'')+'</div></div><div style="font-size:0.68rem;color:var(--forest);font-weight:600;text-transform:uppercase">'+b.status+'</div></div>';
@@ -776,7 +878,7 @@
     // Small: just count
     var sb2=_getSB();if(!sb2)return'';
     try{var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
-      var{count}=await sb2.from('booking_requests').select('id',{count:'exact',head:true}).in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]);
+      var{count}=await sb2.from('booking_requests').select('id',{count:'exact',head:true}).in('status',['accepted','confirmed','in_progress']).gte('preferred_date',_localDateStr(startOfWeek)).lte('preferred_date',_localDateStr(endOfWeek));
       return '<div id="staffDashJobs">'+_bigNum(count||0,'jobs this week',sz)+'</div>';
     }catch(e){return '<div id="staffDashJobs" style="color:var(--mid);font-size:0.78rem">Loading...</div>';}
   };
@@ -813,7 +915,7 @@
   _R._rwStaffClients=async function(sz){
     var sb=_getSB();if(!sb)return'';
     if(sz!=='full') return _bigNum(0,'clients',sz);
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('contact_name,contact_email,pet_names,service').in('status',['accepted','confirmed']).gte('preferred_date',today).limit(50);
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('contact_name,contact_email,pet_names,service').in('status',['accepted','confirmed']).gte('preferred_date',today).limit(50);
       var clients={};(data||[]).forEach(function(b){if(b.contact_name&&!clients[b.contact_name])clients[b.contact_name]={name:b.contact_name,pets:b.pet_names||'',service:b.service||''};});
       var n=Object.values(clients);
       var h=_bigNum(n.length,'active clients',sz);
@@ -840,10 +942,13 @@
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'';
     try{
       var lim=sz==='full'?8:2;
-      // Get all recent messages
-      var{data}=await sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim);
-      // Get unread count separately
-      var{count:unreadCount}=await sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false);
+      // Fetch messages and unread count in parallel
+      var[msgsRes,unreadRes]=await Promise.all([
+        sb.from('messages').select('body,sender_name,created_at,is_read').or('sender_id.eq.'+u.id+',recipient_id.eq.'+u.id).order('created_at',{ascending:false}).limit(lim),
+        sb.from('messages').select('id',{count:'exact',head:true}).eq('recipient_id',u.id).eq('is_read',false)
+      ]);
+      var data=msgsRes.data;
+      var unreadCount=unreadRes.count;
       unreadCount=unreadCount||0;
       if(sz==='full'){
         var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px;display:flex;justify-content:space-between">Recent Messages'+
@@ -869,16 +974,16 @@
         var monthStart=new Date(firstDay);monthStart.setDate(firstDay.getDate()-firstDay.getDay());
         var monthEnd=new Date(lastDay);monthEnd.setDate(lastDay.getDate()+(6-lastDay.getDay()));
         var monthStr=firstDay.toLocaleDateString('en-US',{month:'long',year:'numeric'});
-        var{data}=await sb.from('booking_requests').select('preferred_date').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',monthStart.toISOString().split('T')[0]).lte('preferred_date',monthEnd.toISOString().split('T')[0]);
+        var{data}=await sb.from('booking_requests').select('preferred_date').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',_localDateStr(monthStart)).lte('preferred_date',_localDateStr(monthEnd));
         var jobDates={};(data||[]).forEach(function(b){jobDates[b.preferred_date]=true;});
         var h='<div style="font-weight:600;font-size:0.85rem;margin-bottom:10px">'+monthStr+'</div>';
         h+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px">';
         var dayLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
         dayLabels.forEach(function(d){h+='<div style="text-align:center;font-weight:600;font-size:0.7rem;color:var(--mid);padding:4px 0">'+d+'</div>';});
         for(var d=new Date(monthStart);d<=monthEnd;d.setDate(d.getDate()+1)){
-          var dateStr=d.toISOString().split('T')[0];
+          var dateStr=_localDateStr(d);
           var hasJob=jobDates[dateStr];
-          var isToday=dateStr===today.toISOString().split('T')[0];
+          var isToday=dateStr===_localDateStr(today);
           var isCurrentMonth=d.getMonth()===today.getMonth();
           h+='<div style="position:relative;aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;transition:background 0.15s;background:'+(isCurrentMonth?'var(--warm)':'rgba(0,0,0,0.02)')+';border:'+(isToday?'2px solid var(--gold)':'1px solid var(--border)')+';color:'+(isCurrentMonth?'var(--ink)':'var(--mid)')+';" onclick="sTab(\'s\',\'s-cal\')" onmouseover="this.style.background=\'rgba(0,0,0,0.05)\'" onmouseout="this.style.background=\''+(isCurrentMonth?'var(--warm)':'rgba(0,0,0,0.02)')+'\'">'+d.getDate()+(hasJob?'<span style="position:absolute;width:4px;height:4px;background:var(--forest);border-radius:50%;margin-top:14px"></span>':'')+'</div>';
         }
@@ -890,14 +995,14 @@
     try{
       var today=new Date();var startOfWeek=new Date(today);startOfWeek.setDate(today.getDate()-today.getDay());
       var endOfWeek=new Date(startOfWeek);endOfWeek.setDate(startOfWeek.getDate()+6);
-      var{data:weekJobs}=await sb.from('booking_requests').select('preferred_date,service,preferred_time').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',startOfWeek.toISOString().split('T')[0]).lte('preferred_date',endOfWeek.toISOString().split('T')[0]).order('preferred_date').order('preferred_time');
+      var{data:weekJobs}=await sb.from('booking_requests').select('preferred_date,service,preferred_time').in('status',['accepted','confirmed','in_progress']).gte('preferred_date',_localDateStr(startOfWeek)).lte('preferred_date',_localDateStr(endOfWeek)).order('preferred_date').order('preferred_time');
       var jobsByDay={};(weekJobs||[]).forEach(function(b){if(!jobsByDay[b.preferred_date])jobsByDay[b.preferred_date]=[];jobsByDay[b.preferred_date].push(b);});
       var dayLabels=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
       var h='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
       for(var i=0;i<7;i++){
         var d=new Date(startOfWeek);d.setDate(startOfWeek.getDate()+i);
-        var dateStr=d.toISOString().split('T')[0];
-        var isToday=dateStr===today.toISOString().split('T')[0];
+        var dateStr=_localDateStr(d);
+        var isToday=dateStr===_localDateStr(today);
         var jobs=jobsByDay[dateStr]||[];
         h+='<div style="text-align:center;padding:3px 1px;border-radius:6px;cursor:pointer;background:'+(isToday?'rgba(61,90,71,0.1)':'var(--warm)')+';border:'+(isToday?'1.5px solid var(--forest)':'1px solid var(--border)')+'" onclick="sTab(\'s\',\'s-cal\')">';
         h+='<div style="font-size:0.6rem;font-weight:700;color:var(--mid)">'+dayLabels[i]+'</div>';
@@ -942,27 +1047,34 @@
 
   _R._rwOwnerAlerts=async function(sz){
     var sb=_getSB();if(!sb){
-      return '<div id="hhpAlertsCard"><div style="font-size:0.75rem;color:var(--mid)">Loading...</div></div>';
+      return '<div style="font-size:0.75rem;color:var(--mid)">Loading...</div>';
     }
+    // Helper: safely get body preview
+    function _bodyPreview(b,max){var s=b||'';return s.substring(0,max||80)+(s.length>(max||80)?'...':'');}
+    // Helper: safe sender name
+    function _sName(n,fallback){return n||fallback||'System';}
     try{
       var lim=sz==='full'?4:2;
-      var{data:alerts}=await sb.from('messages').select('body,sender_name,created_at').eq('is_alert',true).order('created_at',{ascending:false}).limit(lim);
-      var{data:messages}=await sb.from('messages').select('body,sender_name,created_at').eq('is_alert',false).order('created_at',{ascending:false}).limit(lim);
+      var[alertsRes,messagesRes]=await Promise.all([
+        sb.from('messages').select('body,sender_name,created_at').eq('is_alert',true).order('created_at',{ascending:false}).limit(lim),
+        sb.from('messages').select('body,sender_name,created_at').eq('is_alert',false).order('created_at',{ascending:false}).limit(lim)
+      ]);
+      var alerts=alertsRes.data,messages=messagesRes.data;
       if(sz==='full'){
-        var h='<div id="hhpAlertsCard">';
-        if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(a.sender_name||'Alert')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+a.body.substring(0,80)+(a.body.length>80?'...':'')+'</div></div>';});}
-        if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-top:10px;margin-bottom:6px">💬 Messages</div>';messages.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+(m.sender_name||'Message')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+m.body.substring(0,80)+(m.body.length>80?'...':'')+'</div></div>';});}
+        var h='<div>';
+        if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(a.sender_name,'Alert')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+_bodyPreview(a.body)+'</div></div>';});}
+        if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.82rem;margin-top:10px;margin-bottom:6px">💬 Messages</div>';messages.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:6px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(m.sender_name,'Message')+'</span><span style="color:var(--mid);font-size:0.7rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.75rem;margin-top:2px">'+_bodyPreview(m.body)+'</div></div>';});}
         if((!alerts||!alerts.length)&&(!messages||!messages.length)){h+='<div style="padding:16px 0;text-align:center;color:var(--mid);font-size:0.82rem">No alerts or messages</div>';}
         return h+'</div>';
       }
-      // Small: last 2 alerts + last 2 messages
-      var h='<div id="hhpAlertsCard">';
-      if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-bottom:4px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){h+='<div style="padding:4px;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'">'+a.sender_name+'</div>';});}
-      if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-top:6px;margin-bottom:4px;color:var(--forest)">💬 Messages</div>';messages.forEach(function(m){h+='<div style="padding:4px;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'">'+m.sender_name+'</div>';});}
+      // Small: last 2 alerts + last 2 messages — show body preview, not just name
+      var h='<div>';
+      if(alerts&&alerts.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-bottom:4px;color:#e74c3c">🔔 Alerts</div>';alerts.forEach(function(a){var d=new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:4px 0;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(a.sender_name,'Alert')+'</span><span style="color:var(--mid);font-size:0.68rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_bodyPreview(a.body,50)+'</div></div>';});}
+      if(messages&&messages.length){h+='<div style="font-weight:600;font-size:0.78rem;margin-top:6px;margin-bottom:4px;color:var(--forest)">💬 Messages</div>';messages.forEach(function(m){var d=new Date(m.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="padding:4px 0;margin-bottom:2px;font-size:0.75rem;cursor:pointer;border-radius:3px;transition:background 0.15s" onclick="sTab(\'o\',\'o-msgs\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="display:flex;justify-content:space-between"><span style="font-weight:600">'+_sName(m.sender_name,'Message')+'</span><span style="color:var(--mid);font-size:0.68rem">'+d+'</span></div><div style="color:var(--mid);font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_bodyPreview(m.body,50)+'</div></div>';});}
       if((!alerts||!alerts.length)&&(!messages||!messages.length)){h+='<div style="color:var(--mid);font-size:0.75rem">All clear</div>';}
       return h+'</div>';
     }catch(e){
-      return '<div id="hhpAlertsCard"><div style="font-size:0.75rem;color:var(--mid)">Error loading</div></div>';
+      return '<div style="font-size:0.75rem;color:var(--mid)">Error loading</div>';
     }
   };
 
@@ -975,15 +1087,18 @@
         var today=new Date();today.setHours(0,0,0,0);
         var sow=new Date(today);sow.setDate(today.getDate()-today.getDay());
         var eow=new Date(sow);eow.setDate(eow.getDate()+6);
-        var ws=sow.toISOString().split('T')[0],we=eow.toISOString().split('T')[0];
-        var{count:jc}=await sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('preferred_date',ws).lte('preferred_date',we).in('status',['accepted','confirmed','completed']);
-        jobs=jc||0;
-        var{data:pw}=await sb.from('payments').select('amount').gte('created_at',ws).lte('created_at',we+'T23:59:59');
+        var ws=_localDateStr(sow),we=_localDateStr(eow);
+        var[jobsRes,pwRes,inqRes,rptsRes]=await Promise.all([
+          sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('preferred_date',ws).lte('preferred_date',we).in('status',['accepted','confirmed','completed']),
+          sb.from('payments').select('amount').eq('status','paid').gte('created_at',ws).lte('created_at',we+'T23:59:59'),
+          sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59'),
+          sb.from('service_reports').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59')
+        ]);
+        jobs=jobsRes.count||0;
+        var pw=pwRes.data;
         if(pw&&pw.length){var t=pw.reduce(function(a,p){return a+(p.amount||0);},0);rev='$'+(t*0.85).toFixed(0);}else{rev='$0';}
-        var{count:ic}=await sb.from('booking_requests').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59');
-        inq=ic||0;
-        var{count:rc}=await sb.from('service_reports').select('*',{count:'exact',head:true}).gte('created_at',ws).lte('created_at',we+'T23:59:59');
-        rpts=rc||0;
+        inq=inqRes.count||0;
+        rpts=rptsRes.count||0;
       }catch(e){console.warn('Week stats:',e);}
     }
     return '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between">'+
@@ -996,19 +1111,28 @@
   _R._rwOwnerRequests=async function(sz){
     if(sz!=='full') return'<div style="font-size:0.75rem;color:var(--mid)">Booking requests</div>';
     var sb=_getSB();if(!sb){
-      return '<div id="hhpAdminDashboard"><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div></div>';
+      return '<div class="hhp-req-widget"><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Loading...</div></div>';
     }
     try{
       var{data}=await sb.from('booking_requests').select('id,service,contact_name,preferred_date,preferred_time,status,pet_names,estimated_total').order('created_at',{ascending:false}).limit(50);
-      var h='<div id="hhpAdminDashboard"><div style="margin-bottom:10px"><select id="req-filter" onchange="HHP_Customizer.refresh()" style="width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:0.8rem;background:white;cursor:pointer"><option value="pending">Pending (Default)</option><option value="accepted">Accepted</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="declined">Declined</option></select></div>';
-      var filter=document.getElementById('req-filter')?document.getElementById('req-filter').value:'pending';
-      var filtered=(data||[]).filter(function(b){return b.status===filter;});
+      var filter=window._owReqFilter||'pending';
+      var statuses=['pending','accepted','in_progress','completed','modified','declined','payment_hold','all'];
+      var labels={pending:'Pending',accepted:'Accepted',in_progress:'In Progress',completed:'Completed',modified:'Modified',declined:'Declined',payment_hold:'Payment Hold',all:'All'};
+      var h='<div class="hhp-req-widget">';
+      // Horizontal-scroll pill filter bar
+      h+='<div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0 10px;margin-bottom:8px">';
+      statuses.forEach(function(s){
+        var isActive=s===filter;
+        h+='<button onclick="window._owReqFilter=\''+s+'\';HHP_Customizer.refreshWidget(\'ow-requests\')" style="white-space:nowrap;padding:5px 14px;border-radius:20px;border:1px solid '+(isActive?'var(--gold,#C8963E)':'var(--border,#ddd)')+';background:'+(isActive?'var(--gold,#C8963E)':'white')+';color:'+(isActive?'white':'var(--mid,#888)')+';font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;transition:all 0.2s">'+(s==='payment_hold'?'⚠ ':'')+labels[s]+'</button>';
+      });
+      h+='</div>';
+      var filtered=filter==='all'?(data||[]):(data||[]).filter(function(b){return b.status===filter;});
       if(filtered&&filtered.length){filtered.slice(0,4).forEach(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');var sCol=b.status==='pending'?'#c8963e':b.status==='in_progress'?'var(--forest)':'var(--mid)';
-        h+='<div style="display:flex;gap:8px;padding:8px;margin-bottom:6px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:6px;transition:background 0.15s" onclick="sTab(\'o\',\'o-requests\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="flex:1"><div style="font-weight:700">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:0.72rem;color:var(--mid)">'+d+(t?' '+t:'')+'</div><div style="font-size:0.68rem;font-weight:700;color:'+sCol+';text-transform:uppercase;margin-top:2px">'+b.status+'</div>'+(b.estimated_total?'<div style="font-size:0.72rem;color:var(--forest);font-weight:600;margin-top:2px">$'+b.estimated_total.toFixed(2)+'</div>':'')+'</div></div>';});}
-      else{h+='<div style="padding:12px 0;text-align:center;color:var(--mid);font-size:0.82rem">No '+filter+' requests</div>';}
+        h+='<div style="display:flex;gap:10px;padding:10px 8px;margin-bottom:4px;border-bottom:1px solid var(--border);font-size:0.8rem;cursor:pointer;border-radius:8px;transition:background 0.15s" onclick="sTab(\'o\',\'o-requests\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><div style="flex:1;min-width:0"><div style="font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+b.service+'</div><div style="font-size:0.72rem;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div><div style="text-align:right;white-space:nowrap;flex-shrink:0"><div style="font-size:0.72rem;color:var(--mid)">'+d+(t?' '+t:'')+'</div><div style="font-size:0.68rem;font-weight:700;color:'+sCol+';text-transform:uppercase;margin-top:2px">'+b.status.replace('_',' ')+'</div>'+(b.estimated_total?'<div style="font-size:0.72rem;color:var(--forest);font-weight:600;margin-top:2px">$'+b.estimated_total.toFixed(2)+'</div>':'')+'</div></div>';});}
+      else{h+='<div style="padding:16px 0;text-align:center;color:var(--mid);font-size:0.82rem">No '+labels[filter].toLowerCase()+' requests</div>';}
       return h+'</div>';
     }catch(e){
-      return '<div id="hhpAdminDashboard"><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Error loading</div></div>';
+      return '<div class="hhp-req-widget"><div style="padding:8px;text-align:center;color:var(--mid);font-size:0.85rem">Error loading</div></div>';
     }
   };
 
@@ -1018,7 +1142,7 @@
       return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:0.82rem;color:var(--mid)" id="todayDateLabel">Loading...</div></div>'+
         '<div id="ownerTodayScheduleList" style="display:flex;flex-direction:column;gap:6px;min-height:60px"><div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem">Loading...</div></div>';
     }
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('service,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('service,preferred_time,contact_name,pet_names,status').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
       var h='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:0.85rem;color:var(--mid);font-weight:600" id="todayDateLabel">'+new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})+'</div>'+
         '<button class="btn btn-outline btn-sm" onclick="sTab(\'o\',\'o-sched\')" style="font-size:0.75rem;padding:4px 8px">Full Schedule →</button></div>';
       if(data&&data.length){
@@ -1181,13 +1305,13 @@
       if(sz==='full'){
         var h=_bigNum(count||0,'payments received',sz);
         var{data}=await sb.from('payments').select('amount,created_at,status').eq('status','succeeded').order('created_at',{ascending:false}).limit(4);
-        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(p){var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="display:flex;justify-content:space-between;padding:6px;margin-bottom:4px;font-size:0.78rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-payments\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span style="color:var(--mid)">'+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)/100).toFixed(2)+'</span></div>';});h+='</div>';h+='<div style="margin-top:10px;text-align:center"><a href="javascript:sTab(\'o\',\'o-payments\')" style="color:var(--forest);font-weight:600;font-size:0.78rem;text-decoration:none;cursor:pointer">View All Payments →</a></div>';}
+        if(data&&data.length){h+='<div style="margin-top:10px">';data.forEach(function(p){var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});h+='<div style="display:flex;justify-content:space-between;padding:6px;margin-bottom:4px;font-size:0.78rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'o\',\'o-payments\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span style="color:var(--mid)">'+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)).toFixed(2)+'</span></div>';});h+='</div>';h+='<div style="margin-top:10px;text-align:center"><a href="javascript:sTab(\'o\',\'o-payments\')" style="color:var(--forest);font-weight:600;font-size:0.78rem;text-decoration:none;cursor:pointer">View All Payments →</a></div>';}
         return h;
       }
       var{data}=await sb.from('payments').select('amount,created_at').eq('status','succeeded').order('created_at',{ascending:false}).limit(2);
       return data.map(function(p){
         var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});
-        return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.75rem;border-bottom:1px solid var(--border);cursor:pointer" onclick="sTab(\'o\',\'o-payments\')"><span style="color:var(--mid)">'+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)/100).toFixed(2)+'</span></div>';
+        return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:0.75rem;border-bottom:1px solid var(--border);cursor:pointer" onclick="sTab(\'o\',\'o-payments\')"><span style="color:var(--mid)">'+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)).toFixed(2)+'</span></div>';
       }).join('');
     }catch(e){return'';}
   };
@@ -1265,14 +1389,14 @@
   // ── DETAIL RENDERERS ──
   _D._rwClientUpcoming=async function(){
     var sb=_getSB(),u=_getUser();if(!sb||!u)return'No data';
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('*').eq('client_id',u.id).in('status',['accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(10);
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('*').eq('client_id',u.id).in('status',['accepted','confirmed','modified','payment_hold']).gte('preferred_date',today).order('preferred_date').limit(10);
       if(!data||!data.length)return'<div style="color:var(--mid);padding:16px 0">No upcoming appointments.</div>';
       return data.map(function(b){var d=new Date(b.preferred_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||b.time_slot||''):(b.preferred_time||'');return'<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-weight:700;font-size:0.9rem">'+b.service+'</div><div style="font-size:0.78rem;color:var(--mid)">'+d+(t?' · '+t:'')+'</div></div><div style="font-size:0.82rem;font-weight:600;color:var(--forest)">$'+(b.estimated_total||0).toFixed(2)+'</div></div>';}).join('');
     }catch(e){return'Could not load';}
   };
   _D._rwOwnerToday=async function(){
     var sb=_getSB();if(!sb)return'';
-    try{var today=new Date().toISOString().split('T')[0];var{data}=await sb.from('booking_requests').select('*').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
+    try{var today=_localDateStr();var{data}=await sb.from('booking_requests').select('*').in('status',['accepted','confirmed','in_progress','payment_hold']).eq('preferred_date',today).order('preferred_time');
       if(!data||!data.length)return'<div style="padding:16px 0;color:var(--mid)">No services today.</div>';
       return data.map(function(b){var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||b.time_slot||''):(b.preferred_time||'');return'<div style="display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)"><div style="min-width:60px;font-weight:700;font-size:0.85rem;color:var(--gold)">'+t+'</div><div style="flex:1"><div style="font-weight:600;font-size:0.9rem">'+b.service+'</div><div style="font-size:0.78rem;color:var(--mid)">'+(b.contact_name||'Client')+(b.pet_names?' · '+b.pet_names:'')+'</div></div></div>';}).join('');
     }catch(e){return'';}
@@ -1284,12 +1408,11 @@
   // After widgets render, the DOM elements (stat IDs, containers) exist again.
   // Re-fire the existing data-loading functions so they populate.
   function _retrigger(portal){
-    console.log('Customizer: retriggering data loaders for', portal);
+    // Only retrigger loadDashboardStats — it fills stat IDs that the customizer banner creates.
+    // Do NOT call loadAlertMessages / HHP_BookingAdmin / loadOwnerTodaySchedule — the customizer
+    // has its own widget renderers for those and the legacy loaders would overwrite them.
     if(portal==='owner'){
       if(typeof window.loadDashboardStats==='function') try{window.loadDashboardStats();}catch(e){console.warn('retrigger loadDashboardStats:',e);}
-      if(typeof window.loadOwnerTodaySchedule==='function') try{window.loadOwnerTodaySchedule();}catch(e){console.warn('retrigger loadOwnerTodaySchedule:',e);}
-      if(window.HHP_BookingAdmin&&typeof window.HHP_BookingAdmin.init==='function') try{window.HHP_BookingAdmin.init();}catch(e){console.warn('retrigger BookingAdmin:',e);}
-      if(window.HHP_Messaging&&typeof window.HHP_Messaging.loadAlertMessages==='function') try{window.HHP_Messaging.loadAlertMessages();}catch(e){console.warn('retrigger alerts:',e);}
     }else if(portal==='client'){
       if(typeof window.loadDashboardStats==='function') try{window.loadDashboardStats();}catch(e){console.warn('retrigger client stats:',e);}
     }else if(portal==='staff'){
@@ -1306,7 +1429,6 @@
   async function init(){
     var portal=_getPortal();
     if(!portal) return;
-    console.log('Customizer: init',portal);
 
     // Kick off preload in background (parallel data fetch)
     if(window.HHP_Preload) HHP_Preload.forPortal(portal);
@@ -1320,15 +1442,13 @@
 
     // Render widgets with skeletons first, then fill async
     await _renderWidgets(portal);
-    // Give DOM time to paint before firing data loaders to populate widget content
-    setTimeout(function(){_retrigger(portal);},300);
-    // Safety: retrigger again after a bit in case some loaders weren't ready yet
-    setTimeout(function(){_retrigger(portal);},1500);
+    // Give DOM a frame to paint, then fire data loaders
+    requestAnimationFrame(function(){_retrigger(portal);});
+    // Safety retrigger — reduced from 1500ms
+    setTimeout(function(){_retrigger(portal);},500);
 
     // Register realtime callbacks to auto-refresh widgets on data changes
     _hookRealtime(portal);
-
-    console.log('Customizer: ready');
   }
 
   // Map tables to widgets that need refreshing
@@ -1352,7 +1472,6 @@
       // Also retrigger stat loaders (they populate by element ID)
       setTimeout(function(){_retrigger(portal);},200);
     });
-    console.log('[RT] Customizer hooked for',portal);
   }
 
   // Hook into auth callback system for fastest possible init
@@ -1435,6 +1554,7 @@
 
   // ── PUBLIC API ──
   window.HHP_Customizer={
+    get _initialized(){return _initialized;},
     init:function(){_initialized=false;init();},
     toggleEdit:_toggleEdit,
     toggleW:_toggleWidget,

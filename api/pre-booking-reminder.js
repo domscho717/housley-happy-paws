@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
   // Calculate current time and 30-min window in Eastern time (auto-adjusts for DST)
   const now = new Date();
   const estNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const todayStr = estNow.toISOString().split('T')[0];
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
   // Current time in HH:MM format
   const currentHH = String(estNow.getHours()).padStart(2, '0');

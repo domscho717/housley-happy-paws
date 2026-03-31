@@ -43,80 +43,11 @@ module.exports = async function handler(req, res) {
     const cancellationType = calculateCancellationType(booking, isSingleCancel ? cancelDate : null);
 
     let refunded = false;
-    let stripeActionResult = null;
-
-    // 4. Handle Stripe payment/invoice actions
-    if (cancellationType === 'free') {
-      // Free cancel: try to cancel uncaptured payment intent or void open invoice
-      if (booking.payment_intent_id) {
-        try {
-          // Try to cancel the payment intent (for uncaptured holds)
-          const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
-          if (intent.status === 'requires_capture') {
-            await stripe.paymentIntents.cancel(booking.payment_intent_id);
-            stripeActionResult = { action: 'canceled_intent', paymentIntentId: booking.payment_intent_id };
-            refunded = true;
-          } else if (intent.status === 'succeeded') {
-            // Already captured - would need to refund instead
-            // For now, note this case
-            stripeActionResult = { action: 'intent_already_captured', note: 'May need manual refund' };
-          }
-        } catch (stripeErr) {
-          console.error('Failed to cancel payment intent:', stripeErr.message);
-          stripeActionResult = { action: 'cancel_intent_failed', error: stripeErr.message };
-        }
-      }
-
-      // Check for open Stripe invoices (for recurring)
-      if (isRecurring && booking.contact_email) {
-        try {
-          const invoices = await stripe.invoices.list({
-            customer: null,
-            limit: 100,
-            status: 'draft,open',
-          });
-
-          const relevantInvoices = invoices.data.filter(inv =>
-            inv.customer_email === booking.contact_email &&
-            inv.metadata?.booking_request_id === booking.id
-          );
-
-          for (const invoice of relevantInvoices) {
-            if (isSingleCancel && cancelDate) {
-              // Only void if it's for the canceled date
-              if (invoice.metadata?.service_date === cancelDate) {
-                await stripe.invoices.voidInvoice(invoice.id);
-                refunded = true;
-              }
-            } else {
-              // Cancel all invoices for this booking
-              await stripe.invoices.voidInvoice(invoice.id);
-              refunded = true;
-            }
-          }
-        } catch (invoiceErr) {
-          console.error('Failed to void invoices:', invoiceErr.message);
-        }
-      }
-    } else if (cancellationType === 'late') {
-      // Late cancel: capture any uncaptured payment intent
-      if (booking.payment_intent_id) {
-        try {
-          const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
-          if (intent.status === 'requires_capture') {
-            await stripe.paymentIntents.capture(booking.payment_intent_id);
-            stripeActionResult = { action: 'captured_intent', paymentIntentId: booking.payment_intent_id };
-          }
-        } catch (stripeErr) {
-          console.error('Failed to capture payment intent:', stripeErr.message);
-          stripeActionResult = { action: 'capture_intent_failed', error: stripeErr.message };
-        }
-      }
-    }
-
-    // 4b. REFUND — Owner/staff chose to refund a paid booking
     let refundResult = null;
-    if (issueRefund && booking.payment_intent_id && (canceledBy === 'owner' || canceledBy === 'staff')) {
+
+    // 4. Handle Stripe refund/payment actions based on Rover model
+    //    Payment is already captured — free cancel = refund, late cancel = no refund
+    if (cancellationType === 'free' && booking.payment_intent_id) {
       try {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
@@ -128,18 +59,51 @@ module.exports = async function handler(req, res) {
           });
           refunded = true;
           refundResult = { action: 'refunded', refundId: refund.id, amount: refund.amount / 100 };
-          console.log('Refund issued:', refund.id, 'Amount:', refund.amount / 100);
+          console.log('[cancel] Free cancel refund issued:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
+
+          // Update payment record to reflect refund
+          await supabase.from('payments')
+            .update({ status: 'refunded', notes: 'Free cancellation — auto-refund' })
+            .eq('stripe_session_id', booking.payment_intent_id);
         } else if (intent.status === 'requires_capture') {
-          // Payment was only authorized (held) — cancel instead of refund
+          // Edge case: if somehow still uncaptured, just cancel the intent
           await stripe.paymentIntents.cancel(booking.payment_intent_id);
           refunded = true;
-          refundResult = { action: 'canceled_hold', paymentIntentId: booking.payment_intent_id };
-          console.log('Payment hold canceled:', booking.payment_intent_id);
+          refundResult = { action: 'canceled_intent', paymentIntentId: booking.payment_intent_id };
+          console.log('[cancel] Canceled uncaptured intent:', booking.payment_intent_id);
         } else {
           refundResult = { action: 'no_refund_needed', intentStatus: intent.status };
         }
+      } catch (stripeErr) {
+        console.error('[cancel] Refund failed:', stripeErr.message);
+        refundResult = { action: 'refund_failed', error: stripeErr.message };
+      }
+    } else if (cancellationType === 'late') {
+      // Late cancel — no refund, payment stays captured
+      console.log('[cancel] Late cancel — no refund. Payment retained.');
+      refundResult = { action: 'late_cancel_no_refund' };
+    }
+
+    // 4b. OVERRIDE REFUND — Owner/staff chose to refund regardless of policy
+    if (issueRefund && booking.payment_intent_id && !refunded && (canceledBy === 'owner' || canceledBy === 'staff')) {
+      try {
+        const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
+
+        if (intent.status === 'succeeded') {
+          const refund = await stripe.refunds.create({
+            payment_intent: booking.payment_intent_id,
+            reason: 'requested_by_customer',
+          });
+          refunded = true;
+          refundResult = { action: 'owner_refunded', refundId: refund.id, amount: refund.amount / 100 };
+          console.log('[cancel] Owner override refund:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
+
+          await supabase.from('payments')
+            .update({ status: 'refunded', notes: 'Owner/staff override refund' })
+            .eq('stripe_session_id', booking.payment_intent_id);
+        }
       } catch (refundErr) {
-        console.error('Refund failed:', refundErr.message);
+        console.error('[cancel] Override refund failed:', refundErr.message);
         refundResult = { action: 'refund_failed', error: refundErr.message };
       }
     }
@@ -173,7 +137,7 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to update booking cancellation status' });
     }
 
-    // 6. For recurring single-day cancel, also cancel/capture the specific recurring_invoice
+    // 6. For recurring single-day cancel, also handle the specific recurring_invoice
     if (isSingleCancel && cancelDate) {
       const { data: recurringInvoice } = await supabase
         .from('recurring_invoices')
@@ -185,14 +149,12 @@ module.exports = async function handler(req, res) {
       if (recurringInvoice && recurringInvoice.stripe_invoice_id) {
         try {
           if (cancellationType === 'free') {
-            // Void the invoice
             await stripe.invoices.voidInvoice(recurringInvoice.stripe_invoice_id);
             await supabase
               .from('recurring_invoices')
               .update({ status: 'voided' })
               .eq('id', recurringInvoice.id);
           } else if (cancellationType === 'late') {
-            // Finalize and mark as captured
             await supabase
               .from('recurring_invoices')
               .update({ status: 'captured' })
@@ -214,12 +176,12 @@ module.exports = async function handler(req, res) {
     const timeFmt = booking.preferred_time ? fmt12(booking.preferred_time) : '';
     const cancelLabel = isSingleCancel ? 'a single visit' : 'the booking';
     const refundAmount = refundResult && refundResult.amount ? '$' + refundResult.amount.toFixed(2) : (booking.estimated_total ? '$' + Number(booking.estimated_total).toFixed(2) : '');
-    const refundNote = refunded && issueRefund
+    const refundNote = refunded
       ? `<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">💳 A full refund of ${refundAmount} has been issued to your card on file. Please allow 5-10 business days for it to appear.</div>`
       : '';
     const feeNote = cancellationType === 'late' && !refunded
-      ? '<div style="background:#fff3cd;border-radius:8px;padding:12px;margin:12px 0;color:#856404;font-weight:600">⚠️ Late cancellation — the cancellation fee will be charged per policy.</div>'
-      : (refundNote || '<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">✅ Canceled before the 48-hour window — no charge.</div>');
+      ? '<div style="background:#fff3cd;border-radius:8px;padding:12px;margin:12px 0;color:#856404;font-weight:600">⚠️ Late cancellation (within 48 hours) — no refund per cancellation policy.</div>'
+      : (refundNote || '<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">✅ Canceled before the 48-hour window — full refund issued.</div>');
 
     try {
       if (canceledBy === 'client') {
@@ -310,9 +272,9 @@ module.exports = async function handler(req, res) {
 
     // 8. Return success response
     let message = 'Booking canceled.';
-    if (refunded && issueRefund) message = 'Booking canceled. Full refund issued to client.';
+    if (refunded) message = cancellationType === 'free' ? 'Booking canceled. Full refund issued.' : 'Booking canceled. Refund issued by owner.';
     else if (cancellationType === 'free') message = 'Booking canceled. No charge applied.';
-    else if (cancellationType === 'late' && !refunded) message = 'Booking canceled. Late cancellation fee applied.';
+    else if (cancellationType === 'late') message = 'Booking canceled. Late cancellation — no refund per policy.';
 
     res.status(200).json({
       success: true,
@@ -322,7 +284,6 @@ module.exports = async function handler(req, res) {
       details: {
         isSingleCancel,
         cancelDate: isSingleCancel ? cancelDate : null,
-        stripeAction: stripeActionResult,
         refund: refundResult,
       },
     });
@@ -335,7 +296,7 @@ module.exports = async function handler(req, res) {
 /**
  * Calculate cancellation type based on booking date and current time
  * Policy: Free cancel = before midnight EST, 2 days before booking date
- * Late cancel = after that cutoff
+ * Late cancel = after that cutoff (within 48 hours of service)
  */
 function calculateCancellationType(booking, specificDate) {
   const now = new Date();

@@ -77,7 +77,7 @@
 
   async function _checkBirthdayPets() {
     var today = new Date();
-    var cacheKey = today.toISOString().split('T')[0];
+    var cacheKey = _localDateStr(today);
     if (_birthdayCacheDate === cacheKey && _birthdayPetsCache !== null) return _birthdayPetsCache;
 
     var sb = window.HHP_Auth && window.HHP_Auth.supabase;
@@ -210,7 +210,8 @@
         'overflow-x: hidden !important;' +
         'max-width: 100vw !important;' +
       '}' +
-      'html { scroll-behavior: auto !important; overflow-y: scroll !important; }' +
+      'html { scroll-behavior: auto !important; overflow-y: scroll !important; overscroll-behavior: none !important; }' +
+      'body { overscroll-behavior: none !important; }' +
       '*, *::before, *::after { max-width: 100vw; }' +
       '.nav, .hero, section, footer, .portal-wrap, .portal-main,' +
       '#pg-public, #pg-client, #pg-staff, #pg-owner {' +
@@ -945,8 +946,17 @@
     closeHeader.appendChild(closeBtn);
     drawer.appendChild(closeHeader);
 
-    // ── PUBLIC NAV LINKS (only shown when NOT logged in) ──
-    if (!loggedIn) {
+    // ── Detect role early so we can skip sections for client-only users ──
+    var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
+    var isClientOnly = loggedIn && (role === 'client');
+
+    // For client-only users: force portal context immediately — they never need public nav or switch view
+    if (isClientOnly) {
+      activePortal = 'pg-client';
+    }
+
+    // ── PUBLIC NAV LINKS (only shown when NOT logged in and not client-only) ──
+    if (!loggedIn && !isClientOnly) {
       var navSection = document.createElement('div');
       navSection.className = 'hhp-drawer-nav-section';
       navSection.style.cssText = 'padding: 0 20px 8px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
@@ -978,58 +988,130 @@
       drawer.appendChild(navSection);
     }
 
-    // ── VIEW SWITCHER (only if logged in) ──
-    if (loggedIn) {
-      var role = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentRole) ? HHP_Auth.currentRole : null;
-      var viewSection = document.createElement('div');
-      viewSection.style.cssText = 'padding: 8px 20px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
-      var label = document.createElement('div');
-      label.style.cssText = 'font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#000!important;font-weight:700;margin-bottom:6px;-webkit-text-fill-color:#000!important;';
-      label.textContent = 'Switch View';
-      viewSection.appendChild(label);
+    // ── PORTAL SIDEBAR ITEMS ──
+    if (!loggedIn) return;
 
-      var allowedViews = [{ value: 'public', label: 'Home' }];
-      if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal' });
-      if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal' });
-      if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal' });
-
-      allowedViews.forEach(function(v) {
-        var btn = document.createElement('button');
-        btn.className = 'hhp-drawer-item';
-        btn.textContent = v.label;
-        btn.type = 'button';
-        btn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;display:block;width:100%;text-align:left;background:none;border:none;padding:10px 0;font-size:0.9rem;font-weight:500;cursor:pointer;';
-        if (activePortal === 'pg-' + v.value || (!activePortal && v.value === 'public')) {
-          btn.style.fontWeight = '700';
-          btn.style.color = '#c8963e';
-          btn.style.setProperty('-webkit-text-fill-color', '#c8963e', 'important');
-        }
-        btn.addEventListener('click', function() {
-          if (typeof switchView === 'function') switchView(v.value);
-          closeDrawer();
-          setTimeout(updateDrawerContent, 300);
-        });
-        viewSection.appendChild(btn);
-      });
-      drawer.appendChild(viewSection);
+    // If no portal is active (e.g., on public home page), default to the user's role portal
+    if (!activePortal && role) {
+      activePortal = role === 'owner' ? 'pg-owner' : role === 'staff' ? 'pg-staff' : 'pg-client';
     }
+    if (!activePortal) return;
 
-    // ── PORTAL SIDEBAR ITEMS (only if logged in and on a portal) ──
-    if (!loggedIn || !activePortal) return;
-
-    // Determine portal name
+    // Determine portal name — for clients, show "Home" instead of "Client Portal"
     var portalNames = {
       'pg-owner': 'Owner Portal',
       'pg-staff': 'Staff Portal',
-      'pg-client': 'Client Portal'
+      'pg-client': isClientOnly ? 'Home' : 'Client Portal'
     };
     var portalName = portalNames[activePortal] || 'Portal';
 
-    // Add portal title header (close button is already at the top)
+    // Default panels for each portal (clicking portal name goes here)
+    var portalDefaults = { 'pg-owner': ['o','o-overview'], 'pg-staff': ['s','s-sched'], 'pg-client': ['c','c-dash'] };
+
+    // ── PORTAL HEADER WITH COLLAPSIBLE SWITCHER ──
     var header = document.createElement('div');
     header.className = 'hhp-drawer-header';
-    header.style.cssText = 'display:flex;align-items:center;padding:8px 20px 12px;border-bottom:2px solid #e0d5c5;';
-    header.innerHTML = '<span class="hhp-drawer-title" style="color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;">' + portalName + '</span>';
+    header.style.cssText = 'padding:8px 20px 0;';
+
+    if (isClientOnly) {
+      // Client-only: simple clickable title, no switcher
+      header.style.borderBottom = '2px solid #e0d5c5';
+      header.style.paddingBottom = '12px';
+      var homeBtn = document.createElement('button');
+      homeBtn.type = 'button';
+      homeBtn.className = 'hhp-drawer-title';
+      homeBtn.textContent = portalName;
+      homeBtn.style.cssText = 'color:#000!important;-webkit-text-fill-color:#000!important;font-size:1.1rem;font-weight:700;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;';
+      homeBtn.addEventListener('click', function() {
+        if (typeof switchView === 'function') switchView('client');
+        setTimeout(function() {
+          if (typeof sTab === 'function') sTab('c', 'c-dash');
+        }, 150);
+        closeDrawer();
+      });
+      header.appendChild(homeBtn);
+    } else {
+      // Multi-role: portal name is clickable to go to overview/dashboard
+      // Plus dropdown chevron to switch portals
+      var allowedViews = [];
+      if (role === 'client' || role === 'staff' || role === 'owner') allowedViews.push({ value: 'client', label: 'Client Portal', portal: 'pg-client' });
+      if (role === 'staff' || role === 'owner') allowedViews.push({ value: 'staff', label: 'Staff Portal', portal: 'pg-staff' });
+      if (role === 'owner') allowedViews.push({ value: 'owner', label: 'Owner Portal', portal: 'pg-owner' });
+      var otherViews = allowedViews.filter(function(v) { return v.portal !== activePortal; });
+
+      // Title row — two click zones: name (navigate) and chevron (expand/collapse)
+      var titleRow = document.createElement('div');
+      titleRow.style.cssText = 'display:flex;align-items:center;padding-bottom:10px;';
+
+      // Portal name — clickable, navigates to default panel
+      var portalNameBtn = document.createElement('button');
+      portalNameBtn.type = 'button';
+      portalNameBtn.textContent = portalName;
+      portalNameBtn.style.cssText = 'color:#000;-webkit-text-fill-color:#000;font-size:1.1rem;font-weight:700;flex:1;text-align:left;background:none;border:none;cursor:pointer;padding:0;font-family:inherit;';
+      portalNameBtn.addEventListener('click', function() {
+        var def = portalDefaults[activePortal];
+        var viewKey = activePortal.replace('pg-','');
+        if (typeof switchView === 'function') switchView(viewKey);
+        setTimeout(function() {
+          if (def && typeof sTab === 'function') sTab(def[0], def[1]);
+        }, 150);
+        closeDrawer();
+        setTimeout(updateDrawerContent, 400);
+      });
+      titleRow.appendChild(portalNameBtn);
+
+      // Chevron button — toggles dropdown
+      var chevronBtn = document.createElement('button');
+      chevronBtn.type = 'button';
+      chevronBtn.style.cssText = 'background:none;border:none;cursor:pointer;padding:6px 8px;margin-left:4px;';
+      chevronBtn.innerHTML = '<span id="drawer-switch-chevron" style="font-size:0.6rem;color:var(--mid,#888);transition:transform 0.25s ease;display:inline-block">▼</span>';
+      titleRow.appendChild(chevronBtn);
+
+      header.appendChild(titleRow);
+
+      // Collapsible list of other portals
+      var switchList = document.createElement('div');
+      switchList.id = 'drawer-switch-list';
+      switchList.style.cssText = 'max-height:0;overflow:hidden;transition:max-height 0.3s ease;';
+      otherViews.forEach(function(v) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = v.label;
+        btn.style.cssText = 'color:#555!important;-webkit-text-fill-color:#555!important;display:block;width:100%;text-align:left;background:none;border:none;padding:8px 0;font-size:0.88rem;font-weight:500;cursor:pointer;font-family:inherit;';
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var def = portalDefaults[v.portal];
+          if (typeof switchView === 'function') switchView(v.value);
+          setTimeout(function() {
+            if (def && typeof sTab === 'function') sTab(def[0], def[1]);
+          }, 150);
+          closeDrawer();
+          setTimeout(updateDrawerContent, 400);
+        });
+        switchList.appendChild(btn);
+      });
+      header.appendChild(switchList);
+
+      // Divider after the whole header block
+      var divider = document.createElement('div');
+      divider.style.cssText = 'border-bottom:2px solid #e0d5c5;margin-top:4px;';
+      header.appendChild(divider);
+
+      chevronBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var list = document.getElementById('drawer-switch-list');
+        var chev = document.getElementById('drawer-switch-chevron');
+        if (!list) return;
+        var isOpen = list.style.maxHeight && list.style.maxHeight !== '0px';
+        if (isOpen) {
+          list.style.maxHeight = '0';
+          if (chev) chev.style.transform = 'rotate(0deg)';
+        } else {
+          list.style.maxHeight = (otherViews.length * 44 + 8) + 'px';
+          if (chev) chev.style.transform = 'rotate(180deg)';
+        }
+      });
+    }
     drawer.appendChild(header);
 
     // ── SIDEBAR EDIT BUTTON (reorder drawers) ──
@@ -1057,6 +1139,14 @@
     var sidebarItems = portalEl.querySelectorAll('.sidebar .sb-item');
 
     sidebarItems.forEach(function(sbItem) {
+      // Skip Overview/Dashboard items — portal name header handles navigation there
+      var onclickRaw = sbItem.getAttribute('onclick') || '';
+      if (onclickRaw.indexOf('o-overview') > -1 || onclickRaw.indexOf('c-dash') > -1 || onclickRaw.indexOf('s-sched') > -1) {
+        // Only skip if this is the default panel for the current portal
+        var defPanels = { 'pg-owner': 'o-overview', 'pg-client': 'c-dash', 'pg-staff': 's-sched' };
+        if (onclickRaw.indexOf(defPanels[activePortal]) > -1) return;
+      }
+
       var link = document.createElement('button');
       link.className = 'hhp-drawer-item hhp-drawer-portal-item';
       // Copy text but strip out any badge numbers — get only icon + label text
@@ -1070,12 +1160,13 @@
         else if (!node.classList || !node.classList.contains('sb-badge')) labelText += node.textContent;
       });
       link.textContent = labelText.trim();
-      // If the sidebar item has a badge, recreate it in the drawer
-      if (badgeEl) {
+      // If the sidebar item has a VISIBLE badge with content, recreate it in the drawer
+      var badgeVisible = badgeEl && badgeEl.style.display !== 'none' && badgeEl.textContent.trim();
+      if (badgeVisible) {
         var drawerBadge = document.createElement('span');
         drawerBadge.className = 'sb-badge';
         drawerBadge.textContent = badgeEl.textContent;
-        drawerBadge.style.cssText = 'margin-left:auto;background:#C4756A;color:white;border-radius:50px;padding:3px 8px;font-size:0.68rem;font-weight:800;min-width:22px;text-align:center;box-shadow:0 2px 8px rgba(229,62,62,0.35)';
+        drawerBadge.style.cssText = 'margin-left:auto;background:#e74c3c;color:white;border-radius:50%;min-width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;padding:0 5px;box-shadow:0 1px 3px rgba(0,0,0,0.3)';
         link.style.display = 'flex';
         link.style.alignItems = 'center';
         link.appendChild(drawerBadge);
@@ -1097,16 +1188,29 @@
             // Block navigation if in edit mode
             var editBtn = document.getElementById('mob-sb-edit-btn');
             if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
-            if (typeof sTab === 'function') {
-              sTab(tabPortal, tabPanel);
+            // If on public page or wrong portal, switch to the correct portal first
+            var currentPortal = getActivePortal();
+            var targetView = tabPortal === 'o' ? 'owner' : tabPortal === 's' ? 'staff' : 'client';
+            var needsSwitch = !currentPortal || currentPortal !== targetView;
+            if (needsSwitch && typeof switchView === 'function') {
+              switchView(targetView);
             }
+            var tp = tabPortal, pn = tabPanel;
+            setTimeout(function() {
+              if (typeof sTab === 'function') sTab(tp, pn);
+            }, needsSwitch ? 150 : 0);
             closeDrawer();
           });
         } else {
           link.addEventListener('click', function(e) {
             var editBtn = document.getElementById('mob-sb-edit-btn');
             if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
-            sbItem.click();
+            var needsSwitch = isClientOnly && !getActivePortal();
+            if (needsSwitch && typeof switchView === 'function') {
+              switchView('client');
+            }
+            var item = sbItem;
+            setTimeout(function() { item.click(); }, needsSwitch ? 150 : 0);
             closeDrawer();
           });
         }
@@ -1114,7 +1218,12 @@
         link.addEventListener('click', function(e) {
           var editBtn = document.getElementById('mob-sb-edit-btn');
           if (editBtn && editBtn.getAttribute('data-editing') === '1') { e.preventDefault(); e.stopPropagation(); return; }
-          sbItem.click();
+          var needsSwitch = isClientOnly && !getActivePortal();
+          if (needsSwitch && typeof switchView === 'function') {
+            switchView('client');
+          }
+          var item = sbItem;
+          setTimeout(function() { item.click(); }, needsSwitch ? 150 : 0);
           closeDrawer();
         });
       }
@@ -1424,8 +1533,8 @@
           { text: 'Overview', selector: 'o-overview' },
           { text: 'All Clients', selector: 'o-clients' },
           { text: 'Staff Management', selector: 'o-staff' },
-          { text: 'Calendar', selector: 'o-calendar' },
-          { text: 'Payments & Bank', selector: 'o-payments' },
+          { text: 'Schedules', selector: 'o-schedules' },
+          { text: 'General', selector: 'o-general' },
           { text: 'Home (Public Site)', selector: '__home__' }
         ]
       }];
@@ -1751,9 +1860,11 @@
       var viewSwitcher = document.getElementById('viewSwitcher');
       if (viewSwitcher) viewSwitcher.style.setProperty('display', 'none', 'important');
 
-      // Hide old hamburger, show drawer tab
+      // Hide old hamburger(s), show drawer tab
       var oldHam = document.querySelector('.hhp-hamburger-v10');
       if (oldHam) oldHam.style.setProperty('display', 'none', 'important');
+      var pubHam = document.getElementById('pubHamburgerBtn');
+      if (pubHam) pubHam.style.setProperty('display', 'none', 'important');
 
       // Ensure drawer tab is visible and in navbar
       var drawerTab = document.querySelector('.hhp-drawer-tab');
@@ -1781,6 +1892,8 @@
       if (navRight) navRight.style.setProperty('display', 'flex', 'important');
       var oldHam = document.querySelector('.hhp-hamburger-v10');
       if (oldHam) oldHam.style.setProperty('display', 'none', 'important');
+      var pubHam = document.getElementById('pubHamburgerBtn');
+      if (pubHam) pubHam.style.setProperty('display', 'none', 'important');
       var drawerTab = document.querySelector('.hhp-drawer-tab');
       if (drawerTab) drawerTab.style.setProperty('display', 'none', 'important');
       var mobileSignin = document.querySelector('.hhp-mobile-signin-btn');

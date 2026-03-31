@@ -17,7 +17,6 @@ const HHP_Photos = window.HHP_Photos = {
     this.loadPhotos();
     // Attach Cloudinary widget listeners to all upload slots
     this.wireUploadSlots();
-    console.log('📸 HHP_Photos initialized');
   },
 
   // ── Create/get the Cloudinary Upload Widget ─────────────────────
@@ -105,7 +104,6 @@ const HHP_Photos = window.HHP_Photos = {
     this.savePhoto(slot, photoData);
 
     toast('📸 Photo uploaded successfully!');
-    console.log(`Photo uploaded for slot "${slot}":`, photoData.url);
   },
 
   // ── Cloudinary URL helpers ──────────────────────────────────────────
@@ -417,7 +415,6 @@ const HHP_Photos = window.HHP_Photos = {
         this._anonClient = window.supabase.createClient(SB_URL, SB_KEY, {
           auth: { persistSession: false, autoRefreshToken: false }
         });
-        console.log('📸 Created standalone Supabase anon client for photos');
         return this._anonClient;
       } catch (e) {
         console.error('📸 Failed to create anon client:', e);
@@ -432,7 +429,6 @@ const HHP_Photos = window.HHP_Photos = {
     const sb = this._getSupabase();
     if (sb) {
       try {
-        console.log('📸 Querying site_photos from Supabase...');
         const { data, error } = await sb
           .from('site_photos')
           .select('*');
@@ -452,15 +448,14 @@ const HHP_Photos = window.HHP_Photos = {
               format: row.format
             };
           });
-          console.log(`📸 Loaded ${data.length} photos:`, Object.keys(this.photos));
+          // Cache for instant restore on next page load
+          try { sessionStorage.setItem('hhp_photos_cache', JSON.stringify(this.photos)); } catch(e) {}
           // Update all previews and public site
           this.restoreAllPreviews();
           this.updatePublicSite();
           // Rebuild gallery slideshows now that real photos are available
           if (window.HHP_Gallery && HHP_Gallery.rebuildSlideshows) HHP_Gallery.rebuildSlideshows();
           return;
-        } else {
-          console.log('📸 No photos found in database (data:', data, ')');
         }
       } catch (err) {
         console.error('📸 Error loading photos:', err);
@@ -470,7 +465,6 @@ const HHP_Photos = window.HHP_Photos = {
       if (this._loadRetries < 5) {
         this._loadRetries++;
         const delay = 800 * this._loadRetries;
-        console.log(`📸 Supabase library not ready, retrying in ${delay}ms (attempt ${this._loadRetries}/5)...`);
         setTimeout(() => this.loadPhotos(), delay);
         return;
       } else {
@@ -486,20 +480,14 @@ const HHP_Photos = window.HHP_Photos = {
         this.restoreAllPreviews();
         this.updatePublicSite();
         if (window.HHP_Gallery && HHP_Gallery.rebuildSlideshows) HHP_Gallery.rebuildSlideshows();
-        console.log('📸 Loaded photos from localStorage fallback');
       }
     } catch (e) {}
   },
 
   // ── Restore all preview slots from stored data ──────────────────
   restoreAllPreviews() {
-    console.log('📸 restoreAllPreviews called, photos:', Object.keys(this.photos));
     // First, re-wire upload slots to ensure data-photo-slot attrs are set
     this.wireUploadSlots();
-
-    // Debug: check which data-photo-slot elements exist
-    const slotEls = document.querySelectorAll('[data-photo-slot]');
-    console.log('📸 Found data-photo-slot elements:', slotEls.length, Array.from(slotEls).map(e => e.dataset.photoSlot));
 
     Object.entries(this.photos).forEach(([slotId, photoData]) => {
       if (photoData && (photoData.thumbnail || photoData.publicId || photoData.url)) {
@@ -517,7 +505,6 @@ const HHP_Photos = window.HHP_Photos = {
               if (fallbackEl) {
                 fallbackEl.dataset.photoSlot = slotId;
                 this.updateSlotPreview(slotId, photoData);
-                console.log(`📸 Restored slot "${slotId}" via fallback lookup`);
               }
             }
           }
@@ -565,8 +552,20 @@ const HHP_Photos = window.HHP_Photos = {
 
 // ── Auto-initialize when DOM is ready ─────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Delay to let Supabase JS library and auth initialize first
+  // Restore cached photos instantly (no waiting for Supabase)
+  try {
+    var cached = sessionStorage.getItem('hhp_photos_cache');
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      Object.assign(HHP_Photos.photos, parsed);
+      HHP_Photos.restoreAllPreviews();
+      HHP_Photos.updatePublicSite();
+      if (window.HHP_Gallery && HHP_Gallery.rebuildSlideshows) HHP_Gallery.rebuildSlideshows();
+    }
+  } catch(e) {}
+
+  // Then load fresh data from Supabase (much shorter delay)
   setTimeout(() => {
     HHP_Photos.init();
-  }, 1200);
+  }, 300);
 });

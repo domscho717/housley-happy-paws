@@ -17,6 +17,17 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'amount and clientProfileId are required' });
     }
 
+    // Validate amount field
+    if (typeof amount !== 'number') {
+      return res.status(400).json({ error: 'amount must be a number' });
+    }
+    if (amount <= 0) {
+      return res.status(400).json({ error: 'amount must be positive' });
+    }
+    if (amount >= 10000) {
+      return res.status(400).json({ error: 'amount must be less than 10000' });
+    }
+
     // Get the client's Stripe customer ID
     // Note: clientProfileId is the auth user ID, profiles use user_id column
     const { data: profile } = await supabase
@@ -57,103 +68,66 @@ module.exports = async function handler(req, res) {
 
     const paymentMethodId = methods.data[0].id;
 
-    // Determine if service is within 48 hours — charge immediately vs hold
-    let captureMethod = 'manual'; // default: hold for future bookings
-    if (bookingRequestId) {
-      const { data: booking } = await supabase
-        .from('booking_requests')
-        .select('preferred_date, recurrence_pattern')
-        .eq('id', bookingRequestId)
-        .single();
+    // Charge immediately — Rover model: charge at acceptance, refund on cancel
+    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    const amountCents = Math.round(amount * 100);
+    const devShareCents = connectedAccountId ? Math.round(amountCents * 0.15) : 0;
 
-      if (booking?.preferred_date) {
-        const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-        const serviceDate = new Date(booking.preferred_date + 'T12:00:00');
-        const hoursUntilService = (serviceDate - estNow) / (1000 * 60 * 60);
+    console.log(`[charge] Charging $${amount} immediately for ${service || 'Pet Care'}`);
 
-        // If service is within 48 hours and NOT a recurring booking, charge immediately
-        if (hoursUntilService <= 48 && !booking.recurrence_pattern) {
-          captureMethod = 'automatic';
-          console.log('[charge] Service within 48hrs — charging immediately');
-        } else {
-          console.log('[charge] Service >48hrs or recurring — holding authorization');
-        }
-      }
-    }
-
-    // Build PaymentIntent params
-    const piParams = {
-      amount: Math.round(amount * 100), // cents
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
       currency: 'usd',
       customer: stripeCustomerId,
       payment_method: paymentMethodId,
       off_session: true,
       confirm: true,
-      capture_method: captureMethod,
+      capture_method: 'automatic',
       description: `Housley Happy Paws — ${service || 'Pet Care Service'}`,
       metadata: {
         booking_request_id: bookingRequestId || '',
         client_name: profile.full_name || '',
         service: service || '',
       },
-    };
+    });
 
-    // Create and confirm PaymentIntent (Rachel collects full amount)
-    let paymentIntent;
-    paymentIntent = await stripe.paymentIntents.create(piParams);
+    console.log('[charge] PaymentIntent:', paymentIntent.id, 'status:', paymentIntent.status);
 
-    // Transfer 15% to Dom's connected account after successful charge
-    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-    if (connectedAccountId && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'requires_capture')) {
-      try {
-        const devShareCents = Math.round(Math.round(amount * 100) * 0.15);
-        // For immediate charges (succeeded), transfer now
-        // For holds (requires_capture), transfer happens when capture-payments runs
-        if (paymentIntent.status === 'succeeded') {
-          await stripe.transfers.create({
+    if (paymentIntent.status === 'succeeded') {
+      // 15% dev share transfer
+      if (connectedAccountId && devShareCents > 0) {
+        try {
+          const chargeId = paymentIntent.latest_charge;
+          const transfer = await stripe.transfers.create({
             amount: devShareCents,
             currency: 'usd',
             destination: connectedAccountId,
-            source_transaction: paymentIntent.latest_charge,
-            description: `15% dev share — ${service || 'Pet Care'} (${bookingRequestId ? '#' + bookingRequestId.slice(0, 8) : ''})`,
+            source_transaction: chargeId,
+            description: `15% dev share — ${service || 'Pet Care'} (#${bookingRequestId ? bookingRequestId.slice(0, 8) : ''})`,
           });
-          console.log('[charge] Transferred 15% ($' + (devShareCents / 100).toFixed(2) + ') to connected account');
-        } else {
-          // Store that transfer is pending — capture-payments.js will handle it
-          console.log('[charge] Hold placed — 15% transfer ($' + (devShareCents / 100).toFixed(2) + ') will happen on capture');
+          console.log('[charge] Transfer SUCCESS:', transfer.id, '$' + (devShareCents / 100).toFixed(2));
+        } catch (transferErr) {
+          console.error('[charge] Transfer FAILED (non-blocking):', transferErr.message);
         }
-      } catch (transferErr) {
-        // Don't fail the whole charge if transfer fails (Dom's account may not be ready)
-        console.warn('[charge] Transfer to connected account failed (non-blocking):', transferErr.message);
       }
-    }
 
-    // Log payment to Supabase and store payment_intent_id on booking_request
-    if (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded') {
-      const payStatus = paymentIntent.status === 'succeeded' ? 'paid' : 'authorized';
-      const payNote = paymentIntent.status === 'succeeded'
-        ? (bookingRequestId ? 'Charged on booking accept (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Charged')
-        : (bookingRequestId ? 'Hold on booking accept (Request #' + bookingRequestId.slice(0, 8) + ') — captures after service' : 'Authorized hold');
-      const { error: payInsertErr } = await supabase.from('payments').insert({
+      await supabase.from('payments').insert({
         stripe_session_id: paymentIntent.id,
         client_email: profile.email,
         client_name: profile.full_name,
         amount: amount,
         service: service || 'Pet Care',
-        status: payStatus,
-        notes: payNote,
+        status: 'paid',
+        notes: bookingRequestId ? 'Charged at acceptance (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Charged',
         paid_at: new Date().toISOString(),
       });
-      if (payInsertErr) console.error('Payment insert error:', payInsertErr.message);
+    }
 
-      // Store payment_intent_id on booking_request for later capture/cancellation
-      if (bookingRequestId) {
-        const { error: bkUpdateErr } = await supabase
-          .from('booking_requests')
-          .update({ payment_intent_id: paymentIntent.id })
-          .eq('id', bookingRequestId);
-        if (bkUpdateErr) console.error('Booking update error:', bkUpdateErr.message);
-      }
+    if (bookingRequestId && paymentIntent.status === 'succeeded') {
+      await supabase
+        .from('booking_requests')
+        .update({ payment_intent_id: paymentIntent.id })
+        .eq('id', bookingRequestId);
     }
 
     res.status(200).json({
@@ -170,7 +144,6 @@ module.exports = async function handler(req, res) {
     const isCardDecline = err.type === 'StripeCardError' || err.code === 'card_declined';
     const isAuthRequired = err.code === 'authentication_required';
     const isExpired = declineCode === 'expired_card';
-    const isInsufficientFunds = declineCode === 'insufficient_funds';
 
     // Friendly decline messages for the client
     const declineMessages = {

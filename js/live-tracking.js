@@ -341,7 +341,7 @@
           '⏹ End ' + serviceLabel + '</button></div>';
     }
 
-    var today = new Date().toISOString().split('T')[0];
+    var today = _localDateStr();
     var isToday = booking.date === today;
     var isConfirmed = booking.status === 'confirmed';
 
@@ -383,7 +383,7 @@
       var walks = activeWalks || [];
 
       // Also check today's bookings
-      var today = new Date().toISOString().split('T')[0];
+      var today = _localDateStr();
       var { data: todayBookings } = await sb.from('bookings')
         .select('*')
         .eq('client_id', _trackClientId)

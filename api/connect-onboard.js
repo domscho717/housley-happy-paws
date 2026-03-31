@@ -32,10 +32,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Create a Standard connected account
+    // Create an Express connected account (supports transfers from platform)
     const account = await stripe.accounts.create({
-      type: 'standard',
+      type: 'express',
       email: email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
       metadata: {
         role: 'platform_partner',
         fee_percentage: '15',

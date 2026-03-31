@@ -41,10 +41,11 @@ module.exports = async function handler(req, res) {
   );
 
   // Tomorrow's date in YYYY-MM-DD (Eastern time, auto-adjusts for DST)
+  function estDateStr(d) { return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); }
   const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const tomorrow = new Date(estNow);
   tomorrow.setDate(estNow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const tomorrowStr = estDateStr(tomorrow);
 
   const results = { processed: 0, invoiced: 0, skipped: 0, errors: [] };
 
@@ -98,7 +99,7 @@ module.exports = async function handler(req, res) {
         // Log to recurring_invoices table
         await supabase.from('recurring_invoices').insert({
           booking_request_id: booking.id,
-          invoice_date: new Date().toISOString().split('T')[0],
+          invoice_date: estDateStr(),
           service_date: tomorrowStr,
           amount: booking.estimated_total || 0,
           service: booking.service,

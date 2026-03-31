@@ -12,8 +12,8 @@
 
   // ── Utility ───────────────────────────────────────────────────
   function onReady(fn) {
-    if (document.readyState !== 'loading') setTimeout(fn, 400);
-    else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 400); });
+    if (document.readyState !== 'loading') setTimeout(fn, 50);
+    else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 50); });
   }
 
   // Placeholder images (warm-toned pet care themed gradients + emoji)
@@ -361,7 +361,7 @@
 
   // ── Render gallery for a specific role ─────────────────────────
   async function renderGallery(role) {
-    var containerId = role === 'owner' ? 'o-photos' : role === 'staff' ? 'hhp-staff-gallery' : 'c-photos';
+    var containerId = role === 'owner' ? 'o-photos' : role === 'staff' ? 'hhp-staff-gallery' : 'cg-photos';
     var container = document.getElementById(containerId);
     if (!container) return;
 
