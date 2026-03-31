@@ -4568,18 +4568,3 @@
   window.submitSingleApptTime = function(requestId, apptIdx, formId) {
     var dateEl = document.getElementById(formId + '-date');
     var timeEl = document.getElementById(formId + '-time');
-    var msgEl = document.getElementById(formId + '-msg');
-    if (!dateEl || !dateEl.value) { alert('Please select a new date.'); return; }
-
-    _getBookingAndUpdate(requestId, apptIdx, function(booking, dd, idx) {
-      dd[idx].suggested_date = dateEl.value;
-      dd[idx].suggested_time = timeEl ? timeEl.value : '';
-      dd[idx].status = 'modified';
-      dd[idx].admin_message = msgEl ? msgEl.value : '';
-      if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
-      return { date_details: dd, status: 'modified', scheduled_date: dateEl.value, scheduled_time: timeEl ? timeEl.value : '', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
-    }, 'modified');
-  };
-
-})();
-
