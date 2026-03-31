@@ -677,4 +677,6 @@
     render: renderGallery,
     upload: openGalleryUpload,
     rebuildSlideshows: function() { buildAboutSlideshow(); buildHeroCarousel(); }
-  
+  };
+
+})();
