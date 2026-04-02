@@ -57,22 +57,18 @@
     var sb = getSB();
     if (!sb) return;
     try {
-      var res = await sb.from('deals').select('*').eq('is_active', true);
-      _activeDealsCache = (res.data || []).filter(function(d) { return d.discount_value > 0; });
-      _dealsLoaded = true;
-
-      // Fetch which deals the current client has already used (for once_per_client limits)
-      _clientUsedDealIds = [];
       var clientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null);
+
+      // Parallel fetch: deals + client usage in one round trip
+      var promises = [sb.from('deals').select('*').eq('is_active', true)];
       if (clientId) {
-        var usageRes = await sb.from('booking_requests')
-          .select('deal_id')
-          .eq('client_id', clientId)
-          .not('deal_id', 'is', null);
-        if (usageRes.data) {
-          _clientUsedDealIds = usageRes.data.map(function(r) { return r.deal_id; });
-        }
+        promises.push(sb.from('booking_requests').select('deal_id').eq('client_id', clientId).not('deal_id', 'is', null));
       }
+      var results = await Promise.all(promises);
+
+      _activeDealsCache = (results[0].data || []).filter(function(d) { return d.discount_value > 0; });
+      _dealsLoaded = true;
+      _clientUsedDealIds = results[1] && results[1].data ? results[1].data.map(function(r) { return r.deal_id; }) : [];
     } catch (e) { console.warn('Failed to load active deals:', e); }
   }
 
@@ -2587,7 +2583,7 @@
           window._cachedPaymentMethodsAt = Date.now();
         }
         if (!pmData.hasCard || !pmData.methods || pmData.methods.length === 0) {
-          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Booking Request'; }
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('btn-loading'); submitBtn.textContent = 'Submit Booking Request'; }
           if (errEl) errEl.innerHTML = '💳 <strong>Payment method required.</strong> Please add a card on file before booking a paid service. ' +
             '<a href="#" onclick="event.preventDefault();window._saveBookingAndAddCard();" style="color:var(--gold-deep);font-weight:600;text-decoration:underline;">Add Payment Method</a>';
           return;
@@ -2598,7 +2594,7 @@
       }
     }
 
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending request...'; }
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('btn-loading'); submitBtn.setAttribute('data-orig-text', submitBtn.textContent); submitBtn.textContent = 'Sending request...'; }
 
     try {
       var sb = getSB();
@@ -2770,7 +2766,7 @@
         window._hsRangeStart = null;
         window._hsRangeEnd = null;
         closeBookingModal();
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Request to Rachel'; }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('btn-loading'); submitBtn.textContent = 'Send Request to Rachel'; }
         if (successEl) successEl.textContent = '';
       }, 4000);
 
@@ -3724,10 +3720,10 @@
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-      setTimeout(initBookingSystem, 200);
+      setTimeout(initBookingSystem, 50);
     });
   } else {
-    setTimeout(initBookingSystem, 100);
+    setTimeout(initBookingSystem, 0);
   }
 
   // ════════════════════════════════════════════════════════════
@@ -3747,6 +3743,11 @@
     if (!container) return;
 
     _bookingPanelState.portal = portal;
+
+    // Show skeleton instantly while data loads
+    if (!_bookingPanelState.requests.length) {
+      container.innerHTML = '<div class="hhp-skeleton hhp-skel-row" style="height:72px"></div><div class="hhp-skeleton hhp-skel-row" style="height:72px"></div><div class="hhp-skeleton hhp-skel-row" style="height:72px"></div>';
+    }
 
     try {
       var query = sb.from('booking_requests').select('*').order('created_at', { ascending: false });
@@ -4014,6 +4015,8 @@
     var card = document.querySelector('[data-request-id="' + requestId + '"]');
     if (!card) return;
     card.classList.add('opt-pending');
+    // Disable all action buttons in this card instantly
+    card.querySelectorAll('button').forEach(function(b) { b.classList.add('btn-loading'); b.disabled = true; });
     var badge = card.querySelector('.status-badge');
     if (badge) {
       badge.textContent = newStatus;

@@ -24,6 +24,9 @@ const HHP_Auth = window.HHP_Auth = {
 
         this.supabase = window.supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
 
+        // Signal that auth client is ready (other modules listen for this)
+        window.dispatchEvent(new Event('hhp-auth-ready'));
+
         // Check for existing session
         const { data: { session } } = await this.supabase.auth.getSession();
         if (session) {

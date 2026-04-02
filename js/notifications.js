@@ -538,15 +538,20 @@
   }
 
   onReady(function() {
-    // Wait a bit for auth to be ready
-    var attempts = 0;
-    var check = setInterval(function() {
-      attempts++;
-      if ((window.HHP_Auth && window.HHP_Auth.supabase) || attempts > 20) {
-        clearInterval(check);
+    // Use event-based auth signaling instead of polling
+    if (window.HHP_Auth && window.HHP_Auth.supabase) {
+      init();
+    } else {
+      // Listen for auth ready event, with a single fallback timeout
+      var initiated = false;
+      function tryInit() {
+        if (initiated) return;
+        initiated = true;
         init();
       }
-    }, 300);
+      window.addEventListener('hhp-auth-ready', tryInit, { once: true });
+      setTimeout(tryInit, 3000); // fallback if event never fires
+    }
   });
 
   // ── Public API ──────────────────────────────────────────────

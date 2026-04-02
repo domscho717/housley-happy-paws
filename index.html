@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Housley Happy Paws — Rachel Housley · Lancaster, PA</title>
+<link rel="preconnect" href="https://niysrippazlkpvdkzepp.supabase.co" crossorigin>
+<link rel="dns-prefetch" href="https://niysrippazlkpvdkzepp.supabase.co">
 <!-- Critical: hide portal pages BEFORE anything else loads to prevent flash -->
 <style id="early-hide">
 #pg-client,#pg-staff,#pg-owner{display:none!important;visibility:hidden!important}
@@ -1082,6 +1084,18 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .opt-pending{opacity:0.6;pointer-events:none;transition:opacity 0.2s}
 .opt-success{animation:optFlash 0.4s ease}
 @keyframes optFlash{0%{background:var(--forest-pale)}100%{background:transparent}}
+/* ── Skeleton loading shimmer ── */
+.hhp-skeleton{border-radius:8px;background:linear-gradient(90deg,#f0ebe4 25%,#f8f4ee 50%,#f0ebe4 75%);background-size:200% 100%;animation:hhpShimmer 1.2s ease infinite}
+@keyframes hhpShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.hhp-skel-row{height:68px;margin-bottom:10px;border-radius:10px}
+.hhp-skel-bar{height:14px;border-radius:4px;margin-bottom:8px}
+/* Panel transitions — content fades in smoothly */
+.p-panel.active{animation:panelIn 0.15s ease}
+@keyframes panelIn{from{opacity:0.4}to{opacity:1}}
+/* Button loading state */
+.btn-loading{position:relative;color:transparent!important;pointer-events:none}
+.btn-loading::after{content:'';position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:btnSpin 0.5s linear infinite}
+@keyframes btnSpin{to{transform:rotate(360deg)}}
 
 /* ── iOS safe-area support (notch / Dynamic Island) ── */
 @supports(padding:env(safe-area-inset-top)){
@@ -3436,7 +3450,7 @@ const aboutSS = {
     // Build slides
     let html = '';
     photos.forEach((p, i) => {
-      html += '<div class="slide' + (i === 0 ? ' active' : '') + '"><img src="' + p + '" alt="About photo ' + (i+1) + '"></div>';
+      html += '<div class="slide' + (i === 0 ? ' active' : '') + '"><img src="' + p + '" alt="About photo ' + (i+1) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '"></div>';
     });
     html += '<button class="ss-arrow ss-prev" onclick="aboutSS.prev()" aria-label="Previous">\u2039</button>';
     html += '<button class="ss-arrow ss-next" onclick="aboutSS.next()" aria-label="Next">\u203A</button>';
@@ -3800,7 +3814,7 @@ function switchView(view) {
   document.body.classList.remove('loading-auth');
   const dd = document.getElementById('viewDropdown');
   if(dd) dd.value = view;
-  if (typeof updateDrawerContent === 'function') setTimeout(updateDrawerContent, 50);
+  if (typeof updateDrawerContent === 'function') setTimeout(updateDrawerContent, 0);
   window.scrollTo(0,0);
   const nc = document.querySelector('.nav-center');
   if(nc) {
@@ -3837,11 +3851,11 @@ function switchView(view) {
     if (HHP_Customizer._forceReinit) {
       // After sign-out/sign-in: full reinit with new user context
       HHP_Customizer._forceReinit = false;
-      setTimeout(function() { HHP_Customizer.init(); }, 150);
+      setTimeout(function() { HHP_Customizer.init(); }, 0);
     } else if (HHP_Customizer._initialized && HHP_Customizer.refreshAll) {
-      setTimeout(function() { HHP_Customizer.refreshAll(); }, 100);
+      HHP_Customizer.refreshAll();
     } else {
-      setTimeout(function() { HHP_Customizer.init(); }, 100);
+      setTimeout(function() { HHP_Customizer.init(); }, 0);
     }
   }
 }
@@ -6649,6 +6663,11 @@ async function loadClientAppts(filter, tabBtn) {
   if (!sb || !user) {
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📅</div><div style="font-weight:600;margin-bottom:6px">Sign in to see your appointments</div></div>';
     return;
+  }
+
+  // Show skeleton instantly while loading
+  if (!listEl.querySelector('.card')) {
+    listEl.innerHTML = '<div class="hhp-skeleton hhp-skel-row"></div><div class="hhp-skeleton hhp-skel-row"></div><div class="hhp-skeleton hhp-skel-row"></div>';
   }
 
   try {
@@ -9961,6 +9980,11 @@ async function loadMyPets() {
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Sign in to manage your pets.</div>'; return; }
 
+  // Show skeleton instantly while loading
+  if (!listEl.querySelector('.pet-card,.cp-card')) {
+    listEl.innerHTML = '<div class="hhp-skeleton hhp-skel-row" style="height:80px"></div><div class="hhp-skeleton hhp-skel-row" style="height:80px"></div>';
+  }
+
   try {
     var _pid = getEffectiveClientId() || user.id;
     var { data, error } = await sb.from('pets').select('*').eq('owner_id', _pid).order('created_at', { ascending: true });
@@ -10333,7 +10357,7 @@ async function loadOwnerClients() {
   var countEl = document.getElementById('oc-count');
   if (!listEl) return;
 
-  listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading clients...</div>';
+  listEl.innerHTML = '<div class="hhp-skeleton hhp-skel-row"></div><div class="hhp-skeleton hhp-skel-row"></div><div class="hhp-skeleton hhp-skel-row"></div>';
 
   try {
     var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;

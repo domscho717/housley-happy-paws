@@ -48,8 +48,8 @@
   var CLOSE_X = '\u2715';
 
   function onReady(fn) {
-    if (document.readyState !== 'loading') setTimeout(fn, 800);
-    else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 800); });
+    if (document.readyState !== 'loading') setTimeout(fn, 200);
+    else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 200); });
   }
 
   // ─────────────────────────────────────────────
@@ -1056,7 +1056,7 @@
           if (def && typeof sTab === 'function') sTab(def[0], def[1]);
         }, 150);
         closeDrawer();
-        setTimeout(updateDrawerContent, 400);
+        setTimeout(updateDrawerContent, 100);
       });
       titleRow.appendChild(portalNameBtn);
 
@@ -1086,7 +1086,7 @@
             if (def && typeof sTab === 'function') sTab(def[0], def[1]);
           }, 150);
           closeDrawer();
-          setTimeout(updateDrawerContent, 400);
+          setTimeout(updateDrawerContent, 100);
         });
         switchList.appendChild(btn);
       });
@@ -1345,7 +1345,7 @@
               var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
               if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
               document.body.style.overflow = '';
-              setTimeout(updateDrawerContent, 300);
+              setTimeout(updateDrawerContent, 50);
             }
           });
         }
@@ -1909,10 +1909,9 @@
   }
 
   // Run override multiple times to catch late-loading scripts
-  setTimeout(applyNavOverride, 300);
-  setTimeout(applyNavOverride, 800);
+  setTimeout(applyNavOverride, 100);
+  setTimeout(applyNavOverride, 500);
   setTimeout(applyNavOverride, 1500);
-  setTimeout(applyNavOverride, 3000);
   window.addEventListener('resize', applyNavOverride);
 
   // Inject final-authority CSS as well (belt and suspenders)

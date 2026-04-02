@@ -669,6 +669,15 @@
       });
     }
 
+    // Pause slideshows when tab is hidden to save CPU
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        if (window._hhpAboutSlideshowInterval) { clearInterval(window._hhpAboutSlideshowInterval); window._hhpAboutSlideshowInterval = null; }
+      } else {
+        if (!window._hhpAboutSlideshowInterval) buildAboutSlideshow();
+      }
+    });
+
     console.log('🖼️ HHP Gallery & Slideshows initialized');
   });
 
