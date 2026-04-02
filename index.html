@@ -1405,28 +1405,28 @@ try {
         <div class="service-card fadeup">
           <div class="sc-icon">🚪</div>
           <div class="sc-name">Drop-In Visit</div>
-          <div class="sc-price">$25 <span>/ 30 min</span></div>
-          <div class="sc-price" style="font-size:1.15rem;margin-top:-2px">$45 <span>/ 1 hour</span></div>
-          <div class="sc-desc">I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! I also can address any special needs or requests, such as medication, etc.!</div>
+          <div class="sc-price">From $20 <span>/ 30 min</span></div>
+          <div class="sc-desc">I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! Cats too — feeding, litter box cleaning, and playtime. I also can address any special needs or requests, such as medication, etc.!</div>
+          <details style="margin-top:10px;cursor:pointer">
+            <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
+              <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Rates
+            </summary>
+            <ul style="list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--warm);border-radius:8px;border:1px solid var(--border)">
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (30 min)</span><span style="font-weight:700">$25</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (1 hour)</span><span style="font-weight:700">$45</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (30 min)</span><span style="font-weight:700">$20</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (1 hour)</span><span style="font-weight:700">$35</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700">+ $15</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700">+ $10</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700">+ $5</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700">+ $10</span></li>
+            </ul>
+          </details>
           <ul class="sc-features">
             <li>In-home care & feeding</li><li>Playtime & companionship</li>
-            <li>Litter/waste cleanup</li><li>Arrival & departure photos</li>
+            <li>Litter box / waste cleanup</li><li>Arrival & departure photos</li>
           </ul>
-          <div style="font-size:0.72rem;color:var(--mid);margin-top:8px;line-height:1.5">+$15 per additional dog · +$5 puppy surcharge · +$10 holiday rate</div>
           <button type="button" class="stripe-pay-btn" style="display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;font-family:inherit;transition:opacity 0.2s;" onclick="if(typeof openBookingModal==='function')openBookingModal('Drop-In Visit')" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Request Drop-In Visit</button>
-        </div>
-        <div class="service-card fadeup">
-          <div class="sc-icon">🐱</div>
-          <div class="sc-name">Cat Care Visit</div>
-          <div class="sc-price">$20 <span>/ 30 min visit</span></div>
-          <div class="sc-price" style="font-size:1.15rem;margin-top:-2px">$35 <span>/ 1 hour visit</span></div>
-          <div class="sc-desc">Cats deserve great care too! I visit your cat at home, drop ins can include feeding, litter box cleaning, fresh water, and playtime. I also can address any special needs or requests, such as medication, etc.!</div>
-          <ul class="sc-features">
-            <li>Feeding & fresh water</li><li>Litter box maintenance</li>
-            <li>Playtime & affection</li><li>Photo updates every visit</li>
-          </ul>
-          <div style="font-size:0.72rem;color:var(--mid);margin-top:8px;line-height:1.5">+$10 per additional cat · +$10 holiday rate</div>
-          <button type="button" class="stripe-pay-btn" style="display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;font-family:inherit;transition:opacity 0.2s;" onclick="if(typeof openBookingModal==='function')openBookingModal('Cat Care Visit')" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Request Cat Care</button>
         </div>
         <div class="service-card fadeup">
           <div class="sc-icon">🏡</div>
@@ -1580,7 +1580,7 @@ try {
     <div class="footer-grid">
       <div>
         <div class="footer-logo">Housley <span>Happy</span> Paws</div>
-        <div class="footer-desc">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits, cat care, house sitting, and more — all with Rachel's full heart.</div>
+        <div class="footer-desc">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits for dogs & cats, house sitting, and more — all with Rachel's full heart.</div>
         <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap">
           <div style="background:var(--gold);color:white;padding:8px 18px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="window.open('https://www.instagram.com/housleyhappypaws','_blank')">📸 Instagram</div>
           <div style="background:var(--gold);color:white;padding:8px 18px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="window.open('https://www.facebook.com/share/1ANwxfH7Tk/?mibextid=wwXIfr','_blank')">📘 Facebook</div>
@@ -1619,6 +1619,11 @@ try {
 
       <!-- DASH -->
       <div class="p-panel active" id="c-dash">
+        <div id="paymentFailedBanner" style="display:none;background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:1px solid #ff9800;border-radius:12px;padding:16px;margin:0 0 16px;animation:panelIn 0.3s ease">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:1.3rem">⚠️</span><strong style="color:#e65100;font-size:0.95rem">Payment Failed</strong></div>
+          <p id="paymentFailedMsg" style="font-size:0.85rem;color:#4e342e;margin:0 0 12px;line-height:1.5">A recent charge was declined. Please update your payment method to avoid service interruption.</p>
+          <button onclick="if(typeof sTab==='function')sTab('c','c-general');setTimeout(function(){if(typeof switchGeneralTab==='function')switchGeneralTab('billing')},100)" style="background:#e65100;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;font-family:inherit">Update Payment Method</button>
+        </div>
         <div class="p-header"><h2 id="clientDashGreeting">Welcome to your Client Portal 🐾</h2><p id="clientDashSubGreeting">Your appointments, photos, and walk reports will appear here once you're booked.</p></div>
         <!-- Static fallback — hidden by default; customizer replaces with widget grid -->
         <div style="display:none" data-static-fallback>
@@ -2161,7 +2166,6 @@ try {
             <option value="all">All Services</option>
             <option value="Dog Walking">Dog Walking</option>
             <option value="Drop-In Visit">Drop-In Visits</option>
-            <option value="Cat Care">Cat Care</option>
             <option value="House Sitting">House Sitting</option>
           </select>
         </div>
@@ -2223,7 +2227,6 @@ try {
                 <option value="all">All Services</option>
                 <option value="Dog Walking">Dog Walking</option>
                 <option value="Drop-In Visit">Drop-In Visits</option>
-                <option value="Cat Care">Cat Care</option>
                 <option value="House Sitting">House Sitting</option>
               </select>
             </div>
@@ -2665,7 +2668,7 @@ try {
                 </div>
                 <div class="form-group" style="margin-bottom:14px">
                   <label class="form-lbl">Footer Description</label>
-                  <textarea class="form-ta ce-field" data-field="footerDesc" style="min-height:80px">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits, cat care, house sitting, and more — all with Rachel's full heart.</textarea>
+                  <textarea class="form-ta ce-field" data-field="footerDesc" style="min-height:80px">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits for dogs & cats, house sitting, and more — all with Rachel's full heart.</textarea>
                 </div>
                 <button class="submit-btn" onclick="saveFooter()">💾 Save Contact Info</button>
               </div>
@@ -2701,7 +2704,7 @@ try {
                     <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto1')"><div style="font-size:1.8rem">🦮</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Dog Walk</div></div>
                     <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto2')"><div style="font-size:1.8rem">🚪</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Drop-In</div></div>
                     <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto3')"><div style="font-size:1.8rem">🌙</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Boarding</div></div>
-                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto4')"><div style="font-size:1.8rem">🐱</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Cat Care</div></div>
+                    <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto4')"><div style="font-size:1.8rem">🐱</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Drop-In (Cat)</div></div>
                     <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto5')"><div style="font-size:1.8rem">🚌</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Paw Bus</div></div>
                     <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto6')"><div style="font-size:1.8rem">🏡</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">House Sitting</div></div>
                     <div class="photo-upload-slot" onclick="triggerUpload('svcPhoto7')"><div style="font-size:1.8rem">☀️</div><div style="font-size:0.65rem;margin-top:4px;color:var(--mid)">Doggy Day Care</div></div>
@@ -2712,7 +2715,7 @@ try {
                   <input type="file" id="svcPhoto1" accept="image/*" style="display:none" onchange="toast('📸 Dog Walk photo uploaded!')">
                   <input type="file" id="svcPhoto2" accept="image/*" style="display:none" onchange="toast('📸 Drop-In photo uploaded!')">
                   <input type="file" id="svcPhoto3" accept="image/*" style="display:none" onchange="toast('📸 Boarding photo uploaded!')">
-                  <input type="file" id="svcPhoto4" accept="image/*" style="display:none" onchange="toast('📸 Cat Care photo uploaded!')">
+                  <input type="file" id="svcPhoto4" accept="image/*" style="display:none" onchange="toast('📸 Drop-In (Cat) photo uploaded!')">
                   <input type="file" id="svcPhoto5" accept="image/*" style="display:none" onchange="toast('📸 Paw Bus photo uploaded!')">
                   <input type="file" id="svcPhoto6" accept="image/*" style="display:none" onchange="toast('📸 House Sitting photo uploaded!')">
                   <input type="file" id="svcPhoto7" accept="image/*" style="display:none" onchange="toast('📸 Doggy Day Care photo uploaded!')">
@@ -2862,7 +2865,7 @@ try {
                 <option value="all">All Services</option>
                 <option value="dog_walking">Dog Walking Only</option>
                 <option value="drop_in">Drop-In Visits Only</option>
-                <option value="cat_care">Cat Care Only</option>
+                <option value="drop_in_cat">Drop-In Visits (Cat) Only</option>
                 <option value="house_sitting">House Sitting Only</option>
               </select>
             </div>
@@ -2918,10 +2921,10 @@ try {
                 <option>🏠 House Sitting (Cat) — $80/night</option>
                 <option>🦮 Dog Walking 30min — $25</option>
                 <option>🦮 Dog Walking 1 hour — $45</option>
-                <option>🐾 Drop-In 30min — $25</option>
-                <option>🐾 Drop-In 1 hour — $45</option>
-                <option>🐱 Cat Care 30min — $20</option>
-                <option>🐱 Cat Care 1 hour — $35</option>
+                <option>🐾 Drop-In (Dog) 30min — $25</option>
+                <option>🐾 Drop-In (Dog) 1 hour — $45</option>
+                <option>🐱 Drop-In (Cat) 30min — $20</option>
+                <option>🐱 Drop-In (Cat) 1 hour — $35</option>
                 <option>Other</option>
               </select>
             </div>
@@ -3253,7 +3256,7 @@ try {
     </div>
     <div class="form-row" style="margin-bottom:12px">
       <div class="form-group"><label class="form-lbl">Service</label>
-        <select class="form-sel" id="apr-service"><option>Dog Walking</option><option>Drop-In Visit</option><option>Cat Care Visit</option><option>House Sitting</option></select>
+        <select class="form-sel" id="apr-service"><option>Dog Walking</option><option>Drop-In Visit</option><option>House Sitting</option></select>
       </div>
       <div class="form-group"><label class="form-lbl">Pet Name (optional)</label>
         <input class="form-in" id="apr-pet" placeholder="e.g. Cooper">
@@ -3771,7 +3774,6 @@ function switchView(view) {
         '<div style="padding:8px 16px 6px;font-size:0.72rem;font-weight:700;color:var(--mid,#8c6b4a);text-transform:uppercase;letter-spacing:0.5px">Quick Book</div>',
         '<button class="fab-svc-btn" onclick="floatingBookPick(\'Dog Walking\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🐕 Dog Walking</button>',
         '<button class="fab-svc-btn" onclick="floatingBookPick(\'Drop-In Visit\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🚪 Drop-In Visit</button>',
-        '<button class="fab-svc-btn" onclick="floatingBookPick(\'Cat Care Visit\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🐱 Cat Care</button>',
         '<button class="fab-svc-btn" onclick="floatingBookPick(\'House Sitting\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🏡 House Sitting</button>',
         '<div style="border-top:1px solid #eee;margin:4px 0"></div>',
         '<button class="fab-svc-btn" onclick="floatingBookPick()" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--forest,#3a6b4c);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">📋 All Services</button>',
@@ -4967,7 +4969,7 @@ async function showActivityDetail(index) {
     icon = '\uD83D\uDCC5';
     bgColor = '#e8f5e9';
     var bk = entry.booking;
-    var svcIcons = {'Dog Walking':'\uD83D\uDC15','Drop-In Visit':'\uD83C\uDFE0','Cat Care Visit':'\uD83D\uDC31','House Sitting':'\uD83C\uDFE1','Dog Boarding':'\uD83C\uDF19','Doggy Day Care':'\u2600\uFE0F'};
+    var svcIcons = {'Dog Walking':'\uD83D\uDC15','Drop-In Visit':'\uD83C\uDFE0','Drop-In Visit (Cat)':'\uD83D\uDC31','Cat Care Visit':'\uD83D\uDC31','House Sitting':'\uD83C\uDFE1','Dog Boarding':'\uD83C\uDF19','Doggy Day Care':'\u2600\uFE0F'};
     var bkIcon = svcIcons[bk.service] || '\uD83D\uDC3E';
     var bkDateFull = bk.date ? new Date(bk.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
     var statusColor = bk.status === 'confirmed' ? 'var(--forest)' : bk.status === 'cancelled' ? 'var(--rose,#dc3545)' : 'var(--gold)';
@@ -8021,7 +8023,7 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<input type="date" id="lsp-date" value="' + dateVal + '" style="' + fieldStyle + '"></div>';
   h += '<div><div style="' + labelStyle + '">Service</div>';
   h += '<select id="lsp-service" style="' + fieldStyle + '">';
-  ['Dog Walking - 30 min','Dog Walking - 1 hr','Drop-In Visit - 30 min','Drop-In Visit - 1 hr','Cat Care Visit - 30 min','Cat Care Visit - 1 hr','Dog Boarding','Doggy Day Care','House Sitting (Dog)','House Sitting (Cat)'].forEach(function(s) {
+  ['Dog Walking - 30 min','Dog Walking - 1 hr','Drop-In Visit - 30 min','Drop-In Visit - 1 hr','Drop-In Visit (Cat) - 30 min','Drop-In Visit (Cat) - 1 hr','Dog Boarding','Doggy Day Care','House Sitting (Dog)','House Sitting (Cat)'].forEach(function(s) {
     h += '<option value="' + s + '"' + (s === service ? ' selected' : '') + '>' + s + '</option>';
   });
   h += '</select></div></div>';
@@ -9183,7 +9185,7 @@ function applySavedData() {
   if(d.pricing) { Object.entries(d.pricing).forEach(([k,v]) => { const el = document.querySelector(`[data-price-key="${k}"]`); if(el) el.textContent = v; }); }
 
   // Service descriptions on the actual service cards
-  const svcDescMap = { desc_walk: 'Dog Walking', desc_dropin: 'Drop-In Visit', desc_cat: 'Cat Care Visit', desc_boarding: 'Dog Boarding', desc_housesit: 'House Sitting' };
+  const svcDescMap = { desc_walk: 'Dog Walking', desc_dropin: 'Drop-In Visit', desc_cat: 'Drop-In Visit (Cat)', desc_boarding: 'Dog Boarding', desc_housesit: 'House Sitting' };
   Object.entries(svcDescMap).forEach(([key, cardName]) => {
     if(d[key]) {
       document.querySelectorAll('.service-card').forEach(card => {
@@ -9395,8 +9397,8 @@ function openPricingEditor(){ sTab('o','o-content'); setTimeout(()=>showContentS
 // ============================================================
 const pricingData=[
   {key:'walk30',label:'🦮 Dog Walk (30 min)',price:'$25'},{key:'walk60',label:'🦮 Dog Walk (1 hour)',price:'$45'},
-  {key:'dropin30',label:'🚪 Drop-In Visit (30 min)',price:'$25'},{key:'dropin60',label:'🚪 Drop-In Visit (1 hour)',price:'$45'},
-  {key:'cat30',label:'🐱 Cat Care (30 min)',price:'$20'},{key:'cat60',label:'🐱 Cat Care (1 hour)',price:'$35'},
+  {key:'dropin30',label:'🚪 Drop-In Visit - Dog (30 min)',price:'$25'},{key:'dropin60',label:'🚪 Drop-In Visit - Dog (1 hour)',price:'$45'},
+  {key:'cat30',label:'🐱 Drop-In Visit - Cat (30 min)',price:'$20'},{key:'cat60',label:'🐱 Drop-In Visit - Cat (1 hour)',price:'$35'},
   {key:'boarding',label:'🌙 Dog Boarding (per night)',price:'$55'},{key:'boarding24',label:'🌙 Dog Boarding (24hr)',price:'$75'},
   {key:'daycare_half',label:'☀️ Day Care (half day)',price:'$40'},{key:'daycare_full',label:'☀️ Day Care (full day)',price:'$65'},
   {key:'housesit_dog',label:'🏡 House Sitting - Dog (per night)',price:'$125'},{key:'housesit_cat',label:'🏡 House Sitting - Cat (per night)',price:'$80'},
@@ -9422,7 +9424,7 @@ const serviceDescs=[
   {key:'desc_walk',label:'🦮 Dog Walking',text:"I come to your home and get your pup ready for a nice, long walk! Every walk is GPS tracked with a detailed report card sent to you afterward. Water bowls will also be refreshed upon returning!"},
   {key:'desc_dropin',label:'🚪 Drop-In Visit',text:"I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! I also can address any special needs or requests, such as medication, etc.!"},
   {key:'desc_boarding',label:'🌙 Dog Boarding',text:"Your dog stays with Rachel in a warm, loving home environment. Included walks, play sessions, and daily photo updates so you always know how they're doing."},
-  {key:'desc_cat',label:'🐱 Cat Care Visit',text:"Cats deserve great care too! I visit your cat at home, drop ins can include feeding, litter box cleaning, fresh water, and playtime. I also can address any special needs or requests, such as medication, etc.!"},
+  {key:'desc_cat',label:'🐱 Drop-In Visit (Cat)',text:"Cats deserve great care too! I visit your cat at home — feeding, litter box cleaning, fresh water, and playtime. I also can address any special needs or requests, such as medication, etc.!"},
   {key:'desc_housesit',label:'🏡 House Sitting',text:"Going away? I stay at your home and care for your pets in their own environment — keeping their routine, giving medication if needed, and sending regular updates and photos so you have complete peace of mind while you're gone!"},
 ];
 function buildServiceEditor() {
@@ -9536,7 +9538,7 @@ async function loadDealsPanel() {
       return;
     }
     container.innerHTML = '';
-    var appliesLabels = { all: 'All Services', dog_walking: 'Dog Walking', drop_in: 'Drop-In Visits', cat_care: 'Cat Care', house_sitting: 'House Sitting' };
+    var appliesLabels = { all: 'All Services', dog_walking: 'Dog Walking', drop_in: 'Drop-In Visits', drop_in_cat: 'Drop-In (Cat)', cat_care: 'Drop-In (Cat)', house_sitting: 'House Sitting' };
     res.data.forEach(function(deal) {
       var colors = ['gold-pale', 'forest-pale'];
       var borderColors = ['rgba(200,150,62,0.25)', 'rgba(61,90,71,0.2)'];
@@ -11028,7 +11030,7 @@ async function loadStaffSchedule() {
       activeWalk = (awRes.data && awRes.data[0]) || null;
     }
 
-    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
     function getStaffSvcIcon(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
     bookings.forEach(function(b) {
       var icon = getStaffSvcIcon(b.service);
@@ -11114,7 +11116,7 @@ async function loadStaffJobs() {
 
     card.innerHTML = '<div class="card-title" style="margin-bottom:14px">' + requests.length + ' Pending Request' + (requests.length !== 1 ? 's' : '') + '</div>';
 
-    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+    var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
     requests.forEach(function(r) {
       var icon = svcIcons[r.service] || '🐾';
       var dateStr = r.preferred_date ? new Date(r.preferred_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
@@ -11188,7 +11190,7 @@ async function loadStaffEarnings() {
     var quarterBookings = allBookings.filter(function(b) { return b.date >= startOfQuarter; });
 
     // Simple earnings estimate based on service type
-    var svcRates = {'Dog Walking': 30, 'Drop-In Visit': 25, 'Cat Care Visit': 25, 'House Sitting': 75, 'Dog Boarding': 55, 'Doggy Day Care': 45};
+    var svcRates = {'Dog Walking': 30, 'Drop-In Visit': 25, 'Drop-In Visit (Cat)': 20, 'Cat Care Visit': 20, 'House Sitting': 75, 'Dog Boarding': 55, 'Doggy Day Care': 45};
     function calcEarnings(bookingList) {
       return bookingList.reduce(function(sum, b) { return sum + (svcRates[b.service] || 30); }, 0);
     }
@@ -12724,7 +12726,8 @@ async function loadPublicReviews() {
       var svc = (service || '').toLowerCase();
       if (svc.indexOf('walk') !== -1) return 'Verified Walk';
       if (svc.indexOf('sit') !== -1 || svc.indexOf('house') !== -1) return 'Verified Stay';
-      if (svc.indexOf('cat') !== -1) return 'Verified Cat Care';
+      if (svc.indexOf('Cat') !== -1 && svc.indexOf('Drop') !== -1) return 'Verified Drop-In (Cat)';
+      if (svc.indexOf('cat') !== -1 && svc.indexOf('Cat Care') !== -1) return 'Verified Drop-In (Cat)';
       if (svc.indexOf('drop') !== -1 || svc.indexOf('visit') !== -1) return 'Verified Visit';
       return 'Verified Client';
     }
@@ -12792,7 +12795,7 @@ function _injectReviewSchema(reviews, avgRating, totalCount) {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
     'name': 'Housley Happy Paws',
-    'description': 'Professional pet care in Lancaster, PA — dog walks, drop-in visits, cat care, house sitting.',
+    'description': 'Professional pet care in Lancaster, PA — dog walks, drop-in visits for dogs & cats, house sitting.',
     'url': 'https://www.housleyhappypaws.com',
     'address': { '@type': 'PostalAddress', 'addressLocality': 'Lancaster', 'addressRegion': 'PA' },
     'aggregateRating': {
@@ -13069,7 +13072,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })();
     </script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
-    <script src="/ux-patch.js?v=20260327a" defer></script>
+    <script src="/ux-patch.js?v=20260402a" defer></script>
 <script>
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
@@ -13365,6 +13368,24 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         } catch(ge) { console.warn('Greeting error:', ge); }
 
+        // CHECK FOR PAYMENT HOLDS — show banner if client has failed payments
+        try {
+          var { data: holdBookings } = await sb.from('booking_requests').select('id, service, estimated_total, pending_charge_amount, charge_attempts').eq('client_id', effectiveUserId).eq('status', 'payment_hold');
+          var banner = document.getElementById('paymentFailedBanner');
+          var bannerMsg = document.getElementById('paymentFailedMsg');
+          if (banner) {
+            if (holdBookings && holdBookings.length > 0) {
+              var hb = holdBookings[0];
+              var amt = hb.pending_charge_amount || hb.estimated_total;
+              var attempts = hb.charge_attempts || 0;
+              bannerMsg.textContent = 'A charge of $' + Number(amt).toFixed(2) + ' for ' + (hb.service || 'your booking') + ' was declined' + (attempts > 1 ? ' (' + attempts + ' attempts)' : '') + '. Please update your payment method to avoid cancellation.';
+              banner.style.display = '';
+            } else {
+              banner.style.display = 'none';
+            }
+          }
+        } catch(pe) { console.warn('Payment hold check error:', pe); }
+
         // CLIENT DASHBOARD STATS — all queries run in parallel for speed
         const [visitsRes, walksRes, reportsRes, unreadRes, petsRes] = await Promise.all([
           sb.from('booking_requests').select('*', { count: 'exact', head: true }).eq('client_id', effectiveUserId).in('status', ['accepted', 'completed']),
@@ -13417,7 +13438,7 @@ document.addEventListener('DOMContentLoaded', function() {
           try {
             var upcoming = upcomingRes.data;
             if (upcoming && upcoming.length > 0) {
-              var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+              var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
               var h = '';
               upcoming.forEach(function(b) {
                 var icon = svcIcons[b.service] || '🐾';
@@ -13520,7 +13541,7 @@ document.addEventListener('DOMContentLoaded', function() {
           try {
             var weekJobs = staffAllBookings.filter(function(b) { return b.date >= weekStr && b.date < endWeekStr; }).slice(0, 6);
             if (weekJobs.length > 0) {
-              var svcIcons = {'Dog Walking':'\uD83D\uDC15','Drop-In Visit':'\uD83C\uDFE0','Cat Care Visit':'\uD83D\uDC31','House Sitting':'\uD83C\uDFE1','Dog Boarding':'\uD83C\uDF19','Doggy Day Care':'\u2600\uFE0F'};
+              var svcIcons = {'Dog Walking':'\uD83D\uDC15','Drop-In Visit':'\uD83C\uDFE0','Drop-In Visit (Cat)':'\uD83D\uDC31','Cat Care Visit':'\uD83D\uDC31','House Sitting':'\uD83C\uDFE1','Dog Boarding':'\uD83C\uDF19','Doggy Day Care':'\u2600\uFE0F'};
               var jh = '';
               weekJobs.forEach(function(b) {
                 var icon = svcIcons[b.service] || '\uD83D\uDC3E';
@@ -13723,7 +13744,7 @@ document.addEventListener('DOMContentLoaded', function() {
         activeWalk = (awRes.data && awRes.data[0]) || null;
       }
 
-      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
       function getIcon(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
 
       // Sort: house sitting bookings first (banner at top), then by time
@@ -13942,7 +13963,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
       function getIconMS(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
 
       var h = '';
@@ -14293,7 +14314,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var { data: recentJobs } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
           .eq('staff_id', userId).in('status', ['completed', 'confirmed']).order('date', { ascending: false }).limit(8);
         if (recentJobs && recentJobs.length > 0) {
-          var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+          var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
           var rh = '';
           recentJobs.forEach(function(b) {
             var icon = svcIcons[b.service] || '🐾';
@@ -14319,12 +14340,12 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260327a" defer></script>
-  <script src="/js/messaging.js?v=20260327a" defer></script>
+  <script src="/js/booking-system.js?v=20260402a" defer></script>
+  <script src="/js/messaging.js?v=20260402a" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260327a" defer></script>
-  <script src="/js/avatar-system.js?v=20260327a" defer></script>
+  <script src="/js/customizer.js?v=20260402a" defer></script>
+  <script src="/js/avatar-system.js?v=20260402a" defer></script>
   <script src="/js/settings-panel.js" defer></script>
   <script src="/js/availability.js" defer></script>
   <!-- Leaflet + live tracking: lazy-loaded only when tracking panel is opened -->
@@ -14901,7 +14922,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
+      var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
       function getIcon(svc) { for (var k in svcIcons) { if ((svc||'').indexOf(k) !== -1) return svcIcons[k]; } return '🐾'; }
 
       var h = '', lastDate = '';

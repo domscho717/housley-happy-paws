@@ -12,9 +12,9 @@ const HHP_Stripe = window.HHP_Stripe = {
     'Dog Walking - 60 min': 45,
     'Drop-In Visit - 30 min': 25,
     'Drop-In Visit - 40 min': 25,
-    'Cat Care Visit - 30 min': 20,
-    'Cat Care Visit - 40 min': 30,
-    'Cat Care Visit - 1 hour': 35,
+    'Drop-In Visit (Cat) - 30 min': 20,
+    'Drop-In Visit (Cat) - 40 min': 30,
+    'Drop-In Visit (Cat) - 1 hour': 35,
     'House Sitting': 125,
   },
 

@@ -719,7 +719,7 @@
       // Today's scheduled jobs
       if(todayJobs.length>0){
         h+='<div style="font-weight:700;font-size:0.88rem;color:var(--dark);margin:8px 0 8px">📅 Today\'s Scheduled Visits</div>';
-        var svcIcons={'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
+        var svcIcons={'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
         todayJobs.forEach(function(b){
           var icon=svcIcons[b.service]||'🐾';
           var t=(typeof fmt12h==='function')?fmt12h(b.preferred_time||''):(b.preferred_time||'');

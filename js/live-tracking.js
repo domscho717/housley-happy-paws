@@ -450,7 +450,7 @@
           header.textContent = "📅 Today's Scheduled Visits";
           card.appendChild(header);
 
-          var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
+          var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙'};
           todayJobs.forEach(function(b) {
             // Skip if this booking already has an active walk
             if (walks.some(function(w) { return w.booking_id === b.id; })) return;

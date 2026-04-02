@@ -328,7 +328,7 @@ const HHP_Photos = window.HHP_Photos = {
       'svc-dog-walk': 'Dog Walking',
       'svc-drop-in': 'Drop-In',
       'svc-boarding': 'Boarding',
-      'svc-cat-care': 'Cat Care',
+      'svc-cat-care': 'Drop-In (Cat)',
       'svc-paw-bus': 'Paw Bus',
       'svc-house-sitting': 'House Sitting',
       'svc-doggy-daycare': 'Day Care'

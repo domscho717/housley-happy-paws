@@ -1726,7 +1726,6 @@
     var cardLabels = [
       { text: 'Request a Walk', service: 'Dog Walking' },
       { text: 'Request a Visit', service: 'Drop-In Visit' },
-      { text: 'Request a Visit', service: 'Cat Care Visit' },
       { text: 'Request a Stay', service: 'House Sitting' }
     ];
     cards.forEach(function(card, i) {

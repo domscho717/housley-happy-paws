@@ -165,6 +165,88 @@ module.exports = async function handler(req, res) {
             });
           } catch (chargeErr) {
             console.error('[hs-complete] Extra nights charge failed:', chargeErr.message);
+
+            // Card declined — set to payment_hold so retry cron picks it up
+            await supabase.from('booking_requests').update({
+              status: 'payment_hold',
+              charge_attempts: 1,
+              last_charge_attempt: new Date().toISOString(),
+              pending_charge_amount: diffCents / 100,
+              admin_notes: (booking.admin_notes || '') + '\n⚠️ House sitting completed but extra night charge failed (' + new Date().toLocaleDateString() + '): ' + chargeErr.message,
+            }).eq('id', bookingRequestId);
+
+            // Store service report even though payment failed
+            await supabase.from('service_reports').insert({
+              booking_id: bookingRequestId,
+              client_id: booking.client_id,
+              author_id: booking.owner_id || null,
+              service: booking.service || 'House Sitting',
+              report_date: new Date().toISOString().split('T')[0],
+              duration: finalNights + ' nights',
+              personal_note: reportNotes || '',
+              pet_name: booking.pet_names || '',
+              mood: reportRating ? ['😟 Poor', '😐 Fair', '🙂 Good', '😊 Great', '⭐ Excellent'][reportRating - 1] : null,
+              media: {
+                original_nights: originalNights,
+                final_nights: finalNights,
+                per_night_rate: perNightRate,
+                original_total: booking.estimated_total,
+                final_total: finalAmount,
+                rating: reportRating || null,
+              },
+              arrival_time: booking.preferred_time || null,
+              departure_time: booking.preferred_end_time || null,
+            });
+
+            // Notify client about failed charge
+            try {
+              await fetch((process.env.NEXT_PUBLIC_SITE_URL || 'https://www.housleyhappypaws.com') + '/api/booking-status-notification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: profile.email,
+                  name: profile.full_name || 'Client',
+                  service: booking.service || 'House Sitting',
+                  status: 'payment_hold',
+                  scheduledDate: booking.preferred_date,
+                  estimatedTotal: diffCents / 100,
+                  declineMessage: chargeErr.message || 'Your card was declined for the extra night charge.',
+                }),
+              });
+            } catch (notifErr) {
+              console.warn('[hs-complete] Failed to send decline notification:', notifErr.message);
+            }
+
+            // Notify owner
+            try {
+              await fetch((process.env.NEXT_PUBLIC_SITE_URL || 'https://www.housleyhappypaws.com') + '/api/booking-status-notification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: process.env.OWNER_EMAIL || '',
+                  name: 'Rachel',
+                  service: booking.service || 'House Sitting',
+                  status: 'owner_payment_decline_alert',
+                  scheduledDate: booking.preferred_date,
+                  estimatedTotal: diffCents / 100,
+                  clientName: profile.full_name || 'Unknown client',
+                  clientEmail: profile.email || '',
+                  declineMessage: chargeErr.message || 'Card was declined for extra nights.',
+                }),
+              });
+            } catch (ownerNotifErr) {
+              console.warn('[hs-complete] Failed to send owner decline notification:', ownerNotifErr.message);
+            }
+
+            return res.status(200).json({
+              success: true,
+              paymentFailed: true,
+              originalNights,
+              finalNights,
+              originalAmount: booking.estimated_total,
+              finalAmount,
+              message: `House sitting completed but extra night charge of $${(diffCents / 100).toFixed(2)} failed — will retry automatically`,
+            });
           }
         }
       }

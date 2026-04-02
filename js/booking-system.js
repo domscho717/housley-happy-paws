@@ -37,10 +37,10 @@
     'Drop-In Visit - 30 min':        25.00,
     'Drop-In Visit - 40 min':        25.00,
     'Drop-In Visit - 1 hour':        45.00,
-    'Cat Care Visit - 20 min':       18.00,
-    'Cat Care Visit - 30 min':       20.00,
-    'Cat Care Visit - 40 min':       30.00,
-    'Cat Care Visit - 1 hour':       35.00,
+    'Drop-In Visit (Cat) - 20 min':  18.00,
+    'Drop-In Visit (Cat) - 30 min':  20.00,
+    'Drop-In Visit (Cat) - 40 min':  30.00,
+    'Drop-In Visit (Cat) - 1 hour':  35.00,
     'House Sitting - Per Night':    125.00,
     'House Sitting - Cat Care':      50.00,
     'House Sitting - Puppy Rate':   140.00,
@@ -127,8 +127,8 @@
 
       if (at === 'all') matches = true;
       else if (at === 'dog_walking' && svc.indexOf('walk') !== -1) matches = true;
-      else if (at === 'drop_in' && svc.indexOf('drop') !== -1) matches = true;
-      else if (at === 'cat_care' && svc.indexOf('cat') !== -1) matches = true;
+      else if (at === 'drop_in' && svc.indexOf('Drop-In') !== -1) matches = true;
+      else if (at === 'cat_care' && svc.indexOf('Drop-In') !== -1 && svc.indexOf('Cat') !== -1) matches = true;
       else if (at === 'house_sitting' && (svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1)) matches = true;
 
       if (matches) {
@@ -172,12 +172,15 @@
     // Fuzzy match
     if (svc.indexOf('walk') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1)) return SERVICE_PRICES['Dog Walking - 1 hour'];
     if (svc.indexOf('walk') !== -1) return SERVICE_PRICES['Dog Walking - 30 min'];
+    if (svc.indexOf('drop') !== -1 && svc.indexOf('cat') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1)) return SERVICE_PRICES['Drop-In Visit (Cat) - 1 hour'];
+    if (svc.indexOf('drop') !== -1 && svc.indexOf('cat') !== -1 && svc.indexOf('40') !== -1) return SERVICE_PRICES['Drop-In Visit (Cat) - 40 min'];
+    if (svc.indexOf('drop') !== -1 && svc.indexOf('cat') !== -1) return SERVICE_PRICES['Drop-In Visit (Cat) - 30 min'];
     if (svc.indexOf('drop') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1 || svc.indexOf('40') !== -1)) return SERVICE_PRICES['Drop-In Visit - 1 hour'];
     if (svc.indexOf('drop') !== -1 && svc.indexOf('40') !== -1) return SERVICE_PRICES['Drop-In Visit - 40 min'];
     if (svc.indexOf('drop') !== -1) return SERVICE_PRICES['Drop-In Visit - 30 min'];
-    if (svc.indexOf('cat') !== -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1)) return SERVICE_PRICES['Cat Care Visit - 1 hour'];
-    if (svc.indexOf('cat') !== -1 && svc.indexOf('40') !== -1) return SERVICE_PRICES['Cat Care Visit - 40 min'];
-    if (svc.indexOf('cat') !== -1) return SERVICE_PRICES['Cat Care Visit - 30 min'];
+    if (svc.indexOf('cat') !== -1 && svc.indexOf('drop') === -1 && svc.indexOf('house') === -1 && (svc.indexOf('hour') !== -1 || svc.indexOf('60') !== -1)) return SERVICE_PRICES['Drop-In Visit (Cat) - 1 hour'];
+    if (svc.indexOf('cat') !== -1 && svc.indexOf('drop') === -1 && svc.indexOf('house') === -1 && svc.indexOf('40') !== -1) return SERVICE_PRICES['Drop-In Visit (Cat) - 40 min'];
+    if (svc.indexOf('cat') !== -1 && svc.indexOf('drop') === -1 && svc.indexOf('house') === -1) return SERVICE_PRICES['Drop-In Visit (Cat) - 30 min'];
     if (svc.indexOf('holiday') !== -1) return SERVICE_PRICES['House Sitting - Holiday Rate'];
     if (svc.indexOf('puppy') !== -1) return SERVICE_PRICES['House Sitting - Puppy Rate'];
     if ((svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1) && svc.indexOf('cat') !== -1) return SERVICE_PRICES['House Sitting - Cat Care'];
@@ -538,8 +541,8 @@
     { name: 'Dog Walking - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Drop-In Visit - 30 min', price: '$25', base: 25, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Drop-In Visit - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
-    { name: 'Cat Care Visit - 30 min', price: '$20', base: 20, type: 'cat', group: 'Cat Care Visit', extraPet: 10, puppy: 0, holiday: 10 },
-    { name: 'Cat Care Visit - 1 hour', price: '$35', base: 35, type: 'cat', group: 'Cat Care Visit', extraPet: 10, puppy: 0, holiday: 10 },
+    { name: 'Drop-In Visit (Cat) - 30 min', price: '$20', base: 20, type: 'cat', group: 'Drop-In Visit', extraPet: 10, puppy: 0, holiday: 10 },
+    { name: 'Drop-In Visit (Cat) - 1 hour', price: '$35', base: 35, type: 'cat', group: 'Drop-In Visit', extraPet: 10, puppy: 0, holiday: 10 },
     { name: 'House Sitting (Dog)', price: '$125/night', base: 125, type: 'dog', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 5, holiday: 10 },
     { name: 'House Sitting (Cat)', price: '$80/night', base: 80, type: 'cat', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 0, holiday: 10 },
     { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
@@ -810,6 +813,11 @@
       var isMG = svcGroup === 'Meet & Greet';
       if (isHS || isMG) return svcGroup;
       var dur = document.getElementById('brm-duration') ? document.getElementById('brm-duration').value : '30 min';
+      // Drop-In Visit: use cat pricing when pet type is cat
+      if (svcGroup === 'Drop-In Visit') {
+        var petType = document.getElementById('brm-pettype') ? document.getElementById('brm-pettype').value : 'dog';
+        if (petType === 'cat') return 'Drop-In Visit (Cat) - ' + dur;
+      }
       return svcGroup + ' - ' + dur;
     }
 
@@ -2108,6 +2116,8 @@
         if (preselectedService) {
           // Build group-based options matching the preselected service
           var matchGroup = preselectedService;
+          // Cat Care merged into Drop-In Visit — redirect old references
+          if (matchGroup === 'Cat Care Visit' || matchGroup === 'Cat Care') matchGroup = 'Drop-In Visit';
           // Check if it's a House Sitting variant
           var isHS = matchGroup.toLowerCase().indexOf('house sitting') !== -1;
           var isMG = matchGroup === 'Meet & Greet';
@@ -2147,8 +2157,21 @@
           }
           // Trigger change to show duration / house sitting fields
           sel.dispatchEvent(new Event('change'));
+        } else {
+          // Restore full dropdown (modal is reused, may have been filtered by a previous open)
+          var seen = {};
+          var allOpts = '<option value="">Choose a service...</option>';
+          SERVICES.forEach(function(s) {
+            if (seen[s.group]) return;
+            seen[s.group] = true;
+            if (s.group === 'House Sitting') return;
+            if (s.group === 'Meet & Greet') { allOpts += '<option value="Meet & Greet">Meet &amp; Greet - Free</option>'; return; }
+            allOpts += '<option value="' + s.group + '">' + s.group + '</option>';
+          });
+          allOpts += '<option value="House Sitting (Dog)">House Sitting (Dog) - $125/night</option>';
+          allOpts += '<option value="House Sitting (Cat)">House Sitting (Cat) - $80/night</option>';
+          sel.innerHTML = allOpts;
         }
-        // If no preselectedService, the default group-based dropdown from createBookingModal is fine
       }
 
       // Reset multi-date state on open
@@ -2807,8 +2830,7 @@
         var card = btn.closest('.service-card');
         if (card) {
           var cardName = card.querySelector('.sc-name');
-          if (cardName && cardName.textContent.indexOf('Cat') >= 0) service = 'Cat Care';
-          else service = 'Drop-In Visit';
+          service = 'Drop-In Visit';
         }
       }
       else if (text.indexOf('Stay') >= 0 || text.indexOf('125') >= 0) service = 'House Sitting (Dog)';
@@ -3383,6 +3405,8 @@
           if (cardDeclined) {
             await sb.from('booking_requests').update({
               status: 'payment_hold',
+              charge_attempts: 1,
+              last_charge_attempt: new Date().toISOString(),
               scheduled_date: update.scheduled_date || req.preferred_date,
               scheduled_time: update.scheduled_time || req.preferred_time,
               admin_notes: (update.admin_notes || '') + (update.admin_notes ? '\n' : '') + '⚠️ Payment failed: ' + declineMessage,
@@ -4073,9 +4097,11 @@
             } else {
               await sb.from('booking_requests').update({
                 status: 'payment_hold',
+                charge_attempts: 1,
+                last_charge_attempt: new Date().toISOString(),
                 admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but payment failed: ' + (chargeData.message || chargeData.error || 'Card declined')
               }).eq('id', requestId);
-              if (typeof toast === 'function') toast('⚠️ Card declined — booking on payment hold.');
+              if (typeof toast === 'function') toast('⚠️ Card declined — booking on payment hold. Will retry automatically.');
             }
             // Refresh panel to show final payment status
             _afterBookingAction();
@@ -4084,6 +4110,8 @@
             console.warn('Auto-charge failed:', chargeErr);
             await sb.from('booking_requests').update({
               status: 'payment_hold',
+              charge_attempts: 1,
+              last_charge_attempt: new Date().toISOString(),
               admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but charge request failed: ' + (chargeErr.message || 'Network error')
             }).eq('id', requestId);
             if (typeof toast === 'function') toast('⚠️ Charge failed — booking on payment hold.');

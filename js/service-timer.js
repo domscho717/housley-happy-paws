@@ -24,7 +24,7 @@
   // ============================================================
   //  PARSE SERVICE DURATION from service name
   //  "Dog Walk - 30 min" → 30, "Dog Walk - 1 hour" → 60
-  //  "Drop-In Visit - 30 min" → 30, "Cat Care Visit - 1 hour" → 60
+  //  "Drop-In Visit - 30 min" → 30, "Drop-In Visit (Cat) - 1 hour" → 60
   //  House Sitting / Boarding → null (no timer)
   // ============================================================
   function parseServiceDuration(serviceName) {
