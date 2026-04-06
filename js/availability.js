@@ -313,7 +313,7 @@
 
     // Legend
     html += '<div class="cal-legend" style="margin-top:14px">';
-    html += '<div class="legend-item"><div class="legend-dot" style="background:white;border:1px solid var(--forest)"></div>Available</div>';
+    html += '<div class="legend-item"><div class="legend-dot" style="background:var(--cream,white);border:1px solid var(--forest)"></div>Available</div>';
     html += '<div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Blocked Off</div>';
     html += '<div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div>';
     html += '<div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div>';
@@ -397,7 +397,7 @@
     html += '</div>';
 
     html += '<div class="cal-legend" style="margin-top:14px">';
-    html += '<div class="legend-item"><div class="legend-dot" style="background:white;border:1px solid var(--forest)"></div>Available</div>';
+    html += '<div class="legend-item"><div class="legend-dot" style="background:var(--cream,white);border:1px solid var(--forest)"></div>Available</div>';
     html += '<div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Blocked Off</div>';
     html += '<div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div>';
     html += '</div>';

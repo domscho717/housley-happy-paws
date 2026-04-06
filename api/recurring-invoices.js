@@ -1,33 +1,38 @@
 /**
- * Recurring Invoices Cron Job
- * Runs daily via Vercel Cron — checks for recurring appointments happening TOMORROW
- * and sends a Stripe invoice for each one the day before.
+ * Recurring Invoices — Weekly Sunday Billing
+ * Runs every Sunday at 8am EST via Vercel Cron.
  *
  * Flow:
- * 1. Query all accepted booking_requests that have a recurrence_pattern
- * 2. For each, calculate if tomorrow is one of the recurring dates
- * 3. Check recurring_invoices table to avoid double-billing
- * 4. Send Stripe invoice and log it
+ * 1. Look at the full week ahead (Sunday → Saturday)
+ * 2. Find all accepted recurring bookings with service dates this week
+ * 3. Group by client + service type (same client, same service = one charge)
+ * 4. Charge saved card or send Stripe invoice with itemized description
+ * 5. Log each service date to recurring_invoices to prevent double-billing
+ *
+ * Also supports first-week auto-charge:
+ *   POST /api/recurring-invoices?firstWeek=true&bookingId=xxx
+ *   Called when a recurring booking is approved after the Sunday cron already ran.
+ *   Bills from today through Saturday of this week.
  */
 
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
 module.exports = async function handler(req, res) {
-  // Allow manual trigger via POST or cron via GET
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Verify cron secret (Vercel sets this automatically for cron jobs)
-  // Also allow manual trigger with a secret header
+  // Auth: verify cron secret or manual trigger
   const cronSecret = req.headers['authorization'];
   const manualSecret = req.headers['x-cron-secret'];
   const envSecret = process.env.CRON_SECRET;
-
-  // In production, verify the secret. Skip for development.
   if (envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    // Allow first-week trigger from frontend (no secret needed for POST with bookingId)
+    const isFirstWeekTrigger = (req.query.firstWeek === 'true' || (req.body && req.body.firstWeek));
+    if (!isFirstWeekTrigger) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
   }
 
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -40,95 +45,197 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
 
-  // Tomorrow's date in YYYY-MM-DD (Eastern time, auto-adjusts for DST)
-  function estDateStr(d) { return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); }
-  const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const tomorrow = new Date(estNow);
-  tomorrow.setDate(estNow.getDate() + 1);
-  const tomorrowStr = estDateStr(tomorrow);
+  // ── Date helpers (Eastern time, auto-adjusts for DST) ──
+  function estDateStr(d) {
+    return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  }
+  function fmtDateShort(dateStr) {
+    return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric'
+    });
+  }
 
-  const results = { processed: 0, invoiced: 0, skipped: 0, errors: [] };
+  const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+
+  // ── Determine billing window ──
+  const firstWeekBookingId = req.query.bookingId || (req.body && req.body.bookingId);
+  const isFirstWeek = req.query.firstWeek === 'true' || (req.body && req.body.firstWeek);
+
+  let weekStart, weekEnd;
+
+  if (isFirstWeek && firstWeekBookingId) {
+    // First-week trigger: bill from today through this Saturday
+    weekStart = new Date(estNow);
+    weekStart.setHours(0, 0, 0, 0);
+    // Find this Saturday (end of current week)
+    const dayOfWeek = weekStart.getDay(); // 0=Sun, 6=Sat
+    const daysUntilSat = (6 - dayOfWeek + 7) % 7;
+    weekEnd = new Date(weekStart);
+    if (daysUntilSat === 0 && dayOfWeek === 6) {
+      // Today is Saturday — just bill for today
+      weekEnd.setHours(23, 59, 59, 999);
+    } else {
+      weekEnd.setDate(weekEnd.getDate() + daysUntilSat);
+      weekEnd.setHours(23, 59, 59, 999);
+    }
+  } else {
+    // Regular Sunday cron: this Sunday (today) through Saturday
+    weekStart = new Date(estNow);
+    weekStart.setHours(0, 0, 0, 0);
+    weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+  }
+
+  // Build array of date strings for the billing window
+  const weekDates = [];
+  const cursor = new Date(weekStart);
+  while (cursor <= weekEnd) {
+    weekDates.push(estDateStr(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const results = { processed: 0, charged: 0, skipped: 0, errors: [], weekDates };
 
   try {
-    // Get all accepted booking requests that have recurring patterns
-    const { data: bookings, error: fetchErr } = await supabase
+    // ── Fetch recurring bookings ──
+    let query = supabase
       .from('booking_requests')
       .select('*')
       .eq('status', 'accepted')
       .not('recurrence_pattern', 'is', null);
 
+    // If first-week, only check the specific booking
+    if (isFirstWeek && firstWeekBookingId) {
+      query = query.eq('id', firstWeekBookingId);
+    }
+
+    const { data: bookings, error: fetchErr } = await query;
     if (fetchErr) throw fetchErr;
     if (!bookings || bookings.length === 0) {
       return res.status(200).json({ message: 'No recurring bookings found', ...results });
     }
 
+    // ── Find all service dates this week per booking, group by client + service ──
+    // Key: "clientEmail||serviceType" → { booking, entries: [{ booking, date, amount }] }
+    const clientGroups = {};
+
     for (const booking of bookings) {
       results.processed++;
+      const pattern = typeof booking.recurrence_pattern === 'string'
+        ? JSON.parse(booking.recurrence_pattern)
+        : booking.recurrence_pattern;
+      if (!pattern) { results.skipped++; continue; }
 
-      try {
-        const pattern = typeof booking.recurrence_pattern === 'string'
-          ? JSON.parse(booking.recurrence_pattern)
-          : booking.recurrence_pattern;
+      for (const dateStr of weekDates) {
+        if (!checkIfDateIsRecurring(dateStr, pattern, booking)) continue;
 
-        if (!pattern) continue;
-
-        // Calculate if tomorrow is a recurring date for this booking
-        const isTomorrowAVisit = checkIfDateIsRecurring(tomorrowStr, pattern, booking);
-
-        if (!isTomorrowAVisit) {
-          results.skipped++;
-          continue;
-        }
-
-        // Check if we already invoiced this booking for tomorrow
+        // Check if already billed for this booking + date
         const { data: existing } = await supabase
           .from('recurring_invoices')
           .select('id')
           .eq('booking_request_id', booking.id)
-          .eq('service_date', tomorrowStr)
+          .eq('service_date', dateStr)
           .limit(1);
 
-        if (existing && existing.length > 0) {
-          results.skipped++;
-          continue; // Already invoiced
+        if (existing && existing.length > 0) continue; // Already invoiced
+
+        // Skip bookings with missing critical data
+        if (!booking.contact_email || !booking.estimated_total || booking.estimated_total <= 0) continue;
+
+        // Group by client email + service type
+        const groupKey = (booking.contact_email || '').toLowerCase() + '||' + (booking.service || '');
+        if (!clientGroups[groupKey]) {
+          clientGroups[groupKey] = {
+            clientEmail: booking.contact_email,
+            clientName: booking.contact_name,
+            clientId: booking.client_id,
+            service: booking.service,
+            entries: []
+          };
         }
-
-        // Send the Stripe invoice
-        const invoiceResult = await sendStripeInvoice(stripe, supabase, booking, tomorrowStr);
-
-        // Log to recurring_invoices table
-        await supabase.from('recurring_invoices').insert({
-          booking_request_id: booking.id,
-          invoice_date: estDateStr(),
-          service_date: tomorrowStr,
+        clientGroups[groupKey].entries.push({
+          booking,
+          date: dateStr,
           amount: booking.estimated_total || 0,
-          service: booking.service,
-          client_email: booking.contact_email,
-          client_name: booking.contact_name,
-          stripe_invoice_id: invoiceResult.invoiceId || null,
-          stripe_invoice_url: invoiceResult.invoiceUrl || null,
-          status: invoiceResult.success ? 'sent' : 'failed',
-          error_message: invoiceResult.error || null,
-        });
-
-        if (invoiceResult.success) {
-          results.invoiced++;
-        } else {
-          results.errors.push({
-            bookingId: booking.id,
-            error: invoiceResult.error,
-          });
-        }
-      } catch (bookingErr) {
-        results.errors.push({
-          bookingId: booking.id,
-          error: bookingErr.message,
+          petNames: booking.pet_names || ''
         });
       }
     }
 
+    // ── Charge each client group ──
+    for (const [groupKey, group] of Object.entries(clientGroups)) {
+      if (group.entries.length === 0) continue;
+
+      try {
+        const totalAmount = group.entries.reduce((sum, e) => sum + e.amount, 0);
+        if (totalAmount <= 0) {
+          results.skipped++;
+          continue;
+        }
+
+        // Build itemized description
+        // e.g. "Housley Happy Paws — Dog Walk (Sun Apr 12, Wed Apr 15, Sat Apr 18)"
+        const dateList = group.entries.map(e => fmtDateShort(e.date)).join(', ');
+        const allPets = [...new Set(group.entries.map(e => e.petNames).filter(Boolean))].join(', ');
+        let description = `Housley Happy Paws — ${group.service} (${dateList})`;
+        if (allPets) description += ` — Pets: ${allPets}`;
+
+        // Charge or invoice
+        const chargeResult = await chargeClient(stripe, supabase, {
+          clientEmail: group.clientEmail,
+          clientName: group.clientName,
+          clientId: group.clientId,
+          service: group.service,
+          totalAmount,
+          description,
+          entries: group.entries,
+          weekDates: weekDates
+        });
+
+        // Log each service date individually to recurring_invoices
+        // Uses onConflict to prevent double-billing if cron runs twice
+        for (const entry of group.entries) {
+          await supabase.from('recurring_invoices').upsert({
+            booking_request_id: entry.booking.id,
+            invoice_date: estDateStr(),
+            service_date: entry.date,
+            amount: entry.amount,
+            service: group.service,
+            client_email: group.clientEmail,
+            client_name: group.clientName,
+            stripe_invoice_id: chargeResult.invoiceId || null,
+            stripe_invoice_url: chargeResult.invoiceUrl || null,
+            status: chargeResult.success ? 'sent' : 'failed',
+            error_message: chargeResult.error || null,
+          }, { onConflict: 'booking_request_id,service_date', ignoreDuplicates: true });
+        }
+
+        if (chargeResult.success) {
+          // Log combined payment
+          await supabase.from('payments').insert({
+            stripe_session_id: chargeResult.invoiceId || null,
+            client_email: group.clientEmail,
+            client_name: group.clientName,
+            client_id: group.clientId,
+            amount: totalAmount,
+            service: group.service,
+            status: chargeResult.method === 'auto_charge' ? 'paid' : 'pending',
+            notes: `Weekly recurring: ${group.service} × ${group.entries.length} (${dateList})`,
+            paid_at: chargeResult.method === 'auto_charge' ? new Date().toISOString() : null,
+          });
+          results.charged++;
+        } else {
+          results.errors.push({ group: groupKey, error: chargeResult.error });
+        }
+      } catch (groupErr) {
+        results.errors.push({ group: groupKey, error: groupErr.message });
+      }
+    }
+
+    const weekLabel = `${estDateStr(weekStart)} to ${estDateStr(weekEnd)}`;
     return res.status(200).json({
-      message: `Recurring invoices processed for ${tomorrowStr}`,
+      message: `Weekly billing processed for ${weekLabel}`,
       ...results,
     });
   } catch (err) {
@@ -137,13 +244,18 @@ module.exports = async function handler(req, res) {
   }
 };
 
-/**
- * Check if a given date falls on a recurring schedule
- */
+// ═══════════════════════════════════════════════════════════
+// Date matching
+// ═══════════════════════════════════════════════════════════
+
 function checkIfDateIsRecurring(dateStr, pattern, booking) {
+  if (Array.isArray(booking.canceled_dates) && booking.canceled_dates.includes(dateStr)) {
+    return false;
+  }
+
   const targetDate = new Date(dateStr + 'T12:00:00');
 
-  // New per-card format: { type: 'per_card', schedules: [...] }
+  // Per-card format
   if (pattern.type === 'per_card' && Array.isArray(pattern.schedules)) {
     for (const schedule of pattern.schedules) {
       if (isDateInSchedule(dateStr, targetDate, schedule)) return true;
@@ -151,24 +263,22 @@ function checkIfDateIsRecurring(dateStr, pattern, booking) {
     return false;
   }
 
-  // Legacy format: { days: [...], frequency, end_date, time }
+  // Legacy format
   if (pattern.days && Array.isArray(pattern.days)) {
     const dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
     const targetDay = targetDate.getDay();
     const matchesDay = pattern.days.some(d => dayMap[d] === targetDay);
     if (!matchesDay) return false;
 
-    // Check end date
     if (pattern.end_date) {
       const endDate = new Date(pattern.end_date + 'T23:59:59');
       if (targetDate > endDate) return false;
     }
 
-    // Check frequency (biweekly: every other week from start)
     if (pattern.frequency === 'biweekly') {
       const startDate = new Date((booking.preferred_date || booking.scheduled_date) + 'T12:00:00');
-      const weeksDiff = Math.round((targetDate - startDate) / (7 * 24 * 60 * 60 * 1000));
-      if (weeksDiff % 2 !== 0) return false;
+      const daysDiff = Math.floor((targetDate - startDate) / (24 * 60 * 60 * 1000));
+      if (daysDiff % 14 !== 0) return false;
     }
 
     return true;
@@ -177,69 +287,52 @@ function checkIfDateIsRecurring(dateStr, pattern, booking) {
   return false;
 }
 
-/**
- * Check if a date falls within a per-card schedule
- */
 function isDateInSchedule(dateStr, targetDate, schedule) {
   if (!schedule.start_date) return false;
-
   const startDate = new Date(schedule.start_date + 'T12:00:00');
-
-  // Must be on or after start date
   if (targetDate < startDate) return false;
-
-  // Check end date (unless ongoing)
   if (!schedule.ongoing && schedule.end_date) {
     const endDate = new Date(schedule.end_date + 'T23:59:59');
     if (targetDate > endDate) return false;
   }
-
-  // Must fall on the same day of week as the start date
   if (targetDate.getDay() !== startDate.getDay()) return false;
-
-  // Check frequency interval
-  const daysDiff = Math.round((targetDate - startDate) / (24 * 60 * 60 * 1000));
+  const daysDiff = Math.floor((targetDate - startDate) / (24 * 60 * 60 * 1000));
   const interval = schedule.frequency === 'biweekly' ? 14 : 7;
   if (daysDiff % interval !== 0) return false;
-
   return true;
 }
 
-/**
- * Send a Stripe invoice for a recurring appointment
- */
-async function sendStripeInvoice(stripe, supabase, booking, serviceDate) {
-  try {
-    const amount = booking.estimated_total || 0;
-    if (amount <= 0) {
-      return { success: false, error: 'No amount to invoice' };
-    }
+// ═══════════════════════════════════════════════════════════
+// Stripe charging — tries saved card, falls back to invoice
+// ═══════════════════════════════════════════════════════════
 
-    // Format the service date for display
-    const dateFmt = new Date(serviceDate + 'T12:00:00')
-      .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+async function chargeClient(stripe, supabase, opts) {
+  const { clientEmail, clientName, clientId, service, totalAmount, description, entries } = opts;
+
+  try {
+    if (totalAmount <= 0) {
+      return { success: false, error: 'No amount to charge' };
+    }
 
     // Find or create Stripe customer
     let customer;
-    const existing = await stripe.customers.list({ email: booking.contact_email, limit: 1 });
-
+    const existing = await stripe.customers.list({ email: clientEmail, limit: 1 });
     if (existing.data.length > 0) {
       customer = existing.data[0];
     } else {
       customer = await stripe.customers.create({
-        email: booking.contact_email,
-        name: booking.contact_name || undefined,
-        metadata: { pet_names: booking.pet_names || '' },
+        email: clientEmail,
+        name: clientName || undefined,
       });
     }
 
-    // Try to auto-charge saved card first
-    if (booking.client_id) {
+    // ── Try auto-charge saved card ──
+    if (clientId) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('stripe_customer_id')
-        .eq('user_id', booking.client_id)
-        .single();
+        .eq('user_id', clientId)
+        .maybeSingle();
 
       if (profile?.stripe_customer_id) {
         const methods = await stripe.paymentMethods.list({
@@ -249,46 +342,32 @@ async function sendStripeInvoice(stripe, supabase, booking, serviceDate) {
         });
 
         if (methods.data.length > 0) {
-          // Auto-charge the card
           try {
             const piParams = {
-              amount: Math.round(amount * 100),
+              amount: Math.round(totalAmount * 100),
               currency: 'usd',
               customer: profile.stripe_customer_id,
               payment_method: methods.data[0].id,
               off_session: true,
               confirm: true,
-              description: `Housley Happy Paws — ${booking.service} (${dateFmt})`,
+              description,
               metadata: {
-                booking_request_id: booking.id,
-                service_date: serviceDate,
+                service,
+                service_count: String(entries.length),
+                service_dates: entries.map(e => e.date).join(','),
                 recurring: 'true',
               },
             };
 
-            // Apply 15% platform fee if connected account is configured
             const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
             if (connectedAccountId) {
-              const feeCents = Math.round(amount * 100 * 0.15);
-              piParams.application_fee_amount = feeCents;
+              piParams.application_fee_amount = Math.round(totalAmount * 100 * 0.15);
               piParams.transfer_data = { destination: connectedAccountId };
             }
 
             const paymentIntent = await stripe.paymentIntents.create(piParams);
 
             if (paymentIntent.status === 'succeeded') {
-              // Log to payments table
-              await supabase.from('payments').insert({
-                stripe_session_id: paymentIntent.id,
-                client_email: booking.contact_email,
-                client_name: booking.contact_name,
-                amount: amount,
-                service: booking.service,
-                status: 'paid',
-                notes: `Recurring auto-charge for ${dateFmt}`,
-                paid_at: new Date().toISOString(),
-              });
-
               return {
                 success: true,
                 invoiceId: paymentIntent.id,
@@ -297,34 +376,38 @@ async function sendStripeInvoice(stripe, supabase, booking, serviceDate) {
               };
             }
           } catch (chargeErr) {
-            // Card failed (expired, declined, needs auth) — fall through to invoice
             console.warn('Auto-charge failed, falling back to invoice:', chargeErr.message);
           }
         }
       }
     }
 
-    // Fallback: send a Stripe invoice
+    // ── Fallback: send Stripe invoice with line items ──
     const invoice = await stripe.invoices.create({
       customer: customer.id,
       collection_method: 'send_invoice',
-      days_until_due: 1, // Due tomorrow (the day of service)
+      days_until_due: 3,
       metadata: {
-        booking_request_id: booking.id,
-        service: booking.service,
-        service_date: serviceDate,
+        service,
+        service_count: String(entries.length),
         recurring: 'true',
-        pet_names: booking.pet_names || '',
       },
     });
 
-    await stripe.invoiceItems.create({
-      customer: customer.id,
-      invoice: invoice.id,
-      amount: Math.round(amount * 100),
-      currency: 'usd',
-      description: `Housley Happy Paws — ${booking.service} on ${dateFmt}${booking.pet_names ? ' (Pets: ' + booking.pet_names + ')' : ''}`,
-    });
+    // Add each service date as a line item so the invoice is itemized
+    for (const entry of entries) {
+      const dateFmt = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+      });
+      const pets = entry.petNames ? ` (${entry.petNames})` : '';
+      await stripe.invoiceItems.create({
+        customer: customer.id,
+        invoice: invoice.id,
+        amount: Math.round(entry.amount * 100),
+        currency: 'usd',
+        description: `${service} — ${dateFmt}${pets}`,
+      });
+    }
 
     const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
     await stripe.invoices.sendInvoice(invoice.id);
@@ -336,7 +419,7 @@ async function sendStripeInvoice(stripe, supabase, booking, serviceDate) {
       method: 'invoice',
     };
   } catch (err) {
-    console.error('Stripe invoice error for booking', booking.id, ':', err.message);
+    console.error('Charge error for', clientEmail, ':', err.message);
     return { success: false, error: err.message };
   }
 }

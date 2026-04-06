@@ -561,7 +561,7 @@
       '.settings-slider:before {',
       '  content:""; position:absolute;',
       '  height:18px; width:18px; left:2px; bottom:2px;',
-      '  background:white; border-radius:50%; transition:0.3s;',
+      '  background:var(--cream,white); border-radius:50%; transition:0.3s;',
       '  box-shadow:0 1px 3px rgba(0,0,0,0.15);',
       '}',
       '.settings-switch input:checked + .settings-slider { background:var(--gold); border-color:var(--gold); }',

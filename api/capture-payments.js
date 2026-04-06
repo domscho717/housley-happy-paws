@@ -142,7 +142,7 @@ module.exports = async function handler(req, res) {
             .from('profiles')
             .select('user_id, stripe_customer_id, full_name, email')
             .eq('user_id', booking.client_id)
-            .single();
+            .maybeSingle();
           profile = prof;
         }
 
@@ -219,6 +219,7 @@ module.exports = async function handler(req, res) {
               stripe_session_id: paymentIntent.id,
               client_email: profile.email,
               client_name: profile.full_name,
+              client_id: booking.client_id,
               amount: booking.estimated_total,
               service: booking.service || 'Pet Care',
               status: 'paid',
@@ -306,7 +307,7 @@ module.exports = async function handler(req, res) {
             .from('profiles')
             .select('user_id, stripe_customer_id, full_name, email')
             .eq('user_id', booking.client_id)
-            .single();
+            .maybeSingle();
           profile = prof;
         }
         if (!profile) continue;
@@ -373,6 +374,7 @@ module.exports = async function handler(req, res) {
                   stripe_session_id: retryIntent.id,
                   client_email: profile.email,
                   client_name: profile.full_name,
+                  client_id: booking.client_id,
                   amount: booking.estimated_total,
                   service: booking.service || 'Pet Care',
                   status: 'paid',

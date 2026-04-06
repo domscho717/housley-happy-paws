@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Housley Happy Paws — Rachel Housley · Lancaster, PA</title>
 <link rel="preconnect" href="https://niysrippazlkpvdkzepp.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://niysrippazlkpvdkzepp.supabase.co">
@@ -90,9 +90,9 @@ try{var _ca=sessionStorage.getItem('hhp_avatar_url');if(_ca){var st=document.cre
 }
 [data-theme="dark"] body{background:#141210;color:#E8E0D4}
 *{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:auto;overflow-y:scroll;overflow-x:hidden;width:100%;overscroll-behavior:none}
-body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;width:100%;max-width:100vw;-webkit-text-size-adjust:100%;overscroll-behavior:none}
-.page{display:none;min-height:100vh}
+html{scroll-behavior:auto;overflow-y:scroll;overflow-x:hidden;width:100%;overscroll-behavior-x:none;overscroll-behavior-y:none;-webkit-overflow-scrolling:touch}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%;overscroll-behavior-x:none;overscroll-behavior-y:none;position:relative;touch-action:pan-y pinch-zoom}
+.page{display:none;min-height:100vh;min-height:100dvh}
 .page.active{display:block}
 /* Hide everything until auth settles — prevents any flash of wrong view */
 body.loading-auth #pg-client,
@@ -105,7 +105,7 @@ body.loading-auth .nav{visibility:hidden}
   position:fixed;top:0;left:0;right:0;z-index:300;
   height:72px;display:flex;align-items:center;justify-content:space-between;
   padding:0 48px;
-  background:rgba(253,250,245,0.94);backdrop-filter:blur(16px);
+  background:rgba(253,250,245,0.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border-bottom:1px solid var(--border);
   transition:box-shadow 0.3s;
 }
@@ -188,7 +188,7 @@ body.loading-auth .nav{visibility:hidden}
 
 /* CARD */
 .card{
-  background:white;border-radius:12px;padding:28px;
+  background:var(--cream,white);border-radius:12px;padding:28px;
   border:1px solid var(--border);box-shadow:var(--shadow);
 }
 .card-title{font-size:0.95rem;font-weight:700;color:var(--ink);margin-bottom:16px}
@@ -196,7 +196,7 @@ body.loading-auth .nav{visibility:hidden}
 /* ===================== PUBLIC PAGE ===================== */
 /* HERO */
 .hero{
-  min-height:100vh;padding:110px 48px 80px;
+  min-height:100vh;min-height:100dvh;padding:110px 48px 80px;
   display:grid;grid-template-columns:1.05fr 0.95fr;
   gap:64px;align-items:center;position:relative;overflow:hidden;
 }
@@ -258,7 +258,7 @@ body.loading-auth .nav{visibility:hidden}
   align-items:center;justify-content:center;font-size:2.6rem;
   border:1px solid var(--border);box-shadow:var(--shadow);
   transition:transform 0.2s;cursor:default;
-  background:white;
+  background:var(--cream,white);
 }
 .hero-photo-sm:nth-child(1){background:linear-gradient(135deg,var(--gold-pale),var(--gold-light))}
 .hero-photo-sm:nth-child(2){background:linear-gradient(135deg,var(--forest-pale),var(--forest-light))}
@@ -280,7 +280,7 @@ body.loading-auth .nav{visibility:hidden}
   position:absolute;bottom:12px;left:12px;
   background:rgba(30,20,9,0.7);color:white;
   padding:4px 12px;border-radius:4px;font-size:0.72rem;font-weight:600;
-  letter-spacing:0.05em;backdrop-filter:blur(4px);
+  letter-spacing:0.05em;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
 }
 .profile-info{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
 .profile-name{font-family:'Cormorant Garamond',serif;font-size:1.5rem;font-weight:700}
@@ -308,7 +308,7 @@ body.loading-auth .nav{visibility:hidden}
 
 /* Float badges */
 /* ABOUT SECTION */
-.about-section{padding:100px 48px;background:white}
+.about-section{padding:100px 48px;background:var(--cream,white)}
 .about-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:60px;align-items:start;max-width:1120px;margin:0 auto;overflow:hidden}
 .about-photos{display:flex;width:100%;min-width:0;overflow:hidden}
 .about-photo-single{
@@ -318,7 +318,7 @@ body.loading-auth .nav{visibility:hidden}
 .about-photo-single img{width:100%;height:100%;object-fit:cover;border-radius:16px}
 /* About slideshow */
 .about-slideshow{position:relative;width:100%;aspect-ratio:4/3;min-height:360px;border-radius:16px;overflow:hidden;border:1px solid var(--border)}
-.about-slideshow .slide{position:absolute;inset:0;opacity:0;transition:opacity 0.8s ease;background-size:cover;background-position:center}
+.about-slideshow .slide{position:absolute;inset:0;opacity:0;transition:opacity 0.8s ease;background-size:cover;background-position:center;will-change:opacity}
 .about-slideshow .slide.active{opacity:1}
 .about-slideshow .slide img{width:100%;height:100%;object-fit:cover;object-position:center}
 .about-slideshow .ss-arrow{position:absolute;top:50%;transform:translateY(-50%);background:rgba(30,20,9,0.55);color:white;border:none;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;z-index:2;transition:background 0.2s}
@@ -334,7 +334,7 @@ body.loading-auth .nav{visibility:hidden}
 .services-section{padding:100px 48px;background:var(--warm)}
 .services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1120px;margin:48px auto 0}
 .service-card{
-  background:white;border-radius:12px;padding:32px;
+  background:var(--cream,white);border-radius:12px;padding:32px;
   border:1px solid var(--border);box-shadow:var(--shadow);
   transition:all 0.3s ease;position:relative;overflow:hidden;
   display:flex;flex-direction:column;
@@ -343,7 +343,7 @@ body.loading-auth .nav{visibility:hidden}
 .service-card.mg-card{border-color:rgba(200,150,62,0.3);background:var(--gold-pale)}
 .service-card::after{
   content:'';position:absolute;bottom:0;left:0;right:0;
-  height:3px;background:var(--gold);
+  height:3px;background:var(--gold);will-change:transform;
   transform:scaleX(0);transform-origin:left;transition:transform 0.3s;
 }
 .service-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg)}
@@ -369,7 +369,7 @@ details summary::-webkit-details-marker{display:none}
 }
 
 /* REVIEWS — HORIZONTAL SLIDER */
-.reviews-section{padding:100px 48px;background:white;overflow:hidden}
+.reviews-section{padding:100px 48px;background:var(--cream,white);overflow:hidden}
 .reviews-track-wrap{position:relative;max-width:1120px;margin:0 auto}
 .reviews-track{
   display:flex;
@@ -394,7 +394,7 @@ details summary::-webkit-details-marker{display:none}
 .reviews-nav{display:flex;gap:10px;justify-content:center;margin-top:28px}
 .rev-nav-btn{
   width:40px;height:40px;border-radius:50%;border:1.5px solid var(--border);
-  background:white;cursor:pointer;font-size:0.9rem;transition:all 0.2s;
+  background:var(--cream,white);cursor:pointer;font-size:0.9rem;transition:all 0.2s;
   display:flex;align-items:center;justify-content:center;
 }
 .rev-nav-btn:hover{background:var(--ink);color:white;border-color:var(--ink)}
@@ -403,7 +403,7 @@ details summary::-webkit-details-marker{display:none}
 .future-section{padding:80px 48px;background:var(--gold-pale)}
 .future-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1120px;margin:40px auto 0}
 .future-card{
-  background:white;border-radius:12px;padding:28px;
+  background:var(--cream,white);border-radius:12px;padding:28px;
   border:1px dashed rgba(200,150,62,0.4);
   transition:all 0.2s;
 }
@@ -423,7 +423,7 @@ details summary::-webkit-details-marker{display:none}
 .cal-month{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700}
 .cal-nav-btn{
   width:36px;height:36px;border-radius:6px;border:1.5px solid var(--border);
-  background:white;cursor:pointer;font-size:1rem;transition:all 0.15s;
+  background:var(--cream,white);cursor:pointer;font-size:1rem;transition:all 0.15s;
   display:flex;align-items:center;justify-content:center;
 }
 .cal-nav-btn:hover{background:var(--ink);color:white;border-color:var(--ink)}
@@ -435,7 +435,7 @@ details summary::-webkit-details-marker{display:none}
 }
 .cal-day{
   min-height:72px;border-radius:8px;padding:8px;
-  background:white;border:1px solid var(--border);cursor:pointer;
+  background:var(--cream,white);border:1px solid var(--border);cursor:pointer;
   transition:all 0.15s;position:relative;min-width:0;overflow:hidden;
 }
 .cal-day:hover{border-color:var(--gold);box-shadow:var(--shadow)}
@@ -454,7 +454,7 @@ details summary::-webkit-details-marker{display:none}
 .legend-item{display:flex;align-items:center;gap:7px;font-size:0.78rem;font-weight:500;color:var(--brown)}
 .legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
 .cal-detail{
-  background:white;border-radius:12px;padding:24px;
+  background:var(--cream,white);border-radius:12px;padding:24px;
   border:1px solid var(--border);box-shadow:var(--shadow);
   margin-top:20px;display:none;
 }
@@ -473,10 +473,10 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .footer-bottom{max-width:1120px;margin:0 auto;border-top:1px solid rgba(255,255,255,0.08);padding-top:24px;display:flex;justify-content:space-between;align-items:center;font-size:0.8rem}
 
 /* ===================== PORTAL LAYOUT ===================== */
-.portal-wrap{display:grid;grid-template-columns:248px 1fr;min-height:calc(100vh - 72px);padding-top:72px}
+.portal-wrap{display:grid;grid-template-columns:248px 1fr;min-height:calc(100vh - 72px);min-height:calc(100dvh - 72px);padding-top:72px}
 .sidebar{
   background:#16100A;padding:28px 16px 100px;
-  position:sticky;top:72px;height:calc(100vh - 72px);
+  position:sticky;top:72px;height:calc(100vh - 72px);height:calc(100dvh - 72px);
   overflow-y:auto;-webkit-overflow-scrolling:touch;
   display:flex;flex-direction:column;
   scrollbar-width:thin;scrollbar-color:rgba(200,150,62,0.4) transparent;
@@ -516,7 +516,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .p-header p{font-size:0.92rem;color:var(--brown);font-weight:300}
 
 .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
-.stat-box{background:white;border-radius:10px;padding:20px;border:1px solid var(--border);box-shadow:var(--shadow)}
+.stat-box{background:var(--cream,white);border-radius:10px;padding:20px;border:1px solid var(--border);box-shadow:var(--shadow)}
 .stat-icon{font-size:1.4rem;margin-bottom:8px}
 .stat-num{font-family:'Cormorant Garamond',serif;font-size:1.9rem;font-weight:700;color:var(--ink);line-height:1}
 .stat-lbl{font-size:0.74rem;color:var(--mid);font-weight:600;margin-top:2px;letter-spacing:0.03em}
@@ -546,7 +546,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   border-radius:8px;font-family:'Jost',sans-serif;font-size:0.9rem;
   color:var(--ink);background:var(--warm);outline:none;transition:border-color 0.2s;
 }
-.form-in:focus,.form-sel:focus,.form-ta:focus{border-color:var(--gold);background:white}
+.form-in:focus,.form-sel:focus,.form-ta:focus{border-color:var(--gold);background:var(--cream,white)}
 .form-ta{resize:vertical;min-height:90px}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .form-group{margin-bottom:16px}
@@ -582,7 +582,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .map-dot{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid white}
 
 /* REPORT CARD */
-.report-card{background:white;border-radius:14px;padding:32px;border:1px solid var(--border);box-shadow:var(--shadow-lg);max-width:700px}
+.report-card{background:var(--cream,white);border-radius:14px;padding:32px;border:1px solid var(--border);box-shadow:var(--shadow-lg);max-width:700px}
 .report-header{border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:24px}
 .report-brand{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .report-logo{font-family:'Cormorant Garamond',serif;font-size:1.3rem;font-weight:700;color:var(--ink)}
@@ -613,7 +613,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .msg-meta{font-size:0.68rem;color:var(--mid);margin-top:3px;font-weight:400}
 .msg-input-row{display:flex;gap:8px}
 .msg-input{flex:1;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'Jost',sans-serif;font-size:0.88rem;outline:none;background:var(--warm)}
-.msg-input:focus{border-color:var(--gold);background:white}
+.msg-input:focus{border-color:var(--gold);background:var(--cream,white)}
 .msg-send{width:40px;height:40px;border-radius:8px;background:var(--ink);color:white;border:none;cursor:pointer;font-size:0.9rem;transition:background 0.2s;display:flex;align-items:center;justify-content:center}
 .msg-send:hover{background:var(--brown)}
 
@@ -638,11 +638,11 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .ob-sl{font-size:0.7rem;opacity:0.55;font-weight:600;letter-spacing:0.05em;text-transform:uppercase}
 
 /* MODAL */
-.overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(30,20,9,0.55);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px}
+.overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(30,20,9,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px}
 .overlay.open{display:flex}
-.modal{background:white;border-radius:14px;padding:0;max-width:580px;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:mIn 0.28s ease;display:flex;flex-direction:column}
+.modal{background:var(--cream,white);border-radius:14px;padding:0;max-width:580px;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:mIn 0.28s ease;display:flex;flex-direction:column}
 .modal-wide{max-width:720px}
-.modal-head{display:flex;justify-content:space-between;align-items:center;padding:28px 36px 16px;position:sticky;top:0;background:white;z-index:2;border-radius:14px 14px 0 0}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:28px 36px 16px;position:sticky;top:0;background:var(--cream,white);z-index:2;border-radius:14px 14px 0 0}
 .modal-head + *{padding-left:36px;padding-right:36px}
 .modal > *:not(.modal-head){padding-left:36px;padding-right:36px}
 .modal > *:last-child{padding-bottom:36px}
@@ -691,7 +691,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 /* Tabs */
 .tabs{display:flex;gap:3px;background:var(--warm);border-radius:8px;padding:4px;border:1px solid var(--border);margin-bottom:22px}
 .tab{padding:7px 16px;border-radius:6px;font-size:0.82rem;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--mid);transition:all 0.15s}
-.tab.active{background:white;color:var(--ink);box-shadow:0 2px 6px rgba(30,20,9,0.07)}
+.tab.active{background:var(--cream,white);color:var(--ink);box-shadow:0 2px 6px rgba(30,20,9,0.07)}
 .tab:hover:not(.active){color:var(--ink)}
 
 /* client list */
@@ -706,7 +706,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .cl-since{font-size:0.72rem;color:var(--mid);font-weight:400}
 
 /* Job cards */
-.job-card{display:flex;align-items:center;gap:14px;background:white;border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:10px;transition:all 0.2s}
+.job-card{display:flex;align-items:center;gap:14px;background:var(--cream,white);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:10px;transition:all 0.2s}
 .job-card:hover{box-shadow:var(--shadow);transform:translateX(2px)}
 .job-time{background:var(--gold-pale);color:var(--gold-deep);padding:8px 12px;border-radius:7px;text-align:center;font-weight:700;font-size:0.78rem;min-width:64px;flex-shrink:0}
 
@@ -728,7 +728,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   cursor:pointer;transition:all 0.15s;white-space:nowrap;
 }
 .ai-quick-btn:hover{background:var(--gold-pale);border-color:var(--gold);color:var(--gold-deep)}
-.ai-typing{display:flex;gap:5px;align-items:center;padding:14px 16px;background:white;border-radius:4px 14px 14px 14px;border:1px solid var(--border);width:fit-content}
+.ai-typing{display:flex;gap:5px;align-items:center;padding:14px 16px;background:var(--cream,white);border-radius:4px 14px 14px 14px;border:1px solid var(--border);width:fit-content}
 .ai-typing span{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:typingDot 1.2s ease-in-out infinite}
 .ai-typing span:nth-child(2){animation-delay:0.2s}
 .ai-typing span:nth-child(3){animation-delay:0.4s}
@@ -776,7 +776,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 /* ── Back Button (portal navigation) ── */
 .portal-back-btn{
   display:none;position:fixed;top:82px;left:268px;z-index:400;
-  background:white;border:1.5px solid var(--border);border-radius:8px;
+  background:var(--cream,white);border:1.5px solid var(--border);border-radius:8px;
   padding:6px 14px;font-size:0.78rem;font-weight:600;color:var(--ink);
   cursor:pointer;font-family:'Jost',sans-serif;
   box-shadow:0 2px 10px rgba(0,0,0,0.08);transition:all 0.15s;
@@ -843,7 +843,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   select,textarea,input[type="text"],input[type="email"],input[type="password"],input[type="tel"],input[type="number"],input[type="date"],input[type="time"],input[type="search"]{font-size:16px!important}
 }
 /* Ensure portal never overflows viewport */
-.portal-wrap{max-width:100vw;overflow-x:hidden}
+.portal-wrap{max-width:100%;overflow-x:hidden}
 .portal-main{max-width:100%;overflow-x:hidden}
 
 @media(max-width:900px){
@@ -857,13 +857,14 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .sidebar{display:none!important}
   .stats-row{grid-template-columns:repeat(2,1fr)}
   .form-row{grid-template-columns:1fr}
-  input[type="date"].form-in{-webkit-appearance:none;font-size:0.85rem;min-height:38px;max-width:100%;box-sizing:border-box}
+  input[type="date"].form-in{-webkit-appearance:none;font-size:16px;min-height:44px;max-width:100%;box-sizing:border-box}
   footer{padding:48px 20px 24px}
   .footer-grid{grid-template-columns:1fr;gap:28px}
 
   /* ── Owner Portal: stack all panels to single column on mobile ── */
   .p-panel > div[style*="grid"] { grid-template-columns: 1fr !important; }
-  .p-panel div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  .p-panel div[style*="grid-template-columns"]:not(.ow-cal-grid) { grid-template-columns: 1fr !important; }
+  .ow-cal-grid { grid-template-columns: repeat(7, 1fr) !important; gap: 1px !important; }
 
   /* AI Studio: full width, shorter chat */
   #o-studio > div[style*="grid"] { grid-template-columns: 1fr !important; }
@@ -1054,7 +1055,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 }
 
 /* ── Booking Request Panel Mobile Fixes ── */
-.admin-filter-btn{white-space:nowrap;padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:white;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s;color:var(--mid)}
+.admin-filter-btn{white-space:nowrap;padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:var(--cream,white);font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s;color:var(--mid)}
 .admin-filter-btn.active{background:var(--gold);color:white;border-color:var(--gold)}
 .admin-filter-btn:hover{border-color:var(--gold)}
 .filter-scroll{-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -1125,7 +1126,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 /* AUTH OVERLAY */
 #authOverlay{
   display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;
-  background:rgba(30,20,9,0.6);backdrop-filter:blur(12px);
+  background:rgba(30,20,9,0.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   align-items:center;justify-content:center;
   overflow-y:auto;-webkit-overflow-scrolling:touch;
 }
@@ -1141,7 +1142,7 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .auth-subtitle{font-size:0.88rem;color:var(--brown);margin-bottom:28px;font-weight:300}
 .auth-form{display:flex;flex-direction:column;gap:12px;text-align:left}
 .auth-form .form-lbl{font-size:0.76rem;font-weight:600;color:var(--brown);margin-bottom:4px;display:block}
-.auth-form .form-in{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'Jost',sans-serif;font-size:16px;background:white;transition:border-color 0.2s;outline:none;box-sizing:border-box}
+.auth-form .form-in{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;font-family:'Jost',sans-serif;font-size:16px;background:var(--cream,white);transition:border-color 0.2s;outline:none;box-sizing:border-box}
 .auth-form .form-in:focus{border-color:var(--gold)}
 .auth-error{font-size:0.82rem;min-height:20px;margin-top:4px}
 .auth-skip{margin-top:16px;font-size:0.78rem;color:var(--mid)}
@@ -1228,7 +1229,7 @@ try {
       </div>
       <div>
         <label class="form-lbl">Email</label>
-        <input class="form-in" id="authEmail" type="email" placeholder="Your email" autocomplete="username email" name="username" required>
+        <input class="form-in" id="authEmail" type="email" placeholder="Your email" autocomplete="username" name="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
       </div>
       <div id="authConfirmEmailGroup" style="display:none">
         <label class="form-lbl">Confirm Email</label>
@@ -1236,7 +1237,7 @@ try {
       </div>
       <div id="authPasswordGroup">
         <label class="form-lbl">Password</label>
-        <input class="form-in" id="authPassword" type="password" placeholder="Your password" name="password" autocomplete="current-password">
+        <input class="form-in" id="authPassword" type="password" placeholder="Your password" name="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false">
       </div>
       <div id="authConfirmPasswordGroup" style="display:none">
         <label class="form-lbl">Confirm Password</label>
@@ -1276,7 +1277,7 @@ try {
   </button>
   <div class="nav-right">
     <div id="viewSwitcher" style="position:relative;display:none;align-items:center">
-      <select id="viewDropdown" onchange="switchViewFromDrop(this.value)" style="appearance:none;-webkit-appearance:none;background:var(--warm);border:1.5px solid var(--border);border-radius:8px;padding:8px 38px 8px 14px;font-family:'Jost',sans-serif;font-size:0.82rem;font-weight:600;color:var(--ink);cursor:pointer;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+      <select id="viewDropdown" onchange="switchViewFromDrop(this.value)" style="appearance:none;-webkit-appearance:none;background:var(--warm);border:1.5px solid var(--border);border-radius:8px;padding:8px 38px 8px 14px;font-family:'Jost',sans-serif;font-size:16px;font-weight:600;color:var(--ink);cursor:pointer;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
         <option value="public">🐾 Home</option>
         <option value="client">👤 My Portal</option>
         <option value="staff">🧑 Staff</option>
@@ -1297,7 +1298,7 @@ try {
   <a href="#calendar-pub" class="nav-menu-item">Calendar</a>
   <a href="#reviews" class="nav-menu-item">Reviews</a>
   <a href="#coming-soon" class="nav-menu-item">Coming Soon</a>
-  <a href="#book" class="nav-menu-item nav-menu-book">Book Now</a>
+  <a href="#services" class="nav-menu-item nav-menu-book">Book Now</a>
 </div>
 
 <!-- ========= PUBLIC PAGE ========= -->
@@ -1675,7 +1676,7 @@ try {
                 <div class="form-group"><label class="form-lbl">Breed <span style="color:#c0392b">*</span></label>
                   <div id="breed-search-wrap" style="position:relative">
                     <input class="form-in" id="pet-breed" placeholder="Start typing to search breeds..." autocomplete="off" onfocus="openBreedDropdown()" oninput="filterBreeds()">
-                    <div id="breed-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:#fff;border:1px solid #d4c5b0;border-top:none;border-radius:0 0 8px 8px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+                    <div id="breed-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--cream,#fff);border:1px solid #d4c5b0;border-top:none;border-radius:0 0 8px 8px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
                   </div>
                 </div>
                 <div class="form-group"><label class="form-lbl">Sex <span style="color:#c0392b">*</span></label><select class="form-sel" id="pet-sex"><option value="">Select...</option><option value="male">Male</option><option value="female">Female</option></select></div>
@@ -2289,7 +2290,7 @@ try {
               <div id="oNotePetRows"></div>
               <button type="button" class="btn btn-outline btn-sm" onclick="addOwnerNotePetRow()" style="margin-bottom:14px;font-size:0.78rem">+ Add Pet</button>
             </div>
-            <div id="oNotePreview" style="background:white;border-radius:8px;padding:14px;margin-bottom:14px;font-size:0.84rem;color:var(--ink);line-height:1.6;border:1px solid var(--border);display:none"></div>
+            <div id="oNotePreview" style="background:var(--cream,white);border-radius:8px;padding:14px;margin-bottom:14px;font-size:0.84rem;color:var(--ink);line-height:1.6;border:1px solid var(--border);display:none"></div>
             <button class="btn btn-forest btn-sm" onclick="buildOwnerNote()" style="width:100%;justify-content:center">📝 Generate Note</button>
           </div>
           <div class="form-group"><label class="form-lbl">Personal Note</label><textarea class="form-ta" id="ownerNote" style="min-height:110px" placeholder="Pick a scenario above and hit Generate — or write your own..."></textarea></div>
@@ -2322,8 +2323,8 @@ try {
               <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Set your total review count and rating from all sources — shown on public website</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px">
-              <div style="text-align:center"><label style="font-size:0.62rem;font-weight:600;color:var(--mid);display:block;margin-bottom:2px">Count</label><input type="number" id="rv-ext-count" value="48" style="width:42px;text-align:center;padding:3px 1px;font-size:0.78rem;height:26px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;background:white;-moz-appearance:textfield" onchange="saveExternalReviewStats()"></div>
-              <div style="text-align:center"><label style="font-size:0.62rem;font-weight:600;color:var(--mid);display:block;margin-bottom:2px">Rating</label><input type="number" id="rv-ext-rating" value="5.0" step="0.1" min="1" max="5" style="width:42px;text-align:center;padding:3px 1px;font-size:0.78rem;height:26px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;background:white;-moz-appearance:textfield" onchange="saveExternalReviewStats()"></div>
+              <div style="text-align:center"><label style="font-size:0.62rem;font-weight:600;color:var(--mid);display:block;margin-bottom:2px">Count</label><input type="number" id="rv-ext-count" value="48" style="width:42px;text-align:center;padding:3px 1px;font-size:0.78rem;height:26px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;background:var(--cream,white);-moz-appearance:textfield" onchange="saveExternalReviewStats()"></div>
+              <div style="text-align:center"><label style="font-size:0.62rem;font-weight:600;color:var(--mid);display:block;margin-bottom:2px">Rating</label><input type="number" id="rv-ext-rating" value="5.0" step="0.1" min="1" max="5" style="width:42px;text-align:center;padding:3px 1px;font-size:0.78rem;height:26px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;background:var(--cream,white);-moz-appearance:textfield" onchange="saveExternalReviewStats()"></div>
             </div>
           </div>
         </div>
@@ -2506,7 +2507,7 @@ try {
               <!-- Welcome message -->
               <div style="display:flex;gap:10px;align-items:flex-start">
                 <div style="width:32px;height:32px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0">✨</div>
-                <div style="background:white;border-radius:4px 14px 14px 14px;padding:14px 16px;max-width:82%;border:1px solid var(--border);box-shadow:0 2px 8px rgba(30,20,9,0.04)">
+                <div style="background:var(--cream,white);border-radius:4px 14px 14px 14px;padding:14px 16px;max-width:82%;border:1px solid var(--border);box-shadow:0 2px 8px rgba(30,20,9,0.04)">
                   <div style="font-size:0.88rem;line-height:1.65;color:var(--ink)">Hey Rachel! 👋 I'm <strong>Paws AI</strong> — your personal business assistant for Housley Happy Paws. I know your whole business inside and out.<br><br>Here's what I can do for you right now:<br>
                   <span style="color:var(--forest)">✏️</span> Rewrite any section of your website<br>
                   <span style="color:var(--gold-deep)">💰</span> Help you set or adjust your pricing<br>
@@ -2519,7 +2520,7 @@ try {
               </div>
             </div>
 
-            <div style="padding:16px 20px;border-top:1px solid var(--border);background:white">
+            <div style="padding:16px 20px;border-top:1px solid var(--border);background:var(--cream,white)">
               <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap" id="aiQuickBtns">
                 <button class="ai-quick-btn" onclick="aiQuick('Help me write a professional bio for my website')">Write my bio</button>
                 <button class="ai-quick-btn" onclick="aiQuick('What should my pricing be for Lancaster PA?')">Pricing advice</button>
@@ -2991,10 +2992,10 @@ try {
           <div style="border:2px solid var(--border);border-radius:12px;overflow:hidden;background:#f5f5f5">
             <div style="background:var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px">
               <div style="display:flex;gap:5px"><div style="width:10px;height:10px;border-radius:50%;background:#ff5f57"></div><div style="width:10px;height:10px;border-radius:50%;background:#febc2e"></div><div style="width:10px;height:10px;border-radius:50%;background:#28c840"></div></div>
-              <div style="flex:1;background:white;border-radius:4px;padding:4px 10px;font-size:0.7rem;color:var(--mid)">housleyhappypaws.com/links</div>
+              <div style="flex:1;background:var(--cream,white);border-radius:4px;padding:4px 10px;font-size:0.7rem;color:var(--mid)">housleyhappypaws.com/links</div>
             </div>
             <div style="background:linear-gradient(160deg,#FDF6EC,#F5E8CC,#EDD9A3);padding:30px 20px;display:flex;justify-content:center">
-              <div style="background:white;border-radius:20px;padding:28px 24px;max-width:300px;width:100%;box-shadow:0 12px 40px rgba(90,50,10,0.14);display:flex;flex-direction:column;align-items:center;text-align:center">
+              <div style="background:var(--cream,white);border-radius:20px;padding:28px 24px;max-width:300px;width:100%;box-shadow:0 12px 40px rgba(90,50,10,0.14);display:flex;flex-direction:column;align-items:center;text-align:center">
                 <div style="font-size:2.2rem;margin-bottom:10px">🐾</div>
                 <div style="font-family:var(--font-display);font-size:1.3rem;font-weight:700;color:var(--ink)">Housley Happy Paws</div>
                 <div id="lp-prev-tag" style="font-size:0.65rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--mid);margin:5px 0 3px">Dog &amp; Cat Care</div>
@@ -3399,11 +3400,11 @@ try {
         <div style="font-size:0.72rem;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px">💳 Payment Detected</div>
         <div style="font-size:0.84rem;color:#2e7d32;line-height:1.4;margin-bottom:10px">This booking has been paid (<strong id="cancelModal_paidAmount">$0.00</strong>). Since you're canceling on your end, would you like to issue a full refund to the client?</div>
         <div style="display:flex;flex-direction:column;gap:8px">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:white;border-radius:8px;border:1.5px solid #4caf50;transition:all 0.2s">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:var(--cream,white);border-radius:8px;border:1.5px solid #4caf50;transition:all 0.2s">
             <input type="radio" name="refundOption" value="refund" checked style="cursor:pointer;accent-color:#4caf50">
             <span style="font-size:0.85rem;color:var(--ink);font-weight:600">Yes, issue full refund</span>
           </label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:white;border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:var(--cream,white);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
             <input type="radio" name="refundOption" value="no_refund" style="cursor:pointer">
             <span style="font-size:0.85rem;color:var(--ink)">No refund (late cancel by client)</span>
           </label>
@@ -3421,7 +3422,7 @@ try {
 
 <!-- BOOKING DETAIL DRAWER -->
 <div id="bookingDetailOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;opacity:0;transition:opacity 0.25s" onclick="if(event.target===this)closeBookingDetail()">
-  <div id="bookingDetailDrawer" style="position:fixed;bottom:0;left:0;right:0;max-height:88vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;transform:translateY(100%);transition:transform 0.3s ease;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0">
+  <div id="bookingDetailDrawer" style="position:fixed;bottom:0;left:0;right:0;max-height:88vh;background:var(--cream,white);border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);z-index:9999;transform:translateY(100%);transition:transform 0.3s ease;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0">
     <!-- Drag handle -->
     <div style="padding:10px 0 4px;text-align:center;cursor:grab" onclick="closeBookingDetail()">
       <div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div>
@@ -3769,7 +3770,7 @@ function switchView(view) {
       // Quick-pick menu (hidden by default)
       floatingBookMenu = document.createElement('div');
       floatingBookMenu.id = 'floatingBookMenu';
-      floatingBookMenu.style.cssText = 'position:fixed;bottom:80px;right:24px;z-index:1000;background:#fff;border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:8px 0;display:none;min-width:210px;font-family:inherit;animation:fabMenuIn 0.2s ease';
+      floatingBookMenu.style.cssText = 'position:fixed;bottom:80px;right:24px;z-index:1000;background:var(--cream,#fff);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:8px 0;display:none;min-width:210px;font-family:inherit;animation:fabMenuIn 0.2s ease';
       floatingBookMenu.innerHTML = [
         '<div style="padding:8px 16px 6px;font-size:0.72rem;font-weight:700;color:var(--mid,#8c6b4a);text-transform:uppercase;letter-spacing:0.5px">Quick Book</div>',
         '<button class="fab-svc-btn" onclick="floatingBookPick(\'Dog Walking\')" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:0.88rem;font-weight:600;color:var(--ink,#1e1409);text-align:left;transition:background 0.15s" onmouseenter="this.style.background=\'#f9f6f0\'" onmouseleave="this.style.background=\'none\'">🐕 Dog Walking</button>',
@@ -3927,7 +3928,7 @@ async function showClientPickerModal() {
   modal.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px';
   modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
 
-  var h = '<div style="background:white;width:100%;max-width:440px;max-height:80vh;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column">';
+  var h = '<div style="background:var(--cream,white);width:100%;max-width:440px;max-height:80vh;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.2);display:flex;flex-direction:column">';
 
   // Header
   h += '<div style="padding:16px 20px;background:var(--forest,#3d5a47);color:white;flex-shrink:0">';
@@ -4062,7 +4063,7 @@ function showViewAsBanner(clientName) {
     '<div><span style="font-weight:700;font-size:0.82rem">Viewing as: ' + (clientName || 'Client') + '</span>' +
     '<span style="font-size:0.72rem;opacity:0.85;margin-left:8px">You\'re seeing their portal experience</span></div>' +
     '</div>' +
-    '<button onclick="exitViewAsClient()" style="background:white;color:var(--gold-deep,#8c6b4a);border:none;border-radius:8px;padding:7px 16px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Exit View</button>';
+    '<button onclick="exitViewAsClient()" style="background:var(--cream,white);color:var(--gold-deep,#8c6b4a);border:none;border-radius:8px;padding:7px 16px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">✕ Exit View</button>';
   document.body.appendChild(banner);
 
   // Push page content down to account for the banner
@@ -4249,7 +4250,8 @@ function sTab(portal, panelId) {
       if (typeof loadDashboardStats === 'function') loadDashboardStats();
       if (window.HHP_Messaging && typeof window.HHP_Messaging.loadAlertMessages === 'function') window.HHP_Messaging.loadAlertMessages();
       if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function') window.HHP_BookingAdmin.init();
-      if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+      if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
+      else if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
     }
   } else if ((panelId === 'c-dash' || panelId === 's-sched') && typeof loadDashboardStats === 'function') {
     if (window.HHP_Customizer && window.HHP_Customizer._initialized) {
@@ -4346,15 +4348,137 @@ function switchGeneralTab(tabName) {
             '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifReports?'checked':'') + ' onchange="HHP_Settings.set(\'notifReports\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Walk report notifications</label>' +
           '</div>' +
         '</div>' +
+        '<div class="card" style="padding:20px;margin-bottom:14px">' +
+          '<div class="card-title" style="margin-bottom:14px">Edit Profile</div>' +
+          '<div id="cg-profile-form" style="display:flex;flex-direction:column;gap:12px"></div>' +
+        '</div>' +
         '<div class="card" style="padding:20px">' +
           '<div class="card-title" style="margin-bottom:14px">Account</div>' +
-          '<button onclick="HHP_Settings.goToProfile()" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--warm);cursor:pointer;text-align:left;font-size:0.85rem"><span style="font-size:1.2rem">👤</span><div style="flex:1"><div style="font-weight:600">My Profile</div><div style="font-size:0.75rem;color:var(--mid)">Edit your name, phone & photo</div></div><span style="opacity:0.4">→</span></button>' +
-          '<button onclick="if(typeof HHP_Auth!==\'undefined\')HHP_Auth.logout()" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--warm);cursor:pointer;text-align:left;font-size:0.85rem;margin-top:8px;color:var(--rose)"><span style="font-size:1.2rem">🚪</span><div style="flex:1"><div style="font-weight:600">Sign Out</div></div></button>' +
+          '<button onclick="if(typeof HHP_Auth!==\'undefined\')HHP_Auth.logout()" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--warm);cursor:pointer;text-align:left;font-size:0.85rem;color:var(--rose)"><span style="font-size:1.2rem">🚪</span><div style="flex:1"><div style="font-weight:600">Sign Out</div></div></button>' +
         '</div>';
     }
   }
   // Save active sub-tab for reload
   try { sessionStorage.setItem('hhp_general_tab', tabName); } catch(e) {}
+
+  // Populate profile form when settings tab is opened
+  if (tabName === 'settings') {
+    setTimeout(function() { loadClientProfileForm(); }, 100);
+  }
+}
+
+// ── Load and render client profile edit form ──
+async function loadClientProfileForm() {
+  var formContainer = document.getElementById('cg-profile-form');
+  if (!formContainer) return;
+
+  var sb = (window.HHP_Auth && window.HHP_Auth.supabase) ? window.HHP_Auth.supabase : null;
+  var currentUser = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser : null;
+
+  if (!sb || !currentUser) {
+    formContainer.innerHTML = '<div style="color:var(--mid);font-size:0.85rem">Not connected. Please refresh the page.</div>';
+    return;
+  }
+
+  // Fetch current profile data
+  const { data: profile, error } = await sb
+    .from('profiles')
+    .select('full_name, phone, address, emergency_contact_name, emergency_contact_phone')
+    .eq('user_id', currentUser.id)
+    .single();
+
+  if (error) {
+    console.warn('Profile load error:', error);
+    formContainer.innerHTML = '<div style="color:var(--mid);font-size:0.85rem">Could not load profile. Please try again.</div>';
+    return;
+  }
+
+  var p = profile || {};
+
+  // Build form HTML with current values pre-filled
+  formContainer.innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px">' +
+      '<div>' +
+        '<label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--forest)">Full Name</label>' +
+        '<input id="profile-full-name" type="text" value="' + _escH(p.full_name || '') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box">' +
+      '</div>' +
+      '<div>' +
+        '<label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--forest)">Phone</label>' +
+        '<input id="profile-phone" type="tel" value="' + _escH(p.phone || '') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box">' +
+      '</div>' +
+      '<div>' +
+        '<label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--forest)">Address</label>' +
+        '<input id="profile-address" type="text" value="' + _escH(p.address || '') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box">' +
+      '</div>' +
+      '<div style="border-top:1px solid var(--border);padding-top:12px;margin-top:6px">' +
+        '<div style="font-weight:700;font-size:0.85rem;color:var(--forest);margin-bottom:12px">Emergency Contact</div>' +
+        '<div>' +
+          '<label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--forest)">Contact Name</label>' +
+          '<input id="profile-ec-name" type="text" value="' + _escH(p.emergency_contact_name || '') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box">' +
+        '</div>' +
+        '<div style="margin-top:10px">' +
+          '<label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--forest)">Contact Phone</label>' +
+          '<input id="profile-ec-phone" type="tel" value="' + _escH(p.emergency_contact_phone || '') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box">' +
+        '</div>' +
+      '</div>' +
+      '<button onclick="saveClientProfile()" style="padding:12px;background:var(--forest);color:white;border:none;border-radius:8px;font-weight:600;font-size:0.85rem;cursor:pointer;font-family:inherit;transition:background 0.2s;margin-top:6px" onmouseover="this.style.background=\'var(--forest-dark,#1a4d2e)\'" onmouseout="this.style.background=\'var(--forest)\'" class="btn btn-gold">💾 Save Changes</button>' +
+      '<div id="profile-save-status" style="font-size:0.78rem;text-align:center;color:var(--mid);margin-top:4px"></div>' +
+    '</div>';
+}
+
+// ── Save client profile changes to Supabase ──
+async function saveClientProfile() {
+  var sb = (window.HHP_Auth && window.HHP_Auth.supabase) ? window.HHP_Auth.supabase : null;
+  var currentUser = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser : null;
+
+  if (!sb || !currentUser) {
+    toast('Not connected. Please refresh the page.');
+    return;
+  }
+
+  var statusDiv = document.getElementById('profile-save-status');
+  var btn = event.target;
+  var originalText = btn.textContent;
+
+  try {
+    btn.disabled = true;
+    btn.textContent = '⏳ Saving...';
+    if (statusDiv) statusDiv.textContent = '';
+
+    var updateData = {
+      full_name: document.getElementById('profile-full-name').value.trim(),
+      phone: document.getElementById('profile-phone').value.trim(),
+      address: document.getElementById('profile-address').value.trim(),
+      emergency_contact_name: document.getElementById('profile-ec-name').value.trim(),
+      emergency_contact_phone: document.getElementById('profile-ec-phone').value.trim()
+    };
+
+    const { error } = await sb
+      .from('profiles')
+      .update(updateData)
+      .eq('user_id', currentUser.id);
+
+    if (error) {
+      console.error('Profile update error:', error);
+      toast('Error saving profile. Please try again.');
+      if (statusDiv) statusDiv.textContent = 'Error saving changes.';
+    } else {
+      toast('Profile updated successfully!');
+      if (statusDiv) statusDiv.textContent = 'Changes saved!';
+      btn.textContent = '✓ Saved';
+      setTimeout(function() {
+        btn.disabled = false;
+        btn.textContent = originalText;
+        if (statusDiv) statusDiv.textContent = '';
+      }, 2000);
+    }
+  } catch (err) {
+    console.error('Save error:', err);
+    toast('Error saving profile.');
+    if (statusDiv) statusDiv.textContent = 'Error saving changes.';
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }
 
 // ── Owner General Panel Tab Switching ──
@@ -5166,7 +5290,7 @@ async function showActivityDetail(index) {
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.onclick = function(ev) { if (ev.target === modal) modal.remove(); };
   modal.innerHTML =
-    '<div style="background:white;border-radius:16px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;padding:28px;position:relative">' +
+    '<div style="background:var(--cream,white);border-radius:16px;max-width:580px;width:100%;max-height:90vh;overflow-y:auto;padding:28px;position:relative">' +
       '<button onclick="document.getElementById(\'actDetailModal\').remove()" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--mid)">&times;</button>' +
       '<div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">' +
         '<div style="width:44px;height:44px;border-radius:12px;background:' + bgColor + ';display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">' + icon + '</div>' +
@@ -5184,7 +5308,7 @@ async function showActivityDetail(index) {
     errModal.id = 'actDetailModal';
     errModal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
     errModal.onclick = function(ev) { if (ev.target === errModal) errModal.remove(); };
-    errModal.innerHTML = '<div style="background:white;border-radius:16px;max-width:400px;width:100%;padding:28px;text-align:center"><button onclick="document.getElementById(\'actDetailModal\').remove()" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer">&times;</button><div style="font-size:2rem;margin-bottom:12px">⚠️</div><h3 style="color:var(--forest);margin-bottom:8px">Could not load details</h3><p style="color:var(--mid);font-size:0.88rem">Check the browser console for more information.</p></div>';
+    errModal.innerHTML = '<div style="background:var(--cream,white);border-radius:16px;max-width:400px;width:100%;padding:28px;text-align:center"><button onclick="document.getElementById(\'actDetailModal\').remove()" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer">&times;</button><div style="font-size:2rem;margin-bottom:12px">⚠️</div><h3 style="color:var(--forest);margin-bottom:8px">Could not load details</h3><p style="color:var(--mid);font-size:0.88rem">Check the browser console for more information.</p></div>';
     document.body.appendChild(errModal);
   }
 }
@@ -5259,7 +5383,8 @@ function detectBathroomBreaks(noteText, petNamesStr) {
 }
 
 // Render bathroom break badges as HTML
-function renderBathroomBadges(breaks, compact) {
+// forClient = true strips emojis for client-facing reports
+function renderBathroomBadges(breaks, compact, forClient) {
   if (!breaks || !breaks.summary || breaks.summary.length === 0) return '';
   var badgeStyle = compact
     ? 'display:inline-flex;align-items:center;gap:3px;background:#f0ebe3;border-radius:20px;padding:3px 10px;font-size:0.72rem;font-weight:600;color:#5c3d1e'
@@ -5268,10 +5393,10 @@ function renderBathroomBadges(breaks, compact) {
   breaks.summary.forEach(function(b) {
     var petLabel = b.pet && breaks.summary.length > 1 ? b.pet + ': ' : '';
     if (b.pee > 0) {
-      html += '<span style="' + badgeStyle + '">' + petLabel + '💧 ' + b.pee + ' pee break' + (b.pee > 1 ? 's' : '') + '</span>';
+      html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '💧 ') + b.pee + ' pee break' + (b.pee > 1 ? 's' : '') + '</span>';
     }
     if (b.poo > 0) {
-      html += '<span style="' + badgeStyle + '">' + petLabel + '💩 ' + b.poo + ' poo break' + (b.poo > 1 ? 's' : '') + '</span>';
+      html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '💩 ') + b.poo + ' poo break' + (b.poo > 1 ? 's' : '') + '</span>';
     }
   });
   html += '</div>';
@@ -5378,7 +5503,7 @@ function sendActivityLog() {
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px';
   modal.onclick = function(ev) { if (ev.target === modal) modal.remove(); };
   modal.innerHTML =
-    '<div style="background:white;border-radius:16px;max-width:500px;width:100%;padding:28px;position:relative">' +
+    '<div style="background:var(--cream,white);border-radius:16px;max-width:500px;width:100%;padding:28px;position:relative">' +
       '<button onclick="document.getElementById(\'actSendModal\').remove()" style="position:absolute;top:10px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer">&times;</button>' +
       '<h3 style="margin:0 0 16px;color:var(--forest)">\uD83D\uDCE7 Email Activity Report</h3>' +
       '<div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Send To</label><input class="form-in" id="actSendEmail" type="email" placeholder="email@example.com" value="' + ((window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser.email : '') + '"></div>' +
@@ -5450,14 +5575,9 @@ async function _resolveActivityNames() {
 
 // ---- MODALS ----
 function openModal(id) {
-  // Gate meet & greet behind login
+  // Gate meet & greet behind login — show guest prompt instead of raw signup
   if (id === 'mgModal' && (!window.HHP_Auth || !window.HHP_Auth.currentUser)) {
-    if (typeof toast === 'function') toast('Please create an account or sign in to schedule a meet & greet.');
-    var authOverlay = document.getElementById('authOverlay');
-    if (authOverlay) {
-      authOverlay.classList.add('open');
-      if (typeof toggleAuthMode === 'function') toggleAuthMode('signup');
-    }
+    guestServicePrompt('Meet & Greet');
     return;
   }
   const el=document.getElementById(id); if(!el) return; if(el.classList.contains('modal-overlay')||el.classList.contains('overlay')){el.style.display='flex';el.classList.add('open');}else{el.classList.add('open');}
@@ -5474,6 +5594,66 @@ function closeModal(id) {
   document.body.style.overflow = '';
 }
 document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) { o.classList.remove('open'); document.body.style.overflow = ''; } }));
+
+// ── Guest Service Prompt — shown when non-logged-in visitors click service buttons ──
+function guestServicePrompt(serviceName) {
+  var existing = document.getElementById('guestServiceModal');
+  if (existing) existing.remove();
+
+  var isMG = serviceName === 'Meet & Greet';
+  var icon = { 'Meet & Greet': '🤝', 'Dog Walking': '🦮', 'Drop-In Visit': '🚪', 'House Sitting': '🏠' }[serviceName] || '🐾';
+
+  var features = {
+    'Meet & Greet': [
+      'Free in-home visit to meet Rachel',
+      'Go over your pet\'s routine & needs',
+      'No obligation — just a chance to meet'
+    ],
+    'Dog Walking': [
+      'Choose 30-min or 1-hour walks',
+      'Live GPS tracking & photo updates',
+      'Detailed report card after every walk'
+    ],
+    'Drop-In Visit': [
+      'Quick check-ins at your home',
+      'Feeding, meds, playtime & love',
+      'Photo updates every visit'
+    ],
+    'House Sitting': [
+      'Overnight care in your home',
+      'Follow your pet\'s normal routine',
+      'Daily updates & photos'
+    ]
+  }[serviceName] || ['Professional pet care tailored to your needs'];
+
+  var featuresHtml = features.map(function(f) {
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0"><div style="width:6px;height:6px;border-radius:50%;background:var(--gold);flex-shrink:0"></div><span style="font-size:0.88rem;color:var(--brown)">' + f + '</span></div>';
+  }).join('');
+
+  var modal = document.createElement('div');
+  modal.id = 'guestServiceModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(30,20,9,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity 0.25s';
+  modal.innerHTML = '<div style="background:var(--cream,#FDFAF5);border-radius:20px;max-width:420px;width:100%;padding:40px 32px;text-align:center;box-shadow:0 24px 64px rgba(30,20,9,0.25);position:relative;transform:translateY(20px);transition:transform 0.3s ease">' +
+    '<button onclick="this.closest(\'#guestServiceModal\').remove();document.body.style.overflow=\'\'" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--mid);padding:4px 8px;line-height:1">&times;</button>' +
+    '<div style="font-size:2.5rem;margin-bottom:12px">' + icon + '</div>' +
+    '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;font-weight:700;color:var(--ink);margin-bottom:4px">' + serviceName + '</div>' +
+    (isMG ? '<div style="display:inline-block;background:var(--forest);color:white;font-size:0.72rem;font-weight:600;padding:3px 12px;border-radius:20px;margin-bottom:16px;letter-spacing:0.03em">FREE</div>' : '') +
+    '<div style="font-size:0.84rem;color:var(--mid);margin-bottom:20px">Here\'s what you\'ll get when you book:</div>' +
+    '<div style="text-align:left;padding:0 8px;margin-bottom:24px">' + featuresHtml + '</div>' +
+    '<div style="border-top:1px solid var(--border);padding-top:20px;margin-top:4px">' +
+      '<div style="font-size:0.82rem;color:var(--brown);margin-bottom:14px;font-weight:500">Create a free account to get started</div>' +
+      '<button onclick="document.getElementById(\'guestServiceModal\').remove();document.body.style.overflow=\'\';var ao=document.getElementById(\'authOverlay\');if(ao){ao.classList.add(\'open\');if(typeof toggleAuthMode===\'function\')toggleAuthMode(\'signup\');}" style="width:100%;padding:13px;background:var(--ink,#1e1409);color:#fff;border:none;border-radius:10px;font-size:0.9rem;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity 0.2s;margin-bottom:10px" onmouseover="this.style.opacity=\'0.85\'" onmouseout="this.style.opacity=\'1\'">Create Free Account</button>' +
+      '<button onclick="document.getElementById(\'guestServiceModal\').remove();document.body.style.overflow=\'\';var ao=document.getElementById(\'authOverlay\');if(ao){ao.classList.add(\'open\');if(typeof toggleAuthMode===\'function\')toggleAuthMode(\'login\');}" style="width:100%;padding:12px;background:none;border:1.5px solid var(--border);color:var(--ink);border-radius:10px;font-size:0.85rem;font-weight:500;cursor:pointer;font-family:inherit;transition:all 0.2s" onmouseover="this.style.borderColor=\'var(--gold)\';this.style.color=\'var(--gold)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.color=\'var(--ink)\'">Already have an account? Sign In</button>' +
+    '</div>' +
+  '</div>';
+
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+  // Animate in
+  requestAnimationFrame(function() { modal.style.opacity = '1'; modal.querySelector('div').style.transform = 'translateY(0)'; });
+  // Close on backdrop click
+  modal.addEventListener('click', function(e) { if (e.target === modal) { modal.remove(); document.body.style.overflow = ''; } });
+}
 
 // ── Meet & Greet: load user info + pet profiles when modal opens ──
 function loadMGData() {
@@ -5526,7 +5706,7 @@ function loadMGData() {
         : 'display:flex;align-items:center;justify-content:center;font-size:1.2rem;background:#f5f0e8;';
       html += [
         '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;',
-        'background:#fff;border:2px solid #e0d5c5;border-radius:10px;cursor:pointer;',
+        'background:var(--cream,#fff);border:2px solid #e0d5c5;border-radius:10px;cursor:pointer;',
         'transition:all 0.2s" class="mg-pet-label"',
         ' onmouseenter="this.style.borderColor=\'#c8963e\'"',
         ' onmouseleave="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#e0d5c5\'"',
@@ -5894,7 +6074,7 @@ function openInviteModal() {
     '  <div style="background:var(--warm);border-radius:10px;padding:16px;margin-bottom:20px;border:1px solid var(--border)">',
     '    <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--gold-deep);margin-bottom:10px">📋 Copy Signup Link</div>',
     '    <div style="display:flex;gap:8px;align-items:center">',
-    '      <input id="invite-link" class="form-in" value="' + signupLink + '" readonly style="flex:1;font-size:0.82rem;background:white">',
+    '      <input id="invite-link" class="form-in" value="' + signupLink + '" readonly style="flex:1;font-size:0.82rem;background:var(--cream,white)">',
     '      <button class="btn btn-gold btn-sm" onclick="copyInviteLink()" style="white-space:nowrap">Copy Link</button>',
     '    </div>',
     '    <div style="font-size:0.76rem;color:var(--mid);margin-top:8px">Share this link via text, DM, or anywhere — clients can sign up directly.</div>',
@@ -5990,7 +6170,7 @@ function addOwnerNotePetRow(petName, pronounKey) {
   var idx = _oNotePetCount++;
   var div = document.createElement('div');
   div.id = 'oNotePetRow-' + idx;
-  div.style.cssText = 'background:white;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border)';
+  div.style.cssText = 'background:var(--cream,white);border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border)';
   div.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
       '<span style="font-weight:600;font-size:0.82rem;color:var(--ink)">Pet ' + (idx + 1) + '</span>' +
@@ -6451,7 +6631,7 @@ function buildCalendar(containerId, year, month) {
 
   if (isPublic) {
     // Public homepage: only availability, closures, today
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:white;border:1px solid var(--border)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Some Times Booked</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">🎉 Holiday</span></div></div>`;
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--cream,white);border:1px solid var(--border)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Some Times Booked</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">🎉 Holiday</span></div></div>`;
   } else if (isClient) {
     // Client portal: their bookings + closures
     html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">🎉 Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">❌</span> Unpaid</div><div class="legend-item"><span style="font-size:0.8rem">✔️</span> Completed</div></div>`;
@@ -6703,18 +6883,34 @@ async function loadClientAppts(filter, tabBtn) {
       return;
     }
 
+    // ── Fetch completed service dates for recurring bookings so we can skip them ──
+    var _completedDatesMap = {}; // bookingId → Set of date strings
+    var recurringIds = (appts || []).filter(function(b) { return b.recurrence_pattern; }).map(function(b) { return b.id; });
+    if (recurringIds.length > 0) {
+      try {
+        var { data: completedReports } = await sb.from('service_reports').select('booking_id, report_date').in('booking_id', recurringIds);
+        if (completedReports) {
+          completedReports.forEach(function(r) {
+            if (!_completedDatesMap[r.booking_id]) _completedDatesMap[r.booking_id] = {};
+            _completedDatesMap[r.booking_id][r.report_date] = true;
+          });
+        }
+      } catch(e) { console.warn('Completed dates fetch:', e); }
+    }
+
     // ── Helper: get next N upcoming dates for a recurring booking ──
     function getNextRecurringDates(booking, count) {
       var dates = [];
       var _activeStatuses = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1, payment_hold:1 };
       if (!booking.recurrence_pattern || !_activeStatuses[booking.status]) return dates;
+      var completedSet = _completedDatesMap[booking.id] || {};
       var d = new Date();
       d.setHours(12, 0, 0, 0);
       var limit = new Date(d);
       limit.setDate(limit.getDate() + 90); // look ahead 90 days
       while (d <= limit && dates.length < count) {
         var dk = _localDateStr(d);
-        if (dk >= today && typeof isRecurringOnDate === 'function' && isRecurringOnDate(booking, dk)) {
+        if (dk >= today && typeof isRecurringOnDate === 'function' && isRecurringOnDate(booking, dk) && !completedSet[dk]) {
           var t = (typeof getRecurringTime === 'function') ? getRecurringTime(booking, dk) : '';
           dates.push({ date: dk, time: t });
         }
@@ -6774,7 +6970,7 @@ async function loadClientAppts(filter, tabBtn) {
         var nextDates = getNextRecurringDates(b, 4);
 
         // Card
-        html += '<div style="background:white;border-radius:12px;border:1.5px solid var(--border);overflow:hidden">';
+        html += '<div style="background:var(--cream,white);border-radius:12px;border:1.5px solid var(--border);overflow:hidden">';
 
         // Header
         html += '<div style="padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')">';
@@ -6797,7 +6993,7 @@ async function loadClientAppts(filter, tabBtn) {
             var dateStr = ndDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             var timeStr = nd.time ? ((typeof fmt12h === 'function') ? fmt12h(nd.time) : nd.time) : '';
             var isNext = idx === 0;
-            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + (isNext ? 'white' : 'transparent') + ';border-radius:8px;' + (isNext ? 'border:1.5px solid var(--forest);' : '') + '">';
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + (isNext ? 'var(--cream,white)' : 'transparent') + ';border-radius:8px;' + (isNext ? 'border:1.5px solid var(--forest);' : '') + '">';
             html += '<div style="width:6px;height:6px;border-radius:50%;background:' + (isNext ? 'var(--forest)' : 'var(--mid)') + ';flex-shrink:0"></div>';
             html += '<div style="flex:1;font-size:0.84rem;' + (isNext ? 'font-weight:700;color:var(--ink)' : 'color:var(--mid)') + '">' + dateStr + (timeStr ? ' at ' + timeStr : '') + '</div>';
             if (isNext) html += '<span style="font-size:0.68rem;font-weight:700;color:var(--forest);background:#d4edda;padding:2px 8px;border-radius:4px">NEXT</span>';
@@ -6808,14 +7004,14 @@ async function loadClientAppts(filter, tabBtn) {
 
         // Action buttons
         html += '<div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border)">';
-        html += '<button onclick="event.stopPropagation();showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:white;font-size:0.78rem;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">View Details</button>';
+        html += '<button onclick="event.stopPropagation();showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);font-size:0.78rem;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">View Details</button>';
         html += '<button onclick="event.stopPropagation();requestRecurringChange(\'' + b.id + '\')" style="flex:1;padding:8px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold-pale);font-size:0.78rem;font-weight:600;color:var(--gold-deep);cursor:pointer;font-family:inherit">Reschedule</button>';
         html += '<button onclick="event.stopPropagation();requestRecurringCancel(\'' + b.id + '\')" style="padding:8px 12px;border:1.5px solid #f8d7da;border-radius:8px;background:#fef2f2;font-size:0.78rem;font-weight:600;color:#c62828;cursor:pointer;font-family:inherit">Cancel</button>';
         html += '</div>';
 
         // Price
         if (b.estimated_total > 0) {
-          html += '<div style="padding:6px 16px 10px;font-size:0.78rem;color:var(--mid)">$' + Number(b.estimated_total).toFixed(2) + '/visit · Charged before each visit</div>';
+          html += '<div style="padding:6px 16px 10px;font-size:0.78rem;color:var(--mid)">$' + Number(b.estimated_total).toFixed(2) + '/visit · Charged weekly on Sundays</div>';
         }
 
         html += '</div>'; // end card
@@ -6937,12 +7133,12 @@ async function loadClientAppts(filter, tabBtn) {
             html += '<div style="font-size:0.85rem;color:var(--mid);text-decoration:line-through">' + dateDisplay + (timeDisplay ? ' at ' + timeDisplay : '') + '</div></div>';
             html += '<div style="flex:1;min-width:120px"><div style="font-size:0.68rem;text-transform:uppercase;color:#bf5d00;font-weight:600;margin-bottom:2px">New Time</div>';
             html += '<div style="font-size:0.85rem;font-weight:700;color:#bf5d00">' + newDateFmt + (newTimeFmt ? ' at ' + newTimeFmt : '') + '</div></div></div>';
-            if (tcNote) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:10px;padding:8px;background:white;border-radius:6px">"' + tcNote + '"</div>';
+            if (tcNote) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:10px;padding:8px;background:var(--cream,white);border-radius:6px">"' + tcNote + '"</div>';
             html += '<div style="font-weight:600;font-size:0.82rem;margin-bottom:6px">' + (b.service || 'Appointment') + '</div>';
             if (b.pet_names) html += '<div style="font-size:0.78rem;color:var(--mid);margin-bottom:10px">Pets: ' + b.pet_names + '</div>';
             html += '<div style="display:flex;gap:8px">';
             html += '<button onclick="event.stopPropagation();clientAcceptTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept New Time</button>';
-            html += '<button onclick="event.stopPropagation();clientDeclineTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
+            html += '<button onclick="event.stopPropagation();clientDeclineTimeChange(\'' + b.id + '\')" style="flex:1;padding:10px;border:1.5px solid #e67e22;border-radius:8px;background:var(--cream,white);color:#bf5d00;font-size:0.84rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
             html += '</div></div></div>';
           }
           // ── Per-appointment time changes (date_details) ──
@@ -6958,7 +7154,7 @@ async function loadClientAppts(filter, tabBtn) {
               if (tc.msg) html += '<div style="font-size:0.8rem;color:var(--ink);font-style:italic;margin-bottom:8px">"' + tc.msg + '"</div>';
               html += '<div style="display:flex;gap:8px">';
               html += '<button onclick="event.stopPropagation();clientAcceptApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:none;border-radius:8px;background:var(--forest);color:white;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept</button>';
-              html += '<button onclick="event.stopPropagation();clientDeclineApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:1.5px solid #e67e22;border-radius:8px;background:white;color:#bf5d00;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
+              html += '<button onclick="event.stopPropagation();clientDeclineApptTimeChange(\'' + b.id + '\',' + tc.idx + ')" style="flex:1;padding:8px;border:1.5px solid #e67e22;border-radius:8px;background:var(--cream,white);color:#bf5d00;font-size:0.82rem;font-weight:700;cursor:pointer;font-family:inherit">✗ Decline & Cancel</button>';
               html += '</div></div></div>';
             });
           }
@@ -7888,7 +8084,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
         status: 'in_progress',
         start_time: startTime
       };
-      console.log('[Start Service] Fallback insert payload:', JSON.stringify(insertPayload));
+      // Debug log removed in audit
       var { data: walkData, error } = await sb.from('walks').insert(insertPayload).select().single();
       if (error) {
         console.error('[Start Service] Fallback insert error:', error, JSON.stringify(error));
@@ -7898,10 +8094,15 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
       toast('▶ Service started!');
     }
 
-    // ── Update booking status to in_progress ──
+    // ── Update booking status to in_progress (skip for recurring — keep 'accepted' so series stays alive) ──
     if (bookingId) {
       try {
-        await sb.from('booking_requests').update({ status: 'in_progress' }).eq('id', bookingId);
+        var { data: bkRec } = await sb.from('booking_requests').select('recurrence_pattern').eq('id', bookingId).single();
+        if (!(bkRec && bkRec.recurrence_pattern)) {
+          // One-time booking: mark in_progress
+          await sb.from('booking_requests').update({ status: 'in_progress' }).eq('id', bookingId);
+        }
+        // Recurring booking: leave as 'accepted' — the walks table tracks active service
       } catch(e) { console.warn('Booking in_progress update error:', e); }
     }
 
@@ -7954,7 +8155,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
     openLiveServicePanel(walk, service, petNames, clientName, bookingId, address, clientId);
 
     // Refresh schedules
-    if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+    if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
     if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
   } catch (e) {
     console.error('Start service error:', e);
@@ -7989,11 +8190,11 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   var now = new Date();
   var arrivalVal = (now.getHours() < 10 ? '0' : '') + now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
 
-  var fieldStyle = 'width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:white';
+  var fieldStyle = 'width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)';
   var labelStyle = 'font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px';
 
   var h = '';
-  h += '<div style="background:white;width:100%;max-width:500px;margin-top:auto;border-radius:20px 20px 0 0;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);padding:0">';
+  h += '<div style="background:var(--cream,white);width:100%;max-width:500px;margin-top:auto;border-radius:20px 20px 0 0;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);padding:0">';
 
   // Header
   h += '<div style="padding:16px 20px 12px;background:var(--forest,#3d5a47);color:white;border-radius:20px 20px 0 0">';
@@ -8094,7 +8295,7 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '</div>';
 
   h += '<div style="margin-bottom:18px"><div style="' + labelStyle + '">Personal Note</div>';
-  h += '<textarea id="lsp-notes" rows="6" placeholder="Pick a scenario above and hit Generate — or write your own..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;background:white;resize:vertical;line-height:1.5;min-height:120px"></textarea></div>';
+  h += '<textarea id="lsp-notes" rows="6" placeholder="Pick a scenario above and hit Generate — or write your own..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white);resize:vertical;line-height:1.5;min-height:120px"></textarea></div>';
 
   // End Service button
   h += '<button id="lsp-end-btn" onclick="endServiceFromPanel()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:20px">⏹ End Service & Send Report</button>';
@@ -8188,15 +8389,15 @@ function addLspPetRow(petName, pronounKey) {
   var idx = _lspPetCount++;
   var div = document.createElement('div');
   div.id = 'lspPetRow-' + idx;
-  div.style.cssText = 'background:white;border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border,#e8e0d4)';
+  div.style.cssText = 'background:var(--cream,white);border-radius:8px;padding:12px;margin-bottom:10px;border:1px solid var(--border,#e8e0d4)';
   div.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
       '<span style="font-weight:600;font-size:0.82rem;color:var(--ink)">Pet ' + (idx + 1) + '</span>' +
       (idx > 0 ? '<button type="button" onclick="this.closest(\'[id^=lspPetRow]\').remove()" style="background:none;border:none;color:var(--mid);cursor:pointer;font-size:0.78rem">✕ Remove</button>' : '') +
     '</div>' +
-    '<div style="margin-bottom:8px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Name</div><input class="lsp-petName" placeholder="e.g. Buddy" value="' + (petName || '') + '" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:white"></div>' +
+    '<div style="margin-bottom:8px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Name</div><input class="lsp-petName" placeholder="e.g. Buddy" value="' + (petName || '') + '" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)"></div>' +
     '<div style="display:flex;gap:12px;align-items:flex-start">' +
-      '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pronouns</div><select class="lsp-pronoun" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:white"><option value="he"' + (pronounKey === 'he' ? ' selected' : '') + '>He / Him</option><option value="she"' + (!pronounKey || pronounKey === 'she' ? ' selected' : '') + '>She / Her</option><option value="they"' + (pronounKey === 'they' ? ' selected' : '') + '>They / Them</option></select></div>' +
+      '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pronouns</div><select class="lsp-pronoun" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)"><option value="he"' + (pronounKey === 'he' ? ' selected' : '') + '>He / Him</option><option value="she"' + (!pronounKey || pronounKey === 'she' ? ' selected' : '') + '>She / Her</option><option value="they"' + (pronounKey === 'they' ? ' selected' : '') + '>They / Them</option></select></div>' +
       '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Potty</div><div style="display:flex;gap:12px;padding-top:6px">' +
         '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-pee" checked> Pee</label>' +
         '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-poo"> Poo</label>' +
@@ -8323,9 +8524,367 @@ function reopenLiveServicePanel() {
   if (window._pillTimerInterval) { clearInterval(window._pillTimerInterval); window._pillTimerInterval = null; }
 }
 
+// ── RECOVER ACTIVE SERVICE on page reload ──
+// If the user refreshes or returns later, check for an in-progress walk and restore the live panel
+async function _recoverActiveService() {
+  if (window._liveServiceData) return; // already have an active panel
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+  var role = user.profile ? user.profile.role : (user.user_metadata ? user.user_metadata.role : '');
+  if (role !== 'owner' && role !== 'staff') return;
+
+  try {
+    var { data: activeWalk } = await sb.from('walks').select('*')
+      .eq('walker_id', user.id).eq('status', 'in_progress').order('start_time', { ascending: false }).limit(1);
+    if (!activeWalk || activeWalk.length === 0) return;
+    var walk = activeWalk[0];
+
+    // Fetch booking info for client name + address
+    var clientName = '', address = '', clientId = walk.client_id || null;
+    if (walk.booking_id) {
+      try {
+        var { data: bk } = await sb.from('booking_requests').select('contact_name, address, client_id').eq('id', walk.booking_id).maybeSingle();
+        if (bk) { clientName = bk.contact_name || ''; address = bk.address || ''; if (!clientId) clientId = bk.client_id; }
+      } catch(e) {}
+    }
+
+    // Ensure Leaflet + live-tracking are loaded
+    if (typeof _loadLeaflet === 'function') {
+      await new Promise(function(r) { _loadLeaflet(r); });
+      await new Promise(function(r) { setTimeout(r, 300); });
+    }
+
+    // Open the live service panel with recovered data
+    openLiveServicePanel(walk, walk.service, walk.pet_name, clientName, walk.booking_id, address, clientId);
+
+    // Restart the service timer
+    if (typeof HHP_ServiceTimer !== 'undefined') {
+      HHP_ServiceTimer.startTimer(walk.id, walk.service, walk.start_time, walk.pet_name, clientName, walk.booking_id, address);
+    }
+
+    toast('🔄 Recovered in-progress service: ' + (walk.service || 'Service'));
+  } catch(e) { console.warn('Active service recovery error:', e); }
+}
+
+// ── HOUSE SITTING REPORT — opens a dedicated report modal for house sitting bookings ──
+async function openHouseSittingReport(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { toast('❌ Not logged in'); return; }
+
+  // Fetch booking details
+  var booking = null;
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('*').eq('id', bookingId).single();
+    booking = bk;
+  } catch(e) { toast('❌ Could not load booking'); return; }
+  if (!booking) { toast('❌ Booking not found'); return; }
+
+  // Check for existing report
+  try {
+    var { data: existRpt } = await sb.from('service_reports').select('id').eq('booking_id', bookingId).maybeSingle();
+    if (existRpt) { toast('⚠️ A report has already been submitted for this booking.'); return; }
+  } catch(e) {}
+
+  var old = document.getElementById('hhp-hs-report-panel');
+  if (old) old.remove();
+
+  var panel = document.createElement('div');
+  panel.id = 'hhp-hs-report-panel';
+  panel.style.cssText = 'position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,0.5);display:flex;align-items:stretch;justify-content:center;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:60px 0 0 0;';
+  panel.addEventListener('click', function(e) { if (e.target === panel) panel.remove(); });
+
+  var service = booking.service || 'House Sitting';
+  var petNames = booking.pet_names || '';
+  var clientName = booking.contact_name || '';
+  var stayStart = booking.preferred_date || '';
+  var stayEnd = booking.preferred_end_date || stayStart;
+  var clientId = booking.client_id || null;
+
+  // Calculate stay duration
+  var stayDays = 1;
+  if (stayStart && stayEnd) {
+    var d1 = new Date(stayStart + 'T12:00:00'), d2 = new Date(stayEnd + 'T12:00:00');
+    stayDays = Math.max(1, Math.round((d2 - d1) / (24*60*60*1000)));
+  }
+  var stayLabel = stayDays + ' day' + (stayDays !== 1 ? 's' : '');
+
+  var fieldStyle = 'width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)';
+  var labelStyle = 'font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px';
+
+  var h = '';
+  h += '<div style="background:var(--cream,white);width:100%;max-width:500px;margin-top:auto;border-radius:20px 20px 0 0;overflow-y:auto;box-shadow:0 -8px 40px rgba(0,0,0,0.2);padding:0">';
+
+  // Header
+  h += '<div style="padding:16px 20px 12px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border-radius:20px 20px 0 0">';
+  h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  h += '<div style="font-size:1rem;font-weight:700">🏡 House Sitting Report</div>';
+  h += '<button onclick="document.getElementById(\'hhp-hs-report-panel\').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit">Close ✕</button>';
+  h += '</div>';
+  h += '<div style="font-size:0.85rem;opacity:0.9">' + service + (petNames ? ' — ' + petNames : '') + '</div>';
+  h += '<div style="font-size:0.78rem;opacity:0.7">' + clientName + ' · ' + stayLabel + ' stay (' + stayStart + ' to ' + stayEnd + ')</div>';
+  h += '</div>';
+
+  // Stay summary bar
+  h += '<div style="padding:12px 20px;background:var(--warm,#fdf7ee);border-bottom:1px solid var(--border,#e8e0d4);display:flex;gap:16px;flex-wrap:wrap">';
+  h += '<div><div style="font-size:0.62rem;color:var(--mid);text-transform:uppercase">Stay Duration</div><div style="font-size:1rem;font-weight:800;color:var(--forest)">' + stayLabel + '</div></div>';
+  h += '<div><div style="font-size:0.62rem;color:var(--mid);text-transform:uppercase">Check-In</div><div style="font-size:1rem;font-weight:800;color:var(--ink)">' + stayStart + '</div></div>';
+  h += '<div><div style="font-size:0.62rem;color:var(--mid);text-transform:uppercase">Check-Out</div><div style="font-size:1rem;font-weight:800;color:var(--ink)">' + stayEnd + '</div></div>';
+  h += '</div>';
+
+  // Report fields
+  h += '<div style="padding:16px 20px">';
+
+  // Mood
+  h += '<div style="margin-bottom:12px"><div style="' + labelStyle + '">Pet Mood During Stay</div>';
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap" id="hs-mood-btns">';
+  ['😄 Great', '😊 Happy', '😌 Calm', '🙈 Shy', '⚡ Energetic'].forEach(function(m) {
+    var val = m.split(' ')[1];
+    h += '<button onclick="this.parentNode.querySelectorAll(\'button\').forEach(function(b){b.style.background=\'var(--warm,#fdf7ee)\';b.style.color=\'var(--ink)\';});this.style.background=\'var(--forest,#3d5a47)\';this.style.color=\'white\';document.getElementById(\'hs-mood-val\').value=\'' + val + '\'" style="padding:6px 10px;border-radius:20px;border:1px solid var(--border,#e8e0d4);background:var(--warm,#fdf7ee);font-size:0.75rem;cursor:pointer;font-family:inherit">' + m + '</button>';
+  });
+  h += '</div><input type="hidden" id="hs-mood-val" value=""></div>';
+
+  // Photos
+  h += '<div style="margin-bottom:12px"><div style="' + labelStyle + '">Photos & Videos</div>';
+  h += '<div id="hs-media-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px"></div>';
+  h += '<label style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:var(--warm,#fdf7ee);border:1.5px dashed var(--border,#e8e0d4);border-radius:10px;cursor:pointer;font-size:0.8rem;font-weight:600;color:var(--mid)">';
+  h += '<input type="file" id="hs-media-input" accept="image/*,video/*" multiple style="display:none" onchange="handleHsMediaUpload(this)">';
+  h += '📷 Add Photos/Videos</label></div>';
+
+  // Notes
+  h += '<div style="margin-bottom:18px"><div style="' + labelStyle + '">Personal Note to Client</div>';
+  h += '<textarea id="hs-notes" rows="6" placeholder="How did the stay go? Share details about feeding, playtime, any notes for the client..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white);resize:vertical;line-height:1.5;min-height:120px"></textarea></div>';
+
+  // Submit button
+  h += '<button id="hs-submit-btn" onclick="submitHouseSittingReport(\'' + bookingId + '\',\'' + (clientId || '') + '\')" style="width:100%;padding:16px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:20px">📋 Complete Stay & Send Report</button>';
+
+  h += '</div></div>';
+
+  panel.innerHTML = h;
+  document.body.appendChild(panel);
+}
+
+// Media upload handler for house sitting report
+window._hsMediaUrls = [];
+function handleHsMediaUpload(input) {
+  var files = input.files;
+  for (var i = 0; i < files.length; i++) {
+    (function(file) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        window._hsMediaUrls.push({ type: file.type.startsWith('video/') ? 'video' : 'image', dataUrl: e.target.result, name: file.name });
+        var grid = document.getElementById('hs-media-grid');
+        if (grid) {
+          var el = document.createElement('div');
+          el.style.cssText = 'width:60px;height:60px;border-radius:8px;overflow:hidden;border:1px solid var(--border)';
+          if (file.type.startsWith('video/')) {
+            el.innerHTML = '<div style="width:100%;height:100%;background:#1a1a1a;display:flex;align-items:center;justify-content:center"><span style="color:white;font-size:1.5rem">🎬</span></div>';
+          } else {
+            el.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover">';
+          }
+          grid.appendChild(el);
+        }
+      };
+      reader.readAsDataURL(file);
+    })(files[i]);
+  }
+}
+
+// Submit house sitting report
+async function submitHouseSittingReport(bookingId, clientId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+
+  var btn = document.getElementById('hs-submit-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Saving & Sending...'; }
+
+  try {
+    // Check for duplicate
+    var { data: dupCheck } = await sb.from('service_reports').select('id').eq('booking_id', bookingId).maybeSingle();
+    if (dupCheck) {
+      toast('⚠️ Report already submitted for this booking.');
+      if (btn) { btn.disabled = true; btn.innerHTML = '✅ Already Submitted'; btn.style.background = '#999'; }
+      return;
+    }
+
+    // Fetch booking for details
+    var { data: booking } = await sb.from('booking_requests').select('*').eq('id', bookingId).single();
+    if (!booking) { toast('❌ Booking not found'); return; }
+
+    var service = booking.service || 'House Sitting';
+    var petNames = booking.pet_names || '';
+    var clientName = booking.contact_name || '';
+    var stayStart = booking.preferred_date || _localDateStr();
+    var stayEnd = booking.preferred_end_date || stayStart;
+    var stayDays = 1;
+    if (stayStart && stayEnd) {
+      stayDays = Math.max(1, Math.round((new Date(stayEnd+'T12:00:00') - new Date(stayStart+'T12:00:00')) / (24*60*60*1000)));
+    }
+
+    var mood = (document.getElementById('hs-mood-val') || {}).value || '';
+    var notes = (document.getElementById('hs-notes') || {}).value.trim() || '';
+    var duration = stayDays + ' day' + (stayDays !== 1 ? 's' : '');
+
+    // Upload media to Cloudinary
+    var uploadedMedia = [];
+    if (window._hsMediaUrls && window._hsMediaUrls.length > 0) {
+      for (var mi = 0; mi < window._hsMediaUrls.length; mi++) {
+        try {
+          var mItem = window._hsMediaUrls[mi];
+          var formData = new FormData();
+          var byteString = atob(mItem.dataUrl.split(',')[1]);
+          var mimeString = mItem.dataUrl.split(',')[0].split(':')[1].split(';')[0];
+          var ab = new ArrayBuffer(byteString.length);
+          var ia = new Uint8Array(ab);
+          for (var bi = 0; bi < byteString.length; bi++) ia[bi] = byteString.charCodeAt(bi);
+          var blob = new Blob([ab], { type: mimeString });
+          formData.append('file', blob, mItem.name || ('media_' + mi));
+          formData.append('upload_preset', 'hhp_unsigned');
+          formData.append('folder', 'housley-happy-paws/reports');
+          var uploadType = mItem.type === 'video' ? 'video' : 'image';
+          var cloudResp = await fetch('https://api.cloudinary.com/v1_1/dg1p1zjgv/' + uploadType + '/upload', { method: 'POST', body: formData });
+          var cloudData = await cloudResp.json();
+          if (cloudData.secure_url) {
+            uploadedMedia.push({
+              public_id: cloudData.public_id, url: cloudData.secure_url,
+              thumbnail: cloudData.thumbnail_url || cloudData.secure_url,
+              type: cloudData.resource_type || uploadType, format: cloudData.format
+            });
+          }
+        } catch(upErr) { console.warn('Media upload error:', upErr); }
+      }
+    }
+
+    // Save the report
+    var reportData = {
+      client_id: clientId || booking.client_id || null,
+      author_id: user.id,
+      service: service,
+      report_date: stayEnd,
+      duration: duration,
+      arrival_time: stayStart,
+      departure_time: stayEnd,
+      mood: mood || null,
+      pet_name: petNames || null,
+      personal_note: notes || null,
+      booking_id: bookingId,
+      media: uploadedMedia.length > 0 ? uploadedMedia : null
+    };
+    var { error: rptErr } = await sb.from('service_reports').insert(reportData);
+    if (rptErr) {
+      console.warn('Report save error:', JSON.stringify(rptErr));
+      toast('⚠️ Report save issue: ' + (rptErr.message || ''));
+    }
+
+    // Mark booking as completed
+    try {
+      await sb.from('booking_requests').update({ status: 'completed' }).eq('id', bookingId);
+    } catch(e) { console.warn('Booking status update error:', e); }
+
+    // Send notification + email to client
+    var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Rachel';
+    var effectiveClientId = clientId || booking.client_id;
+    if (effectiveClientId) {
+      var endMsg = '✅ ' + staffName + ' has completed ' + (petNames ? petNames + '\'s ' : 'your ') + service + '!\n';
+      endMsg += '🏡 Stay: ' + duration + ' (' + stayStart + ' to ' + stayEnd + ')';
+      if (mood) endMsg += '\n😊 Mood: ' + mood;
+      if (notes) endMsg += '\n📝 Notes: ' + notes;
+      endMsg += '\n\nYou can view the full report in your portal under Walk Reports.';
+      try {
+        await sb.from('messages').insert({
+          sender_id: user.id,
+          sender_name: staffName,
+          recipient_id: effectiveClientId,
+          body: endMsg
+        });
+      } catch(e) { console.warn('Client notification error:', e); }
+
+      // Email notification
+      try {
+        var _clientEmail = booking.contact_email || '';
+        if (!_clientEmail && effectiveClientId) {
+          var { data: _prf } = await sb.from('profiles').select('email').eq('user_id', effectiveClientId).maybeSingle();
+          if (_prf) _clientEmail = _prf.email;
+        }
+        if (_clientEmail) {
+          fetch('/api/service-completed-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientEmail: _clientEmail, clientName: clientName, service: service,
+              petNames: petNames, reportDate: stayEnd, duration: duration,
+              arrivalTime: stayStart, departureTime: stayEnd,
+              mood: mood || '', personalNote: notes || '', staffName: staffName,
+              mediaCount: uploadedMedia.length, bathroomBreaks: null
+            })
+          }).catch(function(e) { console.warn('Service completed email error:', e); });
+        }
+      } catch(e) {}
+    }
+
+    // Activity log
+    try {
+      await sb.from('messages').insert({
+        sender_id: user.id, sender_name: staffName || 'Housley Happy Paws', recipient_id: user.id,
+        body: '✅ HOUSE SITTING COMPLETED: ' + staffName + ' completed ' + service + (petNames ? ' for ' + petNames : '') + ' (' + duration + ')'
+      });
+    } catch(e) {}
+
+    // Show success
+    var panel = document.getElementById('hhp-hs-report-panel');
+    if (panel) {
+      panel.querySelector('div').innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;padding:40px 20px;text-align:center;background:var(--cream,white);border-radius:20px 20px 0 0">' +
+        '<div style="width:80px;height:80px;border-radius:50%;background:var(--forest,#3d5a47);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><span style="font-size:2.5rem">🏡</span></div>' +
+        '<div style="font-size:1.4rem;font-weight:700;color:var(--forest,#3d5a47);margin-bottom:10px">House Sitting Complete!</div>' +
+        '<div style="font-size:0.95rem;color:var(--ink);margin-bottom:6px;font-weight:600">Report saved & sent to client</div>' +
+        '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:4px">' + service + (petNames ? ' for ' + petNames : '') + '</div>' +
+        '<div style="font-size:0.85rem;color:var(--mid)">' + duration + ' stay (' + stayStart + ' to ' + stayEnd + ')</div>' +
+        '<div style="margin-top:28px"><button onclick="document.getElementById(\'hhp-hs-report-panel\').remove();" style="padding:12px 32px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit">Done</button></div>' +
+        '</div>';
+    }
+
+    window._hsMediaUrls = [];
+    toast('✅ House sitting completed & report sent!');
+
+    // Refresh views
+    if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
+    if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
+    if (typeof loadClientReports === 'function') loadClientReports();
+
+  } catch(e) {
+    console.error('House sitting report error:', e);
+    toast('❌ Failed: ' + (e.message || 'Unknown error'));
+    if (btn) { btn.disabled = false; btn.innerHTML = '📋 Complete Stay & Send Report'; }
+  }
+}
+
 // ── END SERVICE from live panel — stop timer, fill report, send to client ──
 async function endServiceFromPanel() {
   var d = window._liveServiceData;
+
+  // If walkId is missing, try to recover it from the database
+  if (d && !d.walkId) {
+    var _sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    var _u = window.HHP_Auth && window.HHP_Auth.currentUser;
+    if (_sb && _u) {
+      try {
+        var { data: _aw } = await _sb.from('walks').select('id, start_time, client_id, service, pet_name, booking_id')
+          .eq('walker_id', _u.id).eq('status', 'in_progress').order('start_time', { ascending: false }).limit(1);
+        if (_aw && _aw.length > 0) {
+          d.walkId = _aw[0].id;
+          if (!d.startTime) d.startTime = _aw[0].start_time;
+          if (!d.clientId) d.clientId = _aw[0].client_id;
+          if (!d.service) d.service = _aw[0].service;
+          if (!d.petNames) d.petNames = _aw[0].pet_name;
+          if (!d.bookingId) d.bookingId = _aw[0].booking_id;
+        }
+      } catch(e) { console.warn('Walk recovery error:', e); }
+    }
+  }
+
   if (!d || !d.walkId) { toast('❌ No active service'); return; }
 
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
@@ -8360,14 +8919,44 @@ async function endServiceFromPanel() {
     var distanceVal = distanceEl ? distanceEl.value : '';
     if (distanceVal === 'Tracking...') distanceVal = '';
 
-    // End the walk in DB
-    var { error: walkErr } = await sb.from('walks').update({ status: 'completed', end_time: endTime }).eq('id', d.walkId);
-    if (walkErr) console.warn('Walk end error:', JSON.stringify(walkErr));
-
-    // Stop GPS tracking
+    // Stop GPS tracking first so no more points are recorded
     if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.getActiveWalkId && HHP_Tracking.getActiveWalkId() === d.walkId) {
       try { if (typeof HHP_Tracking._stopGPS === 'function') HHP_Tracking._stopGPS(); } catch(e) {}
     }
+
+    // Fetch tracking points and build route_summary before completing the walk
+    var routeSummary = [];
+    var isDogWalk = (reportService || '').toLowerCase().indexOf('walk') !== -1;
+    if (isDogWalk && d.walkId) {
+      try {
+        var { data: trkPts } = await sb.from('tracking_points')
+          .select('lat, lng, recorded_at')
+          .eq('walk_id', d.walkId)
+          .order('recorded_at', { ascending: true });
+        if (trkPts && trkPts.length > 0) {
+          routeSummary = trkPts.map(function(p) { return { lat: p.lat, lng: p.lng, t: p.recorded_at }; });
+          // Calculate distance from actual route if not already set
+          if (!distanceVal || distanceVal === '') {
+            var totalM = 0;
+            for (var ri = 1; ri < routeSummary.length; ri++) {
+              var R = 6371000;
+              var dLat = (routeSummary[ri].lat - routeSummary[ri-1].lat) * Math.PI / 180;
+              var dLng = (routeSummary[ri].lng - routeSummary[ri-1].lng) * Math.PI / 180;
+              var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(routeSummary[ri-1].lat*Math.PI/180)*Math.cos(routeSummary[ri].lat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+              totalM += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            }
+            var miles = totalM / 1609.34;
+            if (miles >= 0.1) distanceVal = miles.toFixed(2) + ' mi';
+          }
+        }
+      } catch(e) { console.warn('Tracking points fetch error:', e); }
+    }
+
+    // End the walk in DB with route_summary
+    var walkUpdate = { status: 'completed', end_time: endTime };
+    if (routeSummary.length > 0) walkUpdate.route_summary = routeSummary;
+    var { error: walkErr } = await sb.from('walks').update(walkUpdate).eq('id', d.walkId);
+    if (walkErr) console.warn('Walk end error:', JSON.stringify(walkErr));
 
     // Stop the timer + pill
     if (typeof HHP_ServiceTimer !== 'undefined') HHP_ServiceTimer.stopTimer();
@@ -8402,6 +8991,39 @@ async function endServiceFromPanel() {
     var endMs = new Date(endTime).getTime();
     var durMin = Math.round((endMs - startMs) / 60000);
 
+    // ── Upload captured media (photos/videos) to Cloudinary ──
+    var uploadedMedia = [];
+    if (d.mediaUrls && d.mediaUrls.length > 0) {
+      for (var mi = 0; mi < d.mediaUrls.length; mi++) {
+        try {
+          var mItem = d.mediaUrls[mi];
+          var formData = new FormData();
+          // Convert dataUrl to blob
+          var byteString = atob(mItem.dataUrl.split(',')[1]);
+          var mimeString = mItem.dataUrl.split(',')[0].split(':')[1].split(';')[0];
+          var ab = new ArrayBuffer(byteString.length);
+          var ia = new Uint8Array(ab);
+          for (var bi = 0; bi < byteString.length; bi++) ia[bi] = byteString.charCodeAt(bi);
+          var blob = new Blob([ab], { type: mimeString });
+          formData.append('file', blob, mItem.name || ('media_' + mi));
+          formData.append('upload_preset', 'hhp_unsigned');
+          formData.append('folder', 'housley-happy-paws/reports');
+          var uploadType = mItem.type === 'video' ? 'video' : 'image';
+          var cloudResp = await fetch('https://api.cloudinary.com/v1_1/dg1p1zjgv/' + uploadType + '/upload', { method: 'POST', body: formData });
+          var cloudData = await cloudResp.json();
+          if (cloudData.secure_url) {
+            uploadedMedia.push({
+              public_id: cloudData.public_id,
+              url: cloudData.secure_url,
+              thumbnail: cloudData.thumbnail_url || cloudData.secure_url,
+              type: cloudData.resource_type || uploadType,
+              format: cloudData.format
+            });
+          }
+        } catch (upErr) { console.warn('Media upload error:', upErr); }
+      }
+    }
+
     // Save the service report with all editable field values
     var reportData = {
       client_id: d.clientId || null,
@@ -8415,7 +9037,8 @@ async function endServiceFromPanel() {
       mood: mood || null,
       pet_name: reportPets || null,
       personal_note: notes || null,
-      booking_id: d.bookingId || null
+      booking_id: d.bookingId || null,
+      media: uploadedMedia.length > 0 ? uploadedMedia : null
     };
 
     var { error: rptErr } = await sb.from('service_reports').insert(reportData);
@@ -8486,11 +9109,18 @@ async function endServiceFromPanel() {
       });
     } catch(e) { console.warn('Activity log end error:', e); }
 
-    // Update booking status to completed
+    // Update booking status to completed (but NOT for recurring — keep 'accepted' so the series continues)
     if (d.bookingId) {
       try {
-        var { error: bkErr } = await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
-        if (bkErr) console.warn('Booking status update error:', JSON.stringify(bkErr));
+        var { data: bkCheck } = await sb.from('booking_requests').select('recurrence_pattern').eq('id', d.bookingId).single();
+        if (bkCheck && bkCheck.recurrence_pattern) {
+          // Recurring booking: restore to 'accepted' so cron + calendar + client view keep working
+          await sb.from('booking_requests').update({ status: 'accepted' }).eq('id', d.bookingId);
+        } else {
+          // One-time booking: mark completed as normal
+          var { error: bkErr } = await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
+          if (bkErr) console.warn('Booking status update error:', JSON.stringify(bkErr));
+        }
       } catch(e) { console.warn('Booking status update error:', JSON.stringify(e)); }
     }
 
@@ -8517,7 +9147,7 @@ async function endServiceFromPanel() {
     toast('✅ Service completed & report sent!');
 
     // Refresh schedules + calendar
-    if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+    if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
     if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
     if (typeof loadCalendarBookings === 'function') {
       var _now = new Date();
@@ -8588,7 +9218,7 @@ async function viewCompletedReport(bookingId) {
     modal.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center';
     modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
 
-    var h = '<div style="background:white;width:90%;max-width:460px;max-height:85vh;border-radius:16px;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">';
+    var h = '<div style="background:var(--cream,white);width:90%;max-width:460px;max-height:85vh;border-radius:16px;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">';
     h += '<div style="padding:16px 20px;background:var(--forest,#3d5a47);color:white;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">';
     h += '<div style="font-weight:700;font-size:1rem">📋 Service Report</div>';
     h += '<button onclick="document.getElementById(\'hhp-report-viewer\').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;cursor:pointer;font-family:inherit">Close ✕</button>';
@@ -8620,18 +9250,96 @@ async function viewCompletedReport(bookingId) {
       h += '<div style="margin-bottom:12px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:6px">Photos</div>';
       h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
       report.media.forEach(function(m) {
-        h += '<img src="' + (m.url || m.thumbnail || '') + '" style="width:70px;height:70px;object-fit:cover;border-radius:8px">';
+        if (m.type === 'video') {
+          h += '<div onclick="window.open(\'' + m.url + '\',\'_blank\')" style="width:70px;height:70px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="color:white;font-size:1.5rem">🎬</span></div>';
+        } else {
+          h += '<img src="' + (m.url || m.thumbnail || '') + '" onclick="window.open(\'' + (m.url || '') + '\',\'_blank\')" style="width:70px;height:70px;object-fit:cover;border-radius:8px;cursor:pointer">';
+        }
       });
       h += '</div></div>';
+    }
+
+    // Route map placeholder for dog walks
+    var _isWalkReport = report.service && report.service.toLowerCase().indexOf('walk') !== -1;
+    if (_isWalkReport) {
+      h += '<div id="ownerReportRouteMap" style="margin-bottom:12px"></div>';
     }
 
     h += '</div></div>';
     modal.innerHTML = h;
     document.body.appendChild(modal);
+
+    // Load route map for walk reports (owner/staff view)
+    if (_isWalkReport) {
+      _loadOwnerReportRouteMap(report, bookingId);
+    }
   } catch (e) {
     console.error('View report error:', e);
     toast('❌ Could not load report');
   }
+}
+
+// ── Load route map for owner/staff report view ──
+async function _loadOwnerReportRouteMap(report, bookingId) {
+  var container = document.getElementById('ownerReportRouteMap');
+  if (!container) return;
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  try {
+    // Find the walk record
+    var walkData = null;
+    if (bookingId) {
+      var { data: wByB } = await sb.from('walks').select('id, route_summary, status')
+        .eq('booking_id', bookingId).eq('status', 'completed').limit(1);
+      if (wByB && wByB.length > 0) walkData = wByB[0];
+    }
+    if (!walkData && report.client_id && report.report_date) {
+      var { data: wByD } = await sb.from('walks').select('id, route_summary, status')
+        .eq('client_id', report.client_id).eq('status', 'completed')
+        .gte('start_time', report.report_date + 'T00:00:00')
+        .lt('start_time', report.report_date + 'T23:59:59').limit(1);
+      if (wByD && wByD.length > 0) walkData = wByD[0];
+    }
+
+    if (!walkData || !walkData.route_summary || walkData.route_summary.length === 0) {
+      container.innerHTML = '<div style="font-size:0.75rem;color:var(--mid);font-style:italic">No GPS route recorded for this walk.</div>';
+      return;
+    }
+
+    var pts = walkData.route_summary;
+    var mapId = 'owner-route-map-' + walkData.id;
+    container.innerHTML =
+      '<div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:6px">🗺️ Walk Route</div>' +
+      '<div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--border)">' +
+      '<div id="' + mapId + '" style="height:220px;background:#e8e0d0"></div></div>' +
+      '<div style="font-size:0.7rem;color:var(--mid);margin-top:4px">' + pts.length + ' GPS points · ' + (report.distance || '') + '</div>';
+
+    // Ensure Leaflet is loaded then render
+    if (typeof _loadLeaflet === 'function') {
+      _loadLeaflet(function() {
+        _renderRouteMap(mapId, pts);
+      });
+    } else if (typeof L !== 'undefined') {
+      setTimeout(function() { _renderRouteMap(mapId, pts); }, 200);
+    }
+  } catch(e) { console.warn('Owner route map error:', e); }
+}
+
+function _renderRouteMap(mapId, pts) {
+  var el = document.getElementById(mapId);
+  if (!el || typeof L === 'undefined') return;
+  var latlngs = pts.map(function(p) { return [p.lat, p.lng]; });
+  var map = L.map(el, { scrollWheelZoom: false, dragging: true, zoomControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  if (latlngs.length > 1) {
+    var poly = L.polyline(latlngs, { color: '#3d5a47', weight: 4, opacity: 0.85 }).addTo(map);
+    map.fitBounds(poly.getBounds().pad(0.15));
+  } else {
+    map.setView(latlngs[0], 16);
+  }
+  L.circleMarker(latlngs[0], { radius: 7, color: '#3d5a47', fillColor: '#c8963e', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup('Start');
+  L.circleMarker(latlngs[latlngs.length - 1], { radius: 8, color: '#22c55e', fillColor: '#22c55e', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup('End');
 }
 
 // ── VIEW REPORT HISTORY — shows all past reports ──
@@ -8651,7 +9359,7 @@ async function openReportHistory() {
     modal.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center';
     modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
 
-    var h = '<div style="background:white;width:92%;max-width:500px;max-height:85vh;border-radius:16px;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">';
+    var h = '<div style="background:var(--cream,white);width:92%;max-width:500px;max-height:85vh;border-radius:16px;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.2)">';
     h += '<div style="padding:16px 20px;background:var(--forest,#3d5a47);color:white;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center">';
     h += '<div style="font-weight:700;font-size:1rem">📋 Report History</div>';
     h += '<button onclick="document.getElementById(\'hhp-report-history\').remove()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 12px;font-size:0.78rem;cursor:pointer;font-family:inherit">Close ✕</button>';
@@ -8831,7 +9539,7 @@ async function confirmCancelBooking() {
         if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.load === 'function') {
           window.HHP_BookingAdmin.load();
         }
-        if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+        if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
         if (typeof loadMasterSchedule === 'function') loadMasterSchedule();
       } else if (_cancelData.canceledBy === 'staff') {
         // Refresh staff bookings
@@ -9092,7 +9800,7 @@ async function loadAssignments() {
         myAssignments.forEach(function(a) {
           var client = clientMap[a.client_id];
           var cName = client ? (client.full_name || client.email || 'Unknown') : 'Unknown Client';
-          html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#fff;border-radius:6px;margin-bottom:4px;font-size:0.84rem">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--cream,#fff);border-radius:6px;margin-bottom:4px;font-size:0.84rem">';
           html += '<span>🐾 ' + cName + '</span>';
           html += '<button onclick="removeAssignment(\'' + a.id + '\')" style="background:none;border:none;color:#c44;cursor:pointer;font-size:0.78rem;font-weight:600">Remove</button>';
           html += '</div>';
@@ -9275,7 +9983,7 @@ function appendAIMsg(role, text) {
   ava.style.cssText = `width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;${role==='user'?'background:var(--ink);color:white':'background:var(--gold);'}`;
   ava.textContent = role==='user'?'👑':'✨';
   const bubble = document.createElement('div');
-  bubble.style.cssText = `padding:14px 16px;max-width:82%;font-size:0.88rem;line-height:1.65;white-space:pre-wrap;word-break:break-word;${role==='user'?'background:var(--gold);border-radius:14px 4px 14px 14px;color:var(--ink);font-weight:500':'background:white;border-radius:4px 14px 14px 14px;border:1px solid var(--border);color:var(--ink)'}`;
+  bubble.style.cssText = `padding:14px 16px;max-width:82%;font-size:0.88rem;line-height:1.65;white-space:pre-wrap;word-break:break-word;${role==='user'?'background:var(--gold);border-radius:14px 4px 14px 14px;color:var(--ink);font-weight:500':'background:var(--cream,white);border-radius:4px 14px 14px 14px;border:1px solid var(--border);color:var(--ink)'}`;
   bubble.textContent = text;
   wrap.appendChild(ava); wrap.appendChild(bubble);
   log.appendChild(wrap);
@@ -9793,7 +10501,7 @@ function downloadLandingPage() {
     '<meta name="viewport" content="width=device-width,initial-scale=1.0">',
     '<title>Housley Happy Paws<\/title>',
     '<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Jost:wght@400;600;700&display=swap" rel="stylesheet">',
-    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Jost,sans-serif;min-height:100vh;background:linear-gradient(160deg,#FDF6EC,#F5E8CC,#EDD9A3);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}.card{background:#fff;border-radius:28px;padding:36px 28px;max-width:380px;width:100%;box-shadow:0 24px 64px rgba(90,50,10,.14);display:flex;flex-direction:column;align-items:center}.logo{width:90px;height:90px;border-radius:50%;border:3px solid #C8963E;background:#F9EDDA;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:2.4rem}.brand{font-family:"Fredoka One",cursive;font-size:1.75rem;color:#1E1409;text-align:center}.tag{font-size:.68rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#9B7B5A;text-align:center;margin:6px 0 3px}.loc{font-size:.72rem;color:#9B7B5A;text-align:center;margin-bottom:18px}.divider{width:50px;height:2px;background:linear-gradient(90deg,transparent,#C8963E,transparent);margin-bottom:18px}.links{display:flex;flex-direction:column;gap:10px;width:100%}.lbtn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;text-decoration:none;color:#fff;transition:transform .15s}.lbtn:hover{transform:translateY(-2px)}.web{background:linear-gradient(135deg,#C8963E,#9B6E25)}.ig{background:linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)}.fb{background:#1877F2}.icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}.inner{display:flex;flex-direction:column}.lbl{font-size:.57rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}.name{font-size:.88rem;font-weight:700}.foot{margin-top:22px;font-size:.6rem;color:#9B7B5A;text-align:center;line-height:1.8}<\/style>',
+    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Jost,sans-serif;min-height:100vh;background:linear-gradient(160deg,#FDF6EC,#F5E8CC,#EDD9A3);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}.card{background:var(--cream,#fff);border-radius:28px;padding:36px 28px;max-width:380px;width:100%;box-shadow:0 24px 64px rgba(90,50,10,.14);display:flex;flex-direction:column;align-items:center}.logo{width:90px;height:90px;border-radius:50%;border:3px solid #C8963E;background:#F9EDDA;display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:2.4rem}.brand{font-family:"Fredoka One",cursive;font-size:1.75rem;color:#1E1409;text-align:center}.tag{font-size:.68rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#9B7B5A;text-align:center;margin:6px 0 3px}.loc{font-size:.72rem;color:#9B7B5A;text-align:center;margin-bottom:18px}.divider{width:50px;height:2px;background:linear-gradient(90deg,transparent,#C8963E,transparent);margin-bottom:18px}.links{display:flex;flex-direction:column;gap:10px;width:100%}.lbtn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;text-decoration:none;color:#fff;transition:transform .15s}.lbtn:hover{transform:translateY(-2px)}.web{background:linear-gradient(135deg,#C8963E,#9B6E25)}.ig{background:linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)}.fb{background:#1877F2}.icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}.inner{display:flex;flex-direction:column}.lbl{font-size:.57rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}.name{font-size:.88rem;font-weight:700}.foot{margin-top:22px;font-size:.6rem;color:#9B7B5A;text-align:center;line-height:1.8}<\/style>',
     '<\/head><body>',
     '<div class="card">',
     '<div class="logo">&#x1F43E;<\/div>',
@@ -10337,7 +11045,7 @@ function showPetSetupPrompt() {
   overlay.id = 'petSetupOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(30,20,9,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
   overlay.innerHTML =
-    '<div style="background:white;border-radius:16px;padding:32px;max-width:480px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3)">' +
+    '<div style="background:var(--cream,white);border-radius:16px;padding:32px;max-width:480px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3)">' +
       '<div style="font-size:3rem;margin-bottom:12px">🐾</div>' +
       '<h2 style="margin-bottom:8px;color:var(--brown)">Welcome to Housley Happy Paws!</h2>' +
       '<p style="color:var(--mid);margin-bottom:20px;font-size:0.9rem">Before we get started, let\'s set up a profile for your pet. This helps Rachel provide the best possible care!</p>' +
@@ -10494,7 +11202,7 @@ function renderClientCard(c) {
 
   var joinDate = c.created_at ? new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
-  return '<div onclick="if(typeof showClientProfile===\'function\')showClientProfile(\'' + c.id + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--border);border-radius:10px;gap:12px;flex-wrap:wrap;background:white;cursor:pointer;transition:box-shadow 0.2s,border-color 0.2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(30,20,9,0.1)\';this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'var(--border)\'">' +
+  return '<div onclick="if(typeof showClientProfile===\'function\')showClientProfile(\'' + c.id + '\')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--border);border-radius:10px;gap:12px;flex-wrap:wrap;background:var(--cream,white);cursor:pointer;transition:box-shadow 0.2s,border-color 0.2s" onmouseover="this.style.boxShadow=\'0 4px 16px rgba(30,20,9,0.1)\';this.style.borderColor=\'var(--gold)\'" onmouseout="this.style.boxShadow=\'none\';this.style.borderColor=\'var(--border)\'">' +
     '<div style="display:flex;align-items:center;gap:12px;flex:1;min-width:200px">' +
       '<div style="width:40px;height:40px;border-radius:50%;background:var(--forest-pale);display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:var(--forest)">' +
         (c.full_name ? c.full_name.charAt(0).toUpperCase() : '?') +
@@ -10577,7 +11285,7 @@ async function showClientProfile(profileId) {
     };
 
     var sh = document.createElement('div');
-    sh.style.cssText = 'width:100%;max-width:500px;max-height:85vh;background:white;border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
+    sh.style.cssText = 'width:100%;max-width:500px;max-height:85vh;background:var(--cream,white);border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
 
     var avatar = client.avatar_url
       ? '<img src="' + client.avatar_url + '" style="width:100%;height:100%;object-fit:cover">'
@@ -11798,7 +12506,7 @@ async function submitServiceReport() {
 
     // Mark the booking as completed if linked
     if (bookingId) {
-      await HHP_Auth.supabase.from('bookings').update({ status: 'completed' }).eq('id', bookingId);
+      await HHP_Auth.supabase.from('booking_requests').update({ status: 'completed' }).eq('id', bookingId);
     }
 
     toast('📋 Report sent to client!');
@@ -11864,7 +12572,7 @@ async function submitStaffServiceReport() {
 
     // Mark the booking as completed if linked
     if (bookingId) {
-      await HHP_Auth.supabase.from('bookings').update({ status: 'completed' }).eq('id', bookingId);
+      await HHP_Auth.supabase.from('booking_requests').update({ status: 'completed' }).eq('id', bookingId);
     }
 
     toast('📋 Report sent to client!');
@@ -12029,7 +12737,7 @@ async function loadClientReports() {
           '</div>' +
           '<div style="font-size:1.2rem">' + (moodEmoji[r.mood] || '😄') + '</div>' +
         '</div>' +
-        (function() { var bb = detectBathroomBreaks(r.personal_note, r.pet_name); return bb ? renderBathroomBadges(bb, true) : ''; })() +
+        (function() { var bb = detectBathroomBreaks(r.personal_note, r.pet_name); return bb ? renderBathroomBadges(bb, true, true) : ''; })() +
         (r.personal_note ? '<div style="font-size:0.84rem;color:var(--ink);line-height:1.6;margin-top:6px">' + r.personal_note.substring(0, 150) + (r.personal_note.length > 150 ? '...' : '') + '</div>' : '') +
         thumbsHtml +
         (mediaCount > 0 ? '<div style="font-size:0.72rem;color:var(--mid);margin-top:8px">📷 ' + mediaCount + ' photo' + (mediaCount !== 1 ? 's' : '') + '/video' + (mediaCount !== 1 ? 's' : '') + '</div>' : '') +
@@ -12088,7 +12796,7 @@ function openReportDetail(reportOrId) {
       '<div class="rstat"><div class="rstat-num">' + (moodEmoji[report.mood] || '😄') + '</div><div class="rstat-lbl">Mood</div></div>' +
     '</div>' +
     photosHtml +
-    (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false) + '</div>' : ''; })() +
+    (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false, true) + '</div>' : ''; })() +
     '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
     '<div id="reportRouteMapContainer"></div>' +
     '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
@@ -12123,7 +12831,7 @@ function openReportDetail(reportOrId) {
   }
 
   // Load walk route map for dog walk reports
-  if (typeof HHP_Tracking !== 'undefined' && report.service && (report.service.toLowerCase().indexOf('walk') > -1)) {
+  if (report.service && report.service.toLowerCase().indexOf('walk') > -1) {
     _loadReportRouteMap(report);
   }
 }
@@ -12165,24 +12873,12 @@ async function _loadReportRouteMap(report) {
         '</div>' +
         '<div style="font-size:0.75rem;color:var(--mid);margin-top:6px">' + pts.length + ' GPS points recorded during this walk</div>' +
         '</div>';
-      // Initialize Leaflet map after DOM insertion
-      setTimeout(function() {
-        var mapEl = document.getElementById(mapDivId);
-        if (!mapEl || typeof L === 'undefined') return;
-        var latlngs = pts.map(function(p) { return [p.lat, p.lng]; });
-        var map = L.map(mapEl, { scrollWheelZoom: false, dragging: true, zoomControl: true });
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-        if (latlngs.length > 1) {
-          var polyline = L.polyline(latlngs, { color: '#3d5a47', weight: 4, opacity: 0.85 }).addTo(map);
-          map.fitBounds(polyline.getBounds().pad(0.15));
-        } else {
-          map.setView(latlngs[0], 16);
-        }
-        // Start marker (gold)
-        L.circleMarker(latlngs[0], { radius: 7, color: '#3d5a47', fillColor: '#c8963e', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup('Start');
-        // End marker (green)
-        L.circleMarker(latlngs[latlngs.length - 1], { radius: 8, color: '#22c55e', fillColor: '#22c55e', fillOpacity: 1, weight: 2 }).addTo(map).bindPopup('End');
-      }, 300);
+      // Ensure Leaflet is loaded then render
+      if (typeof _loadLeaflet === 'function') {
+        _loadLeaflet(function() { _renderRouteMap(mapDivId, pts); });
+      } else if (typeof L !== 'undefined') {
+        setTimeout(function() { _renderRouteMap(mapDivId, pts); }, 300);
+      }
     }
   } catch (e) {
     console.warn('Route map load error:', e);
@@ -13072,7 +13768,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })();
     </script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
-    <script src="/ux-patch.js?v=20260402a" defer></script>
+    <script src="/ux-patch.js?v=20260406e" defer></script>
 <script>
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
@@ -13185,7 +13881,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('navLogoutBtn').style.display = 'inline-flex';
         // Load dashboard stats
         if (typeof loadDashboardStats === 'function') loadDashboardStats();
-        if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+        if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
+        else if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+        // Recover any in-progress service on page reload
+        if (typeof _recoverActiveService === 'function') _recoverActiveService();
         // If early hydration already fired auth-ready, refresh widgets with real data
         if (window._hhpEarlyHydrated && window.HHP_Customizer && HHP_Customizer.refreshAll) {
           HHP_Customizer.refreshAll();
@@ -13842,6 +14541,209 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  // ── OWNER CALENDAR WIDGET (overview dashboard) ──
+  var _owCalYear, _owCalMonth, _owCalBookings = {}, _owCalSelectedDate = '';
+  window.initOwnerCalWidget = initOwnerCalWidget;
+  async function initOwnerCalWidget() {
+    var container = document.getElementById('owCalWidget');
+    if (!container) return;
+    var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+    if (!sb) { container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem">Loading...</div>'; return; }
+
+    var now = new Date();
+    if (!_owCalYear) { _owCalYear = now.getFullYear(); _owCalMonth = now.getMonth(); }
+    _owCalSelectedDate = _owCalSelectedDate || _localDateStr(now);
+
+    // Fetch all bookings for this month (all statuses we care about, including completed)
+    try {
+      var firstDay = _owCalYear + '-' + String(_owCalMonth + 1).padStart(2, '0') + '-01';
+      var lastDay = _owCalYear + '-' + String(_owCalMonth + 1).padStart(2, '0') + '-' + String(new Date(_owCalYear, _owCalMonth + 1, 0).getDate()).padStart(2, '0');
+
+      var { data: bookings } = await sb.from('booking_requests').select('*')
+        .or('status.eq.accepted,status.eq.confirmed,status.eq.in_progress,status.eq.payment_hold,status.eq.completed')
+        .order('preferred_time', { ascending: true });
+
+      bookings = bookings || [];
+
+      // Build date→bookings map
+      _owCalBookings = {};
+      bookings.forEach(function(b) {
+        var dates = [];
+        var useDate = b.scheduled_date || b.preferred_date;
+        if (useDate) dates.push(useDate);
+
+        // Multi-date bookings
+        if (b.booking_dates && Array.isArray(b.booking_dates)) {
+          b.booking_dates.forEach(function(d) { if (dates.indexOf(d) === -1) dates.push(d); });
+        }
+
+        // House sitting date ranges
+        if (b.preferred_end_date && useDate) {
+          var cur = new Date(useDate + 'T12:00:00');
+          var end = new Date(b.preferred_end_date + 'T12:00:00');
+          while (cur <= end) {
+            var dk = _localDateStr(cur);
+            if (dates.indexOf(dk) === -1) dates.push(dk);
+            cur.setDate(cur.getDate() + 1);
+          }
+        }
+
+        // Recurring bookings
+        if (b.recurrence_pattern && b.status !== 'completed') {
+          var cur = new Date(firstDay + 'T12:00:00');
+          var last = new Date(lastDay + 'T12:00:00');
+          while (cur <= last) {
+            var dk = _localDateStr(cur);
+            if (typeof isRecurringOnDate === 'function' && isRecurringOnDate(b, dk) && dates.indexOf(dk) === -1) dates.push(dk);
+            cur.setDate(cur.getDate() + 1);
+          }
+        }
+
+        dates.forEach(function(dk) {
+          if (dk >= firstDay && dk <= lastDay) {
+            if (!_owCalBookings[dk]) _owCalBookings[dk] = [];
+            var already = _owCalBookings[dk].some(function(x) { return x.id === b.id; });
+            if (!already) _owCalBookings[dk].push(b);
+          }
+        });
+      });
+
+      _buildOwCalWidget(container);
+    } catch (e) {
+      console.warn('initOwnerCalWidget error:', e);
+      container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--mid);font-size:0.82rem">Could not load calendar</div>';
+    }
+  }
+
+  function _buildOwCalWidget(container) {
+    var now = new Date();
+    var todayStr = _localDateStr(now);
+    var names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var days = ['S','M','T','W','T','F','S'];
+    var firstDow = new Date(_owCalYear, _owCalMonth, 1).getDay();
+    var daysInMonth = new Date(_owCalYear, _owCalMonth + 1, 0).getDate();
+
+    var h = '';
+    // Header with nav — wraps gracefully on mobile
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">';
+    h += '<div style="display:flex;align-items:center;gap:4px">';
+    h += '<button onclick="_owCalNav(-1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.8rem;color:var(--ink);min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center">←</button>';
+    h += '<span style="font-weight:700;font-size:0.85rem;color:var(--ink);text-align:center;white-space:nowrap">' + names[_owCalMonth] + ' ' + _owCalYear + '</span>';
+    h += '<button onclick="_owCalNav(1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.8rem;color:var(--ink);min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center">→</button>';
+    h += '</div>';
+    h += '<button class="btn btn-outline btn-sm" onclick="sTab(\'o\',\'o-schedules\')" style="font-size:0.7rem;padding:4px 10px;white-space:nowrap">Full Schedule →</button>';
+    h += '</div>';
+
+    // Mini calendar grid — compact, touch-friendly
+    h += '<div class="ow-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:12px;text-align:center;max-width:100%;overflow:hidden">';
+    days.forEach(function(d) {
+      h += '<div style="font-size:0.62rem;font-weight:700;color:var(--mid);padding:2px 0">' + d + '</div>';
+    });
+    for (var i = 0; i < firstDow; i++) {
+      h += '<div style="padding:4px 0"></div>';
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      var key = _owCalYear + '-' + String(_owCalMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      var isToday = key === todayStr;
+      var isSelected = key === _owCalSelectedDate;
+      var isPast = key < todayStr;
+      var hasEvents = _owCalBookings[key] && _owCalBookings[key].length > 0;
+      var bg = isSelected ? 'var(--forest,#3d5a47)' : isToday ? 'var(--gold-pale,#faf0d5)' : 'transparent';
+      var color = isSelected ? 'white' : isPast ? 'var(--mid,#999)' : 'var(--ink)';
+      var border = isToday && !isSelected ? '1.5px solid var(--gold,#c8963e)' : '1.5px solid transparent';
+      var opacity = isPast && !isSelected ? '0.45' : '1';
+      var dot = hasEvents ? '<div style="width:4px;height:4px;border-radius:50%;background:' + (isSelected ? 'white' : 'var(--gold,#c8963e)') + ';margin:1px auto 0"></div>' : '';
+      h += '<div onclick="_owCalSelectDay(\'' + key + '\')" style="padding:4px 0;border-radius:6px;cursor:pointer;background:' + bg + ';color:' + color + ';border:' + border + ';font-size:0.75rem;font-weight:' + (isToday ? '700' : '500') + ';transition:all 0.15s;line-height:1.2;min-height:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:' + opacity + '">' + d + dot + '</div>';
+    }
+    h += '</div>';
+
+    // Selected day header — shorter date on mobile
+    var selDate = new Date(_owCalSelectedDate + 'T12:00:00');
+    var selLabel = selDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    h += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);gap:8px">';
+    h += '<div style="font-weight:700;font-size:0.85rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + selLabel + '</div>';
+    if (_owCalSelectedDate !== todayStr) {
+      h += '<button onclick="_owCalSelectDay(\'' + todayStr + '\')" style="background:var(--gold-pale);border:1px solid var(--gold);border-radius:6px;padding:3px 10px;font-size:0.68rem;font-weight:600;cursor:pointer;color:var(--ink);white-space:nowrap;flex-shrink:0">Today</button>';
+    }
+    h += '</div>';
+
+    // Day appointments
+    h += '<div id="owCalDayList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;overflow-x:hidden">';
+    h += _buildOwCalDayList(_owCalSelectedDate);
+    h += '</div>';
+
+    container.innerHTML = h;
+  }
+
+  function _buildOwCalDayList(dateKey) {
+    var bookings = _owCalBookings[dateKey] || [];
+    if (bookings.length === 0) {
+      return '<div style="padding:16px;text-align:center;color:var(--mid);font-size:0.84rem">No appointments this day.</div>';
+    }
+
+    // Sort: active first (by time), then completed at bottom (like the main calendar)
+    var sorted = bookings.slice().sort(function(a, b) {
+      var aCompleted = a.status === 'completed' ? 1 : 0;
+      var bCompleted = b.status === 'completed' ? 1 : 0;
+      if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+      return (a.preferred_time || a.scheduled_time || '').localeCompare(b.preferred_time || b.scheduled_time || '');
+    });
+
+    var svcIcons = { 'walk': '🐕', 'drop': '🚪', 'cat': '🐱', 'house': '🏡', 'meet': '🤝', 'board': '🌙', 'day care': '☀️' };
+    function getIcon(svc) {
+      var s = (svc || '').toLowerCase();
+      for (var k in svcIcons) { if (s.indexOf(k) !== -1) return svcIcons[k]; }
+      return '🐾';
+    }
+    function _fmt12(t) {
+      if (!t || t.indexOf(':') === -1) return t || 'TBD';
+      var parts = t.split(':');
+      var hr = parseInt(parts[0]), mn = parts[1];
+      var ampm = hr >= 12 ? 'PM' : 'AM';
+      hr = hr > 12 ? hr - 12 : (hr === 0 ? 12 : hr);
+      return hr + ':' + mn + ' ' + ampm;
+    }
+
+    var html = '';
+    sorted.forEach(function(b) {
+      var icon = getIcon(b.service);
+      var timeStr = _fmt12(b.scheduled_time || b.preferred_time || '');
+      var clientName = b.contact_name || 'Client';
+      var st = b.status || 'accepted';
+      var isCompleted = st === 'completed';
+      var isInProgress = st === 'in_progress';
+      var badgeColor = isInProgress ? '#2196F3' : isCompleted ? '#4caf50' : 'var(--forest,#3d5a47)';
+      var badgeLabel = isInProgress ? '▶ In Progress' : isCompleted ? '✅ Done' : 'Confirmed';
+      var opacity = isCompleted ? 'opacity:0.75;' : '';
+      var bIsHS = (b.service || '').toLowerCase().indexOf('house sitting') !== -1 && b.preferred_end_date;
+
+      html += '<div onclick="showBookingDetail(\'' + b.id + '\',\'owner\',\'booking_requests\')" style="cursor:pointer;padding:10px;background:var(--warm,#faf6ee);border-radius:10px;transition:box-shadow 0.15s;overflow:hidden;' + opacity + '" onmouseover="this.style.boxShadow=\'0 2px 10px rgba(0,0,0,0.07)\'" onmouseout="this.style.boxShadow=\'none\'">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px">';
+      html += '<div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden">';
+      html += '<div style="font-size:1rem;flex-shrink:0">' + icon + '</div>';
+      html += '<div style="min-width:0;overflow:hidden"><div style="font-weight:600;font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (b.service || 'Service') + '</div>';
+      html += '<div style="font-size:0.7rem;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + timeStr + ' · ' + clientName + '</div>';
+      if (b.pet_names) html += '<div style="font-size:0.66rem;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🐾 ' + b.pet_names + '</div>';
+      html += '</div></div>';
+      html += '<span style="background:' + badgeColor + ';color:white;font-size:0.58rem;font-weight:700;padding:2px 7px;border-radius:50px;white-space:nowrap;flex-shrink:0;margin-top:2px">' + badgeLabel + '</span>';
+      html += '</div></div>';
+    });
+    return html;
+  }
+
+  window._owCalNav = function(dir) {
+    _owCalMonth += dir;
+    if (_owCalMonth > 11) { _owCalMonth = 0; _owCalYear++; }
+    if (_owCalMonth < 0) { _owCalMonth = 11; _owCalYear--; }
+    initOwnerCalWidget();
+  };
+
+  window._owCalSelectDay = function(dateKey) {
+    _owCalSelectedDate = dateKey;
+    var container = document.getElementById('owCalWidget');
+    if (container) _buildOwCalWidget(container);
+  };
+
   // ── MASTER SCHEDULE ──
   var _masterSchedDate = new Date();
   function _masterSchedPrev() { _masterSchedDate.setMonth(_masterSchedDate.getMonth() - 1); loadMasterSchedule(); }
@@ -14073,7 +14975,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
           // Owner schedule
           debounceRefresh('ownerSched', function() {
-            if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+            if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
           });
 
           // Master schedule (only if panel is open)
@@ -14130,7 +15032,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
           // Refresh owner schedule (badges change: in_progress / completed)
           debounceRefresh('ownerSchedWalk', function() {
-            if (typeof loadOwnerTodaySchedule === 'function') loadOwnerTodaySchedule();
+            if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
           });
 
           // Staff schedule
@@ -14340,13 +15242,13 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260402a" defer></script>
+  <script src="/js/booking-system.js?v=20260406d" defer></script>
   <script src="/js/messaging.js?v=20260402a" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
-  <script src="/js/customizer.js?v=20260402a" defer></script>
+  <script src="/js/customizer.js?v=20260406b" defer></script>
   <script src="/js/avatar-system.js?v=20260402a" defer></script>
-  <script src="/js/settings-panel.js" defer></script>
+  <script src="/js/settings-panel.js?v=20260406b" defer></script>
   <script src="/js/availability.js" defer></script>
   <!-- Leaflet + live tracking: lazy-loaded only when tracking panel is opened -->
   <script>

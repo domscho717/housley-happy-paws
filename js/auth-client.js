@@ -104,7 +104,7 @@ const HHP_Auth = window.HHP_Auth = {
             // Get user role from profiles table
             const { data: profile, error } = await this.supabase
                 .from('profiles')
-                .select('role, full_name, phone, pet_names, avatar_url, preferences')
+                .select('role, full_name, phone, pet_names, avatar_url, preferences, address, emergency_contact_name, emergency_contact_phone')
                 .eq('user_id', session.user.id)
                 .single();
 

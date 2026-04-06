@@ -38,6 +38,11 @@ module.exports = async function handler(req, res) {
     const isRecurring = !!booking.recurrence_pattern;
     const isSingleCancel = cancelSingle && isRecurring;
 
+    // Validate that cancelDate is provided for single occurrence cancel
+    if (isSingleCancel && !cancelDate) {
+      return res.status(400).json({ error: 'cancelDate is required for single-occurrence cancellation' });
+    }
+
     // 3. Calculate if it's a free or late cancel based on policy
     // Policy: Free cancel = before midnight, 2 days before booking (EST)
     const cancellationType = calculateCancellationType(booking, isSingleCancel ? cancelDate : null);
@@ -144,7 +149,7 @@ module.exports = async function handler(req, res) {
         .select('*')
         .eq('booking_request_id', bookingRequestId)
         .eq('service_date', cancelDate)
-        .single();
+        .maybeSingle();
 
       if (recurringInvoice && recurringInvoice.stripe_invoice_id) {
         try {
@@ -299,7 +304,8 @@ module.exports = async function handler(req, res) {
  * Late cancel = after that cutoff (within 48 hours of service)
  */
 function calculateCancellationType(booking, specificDate) {
-  const now = new Date();
+  // Get current time in Eastern timezone
+  const nowEastern = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
   // Determine the service date to check
   const serviceDate = specificDate || booking.scheduled_date || booking.preferred_date;
@@ -307,12 +313,12 @@ function calculateCancellationType(booking, specificDate) {
     return 'late'; // Default to late if no date found
   }
 
-  // Convert service date to EST midnight (2 days before)
-  const serviceDateObj = new Date(serviceDate + 'T00:00:00-05:00'); // EST
+  // Parse service date as midnight in local Eastern timezone
+  const serviceDateObj = new Date(serviceDate + 'T00:00:00');
   const cutoffTime = new Date(serviceDateObj);
   cutoffTime.setDate(cutoffTime.getDate() - 2); // 2 days before
-  cutoffTime.setHours(23, 59, 59, 999); // Midnight EST (11:59 PM)
+  cutoffTime.setHours(23, 59, 59, 999); // 11:59 PM on cutoff date
 
   // Compare current time with cutoff
-  return now <= cutoffTime ? 'free' : 'late';
+  return nowEastern <= cutoffTime ? 'free' : 'late';
 }

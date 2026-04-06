@@ -19,7 +19,7 @@
                   ]
           },
           {
-                  "source": "/assets/:path*",
+                  "source": "/(.*\\.(css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp))",
                   "headers": [
                             { "key": "Cache-Control", "value": "public, max-age=604800, immutable" }
                   ]
@@ -37,7 +37,7 @@
     "crons": [
           {
                   "path": "/api/recurring-invoices",
-                  "schedule": "0 8 * * *"
+                  "schedule": "0 13 * * 0"
           },
           {
                   "path": "/api/capture-payments",

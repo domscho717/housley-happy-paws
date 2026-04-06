@@ -340,7 +340,7 @@
         .eq('walker_id', user.id)
         .eq('status', 'in_progress')
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (!activeWalk) return;
 
@@ -546,7 +546,7 @@
 
     var toast = document.createElement('div');
     toast.id = 'hhp-directions-toast';
-    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;background:white;border-radius:16px;padding:16px 20px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);border:2px solid var(--forest,#3d5a47);font-family:inherit;animation:slideDown 0.3s ease;';
+    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;background:var(--cream,white);border-radius:16px;padding:16px 20px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);border:2px solid var(--forest,#3d5a47);font-family:inherit;animation:slideDown 0.3s ease;';
 
     toast.innerHTML =
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +

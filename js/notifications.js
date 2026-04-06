@@ -98,7 +98,7 @@
     _drawerEl.id = 'hhpNotifDrawer';
     _drawerEl.style.cssText = [
       'position:fixed', 'bottom:86px', 'left:24px', 'z-index:999',
-      'width:340px', 'max-height:480px', 'background:white',
+      'width:340px', 'max-height:480px', 'background:var(--cream,white)',
       'border-radius:16px', 'box-shadow:0 12px 48px rgba(0,0,0,0.18)',
       'display:none', 'flex-direction:column', 'overflow:hidden',
       'font-family:inherit', 'animation:hhpDrawerIn 0.25s ease'

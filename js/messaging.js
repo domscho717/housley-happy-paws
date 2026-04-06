@@ -198,12 +198,12 @@
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.15s ease';
     overlay.innerHTML =
-      '<div style="background:white;border-radius:16px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2)">' +
+      '<div style="background:var(--cream,white);border-radius:16px;padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.2)">' +
         '<div style="font-size:1.6rem;margin-bottom:10px">🗑️</div>' +
         '<div style="font-weight:700;font-size:1rem;margin-bottom:6px;color:var(--ink,#2C2C2C)">Clear Conversation</div>' +
         '<div style="font-size:0.84rem;color:var(--mid,#888);margin-bottom:20px;line-height:1.4">Clear your chat with <strong>' + (partnerName || 'this person') + '</strong>? The conversation will be hidden until new messages arrive.</div>' +
         '<div style="display:flex;gap:10px">' +
-          '<button id="hhp-clear-cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border,#ddd);background:white;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--ink,#2C2C2C)">Cancel</button>' +
+          '<button id="hhp-clear-cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border,#ddd);background:var(--cream,white);font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--ink,#2C2C2C)">Cancel</button>' +
           '<button id="hhp-clear-confirm" style="flex:1;padding:10px;border-radius:10px;border:none;background:#e74c3c;color:white;font-size:0.88rem;font-weight:600;cursor:pointer;font-family:inherit">Clear</button>' +
         '</div>' +
       '</div>';

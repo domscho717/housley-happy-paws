@@ -130,7 +130,7 @@ module.exports = async function handler(req, res) {
       .select('user_id')
       .eq('role', 'owner')
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const ownerUserId = ownerProfile ? ownerProfile.user_id : null;
 

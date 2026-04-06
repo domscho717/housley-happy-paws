@@ -90,7 +90,7 @@ module.exports = async function handler(req, res) {
       .select('user_id, full_name')
       .eq('role', 'owner')
       .limit(1)
-      .single();
+      .maybeSingle();
     const ownerUserId = ownerProfile ? ownerProfile.user_id : null;
     const ownerName = ownerProfile ? ownerProfile.full_name : 'Rachel';
 
@@ -187,7 +187,7 @@ module.exports = async function handler(req, res) {
             .from('profiles')
             .select('user_id, full_name')
             .eq('id', sa.staff_id)
-            .single();
+            .maybeSingle();
 
           if (staffProfile) {
             // In-app message

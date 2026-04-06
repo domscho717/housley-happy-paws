@@ -3,6 +3,9 @@
 // Adds profile viewing to owner portal
 // ============================================================
 
+// HTML escape helper for XSS prevention
+function _escHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 // Helper to get Supabase client
 function getSB() {
   if (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) return HHP_Auth.supabase;
@@ -67,12 +70,12 @@ async function showClientProfile(profileId) {
       if (pet.friendly_children) social += '<span style="display:inline-block;padding:2px 8px;background:#dcfce7;color:#166534;border-radius:6px;font-size:0.72rem;font-weight:600;margin:2px">\uD83D\uDC76 Child Friendly</span>';
       else if (pet.friendly_children === false) social += '<span style="display:inline-block;padding:2px 8px;background:#fef2f2;color:#991b1b;border-radius:6px;font-size:0.72rem;font-weight:600;margin:2px">\uD83D\uDC76 Not Child Friendly</span>';
 
-      return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;background:white">' +
+      return '<div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px;background:var(--cream,white)">' +
         '<div onclick="var d=this.nextElementSibling;d.style.display=d.style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.pet-arrow\').textContent=d.style.display===\'none\'?\'\u25B6\':\'\u25BC\'" style="display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;transition:background 0.2s" onmouseover="this.style.background=\'var(--warm)\'" onmouseout="this.style.background=\'transparent\'">' +
           photoHtml +
           '<div style="flex:1">' +
-            '<div style="font-weight:700;font-size:0.95rem">' + (pet.name || 'Pet') + '</div>' +
-            '<div style="font-size:0.8rem;color:var(--mid)">' + (pet.species || '') + (pet.breed ? ' \u00B7 ' + pet.breed : '') + (pet.sex ? ' \u00B7 ' + pet.sex : '') + '</div>' +
+            '<div style="font-weight:700;font-size:0.95rem">' + _escHtml(pet.name || 'Pet') + '</div>' +
+            '<div style="font-size:0.8rem;color:var(--mid)">' + _escHtml(pet.species || '') + (pet.breed ? ' \u00B7 ' + _escHtml(pet.breed) : '') + (pet.sex ? ' \u00B7 ' + _escHtml(pet.sex) : '') + '</div>' +
           '</div>' +
           '<span class="pet-arrow" style="font-size:0.8rem;color:var(--mid)">\u25B6</span>' +
         '</div>' +
@@ -81,14 +84,14 @@ async function showClientProfile(profileId) {
           // --- Pet Details section ---
           '<div style="font-weight:700;font-size:0.82rem;color:var(--forest);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em">\uD83D\uDC3E Pet Details</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Name:</strong> ' + (pet.name || '\u2014') + '</div>' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Species:</strong> ' + (pet.species || '\u2014') + '</div>' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Breed:</strong> ' + (pet.breed || '\u2014') + '</div>' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Sex:</strong> ' + (pet.sex || '\u2014') + '</div>' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Birthday:</strong> ' + (pet.birthday || '\u2014') + '</div>' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Weight:</strong> ' + (pet.weight ? pet.weight + ' lbs' : '\u2014') + '</div>' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Size:</strong> ' + (pet.size || '\u2014') + '</div>' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Energy Level:</strong> ' + (pet.energy_level || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Name:</strong> ' + _escHtml(pet.name || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Species:</strong> ' + _escHtml(pet.species || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Breed:</strong> ' + _escHtml(pet.breed || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Sex:</strong> ' + _escHtml(pet.sex || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Birthday:</strong> ' + _escHtml(pet.birthday || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Weight:</strong> ' + _escHtml(pet.weight ? pet.weight + ' lbs' : '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Size:</strong> ' + _escHtml(pet.size || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Energy Level:</strong> ' + _escHtml(pet.energy_level || '\u2014') + '</div>' +
           '</div>' +
 
           // --- Health & Safety section ---
@@ -102,19 +105,19 @@ async function showClientProfile(profileId) {
           // --- Veterinary & Care section ---
           '<div style="font-weight:700;font-size:0.82rem;color:var(--forest);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em">\uD83C\uDFE5 Veterinary & Care</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Vet Name:</strong> ' + (pet.vet_name || '\u2014') + '</div>' +
-            '<div style="padding:8px 10px;background:white;border-radius:6px;font-size:0.84rem"><strong>Vet Phone:</strong> ' + (pet.vet_phone || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Vet Name:</strong> ' + _escHtml(pet.vet_name || '\u2014') + '</div>' +
+            '<div style="padding:8px 10px;background:var(--cream,white);border-radius:6px;font-size:0.84rem"><strong>Vet Phone:</strong> ' + _escHtml(pet.vet_phone || '\u2014') + '</div>' +
           '</div>' +
 
           // --- Alerts (medications, allergies, special needs) ---
-          (pet.medications ? '<div style="padding:10px 12px;background:#fff3cd;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid #f59e0b">\u26A0\uFE0F <strong>Medications:</strong> ' + pet.medications + '</div>' : '') +
-          (pet.allergies ? '<div style="padding:10px 12px;background:#fef2f2;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid #ef4444">\u26A0\uFE0F <strong>Allergies:</strong> ' + pet.allergies + '</div>' : '') +
-          (pet.special_needs ? '<div style="padding:10px 12px;background:#fef3c7;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid #d97706">\u2B50 <strong>Special Needs:</strong> ' + pet.special_needs + '</div>' : '') +
+          (pet.medications ? '<div style="padding:10px 12px;background:#fff3cd;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid #f59e0b">\u26A0\uFE0F <strong>Medications:</strong> ' + _escHtml(pet.medications) + '</div>' : '') +
+          (pet.allergies ? '<div style="padding:10px 12px;background:#fef2f2;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid #ef4444">\u26A0\uFE0F <strong>Allergies:</strong> ' + _escHtml(pet.allergies) + '</div>' : '') +
+          (pet.special_needs ? '<div style="padding:10px 12px;background:#fef3c7;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid #d97706">\u2B50 <strong>Special Needs:</strong> ' + _escHtml(pet.special_needs) + '</div>' : '') +
 
           // --- Care Instructions ---
-          (pet.feeding_instructions ? '<div style="padding:10px 12px;background:white;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid var(--forest)"><strong>\uD83C\uDF7D\uFE0F Feeding Instructions:</strong><br>' + pet.feeding_instructions + '</div>' : '') +
-          (pet.behavioral_notes ? '<div style="padding:10px 12px;background:white;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid var(--gold)"><strong>\uD83D\uDCCB Behavioral Notes:</strong><br>' + pet.behavioral_notes + '</div>' : '') +
-          (pet.notes ? '<div style="padding:10px 12px;background:white;border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid var(--mid)"><strong>\uD83D\uDCDD Additional Notes:</strong><br>' + pet.notes + '</div>' : '') +
+          (pet.feeding_instructions ? '<div style="padding:10px 12px;background:var(--cream,white);border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid var(--forest)"><strong>\uD83C\uDF7D\uFE0F Feeding Instructions:</strong><br>' + _escHtml(pet.feeding_instructions) + '</div>' : '') +
+          (pet.behavioral_notes ? '<div style="padding:10px 12px;background:var(--cream,white);border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid var(--gold)"><strong>\uD83D\uDCCB Behavioral Notes:</strong><br>' + _escHtml(pet.behavioral_notes) + '</div>' : '') +
+          (pet.notes ? '<div style="padding:10px 12px;background:var(--cream,white);border-radius:8px;font-size:0.84rem;margin-bottom:8px;border-left:3px solid var(--mid)"><strong>\uD83D\uDCDD Additional Notes:</strong><br>' + _escHtml(pet.notes) + '</div>' : '') +
 
         '</div>' +
       '</div>';
@@ -126,10 +129,10 @@ async function showClientProfile(profileId) {
   // Notes section
   var notesHtml = canEditNotes
     ? '<div style="padding:12px;background:var(--cream);border-radius:8px;min-height:60px;">' +
-        '<textarea id="client-notes-' + p.id + '" style="width:100%;border:none;background:transparent;resize:vertical;min-height:60px;font-family:inherit;">' + (p.notes || '') + '</textarea>' +
+        '<textarea id="client-notes-' + p.id + '" style="width:100%;border:none;background:transparent;resize:vertical;min-height:60px;font-family:inherit;">' + _escHtml(p.notes || '') + '</textarea>' +
         '<button onclick="saveClientNotes(\'' + p.id + '\')" style="margin-top:8px;padding:6px 16px;background:var(--gold);color:white;border:none;border-radius:6px;cursor:pointer;">Save Notes</button>' +
       '</div>'
-    : (p.notes ? '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem">' + p.notes + '</div>' : '<p style="color:#888;font-size:0.88rem">No notes.</p>');
+    : (p.notes ? '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem">' + _escHtml(p.notes) + '</div>' : '<p style="color:#888;font-size:0.88rem">No notes.</p>');
 
   // Member since
   var memberSince = p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '\u2014';
@@ -139,7 +142,7 @@ async function showClientProfile(profileId) {
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
   modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
   modal.innerHTML =
-    '<div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:32px;position:relative;">' +
+    '<div style="background:var(--cream,white);border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:32px;position:relative;">' +
       '<button onclick="document.getElementById(\'profile-modal\').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.5rem;cursor:pointer;z-index:1">&times;</button>' +
 
       // --- Header ---
@@ -148,8 +151,8 @@ async function showClientProfile(profileId) {
           ? '<img src="' + p.avatar_url + '" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid var(--gold-light);flex-shrink:0">'
           : '<div style="width:60px;height:60px;border-radius:50%;background:var(--gold-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem;">\uD83D\uDC3E</div>') +
         '<div>' +
-          '<h2 style="margin:0;font-family:\'Cormorant Garamond\',serif;color:var(--forest);">' + (p.full_name || 'Client') + '</h2>' +
-          '<span style="color:var(--gold);font-weight:600;">Customer #' + (p.customer_number || 'N/A') + '</span>' +
+          '<h2 style="margin:0;font-family:\'Cormorant Garamond\',serif;color:var(--forest);">' + _escHtml(p.full_name || 'Client') + '</h2>' +
+          '<span style="color:var(--gold);font-weight:600;">Customer #' + _escHtml(p.customer_number || 'N/A') + '</span>' +
           '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">Member since ' + memberSince + '</div>' +
         '</div>' +
       '</div>' +
@@ -157,13 +160,13 @@ async function showClientProfile(profileId) {
       // --- Contact & Account Information ---
       '<h3 style="color:var(--forest);border-bottom:2px solid var(--gold-light);padding-bottom:8px;margin-bottom:12px">\uD83D\uDCCB Client Information</h3>' +
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px;">' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Full Name:</strong> ' + (p.full_name || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Email:</strong> ' + (p.email || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Phone:</strong> ' + (p.phone || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Customer #:</strong> ' + (p.customer_number || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem;grid-column:1/-1"><strong>Address:</strong> ' + (p.address || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Emergency Contact:</strong> ' + (p.emergency_contact || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Emergency Phone:</strong> ' + (p.emergency_phone || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Full Name:</strong> ' + _escHtml(p.full_name || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Email:</strong> ' + _escHtml(p.email || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Phone:</strong> ' + _escHtml(p.phone || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Customer #:</strong> ' + _escHtml(p.customer_number || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem;grid-column:1/-1"><strong>Address:</strong> ' + _escHtml(p.address || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Emergency Contact:</strong> ' + _escHtml(p.emergency_contact || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Emergency Phone:</strong> ' + _escHtml(p.emergency_phone || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Stripe Payment:</strong> ' + (p.stripe_customer_id ? '\u2705 Card on file' : '\u274C No card on file') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Account Role:</strong> ' + (p.role || 'client') + '</div>' +
       '</div>' +
@@ -234,24 +237,24 @@ async function showStaffProfile(profileId) {
   modal.id = 'profile-modal';
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
   modal.innerHTML = `
-    <div style="background:white;border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:32px;position:relative;">
+    <div style="background:var(--cream,white);border-radius:16px;max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:32px;position:relative;">
       <button onclick="document.getElementById('profile-modal').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
         ${s.avatar_url
           ? '<img src="' + s.avatar_url + '" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:3px solid var(--forest-light);flex-shrink:0">'
           : '<div style="width:60px;height:60px;border-radius:50%;background:var(--forest-light);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:white;">\u{1F464}</div>'}
         <div>
-          <h2 style="margin:0;font-family:'Cormorant Garamond',serif;color:var(--forest);">${s.full_name || 'Staff Member'}</h2>
+          <h2 style="margin:0;font-family:'Cormorant Garamond',serif;color:var(--forest);">${_escHtml(s.full_name || 'Staff Member')}</h2>
           <span style="color:var(--forest);font-weight:600;">Staff · ${s.is_active ? 'Active' : 'Inactive'}</span>
           ${s.hire_date ? `<br><small>Hired: ${new Date(s.hire_date).toLocaleDateString()}</small>` : ''}
         </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;">
-        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Phone:</strong> ${s.phone || '—'}</div>
-        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Email:</strong> ${s.email || '—'}</div>
-        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Hourly Rate:</strong> ${s.hourly_rate ? '$' + s.hourly_rate : '—'}</div>
-        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Address:</strong> ${s.address || '—'}</div>
+        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Phone:</strong> ${_escHtml(s.phone || '—')}</div>
+        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Email:</strong> ${_escHtml(s.email || '—')}</div>
+        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Hourly Rate:</strong> ${_escHtml(s.hourly_rate ? '$' + s.hourly_rate : '—')}</div>
+        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Address:</strong> ${_escHtml(s.address || '—')}</div>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
@@ -283,14 +286,14 @@ async function showStaffProfile(profileId) {
       <div style="margin-bottom:24px;">
         ${assignments.length ? assignments.map(a => `
           <div style="padding:8px 12px;border-bottom:1px solid #eee;cursor:pointer;" onclick="document.getElementById('profile-modal').remove();showClientProfile('${a.client_id}')">
-            ${a.profiles?.full_name || 'Client'} <span style="color:var(--gold);">#${a.profiles?.customer_number || '—'}</span>
+            ${_escHtml(a.profiles?.full_name || 'Client')} <span style="color:var(--gold);">#${_escHtml(a.profiles?.customer_number || '—')}</span>
           </div>
         `).join('') : '<p style="color:#888;">No assigned clients.</p>'}
       </div>
 
       <h3 style="color:var(--forest);border-bottom:2px solid var(--gold-light);padding-bottom:8px;">\u{1F4DD} Notes</h3>
       <div style="padding:12px;background:var(--cream);border-radius:8px;">
-        <textarea id="staff-notes-${s.id}" style="width:100%;border:none;background:transparent;resize:vertical;min-height:60px;font-family:inherit;">${s.notes || ''}</textarea>
+        <textarea id="staff-notes-${s.id}" style="width:100%;border:none;background:transparent;resize:vertical;min-height:60px;font-family:inherit;">${_escHtml(s.notes || '')}</textarea>
         <button onclick="saveStaffNotes('${s.id}')" style="margin-top:8px;padding:6px 16px;background:var(--forest);color:white;border:none;border-radius:6px;cursor:pointer;">Save Notes</button>
       </div>
     </div>

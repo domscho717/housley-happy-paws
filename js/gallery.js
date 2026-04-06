@@ -547,7 +547,7 @@
     var modal = document.createElement('div');
     modal.style.cssText = 'background:var(--cream,#fdf7ee);border-radius:16px;padding:28px;max-width:380px;width:90%;box-shadow:0 12px 40px rgba(0,0,0,0.2);';
     modal.innerHTML = '<h3 style="margin:0 0 16px;font-size:1.1rem;color:var(--dark,#1e1409);">Upload Photos For...</h3>' +
-      '<button class="hhp-cp-btn" data-id="" data-name="General / Business" style="width:100%;padding:12px;margin-bottom:8px;border:1px solid var(--border,#e0d5c5);border-radius:10px;background:white;cursor:pointer;text-align:left;font-size:0.9rem;font-family:inherit;">📁 General / Business Photos</button>' +
+      '<button class="hhp-cp-btn" data-id="" data-name="General / Business" style="width:100%;padding:12px;margin-bottom:8px;border:1px solid var(--border,#e0d5c5);border-radius:10px;background:var(--cream,white);cursor:pointer;text-align:left;font-size:0.9rem;font-family:inherit;">📁 General / Business Photos</button>' +
       '<div id="hhpClientList" style="max-height:200px;overflow-y:auto;"><div style="text-align:center;padding:16px;color:var(--mid);font-size:0.82rem;">Loading clients...</div></div>' +
       '<button style="margin-top:12px;width:100%;padding:10px;border:none;background:var(--mid,#8c6b4a);color:white;border-radius:8px;cursor:pointer;font-family:inherit;" onclick="this.closest(\'div[style]\').remove()">Cancel</button>';
     overlay.appendChild(modal);
@@ -570,7 +570,7 @@
       list.innerHTML = '';
       res.data.forEach(function(client) {
         var btn = document.createElement('button');
-        btn.style.cssText = 'width:100%;padding:12px;margin-bottom:6px;border:1px solid var(--border,#e0d5c5);border-radius:10px;background:white;cursor:pointer;text-align:left;font-size:0.9rem;font-family:inherit;';
+        btn.style.cssText = 'width:100%;padding:12px;margin-bottom:6px;border:1px solid var(--border,#e0d5c5);border-radius:10px;background:var(--cream,white);cursor:pointer;text-align:left;font-size:0.9rem;font-family:inherit;';
         btn.textContent = '🐾 ' + (client.full_name || client.email.split('@')[0]);
         btn.addEventListener('click', function() {
           document.body.removeChild(overlay);

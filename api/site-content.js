@@ -10,7 +10,9 @@ function getSupabase(authHeader) {
   const anonKey = process.env.SUPABASE_ANON_KEY;
   if (!url || !anonKey) return null;
 
-  const opts = {};
+  const opts = {
+    auth: { persistSession: false, autoRefreshToken: false }
+  };
   if (authHeader) {
     opts.global = { headers: { Authorization: authHeader } };
   }
@@ -30,18 +32,23 @@ module.exports = async (req, res) => {
 
   // GET - Read site content (public)
   if (req.method === 'GET') {
-    const section = req.query.section;
-    let query = supabase.from('site_content').select('section_key, content, updated_at');
+    try {
+      const section = req.query.section;
+      let query = supabase.from('site_content').select('section_key, content, updated_at');
 
-    if (section) {
-      query = query.eq('section_key', section).single();
-    }
+      if (section) {
+        query = query.eq('section_key', section).maybeSingle();
+      }
 
-    const { data, error } = await query;
-    if (error && error.code !== 'PGRST116') {
-      return res.status(500).json({ error: error.message });
+      const { data, error } = await query;
+      if (error && error.code !== 'PGRST116') {
+        return res.status(500).json({ error: error.message });
+      }
+      return res.status(200).json(data || {});
+    } catch (err) {
+      console.error('site-content GET error:', err.message);
+      return res.status(500).json({ error: err.message });
     }
-    return res.status(200).json(data || {});
   }
 
   // POST - Save site content (owner only)

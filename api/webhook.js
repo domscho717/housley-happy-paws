@@ -55,9 +55,16 @@ module.exports = async function handler(req, res) {
       // Save payment record to Supabase
       try {
         const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
+        // Look up client_id from email
+        let clientId = session.metadata?.clientId || null;
+        if (!clientId && session.customer_email) {
+          const { data: prof } = await supabase.from('profiles').select('user_id').eq('email', session.customer_email).limit(1).maybeSingle();
+          if (prof) clientId = prof.user_id;
+        }
         await supabase.from('payments').insert({
           stripe_session_id: session.id,
           client_email: session.customer_email || '',
+          client_id: clientId,
           amount: session.amount_total / 100,
           service: session.metadata?.service || '',
           client_name: session.metadata?.clientName || '',
@@ -85,10 +92,16 @@ module.exports = async function handler(req, res) {
       try {
         const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
 
-        // 1. Record the payment
+        // 1. Record the payment (look up client_id from email)
+        let invClientId = meta.clientId || null;
+        if (!invClientId && invoice.customer_email) {
+          const { data: prof } = await supabase.from('profiles').select('user_id').eq('email', invoice.customer_email).limit(1).maybeSingle();
+          if (prof) invClientId = prof.user_id;
+        }
         await supabase.from('payments').insert({
           stripe_session_id: invoice.id,
           client_email: invoice.customer_email || '',
+          client_id: invClientId,
           amount: invoice.amount_paid / 100,
           service: meta.service || 'Pet Care',
           client_name: meta.clientName || '',
@@ -126,7 +139,8 @@ module.exports = async function handler(req, res) {
               .from('profiles')
               .select('id')
               .eq('email', invoice.customer_email)
-              .single();
+              .limit(1)
+              .maybeSingle();
             if (profile) clientId = profile.id;
           }
 

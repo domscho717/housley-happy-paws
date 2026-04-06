@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
         .from('profiles')
         .select('stripe_customer_id')
         .eq('user_id', profileId)
-        .single();
+        .maybeSingle();
       stripeCustomerId = profile?.stripe_customer_id || null;
     }
 

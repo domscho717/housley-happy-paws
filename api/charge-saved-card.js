@@ -5,6 +5,32 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  // Authentication check
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAuth = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } }
+  });
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+  if (authError || !user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // Check if user is owner or staff
+  const supabaseCheck = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+  const { data: profile } = await supabaseCheck
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (!profile || (profile.role !== 'owner' && profile.role !== 'staff')) {
+    return res.status(403).json({ error: 'Forbidden: owner or staff access required' });
+  }
+
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const supabase = createClient(
     process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
@@ -34,7 +60,7 @@ module.exports = async function handler(req, res) {
       .from('profiles')
       .select('stripe_customer_id, full_name, email')
       .eq('user_id', clientProfileId)
-      .single();
+      .maybeSingle();
 
     let stripeCustomerId = profile?.stripe_customer_id || null;
 
@@ -115,6 +141,7 @@ module.exports = async function handler(req, res) {
         stripe_session_id: paymentIntent.id,
         client_email: profile.email,
         client_name: profile.full_name,
+        client_id: clientProfileId,
         amount: amount,
         service: service || 'Pet Care',
         status: 'paid',

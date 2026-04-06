@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   pet_names TEXT,
   address TEXT,
   notes TEXT,
+  emergency_contact_name TEXT,
+  emergency_contact_phone TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

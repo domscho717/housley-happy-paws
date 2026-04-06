@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
             .from('profiles')
             .select('user_id, full_name, email')
             .eq('user_id', booking.client_id)
-            .single();
+            .maybeSingle();
           profile = prof;
         }
 
@@ -130,7 +130,7 @@ module.exports = async function handler(req, res) {
           .from('profiles')
           .select('user_id, stripe_customer_id, full_name, email')
           .eq('user_id', booking.client_id)
-          .single();
+          .maybeSingle();
         profile = prof;
       }
 
@@ -232,6 +232,7 @@ module.exports = async function handler(req, res) {
             stripe_session_id: paymentIntent.id,
             client_email: profile.email,
             client_name: profile.full_name,
+            client_id: booking.client_id,
             amount: chargeAmount,
             service: booking.service + (isExtraNights ? ' (extra nights)' : ''),
             status: 'paid',

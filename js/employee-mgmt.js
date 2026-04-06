@@ -86,7 +86,7 @@ async function loadTeamView(filter) {
   }
 
   listEl.innerHTML = data.map(m => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:white;border:1px solid #e5e5e5;border-radius:12px;cursor:pointer;" onclick="${m.role === 'staff' ? 'showStaffProfile' : 'showClientProfile'}('${m.id}')">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;background:var(--cream,white);border:1px solid #e5e5e5;border-radius:12px;cursor:pointer;" onclick="${m.role === 'staff' ? 'showStaffProfile' : 'showClientProfile'}('${m.id}')">
       <div style="display:flex;align-items:center;gap:14px;">
         <div style="width:44px;height:44px;border-radius:50%;background:${m.role === 'staff' ? 'var(--forest-light)' : 'var(--gold-light)'};display:flex;align-items:center;justify-content:center;color:white;font-weight:700;">
           ${(m.full_name || '?').charAt(0).toUpperCase()}
@@ -119,7 +119,7 @@ function showAddStaffModal() {
   modal.id = 'add-staff-modal';
   modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;';
   modal.innerHTML = `
-    <div style="background:white;border-radius:16px;max-width:500px;width:100%;padding:32px;position:relative;">
+    <div style="background:var(--cream,white);border-radius:16px;max-width:500px;width:100%;padding:32px;position:relative;">
       <button onclick="document.getElementById('add-staff-modal').remove()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
       <h2 style="font-family:'Cormorant Garamond',serif;color:var(--forest);margin:0 0 20px;">Add Staff Member</h2>
       <p style="color:#666;margin-bottom:20px;">Create a new staff account. They'll receive login credentials to access the Staff Portal.</p>

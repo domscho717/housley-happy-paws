@@ -1,0 +1,372 @@
+From 319cc7bdf8bf5b01f176f5cc4dc977d186143196 Mon Sep 17 00:00:00 2001
+From: Rachel Housley <housleyhappypaws@gmail.com>
+Date: Thu, 2 Apr 2026 10:10:13 -0400
+Subject: [PATCH] Performance: instant UI feedback, skeletons, reduced latency,
+ caching
+
+---
+ .gitignore           | 12 ++++++------
+ index.html           | 36 ++++++++++++++++++++++++++++++------
+ js/auth-client.js    |  3 +++
+ js/booking-system.js | 39 +++++++++++++++++++++------------------
+ js/gallery.js        |  9 +++++++++
+ js/notifications.js  | 19 ++++++++++++-------
+ ux-patch.js          | 15 +++++++--------
+ vercel.json          |  8 +++++++-
+ 8 files changed, 95 insertions(+), 46 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index 697ec58..9afa895 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,6 +1,6 @@
+-node_modules/
+-.env
+-.env.local
+-.vercel/
+-.vercel
+-.env*.local
++node_modules/
++.env
++.env.local
++.vercel/
++.vercel
++.env*.local
+diff --git a/index.html b/index.html
+index f437581..7a0e6f0 100644
+--- a/index.html
++++ b/index.html
+@@ -4,6 +4,8 @@
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+ <title>Housley Happy Paws — Rachel Housley · Lancaster, PA</title>
++<link rel="preconnect" href="https://niysrippazlkpvdkzepp.supabase.co" crossorigin>
++<link rel="dns-prefetch" href="https://niysrippazlkpvdkzepp.supabase.co">
+ <!-- Critical: hide portal pages BEFORE anything else loads to prevent flash -->
+ <style id="early-hide">
+ #pg-client,#pg-staff,#pg-owner{display:none!important;visibility:hidden!important}
+@@ -1082,6 +1084,18 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
+ .opt-pending{opacity:0.6;pointer-events:none;transition:opacity 0.2s}
+ .opt-success{animation:optFlash 0.4s ease}
+ @keyframes optFlash{0%{background:var(--forest-pale)}100%{background:transparent}}
++/* ── Skeleton loading shimmer ── */
++.hhp-skeleton{border-radius:8px;background:linear-gradient(90deg,#f0ebe4 25%,#f8f4ee 50%,#f0ebe4 75%);background-size:200% 100%;animation:hhpShimmer 1.2s ease infinite}
++@keyframes hhpShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
++.hhp-skel-row{height:68px;margin-bottom:10px;border-radius:10px}
++.hhp-skel-bar{height:14px;border-radius:4px;margin-bottom:8px}
++/* Panel transitions — content fades in smoothly */
++.p-panel.active{animation:panelIn 0.15s ease}
++@keyframes panelIn{from{opacity:0.4}to{opacity:1}}
++/* Button loading state */
++.btn-loading{position:relative;color:transparent!important;pointer-events:none}
++.btn-loading::after{content:'';position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:btnSpin 0.5s linear infinite}
++@keyframes btnSpin{to{transform:rotate(360deg)}}
+ 
+ /* ── iOS safe-area support (notch / Dynamic Island) ── */
+ @supports(padding:env(safe-area-inset-top)){
+@@ -3436,7 +3450,7 @@ const aboutSS = {
+     // Build slides
+     let html = '';
+     photos.forEach((p, i) => {
+-      html += '<div class="slide' + (i === 0 ? ' active' : '') + '"><img src="' + p + '" alt="About photo ' + (i+1) + '"></div>';
++      html += '<div class="slide' + (i === 0 ? ' active' : '') + '"><img src="' + p + '" alt="About photo ' + (i+1) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '"></div>';
+     });
+     html += '<button class="ss-arrow ss-prev" onclick="aboutSS.prev()" aria-label="Previous">\u2039</button>';
+     html += '<button class="ss-arrow ss-next" onclick="aboutSS.next()" aria-label="Next">\u203A</button>';
+@@ -3800,7 +3814,7 @@ function switchView(view) {
+   document.body.classList.remove('loading-auth');
+   const dd = document.getElementById('viewDropdown');
+   if(dd) dd.value = view;
+-  if (typeof updateDrawerContent === 'function') setTimeout(updateDrawerContent, 50);
++  if (typeof updateDrawerContent === 'function') setTimeout(updateDrawerContent, 0);
+   window.scrollTo(0,0);
+   const nc = document.querySelector('.nav-center');
+   if(nc) {
+@@ -3837,11 +3851,11 @@ function switchView(view) {
+     if (HHP_Customizer._forceReinit) {
+       // After sign-out/sign-in: full reinit with new user context
+       HHP_Customizer._forceReinit = false;
+-      setTimeout(function() { HHP_Customizer.init(); }, 150);
++      setTimeout(function() { HHP_Customizer.init(); }, 0);
+     } else if (HHP_Customizer._initialized && HHP_Customizer.refreshAll) {
+-      setTimeout(function() { HHP_Customizer.refreshAll(); }, 100);
++      HHP_Customizer.refreshAll();
+     } else {
+-      setTimeout(function() { HHP_Customizer.init(); }, 100);
++      setTimeout(function() { HHP_Customizer.init(); }, 0);
+     }
+   }
+ }
+@@ -6651,6 +6665,11 @@ async function loadClientAppts(filter, tabBtn) {
+     return;
+   }
+ 
++  // Show skeleton instantly while loading
++  if (!listEl.querySelector('.card')) {
++    listEl.innerHTML = '<div class="hhp-skeleton hhp-skel-row"></div><div class="hhp-skeleton hhp-skel-row"></div><div class="hhp-skeleton hhp-skel-row"></div>';
++  }
++
+   try {
+     var _cid = getEffectiveClientId() || user.id;
+     var query = sb.from('booking_requests').select('*').eq('client_id', _cid).order('preferred_date', { ascending: false });
+@@ -9961,6 +9980,11 @@ async function loadMyPets() {
+   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+   if (!sb || !user) { listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Sign in to manage your pets.</div>'; return; }
+ 
++  // Show skeleton instantly while loading
++  if (!listEl.querySelector('.pet-card,.cp-card')) {
++    listEl.innerHTML = '<div class="hhp-skeleton hhp-skel-row" style="height:80px"></div><div class="hhp-skeleton hhp-skel-row" style="height:80px"></div>';
++  }
++
+   try {
+     var _pid = getEffectiveClientId() || user.id;
+     var { data, error } = await sb.from('pets').select('*').eq('owner_id', _pid).order('created_at', { ascending: true });
+@@ -10333,7 +10357,7 @@ async function loadOwnerClients() {
+   var countEl = document.getElementById('oc-count');
+   if (!listEl) return;
+ 
+-  listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">Loading clients...</div>';
++  listEl.innerHTML = '<div class="hhp-skeleton hhp-skel-row"></div><div class="hhp-skeleton hhp-skel-row"></div><div class="hhp-skeleton hhp-skel-row"></div>';
+ 
+   try {
+     var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window.HHP_supabase;
+diff --git a/js/auth-client.js b/js/auth-client.js
+index 42638e1..2ab02ad 100644
+--- a/js/auth-client.js
++++ b/js/auth-client.js
+@@ -24,6 +24,9 @@ const HHP_Auth = window.HHP_Auth = {
+ 
+         this.supabase = window.supabase.createClient(this.SUPABASE_URL, this.SUPABASE_ANON_KEY);
+ 
++        // Signal that auth client is ready (other modules listen for this)
++        window.dispatchEvent(new Event('hhp-auth-ready'));
++
+         // Check for existing session
+         const { data: { session } } = await this.supabase.auth.getSession();
+         if (session) {
+diff --git a/js/booking-system.js b/js/booking-system.js
+index 71c91b5..2687cdf 100644
+--- a/js/booking-system.js
++++ b/js/booking-system.js
+@@ -57,22 +57,18 @@
+     var sb = getSB();
+     if (!sb) return;
+     try {
+-      var res = await sb.from('deals').select('*').eq('is_active', true);
+-      _activeDealsCache = (res.data || []).filter(function(d) { return d.discount_value > 0; });
+-      _dealsLoaded = true;
+-
+-      // Fetch which deals the current client has already used (for once_per_client limits)
+-      _clientUsedDealIds = [];
+       var clientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null);
++
++      // Parallel fetch: deals + client usage in one round trip
++      var promises = [sb.from('deals').select('*').eq('is_active', true)];
+       if (clientId) {
+-        var usageRes = await sb.from('booking_requests')
+-          .select('deal_id')
+-          .eq('client_id', clientId)
+-          .not('deal_id', 'is', null);
+-        if (usageRes.data) {
+-          _clientUsedDealIds = usageRes.data.map(function(r) { return r.deal_id; });
+-        }
++        promises.push(sb.from('booking_requests').select('deal_id').eq('client_id', clientId).not('deal_id', 'is', null));
+       }
++      var results = await Promise.all(promises);
++
++      _activeDealsCache = (results[0].data || []).filter(function(d) { return d.discount_value > 0; });
++      _dealsLoaded = true;
++      _clientUsedDealIds = results[1] && results[1].data ? results[1].data.map(function(r) { return r.deal_id; }) : [];
+     } catch (e) { console.warn('Failed to load active deals:', e); }
+   }
+ 
+@@ -2587,7 +2583,7 @@
+           window._cachedPaymentMethodsAt = Date.now();
+         }
+         if (!pmData.hasCard || !pmData.methods || pmData.methods.length === 0) {
+-          if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Booking Request'; }
++          if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('btn-loading'); submitBtn.textContent = 'Submit Booking Request'; }
+           if (errEl) errEl.innerHTML = '💳 <strong>Payment method required.</strong> Please add a card on file before booking a paid service. ' +
+             '<a href="#" onclick="event.preventDefault();window._saveBookingAndAddCard();" style="color:var(--gold-deep);font-weight:600;text-decoration:underline;">Add Payment Method</a>';
+           return;
+@@ -2598,7 +2594,7 @@
+       }
+     }
+ 
+-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Sending request...'; }
++    if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('btn-loading'); submitBtn.setAttribute('data-orig-text', submitBtn.textContent); submitBtn.textContent = 'Sending request...'; }
+ 
+     try {
+       var sb = getSB();
+@@ -2770,7 +2766,7 @@
+         window._hsRangeStart = null;
+         window._hsRangeEnd = null;
+         closeBookingModal();
+-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Request to Rachel'; }
++        if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('btn-loading'); submitBtn.textContent = 'Send Request to Rachel'; }
+         if (successEl) successEl.textContent = '';
+       }, 4000);
+ 
+@@ -3724,10 +3720,10 @@
+ 
+   if (document.readyState === 'loading') {
+     document.addEventListener('DOMContentLoaded', function() {
+-      setTimeout(initBookingSystem, 200);
++      setTimeout(initBookingSystem, 50);
+     });
+   } else {
+-    setTimeout(initBookingSystem, 100);
++    setTimeout(initBookingSystem, 0);
+   }
+ 
+   // ════════════════════════════════════════════════════════════
+@@ -3748,6 +3744,11 @@
+ 
+     _bookingPanelState.portal = portal;
+ 
++    // Show skeleton instantly while data loads
++    if (!_bookingPanelState.requests.length) {
++      container.innerHTML = '<div class="hhp-skeleton hhp-skel-row" style="height:72px"></div><div class="hhp-skeleton hhp-skel-row" style="height:72px"></div><div class="hhp-skeleton hhp-skel-row" style="height:72px"></div>';
++    }
++
+     try {
+       var query = sb.from('booking_requests').select('*').order('created_at', { ascending: false });
+ 
+@@ -4014,6 +4015,8 @@
+     var card = document.querySelector('[data-request-id="' + requestId + '"]');
+     if (!card) return;
+     card.classList.add('opt-pending');
++    // Disable all action buttons in this card instantly
++    card.querySelectorAll('button').forEach(function(b) { b.classList.add('btn-loading'); b.disabled = true; });
+     var badge = card.querySelector('.status-badge');
+     if (badge) {
+       badge.textContent = newStatus;
+diff --git a/js/gallery.js b/js/gallery.js
+index 0b65058..b164b68 100644
+--- a/js/gallery.js
++++ b/js/gallery.js
+@@ -669,6 +669,15 @@
+       });
+     }
+ 
++    // Pause slideshows when tab is hidden to save CPU
++    document.addEventListener('visibilitychange', function() {
++      if (document.hidden) {
++        if (window._hhpAboutSlideshowInterval) { clearInterval(window._hhpAboutSlideshowInterval); window._hhpAboutSlideshowInterval = null; }
++      } else {
++        if (!window._hhpAboutSlideshowInterval) buildAboutSlideshow();
++      }
++    });
++
+     console.log('🖼️ HHP Gallery & Slideshows initialized');
+   });
+ 
+diff --git a/js/notifications.js b/js/notifications.js
+index 9c87507..55dd562 100644
+--- a/js/notifications.js
++++ b/js/notifications.js
+@@ -538,15 +538,20 @@
+   }
+ 
+   onReady(function() {
+-    // Wait a bit for auth to be ready
+-    var attempts = 0;
+-    var check = setInterval(function() {
+-      attempts++;
+-      if ((window.HHP_Auth && window.HHP_Auth.supabase) || attempts > 20) {
+-        clearInterval(check);
++    // Use event-based auth signaling instead of polling
++    if (window.HHP_Auth && window.HHP_Auth.supabase) {
++      init();
++    } else {
++      // Listen for auth ready event, with a single fallback timeout
++      var initiated = false;
++      function tryInit() {
++        if (initiated) return;
++        initiated = true;
+         init();
+       }
+-    }, 300);
++      window.addEventListener('hhp-auth-ready', tryInit, { once: true });
++      setTimeout(tryInit, 3000); // fallback if event never fires
++    }
+   });
+ 
+   // ── Public API ──────────────────────────────────────────────
+diff --git a/ux-patch.js b/ux-patch.js
+index 55c17af..ac93f61 100644
+--- a/ux-patch.js
++++ b/ux-patch.js
+@@ -48,8 +48,8 @@
+   var CLOSE_X = '\u2715';
+ 
+   function onReady(fn) {
+-    if (document.readyState !== 'loading') setTimeout(fn, 800);
+-    else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 800); });
++    if (document.readyState !== 'loading') setTimeout(fn, 200);
++    else document.addEventListener('DOMContentLoaded', function() { setTimeout(fn, 200); });
+   }
+ 
+   // ─────────────────────────────────────────────
+@@ -1056,7 +1056,7 @@
+           if (def && typeof sTab === 'function') sTab(def[0], def[1]);
+         }, 150);
+         closeDrawer();
+-        setTimeout(updateDrawerContent, 400);
++        setTimeout(updateDrawerContent, 100);
+       });
+       titleRow.appendChild(portalNameBtn);
+ 
+@@ -1086,7 +1086,7 @@
+             if (def && typeof sTab === 'function') sTab(def[0], def[1]);
+           }, 150);
+           closeDrawer();
+-          setTimeout(updateDrawerContent, 400);
++          setTimeout(updateDrawerContent, 100);
+         });
+         switchList.appendChild(btn);
+       });
+@@ -1345,7 +1345,7 @@
+               var mobileNav = document.querySelector('.hhp-mobile-nav-v10');
+               if (mobileNav) mobileNav.classList.remove('hhp-mnav-open');
+               document.body.style.overflow = '';
+-              setTimeout(updateDrawerContent, 300);
++              setTimeout(updateDrawerContent, 50);
+             }
+           });
+         }
+@@ -1909,10 +1909,9 @@
+   }
+ 
+   // Run override multiple times to catch late-loading scripts
+-  setTimeout(applyNavOverride, 300);
+-  setTimeout(applyNavOverride, 800);
++  setTimeout(applyNavOverride, 100);
++  setTimeout(applyNavOverride, 500);
+   setTimeout(applyNavOverride, 1500);
+-  setTimeout(applyNavOverride, 3000);
+   window.addEventListener('resize', applyNavOverride);
+ 
+   // Inject final-authority CSS as well (belt and suspenders)
+diff --git a/vercel.json b/vercel.json
+index 1838744..57adb59 100644
+--- a/vercel.json
++++ b/vercel.json
+@@ -15,7 +15,13 @@
+           {
+                   "source": "/(.*\\.js)",
+                   "headers": [
+-                            { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
++                            { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=600" }
++                  ]
++          },
++          {
++                  "source": "/(.*\\.(css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp))",
++                  "headers": [
++                            { "key": "Cache-Control", "value": "public, max-age=604800, immutable" }
+                   ]
+           },
+           {
+-- 
+2.34.1
+

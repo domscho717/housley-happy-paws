@@ -868,6 +868,7 @@
   function toggleDrawer() {
     var drawer = document.querySelector('.hhp-drawer');
     var overlay = document.querySelector('.hhp-drawer-overlay');
+    if (!drawer || !overlay) return;
 
     if (drawer.classList.contains('hhp-drawer-open')) {
       closeDrawer();
@@ -884,6 +885,7 @@
   function closeDrawer() {
     var drawer = document.querySelector('.hhp-drawer');
     var overlay = document.querySelector('.hhp-drawer-overlay');
+    if (!drawer || !overlay) return;
 
     drawer.classList.remove('hhp-drawer-open');
     overlay.classList.remove('hhp-drawer-open');

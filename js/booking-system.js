@@ -214,12 +214,7 @@
     }
   }
 
-  // Backward-compatible sync wrapper — returns '' and logs warning
-  // Use createCheckoutForService() (async) instead wherever possible
-  function getStripePaymentLink(serviceName) {
-    console.warn('getStripePaymentLink is deprecated — use createCheckoutForService() instead');
-    return '';
-  }
+  // getStripePaymentLink removed in audit — was deprecated, use createCheckoutForService() instead
 
   // ════════════════════════════════════════════════════════════
   // 1. DESKTOP SCROLL FIX
@@ -265,271 +260,9 @@
   })();
 
   // ════════════════════════════════════════════════════════════
-  // 2. MOBILE NAV REDESIGN
+  // 2. MOBILE NAV — handled by ux-patch.js v18 (dead code removed in audit)
   // ════════════════════════════════════════════════════════════
-  (function fixMobileNav() {
-    return; // Mobile nav fully handled by ux-patch.js v18
-    var css = document.createElement('style');
-    css.id = 'hhp-mobile-nav-fix';
-    css.textContent = [
-      // ── Mobile portrait (up to 768px) ──
-      '@media (max-width: 768px) {',
-      '  .site-nav {',
-      '    display: flex !important;',
-      '    align-items: center !important;',
-      '    justify-content: space-between !important;',
-      '    padding: 10px 16px !important;',
-      '    position: fixed !important;',
-      '    top: 0 !important;',
-      '    left: 0 !important;',
-      '    right: 0 !important;',
-      '    z-index: 9999 !important;',
-      '    background: #FFFDF8 !important;',
-      '    box-shadow: 0 1px 4px rgba(0,0,0,0.08) !important;',
-      '    height: 56px !important;',
-      '    box-sizing: border-box !important;',
-      '  }',
-      '',
-      '  /* Hide desktop nav links on mobile */',
-      '  .site-nav .nav-center,',
-      '  .site-nav .nav-links,',
-      '  .site-nav > a:not(.nav-logo):not(#hhpMobileSignIn),',
-      '  .site-nav > div:not(.nav-left):not(.nav-right):not(#hhpMobileSignIn):not(#hhpHamburgerBtn) {',
-      '    display: none !important;',
-      '  }',
-      '',
-      '  /* LEFT: Sign In/Out button */',
-      '  #hhpMobileSignIn {',
-      '    order: 1 !important;',
-      '    display: flex !important;',
-      '    align-items: center !important;',
-      '    font-size: 13px !important;',
-      '    color: var(--gold, #C8963E) !important;',
-      '    background: none !important;',
-      '    border: 1px solid var(--gold, #C8963E) !important;',
-      '    border-radius: 20px !important;',
-      '    padding: 5px 14px !important;',
-      '    cursor: pointer !important;',
-      '    white-space: nowrap !important;',
-      '    min-width: 70px !important;',
-      '    justify-content: center !important;',
-      '    text-decoration: none !important;',
-      '    font-family: inherit !important;',
-      '  }',
-      '',
-      '  /* CENTER: Logo */',
-      '  .site-nav .nav-logo,',
-      '  .site-nav .logo,',
-      '  .site-nav a[href="/"],',
-      '  .site-nav .brand {',
-      '    order: 2 !important;',
-      '    flex: 1 !important;',
-      '    text-align: center !important;',
-      '    font-size: 16px !important;',
-      '    white-space: nowrap !important;',
-      '    display: block !important;',
-      '  }',
-      '',
-      '  /* RIGHT: Hamburger */',
-      '  #hhpHamburgerBtn {',
-      '    order: 3 !important;',
-      '    display: flex !important;',
-      '    align-items: center !important;',
-      '    justify-content: center !important;',
-      '    width: 40px !important;',
-      '    height: 40px !important;',
-      '    background: none !important;',
-      '    border: none !important;',
-      '    cursor: pointer !important;',
-      '    padding: 0 !important;',
-      '    flex-shrink: 0 !important;',
-      '  }',
-      '  #hhpHamburgerBtn span {',
-      '    display: block !important;',
-      '    width: 22px !important;',
-      '    height: 2px !important;',
-      '    background: var(--ink, #2C2C2C) !important;',
-      '    margin: 4px 0 !important;',
-      '    transition: all 0.3s !important;',
-      '  }',
-      '',
-      '  /* Hide old nav elements */',
-      '  .nav-right, .nav-left { display: none !important; }',
-      '  #viewDropdown, #viewSwitcher, .hhp-view-switcher { display: none !important; }',
-      '  .hhp-hamburger, .hhp-mobile-nav { display: none !important; }',
-      '',
-      '  /* Mobile menu overlay */',
-      '  #hhpMobileMenu {',
-      '    display: none;',
-      '    position: fixed !important;',
-      '    top: 56px !important;',
-      '    left: 0 !important;',
-      '    right: 0 !important;',
-      '    bottom: 0 !important;',
-      '    background: #FFFDF8 !important;',
-      '    z-index: 9998 !important;',
-      '    padding: 20px !important;',
-      '    overflow-y: auto !important;',
-      '    flex-direction: column !important;',
-      '  }',
-      '  #hhpMobileMenu.open { display: flex !important; }',
-      '  #hhpMobileMenu a {',
-      '    display: block !important;',
-      '    padding: 16px 20px !important;',
-      '    font-size: 18px !important;',
-      '    color: var(--ink, #2C2C2C) !important;',
-      '    text-decoration: none !important;',
-      '    border-bottom: 1px solid var(--gold-light, #F5E6CC) !important;',
-      '    font-family: inherit !important;',
-      '  }',
-      '  #hhpMobileMenu a:hover { color: var(--gold, #C8963E) !important; }',
-      '',
-      '  /* Push page content below fixed nav */',
-      '  body { padding-top: 56px !important; }',
-      '',
-      '  /* Hide any other hamburger/menu buttons from ux-patch */',
-      '  .hhp-hamburger-btn, .hamburger-btn, [class*="hamburger"] { display: none !important; }',
-      '}',
-      '',
-      // ── Mobile landscape (up to 900px AND short height) ──
-      '@media (max-width: 900px) and (max-height: 500px) {',
-      '  .site-nav {',
-      '    display: flex !important;',
-      '    align-items: center !important;',
-      '    justify-content: space-between !important;',
-      '    padding: 6px 16px !important;',
-      '    position: fixed !important;',
-      '    top: 0 !important;',
-      '    left: 0 !important;',
-      '    right: 0 !important;',
-      '    z-index: 9999 !important;',
-      '    background: #FFFDF8 !important;',
-      '    height: 44px !important;',
-      '  }',
-      '  .site-nav .nav-center,',
-      '  .site-nav .nav-links,',
-      '  .nav-right, .nav-left { display: none !important; }',
-      '  #hhpMobileSignIn { display: flex !important; order: 1 !important; font-size: 12px !important; padding: 4px 10px !important; }',
-      '  .site-nav .nav-logo, .site-nav .logo, .site-nav a[href="/"], .site-nav .brand { order: 2 !important; flex: 1 !important; text-align: center !important; font-size: 14px !important; }',
-      '  #hhpHamburgerBtn { display: flex !important; order: 3 !important; }',
-      '  body { padding-top: 44px !important; }',
-      '  #hhpMobileMenu { top: 44px !important; }',
-      '}',
-      '',
-      '/* ── Tablet landscape ── */',
-      '@media (max-width: 768px) and (orientation: landscape) {',
-      '  #aiChatLog { max-height: 200px !important; }',
-      '  .portal-main { padding: 8px 12px !important; }',
-      '}',
-      '',
-      '/* ── Admin request cards mobile ── */',
-      '@media (max-width: 600px) {',
-      '  .admin-request-card { padding: 14px !important; }',
-      '  .arc-service { font-size: 15px; }',
-      '  .arc-detail { font-size: 13px; }',
-      '  .arc-actions { gap: 6px; }',
-      '  .arc-btn { padding: 8px 14px; font-size: 12px; min-height: 44px; }',
-      '}',
-    ].join('\n');
-    document.head.appendChild(css);
-
-    // Create mobile nav elements after DOM ready
-    function createMobileNavElements() {
-      var nav = document.querySelector('.site-nav');
-      if (!nav || document.getElementById('hhpMobileSignIn')) return;
-
-      // Sign In/Out button
-      var signBtn = document.createElement('button');
-      signBtn.id = 'hhpMobileSignIn';
-      signBtn.textContent = 'Sign In';
-      signBtn.onclick = function() {
-        if (window.HHP_Auth && window.HHP_Auth.isAuthenticated()) {
-          window.HHP_Auth.logout();
-          signBtn.textContent = 'Sign In';
-        } else {
-          // Show auth overlay
-          var overlay = document.getElementById('authOverlay');
-          if (overlay) overlay.style.display = 'flex';
-        }
-      };
-      nav.appendChild(signBtn);
-
-      // Hamburger button
-      var hamBtn = document.createElement('button');
-      hamBtn.id = 'hhpHamburgerBtn';
-      hamBtn.setAttribute('aria-label', 'Menu');
-      hamBtn.innerHTML = '<div><span></span><span></span><span></span></div>';
-      hamBtn.onclick = function() {
-        var menu = document.getElementById('hhpMobileMenu');
-        if (menu) {
-          menu.classList.toggle('open');
-          hamBtn.classList.toggle('active');
-        }
-      };
-      nav.appendChild(hamBtn);
-
-      // Mobile menu overlay
-      var menu = document.createElement('div');
-      menu.id = 'hhpMobileMenu';
-
-      var menuLinks = [
-        { text: 'About Rachel', target: '.about-section' },
-        { text: 'Services & Pricing', target: '.services-section' },
-        { text: 'Book a Service', target: '#bookingRequestModal', action: 'booking' },
-        { text: 'Calendar', target: '.cal-section' },
-        { text: 'Reviews', target: '.reviews-section' },
-        { text: 'Coming Soon', target: '.future-section' },
-      ];
-
-      menuLinks.forEach(function(item) {
-        var a = document.createElement('a');
-        a.textContent = item.text;
-        a.href = '#';
-        a.onclick = function(e) {
-          e.preventDefault();
-          menu.classList.remove('open');
-          hamBtn.classList.remove('active');
-
-          if (item.action === 'booking') {
-            openBookingModal();
-            return;
-          }
-
-          var target = document.querySelector(item.target);
-          if (target) {
-            target.scrollIntoView({ behavior: 'auto', block: 'start' });
-          }
-        };
-        menu.appendChild(a);
-      });
-
-      document.body.appendChild(menu);
-
-      // Update sign button state based on auth
-      function updateSignBtn() {
-        if (window.HHP_Auth && window.HHP_Auth.isAuthenticated()) {
-          signBtn.textContent = 'Sign Out';
-        } else {
-          signBtn.textContent = 'Sign In';
-        }
-      }
-
-      setTimeout(updateSignBtn, 1000);
-      setTimeout(updateSignBtn, 3000);
-      // Listen for auth state changes instead of polling
-      if (window._hhpAuthCallbacks) window._hhpAuthCallbacks.push(updateSignBtn);
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(createMobileNavElements, 1500);
-        setTimeout(createMobileNavElements, 4000);
-      });
-    } else {
-      setTimeout(createMobileNavElements, 500);
-      setTimeout(createMobileNavElements, 2000);
-    }
-  })();
+  // [260 lines of dead fixMobileNav code removed — all handled by ux-patch.js]
 
   // ════════════════════════════════════════════════════════════
   // 3. BOOKING REQUEST MODAL & FORM
@@ -669,12 +402,9 @@
                return SERVICES.map(function(s) {
                  if (seen[s.group]) return '';
                  seen[s.group] = true;
-                 if (s.group === 'House Sitting') return '';
                  if (s.group === 'Meet & Greet') return '<option value="Meet & Greet">Meet & Greet - Free</option>';
                  return '<option value="' + s.group + '">' + s.group + '</option>';
-               }).join('') +
-               '<option value="House Sitting (Dog)">House Sitting (Dog) - $125/night</option>' +
-               '<option value="House Sitting (Cat)">House Sitting (Cat) - $80/night</option>';
+               }).join('');
              })(),
       '    </select>',
       '',
@@ -809,13 +539,18 @@
     function resolveServiceName() {
       var svcGroup = document.getElementById('brm-service').value;
       if (!svcGroup) return '';
-      var isHS = svcGroup.toLowerCase().indexOf('house sitting') !== -1;
       var isMG = svcGroup === 'Meet & Greet';
-      if (isHS || isMG) return svcGroup;
+      if (isMG) return svcGroup;
+      var petType = document.getElementById('brm-pettype') ? document.getElementById('brm-pettype').value : 'dog';
+      // House Sitting: resolve to dog or cat variant based on pet profiles
+      var isHS = svcGroup === 'House Sitting';
+      if (isHS) {
+        if (petType === 'cat') return 'House Sitting (Cat)';
+        return 'House Sitting (Dog)';
+      }
       var dur = document.getElementById('brm-duration') ? document.getElementById('brm-duration').value : '30 min';
       // Drop-In Visit: use cat pricing when pet type is cat
       if (svcGroup === 'Drop-In Visit') {
-        var petType = document.getElementById('brm-pettype') ? document.getElementById('brm-pettype').value : 'dog';
         if (petType === 'cat') return 'Drop-In Visit (Cat) - ' + dur;
       }
       return svcGroup + ' - ' + dur;
@@ -855,6 +590,15 @@
         return;
       }
 
+      // Show $0 until at least one pet profile is selected
+      var selectedPetIds = (document.getElementById('brm-pets-selected-ids') || {}).value || '';
+      if (!selectedPetIds) {
+        if (estimateEl) estimateEl.style.display = 'block';
+        if (breakdownEl) breakdownEl.textContent = 'Select a pet to see pricing';
+        if (totalEl) totalEl.textContent = '0';
+        return;
+      }
+
       var nights = 1;
       if (svcName.toLowerCase().indexOf('house sitting') !== -1) {
         nights = calcNights(document.getElementById('brm-date').value, document.getElementById('brm-enddate').value);
@@ -871,11 +615,9 @@
       if (!isHS) {
         var cardCount = window._brmGetDateCardsData ? window._brmGetDateCardsData().length : 0;
         if (cardCount > 0) totalDates = cardCount;
-        // Check for "until stopped" (ongoing) recurring cards
+        // Check for "until stopped" (ongoing) recurring time slots
         if (hasAnyRecurring) {
-          document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
-            var cIdx = card.id.replace('brm-dc-', '');
-            var onEl = document.getElementById('brm-dc-ongoing-' + cIdx);
+          document.querySelectorAll('[id^="brm-ts-ongoing-"]').forEach(function(onEl) {
             if (onEl && onEl.checked) hasOngoingRecur = true;
           });
           // Add finite recurring dates
@@ -899,32 +641,35 @@
       // Recurring pricing: show per-appointment cost, billed the day before each visit
       if (hasAnyRecurring && !isHS) {
         var recurringCount = 0;
-        var oneTimeCards = 0;
+        var oneTimeSlots = 0;
         var recurringSchedules = [];
-        document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
-          var cIdx = card.id.replace('brm-dc-', '');
-          var rCb = document.getElementById('brm-dc-recur-' + cIdx);
-          var cardDate = card.getAttribute('data-date');
-          if (rCb && rCb.checked) {
+        // Count recurring vs one-time across all time slots
+        document.querySelectorAll('.brm-time-slot').forEach(function(slot) {
+          var recurCb = slot.querySelector('[id^="brm-ts-recur-"]');
+          var card = slot.closest('[data-date]');
+          var cardDate = card ? card.getAttribute('data-date') : '';
+          var timeSel = slot.querySelector('.brm-dc-time-sel');
+          if (recurCb && recurCb.checked) {
             recurringCount++;
-            var freqEl = document.getElementById('brm-dc-freq-' + cIdx);
-            var ongoingEl = document.getElementById('brm-dc-ongoing-' + cIdx);
-            var endEl = document.getElementById('brm-dc-recur-end-' + cIdx);
+            var tsId = recurCb.id.replace('brm-ts-recur-', '');
+            var freqEl = document.getElementById('brm-ts-freq-' + tsId);
+            var ongoingEl = document.getElementById('brm-ts-ongoing-' + tsId);
+            var endEl = document.getElementById('brm-ts-recur-end-' + tsId);
             var freq = freqEl ? freqEl.value : 'weekly';
             var isOngoing = ongoingEl && ongoingEl.checked;
-            recurringSchedules.push({ date: cardDate, freq: freq, ongoing: isOngoing, end: endEl ? endEl.value : '' });
-          } else { oneTimeCards++; }
+            recurringSchedules.push({ date: cardDate, time: timeSel ? timeSel.value : '', freq: freq, ongoing: isOngoing, end: endEl ? endEl.value : '' });
+          } else { oneTimeSlots++; }
         });
-        var oneTimeTotal = result.total * oneTimeCards;
+        var oneTimeTotal = result.total * oneTimeSlots;
         if (breakdownEl) {
           breakdownEl.innerHTML += '<br><span style="font-weight:600;color:#c8963e">Recurring: $' + result.total.toFixed(2) + '/appointment</span>';
           if (recurringCount > 1) {
             breakdownEl.innerHTML += '<br><span style="font-size:0.82rem">' + recurringCount + ' recurring schedules</span>';
           }
-          if (oneTimeCards > 0) {
-            breakdownEl.innerHTML += '<br><span style="font-size:0.82rem">+ $' + oneTimeTotal.toFixed(2) + ' one-time (' + oneTimeCards + ' session' + (oneTimeCards > 1 ? 's' : '') + ')</span>';
+          if (oneTimeSlots > 0) {
+            breakdownEl.innerHTML += '<br><span style="font-size:0.82rem">+ $' + oneTimeTotal.toFixed(2) + ' one-time (' + oneTimeSlots + ' session' + (oneTimeSlots > 1 ? 's' : '') + ')</span>';
           }
-          breakdownEl.innerHTML += '<br><span style="font-size:0.78rem;color:#8c6b4a">Charged the day before each appointment</span>';
+          breakdownEl.innerHTML += '<br><span style="font-size:0.78rem;color:#8c6b4a">Recurring visits charged the Sunday before each appointment week</span>';
         }
         // Show recurring schedule details
         if (perServiceEl && recurringSchedules.length > 0) {
@@ -932,17 +677,25 @@
           recurHTML += '<div style="font-weight:600;font-size:0.78rem;color:#6b5c4d;margin-bottom:4px">Recurring Schedule:</div>';
           recurringSchedules.forEach(function(rs) {
             var dFmt = new Date(rs.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var tFmt = rs.time ? ((typeof fmt12h === 'function') ? fmt12h(rs.time) : rs.time) : '';
             var freqLabel = rs.freq === 'weekly' ? 'Every week' : rs.freq === 'biweekly' ? 'Every 2 weeks' : rs.freq === 'monthly' ? 'Monthly' : rs.freq;
             var endLabel = rs.ongoing ? 'Until stopped' : (rs.end ? 'Until ' + new Date(rs.end + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
             recurHTML += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.76rem">';
-            recurHTML += '<span>' + svcName + ' — ' + dFmt + '</span>';
+            recurHTML += '<span>' + svcName + ' — ' + dFmt + (tFmt ? ' at ' + tFmt : '') + '</span>';
             recurHTML += '<span style="color:#8c6b4a">' + freqLabel + (endLabel ? ' · ' + endLabel : '') + '</span></div>';
-            recurHTML += '<div style="font-size:0.72rem;color:#8c6b4a;padding-left:8px">$' + result.total.toFixed(2) + '/visit · Charged the day before each appointment</div>';
+            recurHTML += '<div style="font-size:0.72rem;color:#8c6b4a;padding-left:8px">$' + result.total.toFixed(2) + '/visit · Charged the Sunday before each week</div>';
           });
           recurHTML += '</div>';
           perServiceEl.innerHTML = recurHTML;
         }
-        if (totalEl) totalEl.textContent = result.total.toFixed(2) + '/appt';
+        // Show total: recurring rate + one-time total
+        if (totalEl) {
+          if (oneTimeSlots > 0) {
+            totalEl.textContent = oneTimeTotal.toFixed(2) + ' + ' + result.total.toFixed(2) + '/appt';
+          } else {
+            totalEl.textContent = result.total.toFixed(2) + '/appt';
+          }
+        }
       } else if (totalDates > 1 && !isHS) {
         var multiTotal = result.total * totalDates;
         if (breakdownEl) breakdownEl.innerHTML += '<br><span style="font-weight:600">' + totalDates + ' appointments x $' + result.total.toFixed(2) + '</span>';
@@ -1215,6 +968,7 @@
     // ── Multi-date: unified date cards with time + pet per date ──
     window._brmDateCards = []; // { date, time, pets[] }
     var _brmDateCardIdx = 0;
+    var _brmTsIdx = 0; // global time slot counter for unique IDs
 
     // Generate time options HTML (same as main time picker)
     function _brmTimeOptionsHTML() {
@@ -1232,6 +986,44 @@
       return opts;
     }
 
+    // Build a time slot HTML with its own recurring options
+    function _brmBuildTimeSlotHTML(cardIdx, tsId, isFirst, dateVal) {
+      var html = '<div class="brm-time-slot" data-tsid="' + tsId + '" style="margin-bottom:8px;padding:6px 0;' + (!isFirst ? 'border-top:1px dashed #e8dece;padding-top:8px;' : '') + '">';
+      // Time row
+      html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">';
+      html += '<select ' + (isFirst ? 'id="brm-dc-time-' + cardIdx + '"' : '') + ' class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" data-tsid="' + tsId + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:0;margin:0;padding:8px;font-size:1rem;min-height:44px">';
+      html += _brmTimeOptionsHTML();
+      html += '</select>';
+      // No per-slot X button — remove the whole date card to redo times
+      html += '</div>';
+      // Per-slot recurring toggle
+      html += '<div style="margin-top:4px">';
+      html += '<label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;cursor:pointer;color:#8c6b4a;font-weight:600">';
+      html += '<input type="checkbox" id="brm-ts-recur-' + tsId + '" onchange="window._brmToggleSlotRecur(' + tsId + ')" style="accent-color:#c8963e"> Make recurring';
+      html += '</label>';
+      html += '<div id="brm-ts-recur-opts-' + tsId + '" style="display:none;margin-top:6px;background:var(--cream,#fff);border:1px solid #e8dece;border-radius:8px;padding:10px">';
+      html += '<div style="display:flex;flex-direction:column;gap:8px">';
+      html += '<div>';
+      html += '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Frequency</label>';
+      html += '<select id="brm-ts-freq-' + tsId + '" class="brm-input" onchange="window._brmUpdateSlotRecurPreview(' + tsId + ')" style="margin:0;padding:8px 10px;font-size:1rem;width:100%;box-sizing:border-box;min-height:44px;border:1px solid #d4c5b0;border-radius:6px;background:var(--cream,#fff);color:#4a3728">';
+      html += '<option value="weekly">Every week</option><option value="biweekly">Every other week</option>';
+      html += '</select>';
+      html += '</div>';
+      html += '<div id="brm-ts-end-wrap-' + tsId + '">';
+      html += '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Until</label>';
+      html += '<input type="date" id="brm-ts-recur-end-' + tsId + '" class="brm-input" value="" min="' + (dateVal || '') + '" onchange="window._brmUpdateSlotRecurPreview(' + tsId + ')" style="margin:0;padding:8px 10px;font-size:1rem;width:100%;box-sizing:border-box;min-height:44px;-webkit-appearance:none;appearance:none;border:1px solid #d4c5b0;border-radius:6px;background:var(--cream,#fff);color:#4a3728">';
+      html += '</div>';
+      html += '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#6b5c4d;cursor:pointer">';
+      html += '<input type="checkbox" id="brm-ts-ongoing-' + tsId + '" onchange="window._brmToggleSlotOngoing(' + tsId + ')" style="accent-color:#c8963e;width:16px;height:16px"> Until stopped (no end date)';
+      html += '</label>';
+      html += '</div>';
+      html += '<div id="brm-ts-recur-preview-' + tsId + '" style="margin-top:8px;font-size:0.78rem;color:#6b5c4d;max-height:80px;overflow-y:auto"></div>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+      return html;
+    }
+
     // Generate compact pet checkboxes for a date card
     function _brmPetChipsHTML(cardIdx) {
       var pets = window._bookingPetsData || [];
@@ -1240,7 +1032,7 @@
       pets.forEach(function(pet) {
         var icon = pet.species === 'cat' ? '🐱' : '🐶';
         html += '<label style="display:flex;align-items:center;gap:4px;padding:4px 10px;' +
-          'background:#fff;border:1.5px solid #e0d5c5;border-radius:8px;cursor:pointer;' +
+          'background:var(--cream,#fff);border:1.5px solid #e0d5c5;border-radius:8px;cursor:pointer;' +
           'font-size:0.8rem;font-weight:600;transition:all 0.15s" class="brm-dc-pet-label">' +
           '<input type="checkbox" class="brm-dc-pet" data-card="' + cardIdx + '" ' +
           'value="' + pet.id + '" data-name="' + (pet.name || '').replace(/"/g, '&quot;') + '" ' +
@@ -1338,48 +1130,20 @@
       // No default end date — let the client choose their own
       var todayStr = _localDateStr();
 
+      var firstTsId = _brmTsIdx++;
       var card = document.createElement('div');
       card.id = 'brm-dc-' + idx;
       card.setAttribute('data-date', dateVal);
-      card.style.cssText = 'background:#f9f6f0;border:1px solid #e0d5c5;border-radius:10px;padding:12px 14px;position:relative';
+      card.style.cssText = 'background:#f9f6f0;border:1px solid #e0d5c5;border-radius:10px;padding:12px 14px;position:relative;box-sizing:border-box';
       card.innerHTML =
-        '<button type="button" onclick="window._brmRemoveDateCard(' + idx + ')" style="position:absolute;top:8px;right:10px;background:none;border:none;color:#c4756a;cursor:pointer;font-size:18px;line-height:1">&times;</button>' +
+        '<button type="button" onclick="window._brmRemoveDateCard(' + idx + ')" style="position:absolute;top:8px;right:10px;background:none;border:none;color:#c4756a;cursor:pointer;font-size:22px;line-height:1;padding:6px;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center">&times;</button>' +
         '<div style="font-weight:700;font-size:0.92rem;color:#1e1409;margin-bottom:6px">' +
           '<span style="color:#c8963e">' + dayName + '</span> ' + monthDay +
         '</div>' +
         '<div id="brm-dc-times-' + idx + '">' +
-          '<div class="brm-time-slot" data-slot="0" style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
-            '<select id="brm-dc-time-' + idx + '" class="brm-input brm-dc-time-sel" data-card="' + idx + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:0;margin:0;padding:8px;font-size:1rem;min-height:44px">' +
-              _brmTimeOptionsHTML() +
-            '</select>' +
-          '</div>' +
+          _brmBuildTimeSlotHTML(idx, firstTsId, true, dateVal) +
         '</div>' +
-        '<button type="button" onclick="window._brmAddTimeSlot(' + idx + ')" style="background:none;border:1px dashed #c8963e;color:#c8963e;border-radius:6px;padding:4px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-top:2px;margin-bottom:4px">+ Add another time</button>' +
-        '<div style="margin-top:8px;border-top:1px dashed #e0d5c5;padding-top:8px">' +
-          '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer;color:#6b5c4d;font-weight:600">' +
-            '<input type="checkbox" id="brm-dc-recur-' + idx + '" onchange="window._brmToggleCardRecur(' + idx + ')" style="accent-color:#c8963e">' +
-            ' Make this recurring' +
-          '</label>' +
-          '<div id="brm-dc-recur-opts-' + idx + '" style="display:none;margin-top:8px;background:#fff;border:1px solid #e8dece;border-radius:8px;padding:10px">' +
-            '<div style="display:flex;flex-direction:column;gap:8px">' +
-              '<div>' +
-                '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Frequency</label>' +
-                '<select id="brm-dc-freq-' + idx + '" class="brm-input" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:8px 10px;font-size:1rem;width:100%;box-sizing:border-box;min-height:44px;border:1px solid #d4c5b0;border-radius:6px;background:#fff;color:#4a3728">' +
-                  '<option value="weekly">Every week</option>' +
-                  '<option value="biweekly">Every other week</option>' +
-                '</select>' +
-              '</div>' +
-              '<div id="brm-dc-end-wrap-' + idx + '">' +
-                '<label style="font-size:0.75rem;font-weight:600;color:#8c6b4a;display:block;margin-bottom:3px">Until</label>' +
-                '<input type="date" id="brm-dc-recur-end-' + idx + '" class="brm-input" value="" min="' + dateVal + '" onchange="window._brmUpdateCardRecurPreview(' + idx + ')" style="margin:0;padding:8px 10px;font-size:1rem;width:100%;box-sizing:border-box;min-height:44px;-webkit-appearance:none;appearance:none;border:1px solid #d4c5b0;border-radius:6px;background:#fff;color:#4a3728">' +
-              '</div>' +
-              '<label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#6b5c4d;cursor:pointer">' +
-                '<input type="checkbox" id="brm-dc-ongoing-' + idx + '" onchange="window._brmToggleOngoing(' + idx + ')" style="accent-color:#c8963e;width:16px;height:16px"> Until stopped (no end date)' +
-              '</label>' +
-            '</div>' +
-            '<div id="brm-dc-recur-preview-' + idx + '" style="margin-top:8px;font-size:0.78rem;color:#6b5c4d;max-height:80px;overflow-y:auto"></div>' +
-          '</div>' +
-        '</div>';
+        '<button type="button" onclick="window._brmAddTimeSlot(' + idx + ')" style="background:none;border:1px dashed #c8963e;color:#c8963e;border-radius:6px;padding:6px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-top:2px">+ Add another time</button>';
       container.appendChild(card);
 
       // Clear the date input for next selection
@@ -1406,18 +1170,13 @@
     window._brmAddTimeSlot = function(cardIdx) {
       var container = document.getElementById('brm-dc-times-' + cardIdx);
       if (!container) return;
-      var slots = container.querySelectorAll('.brm-time-slot');
-      var slotIdx = slots.length;
+      var card = document.getElementById('brm-dc-' + cardIdx);
+      var dateVal = card ? card.getAttribute('data-date') : '';
+      var tsId = _brmTsIdx++;
       var div = document.createElement('div');
-      div.className = 'brm-time-slot';
-      div.setAttribute('data-slot', slotIdx);
-      div.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px';
-      div.innerHTML =
-        '<select class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:0;margin:0;padding:8px;font-size:1rem;min-height:44px">' +
-          _brmTimeOptionsHTML() +
-        '</select>' +
-        '<button type="button" onclick="window._brmRemoveTimeSlot(this,' + cardIdx + ')" style="background:none;border:none;color:#c4756a;cursor:pointer;font-size:16px;line-height:1;padding:2px 6px">&times;</button>';
-      container.appendChild(div);
+      div.innerHTML = _brmBuildTimeSlotHTML(cardIdx, tsId, false, dateVal);
+      var slot = div.firstChild;
+      container.appendChild(slot);
       _syncPrimaryFromCards();
       updatePriceEstimate();
     };
@@ -1723,42 +1482,43 @@
       enumerable: true
     });
 
-    // ── Per-card recurring: toggle, preview, and date generation ──
-    window._brmToggleCardRecur = function(idx) {
-      var cb = document.getElementById('brm-dc-recur-' + idx);
-      var opts = document.getElementById('brm-dc-recur-opts-' + idx);
+    // ── Per-time-slot recurring: toggle, preview, and date generation ──
+    window._brmToggleSlotRecur = function(tsId) {
+      var cb = document.getElementById('brm-ts-recur-' + tsId);
+      var opts = document.getElementById('brm-ts-recur-opts-' + tsId);
       if (!cb || !opts) return;
       opts.style.display = cb.checked ? '' : 'none';
       if (cb.checked) {
-        window._brmUpdateCardRecurPreview(idx);
+        window._brmUpdateSlotRecurPreview(tsId);
       }
       updatePriceEstimate();
     };
 
-    // Toggle "until stopped" checkbox — hides/shows the end date field
-    window._brmToggleOngoing = function(idx) {
-      var ongoing = document.getElementById('brm-dc-ongoing-' + idx);
-      var endWrap = document.getElementById('brm-dc-end-wrap-' + idx);
+    window._brmToggleSlotOngoing = function(tsId) {
+      var ongoing = document.getElementById('brm-ts-ongoing-' + tsId);
+      var endWrap = document.getElementById('brm-ts-end-wrap-' + tsId);
       if (!ongoing) return;
       if (endWrap) endWrap.style.display = ongoing.checked ? 'none' : '';
-      window._brmUpdateCardRecurPreview(idx);
+      window._brmUpdateSlotRecurPreview(tsId);
     };
 
-    window._brmUpdateCardRecurPreview = function(idx) {
-      var preview = document.getElementById('brm-dc-recur-preview-' + idx);
+    window._brmUpdateSlotRecurPreview = function(tsId) {
+      var preview = document.getElementById('brm-ts-recur-preview-' + tsId);
       if (!preview) return;
-      var ongoing = document.getElementById('brm-dc-ongoing-' + idx);
+      var ongoing = document.getElementById('brm-ts-ongoing-' + tsId);
       var isOngoing = ongoing && ongoing.checked;
-      var freq = (document.getElementById('brm-dc-freq-' + idx) || {}).value || 'weekly';
+      var freq = (document.getElementById('brm-ts-freq-' + tsId) || {}).value || 'weekly';
       var freqLabel = freq === 'weekly' ? 'every week' : 'every other week';
-      var card = document.getElementById('brm-dc-' + idx);
+      // Find the parent card's date
+      var slot = document.getElementById('brm-ts-recur-' + tsId);
+      var card = slot ? slot.closest('[data-date]') : null;
       var startDate = card ? card.getAttribute('data-date') : '';
 
       if (isOngoing) {
         var startFmt = startDate ? new Date(startDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '';
-        preview.innerHTML = '<span style="color:#c8963e;font-weight:600">Repeats ' + freqLabel + '</span> starting ' + startFmt + '<br><em>Charged the day before each visit · continues until you cancel</em>';
+        preview.innerHTML = '<span style="color:#c8963e;font-weight:600">Repeats ' + freqLabel + '</span> starting ' + startFmt + '<br><em>Charged the Sunday before each appointment week · continues until you cancel</em>';
       } else {
-        var dates = _getCardRecurDates(idx);
+        var dates = _getSlotRecurDates(tsId);
         if (dates.length === 0) {
           preview.innerHTML = '<em>Set an end date to see your recurring dates.</em>';
         } else {
@@ -1772,47 +1532,38 @@
       updatePriceEstimate();
     };
 
-    // Generate recurring dates for a specific card (only for cards with end dates)
-    function _getCardRecurDates(idx) {
-      var card = document.getElementById('brm-dc-' + idx);
-      if (!card) return [];
-      var startDate = card.getAttribute('data-date');
-      if (!startDate) return [];
-      var cb = document.getElementById('brm-dc-recur-' + idx);
+    // Generate recurring dates for a specific time slot
+    function _getSlotRecurDates(tsId) {
+      var cb = document.getElementById('brm-ts-recur-' + tsId);
       if (!cb || !cb.checked) return [];
-      // If "until stopped", no finite date list
-      var ongoing = document.getElementById('brm-dc-ongoing-' + idx);
+      var slot = cb.closest('[data-date]');
+      if (!slot) return [];
+      var startDate = slot.getAttribute('data-date');
+      if (!startDate) return [];
+      var ongoing = document.getElementById('brm-ts-ongoing-' + tsId);
       if (ongoing && ongoing.checked) return [];
-      var freq = (document.getElementById('brm-dc-freq-' + idx) || {}).value || 'weekly';
-      var endStr = (document.getElementById('brm-dc-recur-end-' + idx) || {}).value;
+      var freq = (document.getElementById('brm-ts-freq-' + tsId) || {}).value || 'weekly';
+      var endStr = (document.getElementById('brm-ts-recur-end-' + tsId) || {}).value;
       if (!endStr) return [];
 
       var intervalDays = freq === 'biweekly' ? 14 : 7;
       var start = new Date(startDate + 'T12:00:00');
       var end = new Date(endStr + 'T12:00:00');
       var dates = [];
-
-      // Start from the card's date, repeat at same day-of-week
       for (var d = new Date(start); d <= end; d.setDate(d.getDate() + intervalDays)) {
         dates.push(_localDateStr(d));
       }
       return dates;
     }
 
-    // Check if a card is "ongoing" (until stopped)
-    function _isCardOngoing(idx) {
-      var ongoing = document.getElementById('brm-dc-ongoing-' + idx);
-      return ongoing && ongoing.checked;
-    }
-
-    // Get ALL recurring dates across ALL cards (for submission + price calc)
+    // Get ALL recurring dates across ALL time slots (for submission + price calc)
     function getRecurDates() {
       var allDates = [];
-      var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
-      cards.forEach(function(card) {
-        var idx = card.id.replace('brm-dc-', '');
-        var recurDates = _getCardRecurDates(parseInt(idx));
-        recurDates.forEach(function(d) {
+      document.querySelectorAll('[id^="brm-ts-recur-"]').forEach(function(cb) {
+        if (!cb.checked) return;
+        var tsId = cb.id.replace('brm-ts-recur-', '');
+        var dates = _getSlotRecurDates(parseInt(tsId));
+        dates.forEach(function(d) {
           if (allDates.indexOf(d) === -1) allDates.push(d);
         });
       });
@@ -1820,21 +1571,18 @@
     }
     window._brmGetRecurDates = getRecurDates;
 
-    // Check if any card has recurring enabled
-    function _anyCardIsRecurring() {
-      var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
+    // Check if any time slot has recurring enabled
+    function _anySlotIsRecurring() {
       var found = false;
-      cards.forEach(function(card) {
-        var idx = card.id.replace('brm-dc-', '');
-        var cb = document.getElementById('brm-dc-recur-' + idx);
-        if (cb && cb.checked) found = true;
+      document.querySelectorAll('[id^="brm-ts-recur-"]').forEach(function(cb) {
+        if (cb.checked) found = true;
       });
       return found;
     }
-    window._brmAnyCardRecurring = _anyCardIsRecurring;
+    window._brmAnyCardRecurring = _anySlotIsRecurring;
 
-    // Backward-compat: updateRecurPreview is a no-op now (per-card handles it)
-    function updateRecurPreview() { /* handled per-card */ }
+    // Backward-compat: updateRecurPreview is a no-op now (per-slot handles it)
+    function updateRecurPreview() { /* handled per-slot */ }
 
     // ── Greeting for logged-in clients ──
     function showGreeting() {
@@ -1882,6 +1630,7 @@
       '  width: 90%;',
       '  max-height: 85vh;',
       '  overflow-y: auto;',
+      '  overflow-x: hidden;',
       '  -webkit-overflow-scrolling: auto;',
       '  overscroll-behavior: contain;',
       '  box-shadow: 0 20px 60px rgba(0,0,0,0.2);',
@@ -1924,7 +1673,7 @@
       '  border-radius: 8px;',
       '  font-size: 15px;',
       '  font-family: inherit;',
-      '  background: #fff;',
+      '  background: var(--cream,#fff);',
       '  box-sizing: border-box;',
       '  transition: border-color 0.2s;',
       '}',
@@ -1990,7 +1739,7 @@
       '  margin: 0 auto;',
       '}',
       '.admin-request-card {',
-      '  background: #fff;',
+      '  background: var(--cream,#fff);',
       '  border: 1px solid #eee;',
       '  border-radius: 12px;',
       '  padding: 20px;',
@@ -2030,9 +1779,9 @@
       '}',
       '.arc-btn.accept { background: #3D5A47; color: #fff; border-color: #3D5A47; }',
       '.arc-btn.accept:hover { background: #2a4032; }',
-      '.arc-btn.decline { background: #fff; color: #C4756A; border-color: #C4756A; }',
+      '.arc-btn.decline { background: var(--cream,#fff); color: #C4756A; border-color: #C4756A; }',
       '.arc-btn.decline:hover { background: #F8D7DA; }',
-      '.arc-btn.modify { background: #fff; color: var(--gold, #C8963E); border-color: var(--gold, #C8963E); }',
+      '.arc-btn.modify { background: var(--cream,#fff); color: var(--gold, #C8963E); border-color: var(--gold, #C8963E); }',
       '.arc-btn.modify:hover { background: var(--gold-pale, #FDF7EE); }',
       '',
       '/* ── Schedule Preview on Booking Cards ── */',
@@ -2062,7 +1811,7 @@
       '}',
       '.sched-preview-item {',
       '  display: flex; align-items: center; gap: 8px;',
-      '  padding: 5px 8px; margin: 3px 0; background: #fff;',
+      '  padding: 5px 8px; margin: 3px 0; background: var(--cream,#fff);',
       '  border: 1px solid #e8e0d8; border-radius: 6px; font-size: 0.8rem;',
       '}',
       '.sched-preview-time {',
@@ -2082,7 +1831,7 @@
       '  padding: 6px 16px;',
       '  border-radius: 20px;',
       '  border: 1px solid #ddd;',
-      '  background: #fff;',
+      '  background: var(--cream,#fff);',
       '  font-size: 13px;',
       '  cursor: pointer;',
       '  font-family: inherit;',
@@ -2095,11 +1844,14 @@
 
   // Open / Close booking modal
   window.openBookingModal = function(preselectedService) {
-    // Require account — no guest bookings
+    // Require account — show guest service prompt for non-logged-in visitors
     if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
-      if (typeof toast === 'function') toast('Please create an account or sign in to book a service.');
-      var authOverlay = document.getElementById('authOverlay');
-      if (authOverlay) { authOverlay.classList.add('open'); if (typeof toggleAuthMode === 'function') toggleAuthMode('signup'); }
+      if (typeof guestServicePrompt === 'function') {
+        guestServicePrompt(preselectedService || 'Pet Care');
+      } else {
+        var authOverlay = document.getElementById('authOverlay');
+        if (authOverlay) { authOverlay.classList.add('open'); if (typeof toggleAuthMode === 'function') toggleAuthMode('signup'); }
+      }
       return;
     }
     // Refresh deals + used-deal list right when modal opens (catches stale cache)
@@ -2123,10 +1875,10 @@
           var isMG = matchGroup === 'Meet & Greet';
 
           if (isHS) {
-            // Show only House Sitting options
+            // Show single House Sitting option — pet type determines pricing
             sel.innerHTML = '<option value="">Choose a service...</option>' +
-              '<option value="House Sitting (Dog)">House Sitting (Dog) - $125/night</option>' +
-              '<option value="House Sitting (Cat)">House Sitting (Cat) - $80/night</option>';
+              '<option value="House Sitting">House Sitting</option>';
+            sel.selectedIndex = 1;
           } else if (isMG) {
             sel.innerHTML = '<option value="">Choose a service...</option>' +
               '<option value="Meet & Greet">Meet &amp; Greet - Free</option>';
@@ -2164,12 +1916,9 @@
           SERVICES.forEach(function(s) {
             if (seen[s.group]) return;
             seen[s.group] = true;
-            if (s.group === 'House Sitting') return;
             if (s.group === 'Meet & Greet') { allOpts += '<option value="Meet & Greet">Meet &amp; Greet - Free</option>'; return; }
             allOpts += '<option value="' + s.group + '">' + s.group + '</option>';
           });
-          allOpts += '<option value="House Sitting (Dog)">House Sitting (Dog) - $125/night</option>';
-          allOpts += '<option value="House Sitting (Cat)">House Sitting (Cat) - $80/night</option>';
           sel.innerHTML = allOpts;
         }
       }
@@ -2277,7 +2026,7 @@
 
         html += [
           '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;',
-          'background:#fff;border:2px solid #e0d5c5;border-radius:10px;cursor:pointer;',
+          'background:var(--cream,#fff);border:2px solid #e0d5c5;border-radius:10px;cursor:pointer;',
           'transition:all 0.2s" class="brm-pet-checkbox-label"',
           ' onmouseenter="this.style.borderColor=\'#c8963e\'"',
           ' onmouseleave="if(!this.querySelector(\'input\').checked)this.style.borderColor=\'#e0d5c5\'"',
@@ -2480,27 +2229,30 @@
     // Build recurrence pattern from per-card recurring data
     var recurrencePattern = null;
     if (isRecurring) {
-      var recurringCards = [];
-      var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
-      cards.forEach(function(card) {
-        var cIdx = card.id.replace('brm-dc-', '');
-        var cb = document.getElementById('brm-dc-recur-' + cIdx);
-        if (cb && cb.checked) {
-          var ongoingEl = document.getElementById('brm-dc-ongoing-' + cIdx);
-          var isOngoing = ongoingEl && ongoingEl.checked;
-          recurringCards.push({
-            start_date: card.getAttribute('data-date'),
-            frequency: (document.getElementById('brm-dc-freq-' + cIdx) || {}).value || 'weekly',
-            end_date: isOngoing ? null : ((document.getElementById('brm-dc-recur-end-' + cIdx) || {}).value || ''),
-            ongoing: isOngoing,
-            time: (document.getElementById('brm-dc-time-' + cIdx) || {}).value || ''
-          });
-        }
+      var recurringSlots = [];
+      // Collect recurring schedules from per-time-slot checkboxes
+      document.querySelectorAll('[id^="brm-ts-recur-"]').forEach(function(cb) {
+        if (!cb.checked) return;
+        var tsId = cb.id.replace('brm-ts-recur-', '');
+        var card = cb.closest('[data-date]');
+        if (!card) return;
+        var ongoingEl = document.getElementById('brm-ts-ongoing-' + tsId);
+        var isOngoing = ongoingEl && ongoingEl.checked;
+        // Find the time select for this slot
+        var slot = cb.closest('.brm-time-slot');
+        var timeSel = slot ? slot.querySelector('.brm-dc-time-sel') : null;
+        recurringSlots.push({
+          start_date: card.getAttribute('data-date'),
+          frequency: (document.getElementById('brm-ts-freq-' + tsId) || {}).value || 'weekly',
+          end_date: isOngoing ? null : ((document.getElementById('brm-ts-recur-end-' + tsId) || {}).value || ''),
+          ongoing: isOngoing,
+          time: timeSel ? timeSel.value : ''
+        });
       });
-      if (recurringCards.length > 0) {
+      if (recurringSlots.length > 0) {
         recurrencePattern = {
           type: 'per_card',
-          schedules: recurringCards,
+          schedules: recurringSlots,
           time: time
         };
       }
@@ -2520,9 +2272,21 @@
     var totalDates = dateCardDetails.length > 0 ? dateCardDetails.length : allBookingDates.length;
     var multiDateTotal, multiDateBreakdown;
     if (isRecurring && !isHouseSitting) {
-      // Recurring: store per-session price, billed weekly
-      multiDateTotal = priceResult.total; // per session
-      multiDateBreakdown = priceResult.breakdown + ' | Recurring: $' + priceResult.total.toFixed(2) + '/appointment, charged the day before each visit';
+      // Count recurring vs one-time time slots
+      var recurSlotCount = 0;
+      var oneTimeSlotCount = 0;
+      document.querySelectorAll('.brm-time-slot').forEach(function(slot) {
+        var recurCb = slot.querySelector('[id^="brm-ts-recur-"]');
+        if (recurCb && recurCb.checked) { recurSlotCount++; } else { oneTimeSlotCount++; }
+      });
+      // Estimated total = one-time visits total + per-session recurring rate
+      var oneTimeCost = priceResult.total * oneTimeSlotCount;
+      multiDateTotal = oneTimeCost + priceResult.total; // one-time total + recurring per-appt rate
+      multiDateBreakdown = priceResult.breakdown;
+      if (oneTimeSlotCount > 0) {
+        multiDateBreakdown += ' | One-time: $' + oneTimeCost.toFixed(2) + ' (' + oneTimeSlotCount + ' session' + (oneTimeSlotCount > 1 ? 's' : '') + ')';
+      }
+      multiDateBreakdown += ' | Recurring: $' + priceResult.total.toFixed(2) + '/appointment (' + recurSlotCount + ' schedule' + (recurSlotCount > 1 ? 's' : '') + '), charged the Sunday before each appointment week';
     } else {
       multiDateTotal = priceResult.total * totalDates;
       multiDateBreakdown = priceResult.breakdown;
@@ -2572,23 +2336,21 @@
         return;
       }
     }
-    // Recurring cards need end dates unless set to "until stopped"
+    // Recurring time slots need end dates unless set to "until stopped"
     if (isRecurring) {
       var missingEnd = false;
-      document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
-        var cIdx = card.id.replace('brm-dc-', '');
-        var cb = document.getElementById('brm-dc-recur-' + cIdx);
-        if (cb && cb.checked) {
-          var ongoingEl = document.getElementById('brm-dc-ongoing-' + cIdx);
-          var isOngoing = ongoingEl && ongoingEl.checked;
-          if (!isOngoing) {
-            var endEl = document.getElementById('brm-dc-recur-end-' + cIdx);
-            if (!endEl || !endEl.value) missingEnd = true;
-          }
+      document.querySelectorAll('[id^="brm-ts-recur-"]').forEach(function(cb) {
+        if (!cb.checked) return;
+        var tsId = cb.id.replace('brm-ts-recur-', '');
+        var ongoingEl = document.getElementById('brm-ts-ongoing-' + tsId);
+        var isOngoing = ongoingEl && ongoingEl.checked;
+        if (!isOngoing) {
+          var endEl = document.getElementById('brm-ts-recur-end-' + tsId);
+          if (!endEl || !endEl.value) missingEnd = true;
         }
       });
       if (missingEnd) {
-        if (errEl) errEl.textContent = 'Please set an end date for recurring dates (or choose "Until stopped").';
+        if (errEl) errEl.textContent = 'Please set an end date for recurring times (or choose "Until stopped").';
         return;
       }
     }
@@ -2639,17 +2401,51 @@
         }
       }
 
-      // ── Split multi-date bookings into individual records ──
-      // Each date card becomes its own booking_request so owner/staff can manage them independently
-      var shouldSplit = dateCardDetails.length > 1 && !isRecurring && !isHouseSittingSvc;
+      // ── Split multi-slot bookings into individual records ──
+      // Each time slot becomes its own booking_request so owner/staff can manage them independently
+      var shouldSplit = dateCardDetails.length > 1 && !isHouseSittingSvc;
       var data, error;
 
       if (shouldSplit) {
-        var perVisitPrice = priceResult.total; // per-session price
+        var perVisitPrice = priceResult.total;
         var perVisitDealSavings = window._brmDealDiscount ? (window._brmDealDiscount.savings / dateCardDetails.length) : null;
         var perVisitTotal = window._brmDealDiscount ? (window._brmDealDiscount.discountedTotal / dateCardDetails.length) : perVisitPrice;
 
-        var insertRows = dateCardDetails.map(function(dc) {
+        // Build a map of per-slot recurring settings
+        var slotRecurMap = {};
+        document.querySelectorAll('.brm-time-slot').forEach(function(slot, slotIdx) {
+          var recurCb = slot.querySelector('[id^="brm-ts-recur-"]');
+          var isSlotRecurring = recurCb && recurCb.checked;
+          var slotRecurrence = null;
+          if (isSlotRecurring) {
+            var tsId = recurCb.id.replace('brm-ts-recur-', '');
+            var card = slot.closest('[data-date]');
+            var ongoingEl = document.getElementById('brm-ts-ongoing-' + tsId);
+            var isOngoing = ongoingEl && ongoingEl.checked;
+            var timeSel = slot.querySelector('.brm-dc-time-sel');
+            slotRecurrence = {
+              type: 'per_card',
+              schedules: [{
+                start_date: card ? card.getAttribute('data-date') : '',
+                time: timeSel ? timeSel.value : '',
+                frequency: (document.getElementById('brm-ts-freq-' + tsId) || {}).value || 'weekly',
+                end_date: isOngoing ? null : ((document.getElementById('brm-ts-recur-end-' + tsId) || {}).value || ''),
+                ongoing: isOngoing
+              }]
+            };
+          }
+          slotRecurMap[slotIdx] = slotRecurrence;
+        });
+
+        var insertRows = dateCardDetails.map(function(dc, idx) {
+          var slotRecurrence = slotRecurMap[idx] || null;
+          var slotBreakdown = priceResult.breakdown;
+          if (slotRecurrence) {
+            slotBreakdown += ' | Recurring: $' + perVisitPrice.toFixed(2) + '/appointment, charged the Sunday before each appointment week';
+          }
+          if (window._brmDealDiscount) {
+            slotBreakdown += ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + perVisitDealSavings.toFixed(2);
+          }
           return {
             service: service,
             preferred_date: dc.date,
@@ -2664,7 +2460,7 @@
             is_puppy: isPuppy,
             is_holiday: isHoliday(dc.date),
             estimated_total: perVisitTotal,
-            price_breakdown: priceResult.breakdown + (window._brmDealDiscount ? ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + perVisitDealSavings.toFixed(2) : ''),
+            price_breakdown: slotBreakdown,
             deal_id: window._brmDealDiscount ? window._brmDealDiscount.deal.id : null,
             deal_discount: perVisitDealSavings,
             special_notes: notes || null,
@@ -2672,9 +2468,9 @@
             house_area: address,
             client_id: clientId,
             status: 'pending',
-            booking_dates: null,
-            recurrence_pattern: null,
-            date_details: null,
+            booking_dates: slotRecurrence ? [dc.date] : null,
+            recurrence_pattern: slotRecurrence,
+            date_details: [dc],
             selected_pet_ids: selectedPetIds ? selectedPetIds.split(',') : null,
           };
         });
@@ -2683,7 +2479,7 @@
         data = result.data;
         error = result.error;
       } else {
-        // Single record — original behavior (1 date card, recurring, or house sitting)
+        // Single record — 1 time slot, or house sitting
         var result = await sb
           .from('booking_requests')
           .insert({
@@ -2833,7 +2629,7 @@
           service = 'Drop-In Visit';
         }
       }
-      else if (text.indexOf('Stay') >= 0 || text.indexOf('125') >= 0) service = 'House Sitting (Dog)';
+      else if (text.indexOf('Stay') >= 0 || text.indexOf('125') >= 0) service = 'House Sitting';
       else if (text.indexOf('Meet') >= 0 || text.indexOf('Greet') >= 0) service = 'Meet & Greet';
 
       btn.onclick = function(e) {
@@ -3605,25 +3401,26 @@
         timestamp: Date.now()
       };
 
-      // Save date card details if any
-      var dateCards = [];
-      document.querySelectorAll('#brm-dates-list > div[data-date]').forEach(function(card) {
-        var idx = card.id.replace('brm-dc-', '');
-        var timeEl = document.getElementById('brm-dc-time-' + idx);
-        var recurCb = document.getElementById('brm-dc-recur-' + idx);
-        var freqEl = document.getElementById('brm-dc-freq-' + idx);
-        var endEl = document.getElementById('brm-dc-recur-end-' + idx);
-        var ongoingEl = document.getElementById('brm-dc-ongoing-' + idx);
-        dateCards.push({
-          date: card.getAttribute('data-date'),
-          time: timeEl ? timeEl.value : '',
+      // Save time slot details (per-slot recurring)
+      var timeSlots = [];
+      document.querySelectorAll('.brm-time-slot').forEach(function(slot) {
+        var card = slot.closest('[data-date]');
+        var timeSel = slot.querySelector('.brm-dc-time-sel');
+        var recurCb = slot.querySelector('[id^="brm-ts-recur-"]');
+        var tsId = recurCb ? recurCb.id.replace('brm-ts-recur-', '') : '';
+        var freqEl = tsId ? document.getElementById('brm-ts-freq-' + tsId) : null;
+        var endEl = tsId ? document.getElementById('brm-ts-recur-end-' + tsId) : null;
+        var ongoingEl = tsId ? document.getElementById('brm-ts-ongoing-' + tsId) : null;
+        timeSlots.push({
+          date: card ? card.getAttribute('data-date') : '',
+          time: timeSel ? timeSel.value : '',
           recurring: recurCb ? recurCb.checked : false,
           frequency: freqEl ? freqEl.value : 'weekly',
           endDate: endEl ? endEl.value : '',
           ongoing: ongoingEl ? ongoingEl.checked : false
         });
       });
-      formData.dateCards = dateCards;
+      formData.dateCards = timeSlots;
 
       sessionStorage.setItem('hhp_pending_booking', JSON.stringify(formData));
     } catch (e) {
@@ -3693,21 +3490,25 @@
             }
           });
 
-          // After cards are added, restore their settings
+          // After cards are added, restore time slot settings (per-slot recurring)
           setTimeout(function() {
+            var allSlots = document.querySelectorAll('.brm-time-slot');
             formData.dateCards.forEach(function(dc, idx) {
-              var timeEl = document.getElementById('brm-dc-time-' + idx);
-              if (timeEl && dc.time) timeEl.value = dc.time;
-              var recurCb = document.getElementById('brm-dc-recur-' + idx);
+              if (idx >= allSlots.length) return;
+              var slot = allSlots[idx];
+              var timeSel = slot.querySelector('.brm-dc-time-sel');
+              if (timeSel && dc.time) timeSel.value = dc.time;
+              var recurCb = slot.querySelector('[id^="brm-ts-recur-"]');
               if (recurCb && dc.recurring) {
                 recurCb.checked = true;
                 recurCb.dispatchEvent(new Event('change'));
+                var tsId = recurCb.id.replace('brm-ts-recur-', '');
                 setTimeout(function() {
-                  var freqEl = document.getElementById('brm-dc-freq-' + idx);
+                  var freqEl = document.getElementById('brm-ts-freq-' + tsId);
                   if (freqEl && dc.frequency) freqEl.value = dc.frequency;
-                  var endEl = document.getElementById('brm-dc-recur-end-' + idx);
+                  var endEl = document.getElementById('brm-ts-recur-end-' + tsId);
                   if (endEl && dc.endDate) endEl.value = dc.endDate;
-                  var ongoingEl = document.getElementById('brm-dc-ongoing-' + idx);
+                  var ongoingEl = document.getElementById('brm-ts-ongoing-' + tsId);
                   if (ongoingEl && dc.ongoing) {
                     ongoingEl.checked = true;
                     ongoingEl.dispatchEvent(new Event('change'));
@@ -4323,7 +4124,7 @@
         '</div>',
 
         // Night Adjustment
-        '<div style="background:#fff;border:1.5px solid #e0d5c5;border-radius:12px;padding:14px;margin-bottom:16px">',
+        '<div style="background:var(--cream,#fff);border:1.5px solid #e0d5c5;border-radius:12px;padding:14px;margin-bottom:16px">',
         '<div style="font-weight:700;font-size:0.88rem;color:#6b5c4d;margin-bottom:10px">Adjust Nights</div>',
         '<div style="font-size:0.78rem;color:#999;margin-bottom:10px">Did the stay end early or extend? Adjust the nights below.</div>',
         '<div style="display:flex;align-items:center;justify-content:center;gap:16px">',
@@ -4338,18 +4139,18 @@
         // Report Notes
         '<div style="margin-bottom:16px">',
         '<label style="font-weight:700;font-size:0.88rem;color:#6b5c4d;display:block;margin-bottom:6px">Notes for Client</label>',
-        '<textarea id="hs-report-notes" placeholder="How did the stay go? How were the pets? Any notes for the client..." style="width:100%;min-height:100px;padding:12px;border:1.5px solid #e0d5c5;border-radius:10px;font-family:inherit;font-size:1rem;resize:vertical;box-sizing:border-box;background:#fff"></textarea>',
+        '<textarea id="hs-report-notes" placeholder="How did the stay go? How were the pets? Any notes for the client..." style="width:100%;min-height:100px;padding:12px;border:1.5px solid #e0d5c5;border-radius:10px;font-family:inherit;font-size:1rem;resize:vertical;box-sizing:border-box;background:var(--cream,#fff)"></textarea>',
         '</div>',
 
         // Pet Rating
         '<div style="margin-bottom:20px">',
         '<label style="font-weight:700;font-size:0.88rem;color:#6b5c4d;display:block;margin-bottom:6px">Pet Behavior Rating</label>',
         '<div id="hs-report-rating" style="display:flex;gap:6px">',
-        '<button onclick="setHSRating(1)" class="hs-rate-btn" data-val="1" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">😟 1</button>',
-        '<button onclick="setHSRating(2)" class="hs-rate-btn" data-val="2" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">😐 2</button>',
-        '<button onclick="setHSRating(3)" class="hs-rate-btn" data-val="3" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">🙂 3</button>',
-        '<button onclick="setHSRating(4)" class="hs-rate-btn" data-val="4" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">😊 4</button>',
-        '<button onclick="setHSRating(5)" class="hs-rate-btn" data-val="5" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:white;cursor:pointer;font-size:0.85rem">⭐ 5</button>',
+        '<button onclick="setHSRating(1)" class="hs-rate-btn" data-val="1" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:var(--cream,white);cursor:pointer;font-size:0.85rem">😟 1</button>',
+        '<button onclick="setHSRating(2)" class="hs-rate-btn" data-val="2" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:var(--cream,white);cursor:pointer;font-size:0.85rem">😐 2</button>',
+        '<button onclick="setHSRating(3)" class="hs-rate-btn" data-val="3" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:var(--cream,white);cursor:pointer;font-size:0.85rem">🙂 3</button>',
+        '<button onclick="setHSRating(4)" class="hs-rate-btn" data-val="4" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:var(--cream,white);cursor:pointer;font-size:0.85rem">😊 4</button>',
+        '<button onclick="setHSRating(5)" class="hs-rate-btn" data-val="5" style="padding:8px 14px;border-radius:8px;border:1.5px solid #e0d5c5;background:var(--cream,white);cursor:pointer;font-size:0.85rem">⭐ 5</button>',
         '</div>',
         '</div>',
 
@@ -4497,20 +4298,38 @@
         if (result.status === 'accepted' && booking.estimated_total > 0 && booking.client_id) {
           (async function() {
             try {
-              var chargeResp = await fetch('/api/charge-saved-card', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bookingRequestId: requestId, amount: booking.estimated_total, service: booking.service, clientProfileId: booking.client_id }),
-              });
-              var chargeData = await chargeResp.json();
-              if (chargeData.success) {
-                if (typeof toast === 'function') toast('\uD83D\uDCB3 Card charged $' + Number(booking.estimated_total).toFixed(2) + '!');
+              // Recurring bookings: trigger first-week billing (Sunday cron handles ongoing)
+              if (booking.recurrence_pattern) {
+                var fwResp = await fetch('/api/recurring-invoices?firstWeek=true&bookingId=' + requestId, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ firstWeek: true, bookingId: requestId }),
+                });
+                var fwData = await fwResp.json();
+                if (fwData.charged > 0) {
+                  if (typeof toast === 'function') toast('\uD83D\uDCB3 Recurring: billed for this week!');
+                } else if (fwData.errors && fwData.errors.length > 0) {
+                  if (typeof toast === 'function') toast('\u26A0\uFE0F Recurring billing had errors — check logs');
+                } else {
+                  if (typeof toast === 'function') toast('\u2705 Recurring accepted — first billing starts next Sunday');
+                }
               } else {
-                await sb.from('booking_requests').update({ status: 'payment_hold', admin_notes: '\u26A0\uFE0F Payment failed: ' + (chargeData.message || chargeData.error || 'Card declined') }).eq('id', requestId);
-                if (typeof toast === 'function') toast('\u26A0\uFE0F Card declined \u2014 booking on payment hold.');
+                // One-time bookings: charge immediately
+                var chargeResp = await fetch('/api/charge-saved-card', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ bookingRequestId: requestId, amount: booking.estimated_total, service: booking.service, clientProfileId: booking.client_id }),
+                });
+                var chargeData = await chargeResp.json();
+                if (chargeData.success) {
+                  if (typeof toast === 'function') toast('\uD83D\uDCB3 Card charged $' + Number(booking.estimated_total).toFixed(2) + '!');
+                } else {
+                  await sb.from('booking_requests').update({ status: 'payment_hold', admin_notes: '\u26A0\uFE0F Payment failed: ' + (chargeData.message || chargeData.error || 'Card declined') }).eq('id', requestId);
+                  if (typeof toast === 'function') toast('\u26A0\uFE0F Card declined \u2014 booking on payment hold.');
+                }
               }
             } catch (chargeErr) {
-              console.warn('Auto-charge on multi-date accept failed:', chargeErr);
+              console.warn('Auto-charge on accept failed:', chargeErr);
             }
             if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
           })();

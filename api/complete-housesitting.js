@@ -102,7 +102,7 @@ module.exports = async function handler(req, res) {
         .from('profiles')
         .select('stripe_customer_id, email, full_name')
         .eq('user_id', booking.client_id)
-        .single();
+        .maybeSingle();
 
       if (profile && profile.stripe_customer_id) {
         const methods = await stripe.paymentMethods.list({
@@ -157,6 +157,7 @@ module.exports = async function handler(req, res) {
               stripe_session_id: extraCharge.id,
               client_email: profile.email,
               client_name: profile.full_name,
+              client_id: booking.client_id,
               amount: diffCents / 100,
               service: booking.service + ' (extra nights)',
               status: 'paid',
@@ -264,7 +265,7 @@ module.exports = async function handler(req, res) {
       .from('profiles')
       .select('email, full_name')
       .eq('user_id', booking.client_id)
-      .single();
+      .maybeSingle();
 
     // 6. Store service report
     await supabase.from('service_reports').insert({
