@@ -11539,6 +11539,8 @@ async function submitInterest(service) {
   var notes = document.getElementById(prefix + '-notes')?.value || '';
   var freq = document.getElementById(prefix + '-freq')?.value || '';
   if (!name.trim() || !contact.trim()) { toast('Please fill in your name and contact info.'); return; }
+
+  // Save to Supabase interest list
   var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
   if (sb) {
     var existing = await _loadSiteContent('interest_' + service) || { entries: [] };
@@ -11550,9 +11552,26 @@ async function submitInterest(service) {
     existing.entries.push(entry);
     await _saveSiteContent('interest_' + service, existing);
   }
+
+  // Send email notification to Rachel
+  try {
+    var emailBody = { service: service, name: name, contact: contact, pet: pet, notes: notes, frequency: freq };
+    if (service === 'wedding') {
+      emailBody.weddingDate = document.getElementById('wed-date')?.value || '';
+      emailBody.serviceType = document.getElementById('wed-type')?.value || '';
+    }
+    fetch('/api/interest-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(emailBody)
+    }).catch(function(e) { console.error('Interest email failed:', e); });
+  } catch (emailErr) {
+    console.error('Interest email error:', emailErr);
+  }
+
   closeModal(modalId);
-  var emojiMap = { pawbus: '🚌', boarding: '🌙', daycare: '☀️', wedding: '💍' };
-  var emoji = emojiMap[service] || '🎉';
+  var emojiMap = { pawbus: '\uD83D\uDE8C', boarding: '\uD83C\uDF19', daycare: '\u2600\uFE0F', wedding: '\uD83D\uDC8D' };
+  var emoji = emojiMap[service] || '\uD83C\uDF89';
   toast(emoji + ' Added to interest list! Rachel will reach out soon.');
 }
 
