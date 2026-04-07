@@ -7917,6 +7917,73 @@ async function showBookingDetail(bookingId, role, source) {
 
     h += '</div>'; // end info rows
 
+    // ── RECURRING SCHEDULE SECTION (in detail drawer) ──
+    if (b.recurrence_pattern) {
+      var _activeStatuses = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1, payment_hold:1 };
+      if (_activeStatuses[st]) {
+        h += '<div style="background:var(--warm);border-radius:10px;padding:14px;margin-bottom:12px">';
+        h += '<div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;display:flex;align-items:center;gap:6px">🔄 Recurring Schedule</div>';
+
+        // Get next 4 dates
+        var _detailRecurDates = [];
+        try {
+          var _dToday = _localDateStr();
+          var _dCursor = new Date();
+          _dCursor.setHours(12,0,0,0);
+          var _dLimit = new Date(_dCursor);
+          _dLimit.setDate(_dLimit.getDate() + 90);
+          var _canceledSet = Array.isArray(b.canceled_dates) ? b.canceled_dates : [];
+          while (_dCursor <= _dLimit && _detailRecurDates.length < 4) {
+            var _dk = _localDateStr(_dCursor);
+            if (_dk >= _dToday && typeof isRecurringOnDate === 'function' && isRecurringOnDate(b, _dk)) {
+              _detailRecurDates.push(_dk);
+            }
+            _dCursor.setDate(_dCursor.getDate() + 1);
+          }
+        } catch(re) {}
+
+        // Load per-date payment status from recurring_invoices
+        if (_detailRecurDates.length > 0) {
+          var _detailPaidMap = {};
+          try {
+            var { data: _detailInvs } = await sb.from('recurring_invoices')
+              .select('service_date, status')
+              .eq('booking_request_id', b.id)
+              .in('service_date', _detailRecurDates);
+            if (_detailInvs) _detailInvs.forEach(function(ri) { _detailPaidMap[ri.service_date] = ri.status; });
+          } catch(die) {}
+
+          _detailRecurDates.forEach(function(dd, di) {
+            var ddDate = new Date(dd + 'T12:00:00');
+            var ddStr = ddDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var ddTime = (typeof getRecurringTime === 'function') ? getRecurringTime(b, dd) : '';
+            var ddTimeStr = ddTime && (typeof fmt12h === 'function') ? fmt12h(ddTime) : ddTime;
+            var ddInvStatus = _detailPaidMap[dd] || '';
+            var ddPaid = ddInvStatus === 'sent' || ddInvStatus === 'captured';
+
+            var ddBadge = '';
+            if (b.estimated_total > 0) {
+              if (ddPaid) ddBadge = '<span style="font-size:0.65rem;font-weight:700;color:#155724;background:#d4edda;padding:2px 7px;border-radius:4px">Paid</span>';
+              else if (ddInvStatus === 'voided') ddBadge = '<span style="font-size:0.65rem;font-weight:700;color:#856404;background:#fff3cd;padding:2px 7px;border-radius:4px">Refunded</span>';
+              else ddBadge = '<span style="font-size:0.65rem;font-weight:600;color:#0d47a1;background:#e3f2fd;padding:2px 7px;border-radius:4px">Upcoming</span>';
+            }
+
+            h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;' + (di === 0 ? 'background:var(--cream,white);border-radius:8px;border:1.5px solid var(--forest);' : '') + '">';
+            h += '<div style="width:6px;height:6px;border-radius:50%;background:' + (di === 0 ? 'var(--forest)' : 'var(--mid)') + ';flex-shrink:0"></div>';
+            h += '<div style="flex:1;font-size:0.84rem;' + (di === 0 ? 'font-weight:700;color:var(--ink)' : 'color:var(--mid)') + '">' + ddStr + (ddTimeStr ? ' at ' + ddTimeStr : '') + '</div>';
+            if (di === 0) h += '<span style="font-size:0.68rem;font-weight:700;color:var(--forest);background:#d4edda;padding:2px 8px;border-radius:4px">NEXT</span>';
+            h += ddBadge;
+            h += '</div>';
+          });
+        } else {
+          h += '<div style="font-size:0.84rem;color:var(--mid);text-align:center;padding:8px">No upcoming visits scheduled</div>';
+        }
+
+        h += '<div style="font-size:0.75rem;color:var(--mid);margin-top:8px">$' + Number(b.estimated_total || 0).toFixed(2) + '/visit \u00B7 Charged weekly on Sundays</div>';
+        h += '</div>';
+      }
+    }
+
     // ── ACTION BUTTONS ──
     var today = _localDateStr();
     var isToday = dateVal === today;
@@ -9112,10 +9179,35 @@ async function endServiceFromPanel() {
     // Update booking status to completed (but NOT for recurring — keep 'accepted' so the series continues)
     if (d.bookingId) {
       try {
-        var { data: bkCheck } = await sb.from('booking_requests').select('recurrence_pattern').eq('id', d.bookingId).single();
+        var { data: bkCheck } = await sb.from('booking_requests').select('recurrence_pattern, canceled_dates').eq('id', d.bookingId).maybeSingle();
         if (bkCheck && bkCheck.recurrence_pattern) {
-          // Recurring booking: restore to 'accepted' so cron + calendar + client view keep working
-          await sb.from('booking_requests').update({ status: 'accepted' }).eq('id', d.bookingId);
+          // Recurring booking: check if there are future dates remaining
+          var _hasMoreDates = false;
+          try {
+            var _todayChk = _localDateStr();
+            var _chkCursor = new Date();
+            _chkCursor.setHours(12,0,0,0);
+            // Start from tomorrow to check future dates
+            _chkCursor.setDate(_chkCursor.getDate() + 1);
+            var _chkEnd = new Date(_chkCursor);
+            _chkEnd.setDate(_chkEnd.getDate() + 90);
+            while (_chkCursor <= _chkEnd) {
+              var _chkDk = _localDateStr(_chkCursor);
+              if (typeof isRecurringOnDate === 'function' && isRecurringOnDate(bkCheck, _chkDk)) {
+                _hasMoreDates = true;
+                break;
+              }
+              _chkCursor.setDate(_chkCursor.getDate() + 1);
+            }
+          } catch(rdErr) { _hasMoreDates = true; /* err on side of keeping active */ }
+
+          if (_hasMoreDates) {
+            // More dates ahead: restore to 'accepted' so cron + calendar + client view keep working
+            await sb.from('booking_requests').update({ status: 'accepted' }).eq('id', d.bookingId);
+          } else {
+            // No more future dates: mark as completed — the recurring service is done
+            await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
+          }
         } else {
           // One-time booking: mark completed as normal
           var { error: bkErr } = await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
