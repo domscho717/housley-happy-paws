@@ -242,7 +242,7 @@
     if (_profileCache[userId]) return _profileCache[userId];
     var sb = getSB();
     if (!sb) return { full_name: 'Unknown', role: 'client' };
-    var { data } = await sb.from('profiles').select('id, user_id, full_name, role, avatar_url').eq('user_id', userId).single();
+    var { data } = await sb.from('profiles').select('id, user_id, full_name, role, avatar_url').eq('user_id', userId).maybeSingle();
     if (data) _profileCache[userId] = data;
     return data || { full_name: 'Unknown', role: 'client' };
   }
@@ -253,7 +253,7 @@
     if (_ownerUserIdCache) return _ownerUserIdCache;
     var sb = getSB();
     if (!sb) return null;
-    var { data } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).single();
+    var { data } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
     if (data) _ownerUserIdCache = data.user_id;
     return _ownerUserIdCache;
   }
