@@ -1503,7 +1503,7 @@
       if(!pet){if(typeof toast==='function')toast('Pet not found');return;}
       // Get owner info
       var ownerName='';
-      if(pet.owner_id){var{data:owner}=await sb.from('profiles').select('full_name').eq('user_id',pet.owner_id).single();if(owner)ownerName=owner.full_name;}
+      if(pet.owner_id){var{data:owner}=await sb.from('profiles').select('full_name').eq('user_id',pet.owner_id).maybeSingle();if(owner)ownerName=owner.full_name;}
       // Build modal
       var old=document.getElementById('pet-profile-modal');if(old)old.remove();
       var ov=document.createElement('div');ov.id='pet-profile-modal';
