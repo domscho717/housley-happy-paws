@@ -1148,6 +1148,17 @@
         '<button type="button" onclick="window._brmAddTimeSlot(' + idx + ')" style="background:none;border:1px dashed #c8963e;color:#c8963e;border-radius:6px;padding:6px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-top:2px">+ Add another time</button>';
       container.appendChild(card);
 
+      // Sort date cards chronologically (closest date first)
+      window._brmDateCards.sort(function(a, b) {
+        if (!a || !b) return 0;
+        return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+      });
+      window._brmDateCards.forEach(function(c) {
+        if (!c) return;
+        var el = document.getElementById('brm-dc-' + c.idx);
+        if (el) container.appendChild(el);
+      });
+
       // Clear the date input for next selection
       dateInput.value = '';
       dateInput._lastVal = '';
