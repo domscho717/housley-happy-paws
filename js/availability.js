@@ -415,12 +415,12 @@
       var sb = window.HHP_Auth.supabase;
       var staffName = '';
       if (window.HHP_Auth.currentUser) {
-        var { data: prof } = await sb.from('profiles').select('full_name').eq('user_id', window.HHP_Auth.currentUser.id).single();
+        var { data: prof } = await sb.from('profiles').select('full_name').eq('user_id', window.HHP_Auth.currentUser.id).maybeSingle();
         if (prof) staffName = prof.full_name;
       }
       // Send a message to the owner about the availability change
       try {
-        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).single();
+        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
         if (ownerProf) {
           await sb.from('messages').insert({
             sender_id: window.HHP_Auth.currentUser.id,
@@ -489,9 +489,9 @@
     if (window.HHP_Auth && window.HHP_Auth.supabase && window.HHP_Auth.currentUser) {
       var sb = window.HHP_Auth.supabase;
       try {
-        var { data: prof } = await sb.from('profiles').select('full_name').eq('user_id', window.HHP_Auth.currentUser.id).single();
+        var { data: prof } = await sb.from('profiles').select('full_name').eq('user_id', window.HHP_Auth.currentUser.id).maybeSingle();
         var staffName = prof ? prof.full_name : 'Staff member';
-        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).single();
+        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
         if (ownerProf) {
           await sb.from('messages').insert({
             sender_id: window.HHP_Auth.currentUser.id,
