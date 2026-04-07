@@ -991,11 +991,13 @@
       var html = '<div class="brm-time-slot" data-tsid="' + tsId + '" style="margin-bottom:8px;padding:6px 0;' + (!isFirst ? 'border-top:1px dashed #e8dece;padding-top:8px;' : '') + '">';
       // Time row
       html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">';
-      html += '<select ' + (isFirst ? 'id="brm-dc-time-' + cardIdx + '"' : '') + ' class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" data-tsid="' + tsId + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:0;margin:0;padding:8px;font-size:1rem;min-height:44px">';
+      html += '<select ' + (isFirst ? 'id="brm-dc-time-' + cardIdx + '"' : '') + ' class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" data-tsid="' + tsId + '" onchange="window._brmSyncPrimary();updatePriceEstimate();window._brmShowApplyAll(this)" style="flex:1;min-width:0;margin:0;padding:8px;font-size:1rem;min-height:44px">';
       html += _brmTimeOptionsHTML();
       html += '</select>';
       // No per-slot X button — remove the whole date card to redo times
       html += '</div>';
+      // "Apply to all dates" button — appears after selecting a time when 2+ cards exist
+      html += '<div class="brm-apply-all-wrap" data-tsid="' + tsId + '" style="display:none;margin-top:4px;margin-bottom:2px"></div>';
       // Per-slot recurring toggle
       html += '<div style="margin-top:4px">';
       html += '<label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;cursor:pointer;color:#8c6b4a;font-weight:600">';
@@ -1187,6 +1189,68 @@
       if (slot) slot.remove();
       _syncPrimaryFromCards();
       updatePriceEstimate();
+    };
+
+    // ── "Apply to all dates" feature ──
+    // Show/hide the "Apply [time] to all dates" button after a time is selected
+    window._brmShowApplyAll = function(selectEl) {
+      // Hide any previously shown apply-all buttons
+      document.querySelectorAll('.brm-apply-all-wrap').forEach(function(w) {
+        w.style.display = 'none';
+        w.innerHTML = '';
+      });
+
+      var timeVal = selectEl.value;
+      if (!timeVal) return; // no time selected
+
+      // Only show when 2+ date cards exist
+      var cardCount = (window._brmDateCards || []).filter(function(c) { return !!c; }).length;
+      if (cardCount < 2) return;
+
+      // Find the wrap in the same time slot
+      var slot = selectEl.closest('.brm-time-slot');
+      if (!slot) return;
+      var tsId = slot.getAttribute('data-tsid');
+      var wrap = slot.querySelector('.brm-apply-all-wrap[data-tsid="' + tsId + '"]');
+      if (!wrap) return;
+
+      // Format the time for display
+      var parts = timeVal.split(':');
+      var h = parseInt(parts[0], 10);
+      var m = parts[1];
+      var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      var label = hr12 + ':' + m + ' ' + ampm;
+
+      wrap.style.display = 'block';
+      wrap.innerHTML = '<button type="button" onclick="window._brmApplyTimeToAll(\'' + timeVal + '\')" ' +
+        'style="background:none;border:1px solid #c8963e;color:#c8963e;border-radius:6px;' +
+        'padding:5px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;' +
+        'transition:all 0.15s"' +
+        ' onmouseenter="this.style.background=\'#c8963e\';this.style.color=\'#fff\'"' +
+        ' onmouseleave="this.style.background=\'none\';this.style.color=\'#c8963e\'"' +
+        '>Apply ' + label + ' to all dates</button>';
+    };
+
+    // Apply a time value to every date card's primary time selector
+    window._brmApplyTimeToAll = function(timeVal) {
+      var cards = window._brmDateCards || [];
+      cards.forEach(function(c) {
+        if (!c) return;
+        var sel = document.getElementById('brm-dc-time-' + c.idx);
+        if (sel) sel.value = timeVal;
+      });
+      // Hide all apply-all buttons
+      document.querySelectorAll('.brm-apply-all-wrap').forEach(function(w) {
+        w.style.display = 'none';
+        w.innerHTML = '';
+      });
+      _syncPrimaryFromCards();
+      updatePriceEstimate();
+      if (typeof toast === 'function') toast('Time set to ' + timeVal.replace(/^(\d+):(\d+)$/, function(_, h, m) {
+        var hr = parseInt(h, 10);
+        return (hr > 12 ? hr - 12 : (hr === 0 ? 12 : hr)) + ':' + m + ' ' + (hr >= 12 ? 'PM' : 'AM');
+      }) + ' for all dates');
     };
 
     // ── Visual calendar date picker ──
