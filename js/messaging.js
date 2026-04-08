@@ -384,6 +384,7 @@
       .update({ read_at: new Date().toISOString() })
       .eq('sender_id', senderUserId)
       .eq('recipient_id', user.id)
+      .neq('sender_id', user.id)
       .is('read_at', null);
 
     // Refresh alerts card and badges so read messages disappear
@@ -889,6 +890,15 @@
 
     var panel = document.getElementById('o-msgs');
     if (!panel) return;
+
+    // Auto-mark self-messages as read (system notifications to owner)
+    try {
+      await sb.from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('sender_id', user.id)
+        .eq('recipient_id', user.id)
+        .is('read_at', null);
+    } catch(e) {}
 
     var convos = await getConversationList();
 
