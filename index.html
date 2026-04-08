@@ -10635,7 +10635,11 @@ async function loadSavedCard() {
   var email = u.email;
 
   try {
-    var resp = await fetch('/api/get-payment-methods?profileId=' + profileId + '&email=' + encodeURIComponent(email));
+    var _sess = await sb.auth.getSession();
+    var _token = _sess && _sess.data && _sess.data.session ? _sess.data.session.access_token : '';
+    var resp = await fetch('/api/get-payment-methods?profileId=' + profileId + '&email=' + encodeURIComponent(email), {
+      headers: { 'Authorization': 'Bearer ' + _token }
+    });
     var data = await resp.json();
 
     if (data.hasCard && data.methods.length > 0) {
@@ -10688,9 +10692,11 @@ async function addPaymentMethod() {
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting to Stripe...'; }
 
   try {
+    var _aSess = await sb.auth.getSession();
+    var _aToken = _aSess && _aSess.data && _aSess.data.session ? _aSess.data.session.access_token : '';
     var resp = await fetch('/api/create-setup-session', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _aToken },
       body: JSON.stringify({
         email: u.email,
         name: p.full_name || '',
@@ -10725,9 +10731,11 @@ async function removePaymentMethod() {
   if (removeBtn) { removeBtn.disabled = true; removeBtn.textContent = 'Removing...'; }
 
   try {
+    var _rSess = await sb.auth.getSession();
+    var _rToken = _rSess && _rSess.data && _rSess.data.session ? _rSess.data.session.access_token : '';
     var resp = await fetch('/api/remove-payment-method', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _rToken },
       body: JSON.stringify({ paymentMethodId: window._savedPaymentMethodId }),
     });
     var data = await resp.json();
