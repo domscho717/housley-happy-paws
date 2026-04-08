@@ -46,6 +46,8 @@ module.exports = async function handler(req, res) {
   );
 
   // ── Date helpers (Eastern time, auto-adjusts for DST) ──
+  // IMPORTANT: All date window math uses date STRINGS (YYYY-MM-DD) to avoid
+  // timezone double-conversion bugs. The server runs in UTC but we need EST dates.
   function estDateStr(d) {
     return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   }
@@ -54,45 +56,43 @@ module.exports = async function handler(req, res) {
       weekday: 'short', month: 'short', day: 'numeric'
     });
   }
+  // Add N days to a YYYY-MM-DD string, returns YYYY-MM-DD (timezone-safe)
+  function addDaysStr(dateStr, n) {
+    const d = new Date(dateStr + 'T12:00:00Z'); // noon UTC avoids DST edge
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  // Get day-of-week (0=Sun) from a YYYY-MM-DD string (timezone-safe)
+  function dayOfWeekStr(dateStr) {
+    return new Date(dateStr + 'T12:00:00Z').getUTCDay();
+  }
 
-  const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const todayEST = estDateStr(); // e.g. "2026-04-07"
 
   // ── Determine billing window ──
   const firstWeekBookingId = req.query.bookingId || (req.body && req.body.bookingId);
   const isFirstWeek = req.query.firstWeek === 'true' || (req.body && req.body.firstWeek);
 
-  let weekStart, weekEnd;
+  let weekStartStr, weekEndStr;
 
   if (isFirstWeek && firstWeekBookingId) {
     // First-week trigger: bill from today through this Saturday
-    weekStart = new Date(estNow);
-    weekStart.setHours(0, 0, 0, 0);
-    // Find this Saturday (end of current week)
-    const dayOfWeek = weekStart.getDay(); // 0=Sun, 6=Sat
-    const daysUntilSat = (6 - dayOfWeek + 7) % 7;
-    weekEnd = new Date(weekStart);
-    if (daysUntilSat === 0 && dayOfWeek === 6) {
-      // Today is Saturday — just bill for today
-      weekEnd.setHours(23, 59, 59, 999);
-    } else {
-      weekEnd.setDate(weekEnd.getDate() + daysUntilSat);
-      weekEnd.setHours(23, 59, 59, 999);
-    }
+    weekStartStr = todayEST;
+    const dow = dayOfWeekStr(todayEST); // 0=Sun, 6=Sat
+    const daysUntilSat = dow === 6 ? 0 : (6 - dow + 7) % 7;
+    weekEndStr = addDaysStr(todayEST, daysUntilSat);
   } else {
     // Regular Sunday cron: this Sunday (today) through Saturday
-    weekStart = new Date(estNow);
-    weekStart.setHours(0, 0, 0, 0);
-    weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
+    weekStartStr = todayEST;
+    weekEndStr = addDaysStr(todayEST, 6);
   }
 
   // Build array of date strings for the billing window
   const weekDates = [];
-  const cursor = new Date(weekStart);
-  while (cursor <= weekEnd) {
-    weekDates.push(estDateStr(cursor));
-    cursor.setDate(cursor.getDate() + 1);
+  let cursorStr = weekStartStr;
+  while (cursorStr <= weekEndStr) {
+    weekDates.push(cursorStr);
+    cursorStr = addDaysStr(cursorStr, 1);
   }
 
   const results = { processed: 0, charged: 0, skipped: 0, errors: [], weekDates };
@@ -233,7 +233,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const weekLabel = `${estDateStr(weekStart)} to ${estDateStr(weekEnd)}`;
+    const weekLabel = `${weekStartStr} to ${weekEndStr}`;
     return res.status(200).json({
       message: `Weekly billing processed for ${weekLabel}`,
       ...results,
