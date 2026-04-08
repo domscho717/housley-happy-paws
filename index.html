@@ -29,8 +29,17 @@
 // Instant page restore: show the correct portal/panel immediately on reload (no flash)
 try{
   var _lv=sessionStorage.getItem('hhp_last_view');
+  // Check for public walk tracking link (?track=walkId)
+  var _trackParam=(new URLSearchParams(window.location.search)).get('track');
+  if(_trackParam&&/^[0-9a-f-]{36}$/i.test(_trackParam)){
+    var _eh2=document.getElementById('early-hide');
+    if(_eh2)_eh2.textContent='#pg-public,#pg-client,#pg-staff,#pg-owner{display:none!important;visibility:hidden!important}#pg-walk-tracking{display:block!important;visibility:visible!important}';
+    window._hhpTrackWalkId=_trackParam;
+  }
   var _lp=sessionStorage.getItem('hhp_last_panel');
-  if(!_lv||_lv==='public'){
+  if(window._hhpTrackWalkId){
+    // Tracking page — early-hide already handled above
+  } else if(!_lv||_lv==='public'){
     // Public page — remove early-hide immediately
     var s=document.getElementById('early-hide');if(s)s.remove();
   } else {
@@ -1314,6 +1323,60 @@ try {
   <a href="#reviews" class="nav-menu-item">Reviews</a>
   <a href="#coming-soon" class="nav-menu-item">Coming Soon</a>
   <a href="#services" class="nav-menu-item nav-menu-book">Book Now</a>
+</div>
+
+<!-- ========= PUBLIC WALK TRACKING PAGE ========= -->
+<div class="page" id="pg-walk-tracking" style="display:none">
+  <div id="walk-tracking-root" style="min-height:100vh;background:#faf6ee;font-family:'Jost',sans-serif">
+    <!-- Status bar -->
+    <div id="wt-header" style="background:linear-gradient(135deg,#3d5a47,#4a6b54);color:white;padding:16px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      <div style="font-size:1.5rem">🐾</div>
+      <div style="flex:1">
+        <div id="wt-title" style="font-weight:700;font-size:1.1rem">Loading walk...</div>
+        <div id="wt-subtitle" style="font-size:0.82rem;opacity:0.85"></div>
+      </div>
+      <div id="wt-live-badge" style="display:none;background:#22c55e;color:white;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;align-items:center;gap:5px">
+        <div style="width:7px;height:7px;background:white;border-radius:50%;animation:pulse 1.5s infinite"></div>
+        LIVE
+      </div>
+    </div>
+    <!-- Map container -->
+    <div id="wt-map-wrap" style="position:relative">
+      <div id="wt-map" style="height:calc(100vh - 200px);min-height:350px;background:#e8e0d0"></div>
+      <button id="wt-fullscreen-btn" onclick="toggleTrackingFullscreen()" style="position:absolute;top:12px;right:12px;z-index:1000;background:white;border:1px solid #ccc;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);display:flex;align-items:center;gap:4px">
+        <span id="wt-fs-icon">⛶</span> <span id="wt-fs-label">Fullscreen</span>
+      </button>
+    </div>
+    <!-- Info bar -->
+    <div id="wt-info" style="padding:16px 20px;background:white;border-top:1px solid rgba(61,90,71,0.12)">
+      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:0.88rem;color:#5c4a3a">
+        <div id="wt-elapsed"><strong>Elapsed:</strong> <span>—</span></div>
+        <div id="wt-distance" style="display:none"><strong>Distance:</strong> <span>—</span></div>
+        <div id="wt-points" style="display:none"><strong>GPS Points:</strong> <span>—</span></div>
+        <div id="wt-started"><strong>Started:</strong> <span>—</span></div>
+      </div>
+    </div>
+    <!-- Completed state -->
+    <div id="wt-completed-bar" style="display:none;padding:12px 20px;background:linear-gradient(135deg,rgba(61,90,71,0.08),transparent);border-top:1px solid rgba(61,90,71,0.1);text-align:center">
+      <div style="font-weight:700;color:#3d5a47;font-size:0.95rem">✅ Walk Completed</div>
+      <div id="wt-completed-info" style="font-size:0.82rem;color:#8c6b4a;margin-top:4px"></div>
+    </div>
+    <!-- Error / loading -->
+    <div id="wt-loading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:10">
+      <div style="font-size:2.5rem;margin-bottom:12px">🗺️</div>
+      <div style="font-weight:600;color:#3d5a47">Loading walk tracking...</div>
+    </div>
+    <div id="wt-error" style="display:none;padding:60px 20px;text-align:center">
+      <div style="font-size:2.5rem;margin-bottom:12px">🐾</div>
+      <div style="font-weight:700;font-size:1.1rem;color:#3d5a47;margin-bottom:8px">Walk Not Found</div>
+      <div style="font-size:0.9rem;color:#8c6b4a">This tracking link may have expired or the walk hasn\'t started yet.</div>
+      <a href="/" style="display:inline-block;margin-top:20px;padding:10px 24px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:600">Visit Housley Happy Paws</a>
+    </div>
+    <!-- Branding footer -->
+    <div style="padding:16px 20px;text-align:center;font-size:0.78rem;color:#8c6b4a;border-top:1px solid rgba(61,90,71,0.08)">
+      🐾 Powered by <a href="/" style="color:#3d5a47;font-weight:600;text-decoration:none">Housley Happy Paws</a> · Lancaster, PA
+    </div>
+  </div>
 </div>
 
 <!-- ========= PUBLIC PAGE ========= -->
@@ -6426,6 +6489,36 @@ async function openReportFromService(data) {
     if (aiQ2) aiQ2.value = data.petNames;
   }
 
+  // ── Inject walk route map into the report form ──
+  if (data.walkId && typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.buildReportRouteMap === 'function') {
+    var sb2 = window.HHP_Auth && window.HHP_Auth.supabase;
+    if (sb2) {
+      try {
+        var { data: walkRec } = await sb2.from('walks').select('route_summary').eq('id', data.walkId).single();
+        if (walkRec && walkRec.route_summary && walkRec.route_summary.length > 0) {
+          var mapContainer = isOwner ? 'rpt-route-map' : 'srpt-route-map';
+          var existingMap = document.getElementById(mapContainer);
+          if (!existingMap) {
+            var reportForm = document.getElementById(isOwner ? 'o-reports' : 's-reports');
+            var submitBtn = reportForm ? reportForm.querySelector('button[onclick*="submit"]') || reportForm.querySelector('.rpt-submit') : null;
+            if (reportForm) {
+              var mapDiv = document.createElement('div');
+              mapDiv.id = mapContainer;
+              mapDiv.style.cssText = 'margin:16px 0;border-radius:12px;overflow:hidden';
+              mapDiv.innerHTML = HHP_Tracking.buildReportRouteMap(walkRec.route_summary, data.walkId);
+              if (submitBtn && submitBtn.parentElement) {
+                submitBtn.parentElement.insertBefore(mapDiv, submitBtn);
+              } else {
+                reportForm.appendChild(mapDiv);
+              }
+              if (typeof _loadLeaflet === 'function') _loadLeaflet();
+            }
+          }
+        }
+      } catch(e) { console.warn('Report route map error:', e); }
+    }
+  }
+
   // Scroll to the report form
   var panel = document.getElementById(isOwner ? 'o-reports' : 's-reports');
   if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -8379,6 +8472,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
             staffName: staffName,
             isDogWalk: isDogWalk,
             address: address || '',
+            walkId: walk && walk.id ? walk.id : '',
           })
         }).catch(function(e) { console.warn('Service started email error:', e); });
       }
@@ -16441,5 +16535,86 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(eagerLoadTracking, 1000);
   })();
   </script>
-  <script src="/js/service-timer.js" defer></script></body>
+  <script src="/js/service-timer.js" defer></script>
+  <!-- PUBLIC WALK TRACKING PAGE JS -->
+  <script>
+  (function(){
+    var walkId = window._hhpTrackWalkId;
+    if (!walkId) return;
+    var _wtMap=null,_wtPolyline=null,_wtCurrentMarker=null,_wtStartMarker=null,_wtIsFullscreen=false;
+
+    window.toggleTrackingFullscreen = function() {
+      var wrap=document.getElementById('wt-map-wrap');
+      var mapEl=document.getElementById('wt-map');
+      var icon=document.getElementById('wt-fs-icon');
+      var label=document.getElementById('wt-fs-label');
+      _wtIsFullscreen=!_wtIsFullscreen;
+      if(_wtIsFullscreen){
+        wrap.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#000';
+        mapEl.style.height='100vh';icon.textContent='✕';label.textContent='Close';
+      } else {
+        wrap.style.cssText='position:relative';
+        mapEl.style.height='calc(100vh - 200px)';icon.textContent='⛶';label.textContent='Fullscreen';
+      }
+      if(_wtMap)setTimeout(function(){_wtMap.invalidateSize();},100);
+    };
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&_wtIsFullscreen)toggleTrackingFullscreen();});
+
+    function loadTrackingData(){
+      fetch('/api/walk-tracking?walkId='+encodeURIComponent(walkId))
+        .then(function(r){return r.json();})
+        .then(function(data){
+          if(data.error){document.getElementById('wt-loading').style.display='none';document.getElementById('wt-error').style.display='block';return;}
+          renderTracking(data);
+          if(data.walk.status==='in_progress')setTimeout(loadTrackingData,12000);
+        })
+        .catch(function(){document.getElementById('wt-loading').style.display='none';document.getElementById('wt-error').style.display='block';});
+    }
+
+    function renderTracking(data){
+      var w=data.walk,pts=data.trackingPoints||[],isLive=w.status==='in_progress';
+      document.getElementById('wt-loading').style.display='none';
+      document.getElementById('wt-title').textContent=(w.petName||'Your pet')+"'s "+(w.service||'Walk');
+      document.getElementById('wt-subtitle').textContent='with '+(w.walkerName||'your walker');
+      document.getElementById('wt-live-badge').style.display=isLive?'flex':'none';
+      var eMin=w.elapsedMinutes||0;
+      var eTxt=eMin<60?eMin+' min':Math.floor(eMin/60)+'h '+(eMin%60)+'m';
+      document.querySelector('#wt-elapsed span').textContent=eTxt;
+      if(w.distance){var d=document.getElementById('wt-distance');d.style.display='';d.querySelector('span').textContent=w.distance;}
+      if(pts.length>0){var p=document.getElementById('wt-points');p.style.display='';p.querySelector('span').textContent=pts.length;}
+      document.querySelector('#wt-started span').textContent=new Date(w.startTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+      if(!isLive&&w.endTime){
+        var cb=document.getElementById('wt-completed-bar');cb.style.display='';
+        document.getElementById('wt-completed-info').textContent='Finished at '+new Date(w.endTime).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' · '+eTxt+(w.distance?' · '+w.distance:'');
+      }
+      if(pts.length===0){document.getElementById('wt-map').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;color:#8c6b4a"><div style="font-size:3rem;margin-bottom:12px">📍</div><div style="font-weight:600">Waiting for GPS signal...</div></div>';return;}
+      renderMap(pts,isLive);
+    }
+
+    function renderMap(pts,isLive){
+      if(typeof L==='undefined'){
+        var css=document.createElement('link');css.rel='stylesheet';css.href='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';document.head.appendChild(css);
+        var js=document.createElement('script');js.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+        js.onload=function(){renderMap(pts,isLive);};document.body.appendChild(js);return;
+      }
+      var coords=pts.map(function(p){return[p.lat,p.lng];});
+      var firstPt=coords[0],lastPt=coords[coords.length-1];
+      if(!_wtMap){
+        _wtMap=L.map('wt-map',{zoomControl:true,attributionControl:false}).setView(lastPt,16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(_wtMap);
+        _wtStartMarker=L.circleMarker(firstPt,{radius:7,color:'#3d5a47',fillColor:'#c8963e',fillOpacity:1,weight:2}).addTo(_wtMap).bindPopup('Walk Start');
+        _wtPolyline=L.polyline(coords,{color:'#3d5a47',weight:4,opacity:0.8}).addTo(_wtMap);
+        _wtCurrentMarker=L.circleMarker(lastPt,{radius:isLive?10:8,color:isLive?'#22c55e':'#3d5a47',fillColor:isLive?'#22c55e':'#c25656',fillOpacity:1,weight:2}).addTo(_wtMap).bindPopup(isLive?'Current Location':'Walk End');
+        if(coords.length>1)_wtMap.fitBounds(coords,{padding:[40,40]});
+      } else {
+        _wtPolyline.setLatLngs(coords);_wtCurrentMarker.setLatLng(lastPt);
+        if(isLive&&coords.length>1)_wtMap.fitBounds(coords,{padding:[40,40],animate:true});
+      }
+    }
+
+    if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',loadTrackingData);}
+    else{loadTrackingData();}
+  })();
+  </script>
+</body>
 </html>
