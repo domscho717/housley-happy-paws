@@ -7156,14 +7156,30 @@ async function loadClientAppts(filter, tabBtn) {
         html += '<div style="font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;gap:8px">📅 Appointments</div>';
       }
 
-      // ── Sort by date (newest first), then by time (earliest first) within each date ──
+      // ── Sort: active upcoming first (soonest), then past (newest), canceled last ──
+      var _sortToday = _localDateStr();
       singleAppts.sort(function(a, b) {
         var dateA = a.preferred_date || '0000-00-00';
         var dateB = b.preferred_date || '0000-00-00';
-        if (dateA !== dateB) return dateB.localeCompare(dateA); // newest date first
+        var canceledA = a.status === 'canceled' || a.status === 'rejected' || a.status === 'declined';
+        var canceledB = b.status === 'canceled' || b.status === 'rejected' || b.status === 'declined';
+        var upA = !canceledA && dateA >= _sortToday;
+        var upB = !canceledB && dateB >= _sortToday;
+        // Priority: upcoming active > past/completed > canceled
+        if (upA && !upB) return -1;
+        if (!upA && upB) return 1;
+        if (!canceledA && canceledB) return -1;
+        if (canceledA && !canceledB) return 1;
+        // Within upcoming: soonest first (ascending)
+        if (upA && upB) {
+          if (dateA !== dateB) return dateA.localeCompare(dateB);
+        } else {
+          // Within past/canceled: newest first (descending)
+          if (dateA !== dateB) return dateB.localeCompare(dateA);
+        }
         var timeA = a.preferred_time || '00:00';
         var timeB = b.preferred_time || '00:00';
-        return timeA.localeCompare(timeB); // earliest time first within same date
+        return timeA.localeCompare(timeB);
       });
 
       // ── Group by date ──
