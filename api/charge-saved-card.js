@@ -19,9 +19,15 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const supabase = createClient(
+    process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+  );
+
   // Check if user is owner, staff, OR a client charging their own card
-  const supabaseCheck = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-  const { data: callerProfile } = await supabaseCheck
+  // Use service role client to bypass RLS on profiles table
+  const { data: callerProfile } = await supabase
     .from('profiles')
     .select('role')
     .eq('user_id', user.id)
@@ -34,12 +40,6 @@ module.exports = async function handler(req, res) {
   if (!isOwnerOrStaff && !isSelfCharge) {
     return res.status(403).json({ error: 'Forbidden: owner/staff access or self-charge required' });
   }
-
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const supabase = createClient(
-    process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
-  );
 
   try {
     const { bookingRequestId, amount, service } = req.body;
