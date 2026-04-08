@@ -3250,9 +3250,11 @@
 
         if (newStatus === 'accepted' && req && req.service && req.estimated_total > 0 && req.client_id) {
           try {
+            var _chgSess = sb ? await sb.auth.getSession() : null;
+            var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
             var chargeResp = await fetch('/api/charge-saved-card', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
               body: JSON.stringify({
                 bookingRequestId: requestId,
                 amount: req.estimated_total,
@@ -3974,9 +3976,12 @@
       if (req.estimated_total > 0 && req.client_id) {
         (async function() {
           try {
+            var _chgSb = window.HHP_Auth && window.HHP_Auth.supabase;
+            var _chgSess2 = _chgSb ? await _chgSb.auth.getSession() : null;
+            var _chgToken2 = _chgSess2 && _chgSess2.data && _chgSess2.data.session ? _chgSess2.data.session.access_token : '';
             var chargeResp = await fetch('/api/charge-saved-card', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken2 },
               body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
             });
             var chargeData = await chargeResp.json();
@@ -4402,9 +4407,12 @@
                 }
               } else {
                 // One-time bookings: charge immediately
+                var _chgSb3 = window.HHP_Auth && window.HHP_Auth.supabase;
+                var _chgSess3 = _chgSb3 ? await _chgSb3.auth.getSession() : null;
+                var _chgToken3 = _chgSess3 && _chgSess3.data && _chgSess3.data.session ? _chgSess3.data.session.access_token : '';
                 var chargeResp = await fetch('/api/charge-saved-card', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken3 },
                   body: JSON.stringify({ bookingRequestId: requestId, amount: booking.estimated_total, service: booking.service, clientProfileId: booking.client_id }),
                 });
                 var chargeData = await chargeResp.json();
