@@ -3241,6 +3241,49 @@ try {
   </div>
 </div>
 
+<!-- Tip Modal (Client) -->
+<div class="overlay" id="tipModal" onclick="if(event.target===this)closeModal('tipModal')">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Leave a Tip</div>
+        <p style="font-size:0.82rem;color:var(--mid);margin-top:3px" id="tip-modal-subtitle">Show your appreciation!</p>
+      </div>
+      <button class="modal-close" onclick="closeModal('tipModal')">✕</button>
+    </div>
+    <div id="tip-loading" style="display:none;text-align:center;padding:20px;font-size:0.9rem;color:var(--mid)">Loading service details...</div>
+    <div id="tip-content">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:0.85rem;color:var(--mid);margin-bottom:8px">Service total: <strong id="tip-service-amount">$0.00</strong></div>
+        <div id="tip-options" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm tip-opt" data-pct="15" onclick="selectTipOption(this,15)" style="min-width:70px">15%<br><span style="font-size:0.72rem;color:var(--mid)" class="tip-amt">$0.00</span></button>
+          <button class="btn btn-outline btn-sm tip-opt" data-pct="20" onclick="selectTipOption(this,20)" style="min-width:70px">20%<br><span style="font-size:0.72rem;color:var(--mid)" class="tip-amt">$0.00</span></button>
+          <button class="btn btn-outline btn-sm tip-opt" data-pct="25" onclick="selectTipOption(this,25)" style="min-width:70px">25%<br><span style="font-size:0.72rem;color:var(--mid)" class="tip-amt">$0.00</span></button>
+          <button class="btn btn-outline btn-sm tip-opt" data-pct="custom" onclick="selectTipOption(this,'custom')" style="min-width:70px">Custom</button>
+        </div>
+      </div>
+      <div id="tip-custom-wrap" style="display:none;margin-bottom:14px">
+        <label class="form-lbl">Custom tip amount ($)</label>
+        <input class="form-in" id="tip-custom-input" type="number" min="1" max="500" step="0.01" placeholder="Enter amount">
+      </div>
+      <input type="hidden" id="tip-booking-id">
+      <input type="hidden" id="tip-report-id">
+      <input type="hidden" id="tip-service">
+      <input type="hidden" id="tip-pet-names">
+      <input type="hidden" id="tip-amount" value="0">
+      <div id="tip-summary" style="text-align:center;margin-bottom:14px;font-size:0.95rem;font-weight:600;color:var(--forest);display:none">Tip: $<span id="tip-display">0.00</span></div>
+      <button class="submit-btn gold" id="tip-submit-btn" onclick="submitTip()" style="width:100%" disabled>Select a tip amount</button>
+      <div style="font-size:0.72rem;color:var(--mid);text-align:center;margin-top:8px">Your saved card will be charged immediately.</div>
+    </div>
+    <div id="tip-success" style="display:none;text-align:center;padding:20px">
+      <div style="font-size:2.5rem;margin-bottom:10px">💚</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--forest);margin-bottom:6px">Thank you for your tip!</div>
+      <div style="font-size:0.85rem;color:var(--mid)">Rachel truly appreciates your generosity.</div>
+      <button class="btn btn-outline btn-sm" onclick="closeModal('tipModal')" style="margin-top:16px">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Owner Review Response Modal -->
 <div class="overlay" id="reviewResponseModal" onclick="if(event.target===this)closeModal('reviewResponseModal')">
   <div class="modal" style="max-width:440px">
@@ -13048,8 +13091,9 @@ function openReportDetail(reportOrId) {
     (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false, true) + '</div>' : ''; })() +
     '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
     '<div id="reportRouteMapContainer"></div>' +
-    '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
-    '<button class="btn btn-gold btn-sm" onclick="openReviewFromReport(\'' + (report.id || '').replace(/'/g, "\\'") + '\',\'' + (report.booking_id || '').replace(/'/g, "\\'") + '\',\'' + (report.service || '').replace(/'/g, "\\'") + '\',\'' + (report.pet_name || '').replace(/'/g, "\\'") + '\')">⭐ Leave a Review</button></div>';
+    '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
+    '<button class="btn btn-gold btn-sm" onclick="openReviewFromReport(\'' + (report.id || '').replace(/'/g, "\\'") + '\',\'' + (report.booking_id || '').replace(/'/g, "\\'") + '\',\'' + (report.service || '').replace(/'/g, "\\'") + '\',\'' + (report.pet_name || '').replace(/'/g, "\\'") + '\')">⭐ Leave a Review</button>' +
+    '<button class="btn btn-sm" style="background:var(--forest);color:white" onclick="openTipModal(\'' + (report.booking_id || '').replace(/'/g, "\\'") + '\',\'' + (report.id || '').replace(/'/g, "\\'") + '\',\'' + (report.service || '').replace(/'/g, "\\'") + '\',\'' + (report.pet_name || '').replace(/'/g, "\\'") + '\')">💚 Leave a Tip</button></div>';
 
   // Show modal
   modal.style.display = 'flex';
@@ -13226,6 +13270,188 @@ async function submitClientReview() {
 
   closeModal('reviewModal');
   toast('⭐ Thank you for your review! Rachel will see it soon.');
+}
+
+// ── Tip Functions ──
+var _tipServiceAmount = 0;
+
+async function openTipModal(bookingId, reportId, service, petName) {
+  // Reset state
+  document.getElementById('tip-booking-id').value = bookingId || '';
+  document.getElementById('tip-report-id').value = reportId || '';
+  document.getElementById('tip-service').value = service || '';
+  document.getElementById('tip-pet-names').value = petName || '';
+  document.getElementById('tip-amount').value = '0';
+  document.getElementById('tip-modal-subtitle').textContent = (petName ? petName + ' — ' : '') + (service || 'Your visit');
+  document.getElementById('tip-content').style.display = 'block';
+  document.getElementById('tip-success').style.display = 'none';
+  document.getElementById('tip-loading').style.display = 'block';
+  document.getElementById('tip-summary').style.display = 'none';
+  document.getElementById('tip-custom-wrap').style.display = 'none';
+  document.getElementById('tip-submit-btn').disabled = true;
+  document.getElementById('tip-submit-btn').textContent = 'Select a tip amount';
+  // Deselect all tip options
+  document.querySelectorAll('.tip-opt').forEach(function(b) { b.style.background = ''; b.style.color = ''; });
+
+  closeModal('reportModal');
+  var modal = document.getElementById('tipModal');
+  if (modal) modal.style.display = 'flex';
+
+  // Fetch the booking amount
+  _tipServiceAmount = 0;
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (sb && bookingId) {
+    try {
+      var { data: bk } = await sb.from('booking_requests').select('estimated_total, service').eq('id', bookingId).maybeSingle();
+      if (bk && bk.estimated_total) {
+        _tipServiceAmount = parseFloat(bk.estimated_total);
+      }
+    } catch(e) { console.warn('Tip: could not load booking amount', e); }
+  }
+
+  document.getElementById('tip-loading').style.display = 'none';
+  if (_tipServiceAmount > 0) {
+    document.getElementById('tip-service-amount').textContent = '$' + _tipServiceAmount.toFixed(2);
+    // Update percentage amounts
+    document.querySelectorAll('.tip-opt').forEach(function(b) {
+      var pct = b.getAttribute('data-pct');
+      if (pct && pct !== 'custom') {
+        var amt = (_tipServiceAmount * parseInt(pct) / 100);
+        b.querySelector('.tip-amt').textContent = '$' + amt.toFixed(2);
+      }
+    });
+  } else {
+    document.getElementById('tip-service-amount').textContent = 'N/A';
+    // Show flat amounts instead
+    var flatAmounts = [5, 10, 20];
+    var btns = document.querySelectorAll('.tip-opt');
+    for (var i = 0; i < 3; i++) {
+      btns[i].setAttribute('data-pct', 'flat-' + flatAmounts[i]);
+      btns[i].innerHTML = '$' + flatAmounts[i] + '<br><span style="font-size:0.72rem;color:var(--mid)" class="tip-amt"></span>';
+      btns[i].onclick = (function(amt, btn) { return function() { selectTipOption(btn, 'flat-' + amt); }; })(flatAmounts[i], btns[i]);
+    }
+  }
+
+  // Check if already tipped
+  if (sb && bookingId) {
+    try {
+      var user = HHP_Auth.currentUser;
+      var { data: existing } = await sb.from('tips').select('id').eq('booking_request_id', bookingId).eq('client_id', user.id).eq('status', 'succeeded').maybeSingle();
+      if (existing) {
+        document.getElementById('tip-content').style.display = 'none';
+        document.getElementById('tip-success').querySelector('div:nth-child(2)').textContent = 'You already left a tip for this service!';
+        document.getElementById('tip-success').style.display = 'block';
+      }
+    } catch(e) {}
+  }
+}
+
+function selectTipOption(btn, pctOrType) {
+  // Deselect all
+  document.querySelectorAll('.tip-opt').forEach(function(b) { b.style.background = ''; b.style.color = ''; });
+  // Select this one
+  btn.style.background = 'var(--forest)';
+  btn.style.color = 'white';
+
+  var customWrap = document.getElementById('tip-custom-wrap');
+  var tipAmt = 0;
+
+  if (pctOrType === 'custom') {
+    customWrap.style.display = 'block';
+    document.getElementById('tip-custom-input').value = '';
+    document.getElementById('tip-custom-input').focus();
+    document.getElementById('tip-custom-input').oninput = function() {
+      var val = parseFloat(this.value);
+      if (val > 0) {
+        document.getElementById('tip-amount').value = val.toFixed(2);
+        document.getElementById('tip-display').textContent = val.toFixed(2);
+        document.getElementById('tip-summary').style.display = 'block';
+        document.getElementById('tip-submit-btn').disabled = false;
+        document.getElementById('tip-submit-btn').textContent = 'Send $' + val.toFixed(2) + ' Tip';
+      } else {
+        document.getElementById('tip-submit-btn').disabled = true;
+        document.getElementById('tip-submit-btn').textContent = 'Enter an amount';
+        document.getElementById('tip-summary').style.display = 'none';
+      }
+    };
+    return;
+  }
+
+  customWrap.style.display = 'none';
+
+  if (typeof pctOrType === 'string' && pctOrType.startsWith('flat-')) {
+    tipAmt = parseFloat(pctOrType.replace('flat-', ''));
+  } else {
+    tipAmt = _tipServiceAmount * pctOrType / 100;
+  }
+
+  tipAmt = Math.round(tipAmt * 100) / 100;
+  document.getElementById('tip-amount').value = tipAmt.toFixed(2);
+  document.getElementById('tip-display').textContent = tipAmt.toFixed(2);
+  document.getElementById('tip-summary').style.display = 'block';
+  document.getElementById('tip-submit-btn').disabled = false;
+  document.getElementById('tip-submit-btn').textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+}
+
+async function submitTip() {
+  var tipAmt = parseFloat(document.getElementById('tip-amount').value);
+  if (!tipAmt || tipAmt <= 0) { toast('Please select a tip amount.'); return; }
+
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  var user = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? HHP_Auth.currentUser : null;
+  if (!sb || !user) { toast('Please sign in first.'); return; }
+
+  var btn = document.getElementById('tip-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+
+  try {
+    var session = await sb.auth.getSession();
+    var token = session.data.session ? session.data.session.access_token : null;
+    if (!token) { toast('Session expired. Please sign in again.'); btn.disabled = false; btn.textContent = 'Send Tip'; return; }
+
+    var resp = await fetch('/api/charge-tip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({
+        bookingRequestId: document.getElementById('tip-booking-id').value || null,
+        serviceReportId: document.getElementById('tip-report-id').value || null,
+        tipAmount: tipAmt,
+        service: document.getElementById('tip-service').value || 'Pet Care',
+        petNames: document.getElementById('tip-pet-names').value || null
+      })
+    });
+
+    var data = await resp.json();
+
+    if (data.success) {
+      document.getElementById('tip-content').style.display = 'none';
+      document.getElementById('tip-success').style.display = 'block';
+      toast('💚 Tip of $' + tipAmt.toFixed(2) + ' sent! Thank you!');
+    } else if (data.error === 'already_tipped') {
+      toast('You already left a tip for this service.');
+      document.getElementById('tip-content').style.display = 'none';
+      document.getElementById('tip-success').querySelector('div:nth-child(2)').textContent = 'You already left a tip for this service!';
+      document.getElementById('tip-success').style.display = 'block';
+    } else if (data.error === 'no_card') {
+      toast('No saved payment method. Please add a card in your Payment Info.');
+      btn.disabled = false;
+      btn.textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+    } else if (data.error === 'card_declined') {
+      toast(data.message || 'Card declined. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+    } else {
+      toast('Tip failed: ' + (data.message || data.error || 'Unknown error'));
+      btn.disabled = false;
+      btn.textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+    }
+  } catch(err) {
+    console.error('Tip error:', err);
+    toast('Failed to process tip. Please try again.');
+    btn.disabled = false;
+    btn.textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+  }
 }
 
 // ── Auto-prompt review after viewing a report ──
