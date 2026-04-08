@@ -10779,6 +10779,7 @@ function downloadLandingPage() {
 
 // ── Saved Card Management ──
 async function loadSavedCard() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var display = document.getElementById('savedCardDisplay');
   var addBtn = document.getElementById('addCardBtn');
   if (!display) return;
@@ -10839,6 +10840,7 @@ async function loadSavedCard() {
 }
 
 async function addPaymentMethod() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
     toast('Please sign in first.');
     return;
@@ -10876,6 +10878,7 @@ async function addPaymentMethod() {
 }
 
 async function removePaymentMethod() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   if (!window._savedPaymentMethodId) {
     toast('No payment method to remove.');
     return;
