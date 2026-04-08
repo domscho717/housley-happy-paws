@@ -6478,6 +6478,23 @@ async function loadCalendarBookings(year, month) {
       });
     }
 
+    // Load recurring_invoices for per-date paid status on recurring bookings
+    var _recurInvPaidDates = {}; // "bookingId|date" → true
+    try {
+      var recurBookingIds = (bookings || []).filter(function(b) { return b.recurrence_pattern; }).map(function(b) { return b.id; });
+      if (recurBookingIds.length > 0) {
+        var { data: recurInvs } = await sb.from('recurring_invoices')
+          .select('booking_request_id, service_date, status')
+          .in('booking_request_id', recurBookingIds)
+          .in('status', ['sent', 'captured']);
+        if (recurInvs) {
+          recurInvs.forEach(function(ri) {
+            _recurInvPaidDates[ri.booking_request_id + '|' + ri.service_date] = true;
+          });
+        }
+      }
+    } catch(riErr) { console.warn('Recurring invoices load:', riErr); }
+
     // Load availability blocks (owner's blocked dates show on all calendars)
     window._calOwnerBlocks = {};
     try {
@@ -6538,11 +6555,14 @@ async function loadCalendarBookings(year, month) {
         }
       }
 
-      // Determine paid status
-      var isPaid = false;
+      // Determine paid status for one-time bookings
+      var isRecurringBooking = !!b.recurrence_pattern;
+      var isPaidOneTime = false;
       var shortId = b.id ? b.id.slice(0, 8) : '';
-      if (paidSet.has(shortId)) isPaid = true;
-      if (paidSet.has((b.contact_email || '').toLowerCase() + '|' + b.estimated_total)) isPaid = true;
+      if (!isRecurringBooking) {
+        if (paidSet.has(shortId)) isPaidOneTime = true;
+        if (paidSet.has((b.contact_email || '').toLowerCase() + '|' + b.estimated_total)) isPaidOneTime = true;
+      }
 
       // Service icon
       var svc = (b.service || '').toLowerCase();
@@ -6554,14 +6574,20 @@ async function loadCalendarBookings(year, month) {
       else if (svc.indexOf('meet') !== -1) icon = '🤝';
 
       var statusTag = b.status === 'pending' ? ' ⏳' : (b.status === 'completed' ? ' ✔️' : '');
-      // Only show paid/unpaid tags in portal calendars, not public
-      var paidTag = (role === 'owner' || role === 'client') ? (isPaid ? ' ✅' : (b.estimated_total > 0 ? ' ❌' : '')) : '';
       var petName = (role !== 'public') && b.pet_names ? ' · ' + b.pet_names.split(',')[0].trim() : '';
 
-      // Public calendar: only mark as "busy" — no icons, names, or counts
-      var eventLabel = (role === 'public') ? '⏰' : icon + petName + statusTag + paidTag;
-
       dates.forEach(function(dateKey) {
+        // For recurring bookings, check per-date paid status from recurring_invoices
+        var isPaid = isRecurringBooking
+          ? !!_recurInvPaidDates[b.id + '|' + dateKey]
+          : isPaidOneTime;
+
+        // Only show paid/unpaid tags in portal calendars, not public
+        var paidTag = (role === 'owner' || role === 'client') ? (isPaid ? ' ✅' : (b.estimated_total > 0 ? ' ❌' : '')) : '';
+
+        // Public calendar: only mark as "busy" — no icons, names, or counts
+        var eventLabel = (role === 'public') ? '⏰' : icon + petName + statusTag + paidTag;
+
         if (!calEvents[dateKey]) {
           calEvents[dateKey] = { label: eventLabel, type: 'event', bookings: [], _dynamic: true };
         } else if (calEvents[dateKey]._dynamic) {
@@ -6893,6 +6919,22 @@ async function loadClientAppts(filter, tabBtn) {
       });
     }
 
+    // Load recurring_invoices for per-date paid status on recurring bookings
+    var _clientRecurPaidDates = {}; // "bookingId|date" → status
+    try {
+      var _recurIds = (appts || []).filter(function(b) { return b.recurrence_pattern; }).map(function(b) { return b.id; });
+      if (_recurIds.length > 0) {
+        var { data: _recurInvData } = await sb.from('recurring_invoices')
+          .select('booking_request_id, service_date, status, invoice_date')
+          .in('booking_request_id', _recurIds);
+        if (_recurInvData) {
+          _recurInvData.forEach(function(ri) {
+            _clientRecurPaidDates[ri.booking_request_id + '|' + ri.service_date] = ri.status;
+          });
+        }
+      }
+    } catch(riErr) { console.warn('Recurring invoices client load:', riErr); }
+
     if (!appts || appts.length === 0) {
       listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📅</div><div style="font-weight:600;margin-bottom:6px">No appointments ' + (filter === 'upcoming' ? 'coming up' : filter === 'past' ? 'in the past' : filter === 'canceled' ? 'canceled' : 'yet') + '</div><div style="font-size:0.84rem">Book a service to get started!</div></div>';
       return;
@@ -7008,20 +7050,44 @@ async function loadClientAppts(filter, tabBtn) {
             var dateStr = ndDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             var timeStr = nd.time ? ((typeof fmt12h === 'function') ? fmt12h(nd.time) : nd.time) : '';
             var isNext = idx === 0;
+
+            // Per-date paid status from recurring_invoices
+            var datePaidKey = b.id + '|' + nd.date;
+            var datePaidStatus = _clientRecurPaidDates[datePaidKey] || '';
+            var isDatePaid = datePaidStatus === 'sent' || datePaidStatus === 'captured';
+            var paidBadge = '';
+            if (b.estimated_total > 0) {
+              if (isDatePaid) {
+                paidBadge = '<span style="font-size:0.65rem;font-weight:700;color:#155724;background:#d4edda;padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0">Paid</span>';
+              } else if (datePaidStatus === 'voided') {
+                paidBadge = '<span style="font-size:0.65rem;font-weight:700;color:#856404;background:#fff3cd;padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0">Refunded</span>';
+              } else {
+                var ndSunday = new Date(nd.date + 'T12:00:00');
+                ndSunday.setDate(ndSunday.getDate() - ndSunday.getDay());
+                var todayStr = _localDateStr();
+                if (nd.date <= todayStr) {
+                  paidBadge = '<span style="font-size:0.65rem;font-weight:700;color:#c62828;background:#fde8e8;padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0">Unpaid</span>';
+                } else {
+                  paidBadge = '<span style="font-size:0.65rem;font-weight:600;color:#0d47a1;background:#e3f2fd;padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0">Upcoming</span>';
+                }
+              }
+            }
+
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + (isNext ? 'var(--cream,white)' : 'transparent') + ';border-radius:8px;' + (isNext ? 'border:1.5px solid var(--forest);' : '') + '">';
             html += '<div style="width:6px;height:6px;border-radius:50%;background:' + (isNext ? 'var(--forest)' : 'var(--mid)') + ';flex-shrink:0"></div>';
             html += '<div style="flex:1;font-size:0.84rem;' + (isNext ? 'font-weight:700;color:var(--ink)' : 'color:var(--mid)') + '">' + dateStr + (timeStr ? ' at ' + timeStr : '') + '</div>';
             if (isNext) html += '<span style="font-size:0.68rem;font-weight:700;color:var(--forest);background:#d4edda;padding:2px 8px;border-radius:4px">NEXT</span>';
+            html += paidBadge;
             html += '</div>';
           });
           html += '</div></div>';
         }
 
         // Action buttons
-        html += '<div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border)">';
-        html += '<button onclick="event.stopPropagation();showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);font-size:0.78rem;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">View Details</button>';
-        html += '<button onclick="event.stopPropagation();requestRecurringChange(\'' + b.id + '\')" style="flex:1;padding:8px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold-pale);font-size:0.78rem;font-weight:600;color:var(--gold-deep);cursor:pointer;font-family:inherit">Reschedule</button>';
-        html += '<button onclick="event.stopPropagation();requestRecurringCancel(\'' + b.id + '\')" style="padding:8px 12px;border:1.5px solid #f8d7da;border-radius:8px;background:#fef2f2;font-size:0.78rem;font-weight:600;color:#c62828;cursor:pointer;font-family:inherit">Cancel</button>';
+        html += '<div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border);flex-wrap:wrap">';
+        html += '<button onclick="event.stopPropagation();showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="flex:1;min-width:80px;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);font-size:0.78rem;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">View Details</button>';
+        html += '<button onclick="event.stopPropagation();requestRecurringChange(\'' + b.id + '\')" style="flex:1;min-width:80px;padding:8px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold-pale);font-size:0.78rem;font-weight:600;color:var(--gold-deep);cursor:pointer;font-family:inherit">Reschedule</button>';
+        html += '<button onclick="event.stopPropagation();stopRecurringService(\'' + b.id + '\',\'' + (b.service || 'service').replace(/'/g, "\\'" ) + '\')" style="padding:8px 12px;border:1.5px solid #f8d7da;border-radius:8px;background:#fef2f2;font-size:0.78rem;font-weight:600;color:#c62828;cursor:pointer;font-family:inherit">Stop Recurring</button>';
         html += '</div>';
 
         // Price
@@ -7723,6 +7789,40 @@ function closeBookingDetail() {
   overlay.style.opacity = '0';
   drawer.style.transform = 'translateY(100%)';
   setTimeout(function() { overlay.style.display = 'none'; }, 300);
+}
+
+// ── STOP RECURRING SERVICE ──
+async function stopRecurringService(bookingId, serviceName) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+
+  var confirmed = confirm(
+    'Stop Recurring: ' + (serviceName || 'Service') + '\n\n' +
+    'This will stop all future visits for this recurring service.\n\n' +
+    '• If this week has already been charged and a visit is within 48 hours, the 48-hour cancellation policy applies.\n' +
+    '• Any future weeks that haven\'t been charged yet will simply not be billed.\n' +
+    '• Once stopped, this recurring service will be marked as completed.\n\n' +
+    'Are you sure you want to stop this recurring service?'
+  );
+  if (!confirmed) return;
+
+  try {
+    toast('Stopping recurring service...');
+    var resp = await fetch('/api/cancel-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingRequestId: bookingId, canceledBy: 'client', stopRecurring: true })
+    });
+    var result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'Failed to stop recurring service');
+    toast('Recurring service stopped successfully!');
+    if (typeof loadClientAppointments === 'function') loadClientAppointments();
+    if (typeof fetchCalendarBookings === 'function') fetchCalendarBookings();
+  } catch(e) {
+    console.error('Stop recurring error:', e);
+    toast('Error stopping service: ' + e.message);
+  }
 }
 
 // role: 'client', 'owner', or 'staff'
