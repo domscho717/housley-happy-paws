@@ -12477,6 +12477,21 @@ async function loadClientUpcomingCharges() {
     }
 
     // Collect upcoming dates (next 14 days) for all bookings
+    // Load per-date paid status for recurring bookings in upcoming charges
+    var _upcomingPaidDates = {};
+    try {
+      var _recurIds = bookings.filter(function(b) { return b.recurrence_pattern; }).map(function(b) { return b.id; });
+      if (_recurIds.length > 0) {
+        var { data: _upInvs } = await sb.from('recurring_invoices')
+          .select('booking_request_id, service_date, status')
+          .in('booking_request_id', _recurIds)
+          .in('status', ['sent', 'captured']);
+        if (_upInvs) _upInvs.forEach(function(ri) {
+          _upcomingPaidDates[ri.booking_request_id + '|' + ri.service_date] = true;
+        });
+      }
+    } catch(upErr) { console.warn('Upcoming paid dates load:', upErr); }
+
     var upcoming = [];
     var today = new Date();
     for (var d = 0; d < 14; d++) {
@@ -12495,7 +12510,7 @@ async function loadClientUpcomingCharges() {
             petNames: b.pet_names || '',
             bookingId: b.id,
             isRecurring: !!b.recurrence_pattern,
-            isPaid: !!b.payment_intent_id
+            isPaid: b.recurrence_pattern ? !!_upcomingPaidDates[b.id + '|' + dateStr] : !!b.payment_intent_id
           });
         }
       });
