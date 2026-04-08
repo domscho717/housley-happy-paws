@@ -16541,6 +16541,14 @@ document.addEventListener('DOMContentLoaded', function() {
   (function(){
     var walkId = window._hhpTrackWalkId;
     if (!walkId) return;
+
+    // Force tracking page visible (early-hide style may be removed by auth system)
+    var _tp = document.getElementById('pg-walk-tracking');
+    if (_tp) { _tp.style.display = 'block'; _tp.style.visibility = 'visible'; }
+    ['pg-public','pg-client','pg-staff','pg-owner'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.style.display = 'none'; el.style.visibility = 'hidden'; }
+    });
     var _wtMap=null,_wtPolyline=null,_wtCurrentMarker=null,_wtStartMarker=null,_wtIsFullscreen=false;
 
     window.toggleTrackingFullscreen = function() {
