@@ -120,7 +120,16 @@ module.exports = async function handler(req, res) {
     // Key: "clientEmail||serviceType" → { booking, entries: [{ booking, date, amount }] }
     const clientGroups = {};
 
-    for (const booking of bookings) {
+// Batch-fetch ALL already-billed dates to avoid N*M per-date queries
+    const bookingIds = bookings.map(b => b.id);
+    const { data: allBilledRaw } = await supabase
+      .from('recurring_invoices')
+      .select('booking_request_id, service_date')
+      .in('booking_request_id', bookingIds)
+      .in('service_date', weekDates);
+    const billedSet = new Set((allBilledRaw || []).map(r => r.booking_request_id + ':' + r.service_date));
+
+        for (const booking of bookings) {
       results.processed++;
       const pattern = typeof booking.recurrence_pattern === 'string'
         ? JSON.parse(booking.recurrence_pattern)
@@ -131,14 +140,8 @@ module.exports = async function handler(req, res) {
         if (!checkIfDateIsRecurring(dateStr, pattern, booking)) continue;
 
         // Check if already billed for this booking + date
-        const { data: existing } = await supabase
-          .from('recurring_invoices')
-          .select('id')
-          .eq('booking_request_id', booking.id)
-          .eq('service_date', dateStr)
-          .limit(1);
-
-        if (existing && existing.length > 0) continue; // Already invoiced
+        // Check in-memory batch set instead of per-date DB query
+        if (billedSet.has(booking.id + ':' + dateStr)) continue; // Already invoiced
 
         // Skip bookings with missing critical data
         if (!booking.contact_email || !booking.estimated_total || booking.estimated_total <= 0) continue;
