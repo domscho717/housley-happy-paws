@@ -8,7 +8,7 @@
 <meta name="keywords" content="pet care Lancaster PA, dog walking Lancaster, pet sitting, dog boarding, cat care, drop-in visits, Housley Happy Paws, Rachel Housley">
 <link rel="canonical" href="https://www.housleyhappypaws.com/">
 <!-- Open Graph / Social Sharing -->
-<meta property="og:type" content="website">
+<meta property="og:type" content="website">h
 <meta property="og:url" content="https://www.housleyhappypaws.com/">
 <meta property="og:title" content="Housley Happy Paws — Trusted Pet Care in Lancaster, PA">
 <meta property="og:description" content="Professional dog walking, pet sitting, boarding & more. Insured, CPR certified, GPS-tracked walks. Book online today!">
@@ -7428,9 +7428,11 @@ async function clientAcceptTimeChange(bookingId) {
 
     if (bk.estimated_total > 0 && bk.client_id) {
       try {
+        var _sess = await sb.auth.getSession();
+        var _token = _sess && _sess.data && _sess.data.session ? _sess.data.session.access_token : '';
         var chargeResp = await fetch('/api/charge-saved-card', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
           body: JSON.stringify({
             bookingRequestId: bookingId,
             amount: bk.estimated_total,
