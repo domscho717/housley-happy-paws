@@ -8321,7 +8321,30 @@ async function showBookingDetail(bookingId, role, source) {
       // Future booking — no start/stop, but maybe useful later
     }
 
-    // Cancel button (for active bookings that aren't completed)
+        // Client: Live tracking button when walk is in progress
+    if (role === 'client' && isToday && isActive && !isHouseSittingSvc) {
+      var clientActiveWalk = null;
+      try {
+        var { data: caw } = await sb.from('walks').select('id, status, start_time').eq('booking_id', bookingId).eq('status', 'in_progress').limit(1);
+        if (caw && caw.length > 0) clientActiveWalk = caw[0];
+      } catch(cwe) { console.warn('Client walk check:', cwe); }
+
+      if (clientActiveWalk) {
+        var cElapsed = Math.floor((Date.now() - new Date(clientActiveWalk.start_time).getTime()) / 60000);
+        h += '<div style="margin-bottom:12px">';
+        h += '<div style="background:rgba(61,90,71,0.08);border-radius:12px;padding:14px;margin-bottom:10px;border:1.5px solid var(--forest,#3d5a47)">';
+        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
+        h += '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></div>';
+        h += '<span style="font-size:0.82rem;font-weight:700;color:var(--forest,#3d5a47)">Walk In Progress</span>';
+        h += '<span style="font-size:0.7rem;color:var(--mid);margin-left:auto">' + cElapsed + ' min elapsed</span>';
+        h += '</div>';
+        h += '<a href="/?track=' + clientActiveWalk.id + '" target="_blank" style="display:flex;width:100%;padding:13px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border:none;border-radius:10px;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:inherit;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-sizing:border-box">';
+        h += '<span style="font-size:1.1rem">\ud83d\udccd</span> Track Live Walk</a>';
+        h += '</div></div>';
+      }
+    }
+
+// Cancel button (for active bookings that aren't completed)
     if (isActive) {
       var cancelRole = role;
       var cancelName = (role === 'client') ? ((window.HHP_Auth && window.HHP_Auth.currentUser) ? (window.HHP_Auth.currentUser.full_name || window.HHP_Auth.currentUser.email) : 'Client') : (b.contact_name || 'Client');
