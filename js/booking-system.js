@@ -2444,7 +2444,12 @@
       try {
         var pmData = window._cachedPaymentMethods;
         if (!pmData || Date.now() - (window._cachedPaymentMethodsAt || 0) > 60000) {
-          var pmResp = await fetch('/api/get-payment-methods?profileId=' + encodeURIComponent(window.HHP_Auth.currentUser.id) + '&email=' + encodeURIComponent(window.HHP_Auth.currentUser.email));
+          var _pmSb = window.HHP_Auth && window.HHP_Auth.supabase;
+          var _pmSess = _pmSb ? await _pmSb.auth.getSession() : null;
+          var _pmToken = _pmSess && _pmSess.data && _pmSess.data.session ? _pmSess.data.session.access_token : '';
+          var pmResp = await fetch('/api/get-payment-methods?profileId=' + encodeURIComponent(window.HHP_Auth.currentUser.id) + '&email=' + encodeURIComponent(window.HHP_Auth.currentUser.email), {
+            headers: { 'Authorization': 'Bearer ' + _pmToken }
+          });
           pmData = await pmResp.json();
           window._cachedPaymentMethods = pmData;
           window._cachedPaymentMethodsAt = Date.now();
