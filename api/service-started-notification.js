@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
 
   const {
     clientEmail, clientName, service, petNames,
-    staffName, isDogWalk, address
+    staffName, isDogWalk, address, walkId
   } = req.body || {};
 
   if (!clientEmail || !service) {
@@ -30,11 +30,12 @@ module.exports = async function handler(req, res) {
 
     const subject = `🟢 ${safePets ? safePets + "'s" : 'Your'} ${safeService} has started! — Housley Happy Paws`;
 
+    const trackingLink = walkId ? `${SITE_URL}/?track=${walkId}` : SITE_URL;
     const trackingHTML = isDogWalk ? `
       <div style="background:#e3f2fd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #2196F3">
         <div style="font-weight:700;margin-bottom:8px;color:#1565C0">📍 Live GPS Tracking Active</div>
-        <div style="font-size:0.88rem;color:#1a237e;margin-bottom:12px">${safeStaff || 'Rachel'} is tracking ${safePets || 'your pet'}'s walk route in real time. You can follow along in your portal!</div>
-        <a href="${SITE_URL}" style="display:inline-block;padding:10px 24px;background:#2196F3;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.9rem">🗺️ Track Live Walk →</a>
+        <div style="font-size:0.88rem;color:#1a237e;margin-bottom:12px">${safeStaff || 'Rachel'} is tracking ${safePets || 'your pet'}'s walk route in real time. Tap below to follow along live!</div>
+        <a href="${trackingLink}" style="display:inline-block;padding:10px 24px;background:#2196F3;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.9rem">🗺️ Track Live Walk →</a>
       </div>` : '';
 
     const bodyHTML = `
