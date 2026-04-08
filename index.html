@@ -6730,7 +6730,7 @@ function buildCalendar(containerId, year, month) {
   container.innerHTML = html;
 }
 
-async async function changeMonth(containerId, year, month, dir) {
+async function changeMonth(containerId, year, month, dir) {
   let m = month + dir, y = year;
   if(m>11){m=0;y++}if(m<0){m=11;y--}
   // Reload owner availability blocks for the new month
