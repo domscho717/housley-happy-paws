@@ -19,16 +19,20 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Check if user is owner or staff
+  // Check if user is owner, staff, OR a client charging their own card
   const supabaseCheck = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-  const { data: profile } = await supabaseCheck
+  const { data: callerProfile } = await supabaseCheck
     .from('profiles')
     .select('role')
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (!profile || (profile.role !== 'owner' && profile.role !== 'staff')) {
-    return res.status(403).json({ error: 'Forbidden: owner or staff access required' });
+  const { clientProfileId } = req.body || {};
+  const isOwnerOrStaff = callerProfile && (callerProfile.role === 'owner' || callerProfile.role === 'staff');
+  const isSelfCharge = callerProfile && callerProfile.role === 'client' && user.id === clientProfileId;
+
+  if (!isOwnerOrStaff && !isSelfCharge) {
+    return res.status(403).json({ error: 'Forbidden: owner/staff access or self-charge required' });
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -38,7 +42,7 @@ module.exports = async function handler(req, res) {
   );
 
   try {
-    const { bookingRequestId, amount, service, clientProfileId } = req.body;
+    const { bookingRequestId, amount, service } = req.body;
     if (!amount || !clientProfileId) {
       return res.status(400).json({ error: 'amount and clientProfileId are required' });
     }
