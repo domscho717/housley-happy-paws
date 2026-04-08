@@ -199,8 +199,7 @@ const HHP_Photos = window.HHP_Photos = {
     // Find the parent upload slot div that triggers the hidden input
     const input = document.getElementById(inputId);
     if (!input) {
-      console.warn(`📸 wireSlot: input #${inputId} not found for slot "${slotId}"`);
-      return;
+      return; // silently skip — slot not present in current view
     }
 
     const parentSlot = input.previousElementSibling ||
@@ -210,7 +209,7 @@ const HHP_Photos = window.HHP_Photos = {
     // Find the clickable slot div
     const clickables = document.querySelectorAll(`[onclick*="triggerUpload('${inputId}')"]`);
     if (clickables.length === 0) {
-      console.warn(`📸 wireSlot: no clickable elements found for input "${inputId}" / slot "${slotId}"`);
+      // no clickable elements for this slot — skip
     }
     clickables.forEach(el => {
       el.onclick = (e) => {
@@ -258,7 +257,7 @@ const HHP_Photos = window.HHP_Photos = {
       `;
       slotEl.title = 'Click to replace photo';
     } else {
-      console.warn(`📸 updateSlotPreview: no element found for [data-photo-slot="${slotId}"]`);
+      // slot not in DOM — silently skip
     }
   },
 
