@@ -8322,7 +8322,7 @@ async function showBookingDetail(bookingId, role, source) {
     }
 
         // Client: Live tracking button when walk is in progress
-    if (role === 'client' && isToday && isActive && !isHouseSittingSvc) {
+    if (role === 'client' && isToday && (isActive || st === 'in_progress' || st === 'payment_hold') && !isHouseSittingSvc) {
       var clientActiveWalk = null;
       try {
         var { data: caw } = await sb.from('walks').select('id, status, start_time').eq('booking_id', bookingId).eq('status', 'in_progress').limit(1);
