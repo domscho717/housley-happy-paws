@@ -13702,6 +13702,14 @@ async function loadOwnerReviews() {
   }
 }
 
+// ── HTML escape helper to prevent XSS ──
+function _escHtml(str) {
+  if (!str) return '';
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 function filterReviews(filter) {
   _rvCurrentFilter = filter;
   // Update button states
@@ -13745,8 +13753,8 @@ function renderReviewsList(filter) {
     // Header row
     h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">';
     h += '<div>';
-    h += '<div style="font-weight:700;font-size:0.92rem">' + (r.client_name || 'Client') + '</div>';
-    h += '<div style="font-size:0.76rem;color:var(--mid);margin-top:2px">' + (r.service || '') + (r.pet_name ? ' · ' + r.pet_name : '') + ' · ' + dateStr + '</div>';
+    h += '<div style="font-weight:700;font-size:0.92rem">' + _escHtml(r.client_name || 'Client') + '</div>';
+    h += '<div style="font-size:0.76rem;color:var(--mid);margin-top:2px">' + _escHtml(r.service || '') + (r.pet_name ? ' · ' + _escHtml(r.pet_name) : '') + ' · ' + dateStr + '</div>';
     h += '</div>';
     h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">' + statusBadge + featuredBadge + '</div>';
     h += '</div>';
@@ -13754,11 +13762,11 @@ function renderReviewsList(filter) {
     h += '<div style="margin-bottom:8px">' + _rvStarsHTML(r.rating, '1.1rem') + '</div>';
     // Review text
     if (r.review_text) {
-      h += '<div style="font-size:0.86rem;color:var(--ink);line-height:1.6;margin-bottom:10px;background:var(--warm);border-radius:8px;padding:10px 12px">"' + r.review_text + '"</div>';
+      h += '<div style="font-size:0.86rem;color:var(--ink);line-height:1.6;margin-bottom:10px;background:var(--warm);border-radius:8px;padding:10px 12px">"' + _escHtml(r.review_text) + '"</div>';
     }
     // Owner response
     if (r.owner_response) {
-      h += '<div style="font-size:0.82rem;color:var(--forest);margin-bottom:10px;padding-left:12px;border-left:3px solid var(--forest)"><strong>Your reply:</strong> ' + r.owner_response + '</div>';
+      h += '<div style="font-size:0.82rem;color:var(--forest);margin-bottom:10px;padding-left:12px;border-left:3px solid var(--forest)"><strong>Your reply:</strong> ' + _escHtml(r.owner_response) + '</div>';
     }
     // Action buttons
     h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
@@ -13814,7 +13822,7 @@ function openOwnerResponse(reviewId) {
   if (!review) return;
   document.getElementById('rvr-review-id').value = reviewId;
   document.getElementById('rvr-text').value = review.owner_response || '';
-  document.getElementById('rvr-preview').innerHTML = '<strong>' + (review.client_name || 'Client') + '</strong> — ' + _rvStarsHTML(review.rating) + (review.review_text ? '<div style="margin-top:6px;font-style:italic">"' + review.review_text + '"</div>' : '');
+  document.getElementById('rvr-preview').innerHTML = '<strong>' + _escHtml(review.client_name || 'Client') + '</strong> — ' + _rvStarsHTML(review.rating) + (review.review_text ? '<div style="margin-top:6px;font-style:italic">"' + _escHtml(review.review_text) + '"</div>' : '');
   var modal = document.getElementById('reviewResponseModal');
   if (modal) modal.style.display = 'flex';
 }
@@ -15912,8 +15920,12 @@ document.addEventListener('DOMContentLoaded', function() {
       js.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
       js.onload=function(){
         leafletLoaded=true;
-        var t=document.createElement('script');t.src='/js/live-tracking.js';
-        if(cb)t.onload=cb;document.body.appendChild(t);
+        // Check if live-tracking.js is already loaded to prevent double-load
+        var existingScript=document.querySelector('script[src="/js/live-tracking.js"]');
+        if(!existingScript){
+          var t=document.createElement('script');t.src='/js/live-tracking.js';
+          if(cb)t.onload=cb;document.body.appendChild(t);
+        }else if(cb){cb();}
       };
       document.body.appendChild(js);
     };

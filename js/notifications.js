@@ -485,6 +485,8 @@
             updateBadge();
             buildPromoStrip();
             if (_drawerOpen) renderDrawer();
+          }).catch(function(err) {
+            console.warn('Failed to fetch active deals in realtime:', err);
           });
         })
         .subscribe();
@@ -519,7 +521,11 @@
     buildDrawer();
 
     // Fetch data
-    await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+    try {
+      await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+    } catch (err) {
+      console.warn('Failed to fetch notifications data:', err);
+    }
 
     // Update UI
     updateBadge();
@@ -564,7 +570,11 @@
     loadHistory: loadAnnouncementHistory,
     saveAnnouncement: saveAnnouncement,
     refresh: async function() {
-      await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+      try {
+        await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+      } catch (err) {
+        console.warn('Failed to refresh notifications:', err);
+      }
       updateBadge();
       buildPromoStrip();
       if (_drawerOpen) renderDrawer();

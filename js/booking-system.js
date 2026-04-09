@@ -51,11 +51,16 @@
   // ── Active Deals Cache — fetched from Supabase, auto-applied to pricing ──
   var _activeDealsCache = [];
   var _dealsLoaded = false;
+  var _dealsFetching = false;  // Prevent concurrent fetches
   var _clientUsedDealIds = []; // deal IDs the current client has already redeemed
 
   async function _fetchActiveDeals() {
+    // Prevent concurrent calls
+    if (_dealsFetching) return;
+    _dealsFetching = true;
+
     var sb = getSB();
-    if (!sb) return;
+    if (!sb) { _dealsFetching = false; return; }
     try {
       var clientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null);
 
@@ -70,12 +75,15 @@
       _dealsLoaded = true;
       _clientUsedDealIds = results[1] && results[1].data ? results[1].data.map(function(r) { return r.deal_id; }) : [];
     } catch (e) { console.warn('Failed to load active deals:', e); }
+    finally { _dealsFetching = false; }
   }
 
   // Public refresh function called when owner adds/deactivates deals
   window._refreshActiveDeals = function() {
     _fetchActiveDeals().then(function() {
       if (typeof window._brmUpdatePrice === 'function') window._brmUpdatePrice();
+    }).catch(function(err) {
+      console.warn('Failed to refresh deals:', err);
     });
   };
 
@@ -88,6 +96,10 @@
         // Auth not ready — schedule retries
         setTimeout(_initDeals, 2000);
       }
+    }).catch(function(err) {
+      console.warn('Failed to initialize deals:', err);
+      // Retry after delay
+      setTimeout(_initDeals, 5000);
     });
     // Subscribe to realtime deal changes so pricing updates everywhere automatically
     var sb = getSB();
@@ -760,7 +772,8 @@
             dealNote.className = 'brm-deal-note';
             dealNote.style.cssText = 'background:linear-gradient(135deg,rgba(61,90,71,0.08),rgba(61,90,71,0.03));border:1px solid rgba(61,90,71,0.2);border-radius:8px;padding:8px 12px;margin-top:8px';
             var discLabel = activeDeal.discount_type === 'percent' ? activeDeal.discount_value + '% off' : '$' + Number(activeDeal.discount_value).toFixed(0) + ' off';
-            dealNote.innerHTML = '<div style="font-weight:700;font-size:0.82rem;color:var(--forest)">🏷️ ' + (activeDeal.name || 'Special') + ' — ' + discLabel + '</div>' +
+            var dealNameEscaped = (activeDeal.name || 'Special').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            dealNote.innerHTML = '<div style="font-weight:700;font-size:0.82rem;color:var(--forest)">🏷️ ' + dealNameEscaped + ' — ' + discLabel + '</div>' +
               '<div style="font-size:0.78rem;color:var(--forest)">You save $' + dealResult.savingsAmount.toFixed(2) + '!</div>';
             breakdownEl.appendChild(dealNote);
           }

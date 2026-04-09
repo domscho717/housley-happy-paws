@@ -412,6 +412,15 @@
       var ov=document.getElementById('cust-picker-ov');
       if(ov){ov.style.opacity='0';var s=document.getElementById('cust-picker-sh');if(s)s.style.transform='translateY(100%)';setTimeout(function(){if(ov.parentElement)ov.remove();},300);}
       if(btn){btn.textContent='✏️ Customize';btn.style.background='none';btn.style.color='var(--mid)';btn.style.borderColor='var(--border)';}
+      // Cleanup event listeners
+      if(window._hhpCustomizerDragListeners){
+        window._hhpCustomizerDragListeners.forEach(function(l){l.el.removeEventListener(l.evt,l.fn,l.opts);});
+        window._hhpCustomizerDragListeners=null;
+      }
+      if(window._hhpCustomizerPickerListeners){
+        window._hhpCustomizerPickerListeners.forEach(function(l){l.el.removeEventListener(l.evt,l.fn,l.opts);});
+        window._hhpCustomizerPickerListeners=null;
+      }
     }
   }
 
@@ -476,12 +485,18 @@
         if(currentY>100){_toggleEdit();}
         else{sh.style.transform='translateY(0)';ov.style.opacity='1';}
       }
-      handle.addEventListener('touchstart',onDragStart,{passive:true});
-      handle.addEventListener('touchmove',onDragMove,{passive:true});
-      handle.addEventListener('touchend',onDragEnd);
-      handle.addEventListener('mousedown',onDragStart);
-      document.addEventListener('mousemove',onDragMove);
-      document.addEventListener('mouseup',onDragEnd);
+      // Store listener references for cleanup
+      var _dragListeners = [
+        { el: handle, evt: 'touchstart', fn: onDragStart, opts: {passive:true} },
+        { el: handle, evt: 'touchmove', fn: onDragMove, opts: {passive:true} },
+        { el: handle, evt: 'touchend', fn: onDragEnd },
+        { el: handle, evt: 'mousedown', fn: onDragStart },
+        { el: document, evt: 'mousemove', fn: onDragMove },
+        { el: document, evt: 'mouseup', fn: onDragEnd }
+      ];
+      _dragListeners.forEach(function(l) { l.el.addEventListener(l.evt, l.fn, l.opts); });
+      // Store for cleanup when edit mode closes
+      window._hhpCustomizerDragListeners = _dragListeners;
     }
 
     // ── Widget reorder drag ──
@@ -551,12 +566,18 @@
       _savePickerOrder(portal);
     }
 
-    list.addEventListener('mousedown',onStart);
-    list.addEventListener('touchstart',onStart,{passive:false});
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('touchmove',onMove,{passive:false});
-    document.addEventListener('mouseup',onEnd);
-    document.addEventListener('touchend',onEnd);
+    // Store listener references for cleanup
+    var _pickerListeners = [
+      { el: list, evt: 'mousedown', fn: onStart },
+      { el: list, evt: 'touchstart', fn: onStart, opts: {passive:false} },
+      { el: document, evt: 'mousemove', fn: onMove },
+      { el: document, evt: 'touchmove', fn: onMove, opts: {passive:false} },
+      { el: document, evt: 'mouseup', fn: onEnd },
+      { el: document, evt: 'touchend', fn: onEnd }
+    ];
+    _pickerListeners.forEach(function(l) { l.el.addEventListener(l.evt, l.fn, l.opts); });
+    // Store for cleanup when picker is closed
+    window._hhpCustomizerPickerListeners = _pickerListeners;
   }
 
   function _savePickerOrder(portal){

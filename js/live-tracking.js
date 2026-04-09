@@ -15,6 +15,7 @@
   var _activeWalkId = null;
   var _gpsWatchId = null;
   var _trackingInterval = null;
+  var _gpsIdleTimeout = null;  // Timeout to auto-stop GPS tracking after 3 hours
   var _trackingPoints = [];
 
   // ============================================================
@@ -187,6 +188,11 @@
       return;
     }
 
+    // Clear any existing idle timeout
+    if (_gpsIdleTimeout) {
+      clearTimeout(_gpsIdleTimeout);
+    }
+
     // Record initial position
     navigator.geolocation.getCurrentPosition(
       function(pos) { recordPoint(walkId, pos); },
@@ -209,6 +215,12 @@
         { enableHighAccuracy: true, timeout: 10000 }
       );
     }, 30000);
+
+    // Auto-stop GPS tracking after 3 hours to prevent battery drain
+    _gpsIdleTimeout = setTimeout(function() {
+      console.warn('GPS tracking auto-stopped after 3 hours of continuous tracking');
+      stopGPSTracking();
+    }, 10800000);  // 3 hours in milliseconds
   }
 
   function stopGPSTracking() {
@@ -219,6 +231,10 @@
     if (_trackingInterval) {
       clearInterval(_trackingInterval);
       _trackingInterval = null;
+    }
+    if (_gpsIdleTimeout) {
+      clearTimeout(_gpsIdleTimeout);
+      _gpsIdleTimeout = null;
     }
   }
 
@@ -244,6 +260,8 @@
     if (sb) {
       sb.from('tracking_points').insert(point).then(function(res) {
         if (res.error) console.warn('Track point save error:', res.error);
+      }).catch(function(err) {
+        console.warn('Track point insert error:', err);
       });
     }
   }
