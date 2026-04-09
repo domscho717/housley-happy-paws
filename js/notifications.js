@@ -58,7 +58,6 @@
     _bellEl.style.borderRadius = '0 50% 50% 0';
     _tabEl.style.opacity = '1';
     _tabEl.style.pointerEvents = 'auto';
-    if (_tuckBtnEl) { _tuckBtnEl.style.opacity = '0'; _tuckBtnEl.style.pointerEvents = 'none'; }
   }
 
   function untuckBell() {
@@ -70,16 +69,10 @@
       _tabEl.style.opacity = '0';
       _tabEl.style.pointerEvents = 'none';
     }
-    // Show the tuck-back button on mobile so user can push it back
-    if (isMobile() && _tuckBtnEl && !_drawerOpen) {
-      _tuckBtnEl.style.opacity = '1';
-      _tuckBtnEl.style.pointerEvents = 'auto';
-    }
   }
 
   // ── Build the floating bell ─────────────────────────────────
   var _tabEl = null;
-  var _tuckBtnEl = null;
 
   function buildBell() {
     if (_bellEl) return;
@@ -110,7 +103,58 @@
         this.style.boxShadow = '0 4px 20px rgba(200,150,62,0.4)';
       }
     });
+    // Touch/swipe handling for mobile — drag bell left to tuck, right to untuck
+    var _touchStartX = 0;
+    var _touchStartLeft = 0;
+    var _isDragging = false;
+
+    _bellEl.addEventListener('touchstart', function(e) {
+      if (!isMobile() || _drawerOpen) return;
+      _touchStartX = e.touches[0].clientX;
+      _touchStartLeft = parseInt(_bellEl.style.left) || 24;
+      _isDragging = false;
+      // Disable transition during drag for smooth tracking
+      _bellEl.style.transition = 'transform 0.2s,box-shadow 0.2s,border-radius 0.35s ease';
+    }, { passive: true });
+
+    _bellEl.addEventListener('touchmove', function(e) {
+      if (!isMobile() || _drawerOpen) return;
+      var dx = e.touches[0].clientX - _touchStartX;
+      // Only allow dragging left (negative dx) from untucked, or right from tucked
+      if (Math.abs(dx) > 8) _isDragging = true;
+      var newLeft = Math.max(-42, Math.min(24, _touchStartLeft + dx));
+      _bellEl.style.left = newLeft + 'px';
+    }, { passive: true });
+
+    _bellEl.addEventListener('touchend', function(e) {
+      if (!isMobile() || _drawerOpen) {
+        _isDragging = false;
+        return;
+      }
+      // Restore transition
+      _bellEl.style.transition = 'left 0.35s ease,transform 0.2s,box-shadow 0.2s,border-radius 0.35s ease';
+
+      var currentLeft = parseInt(_bellEl.style.left) || 24;
+
+      if (_isDragging) {
+        // Snap: if dragged past midpoint (-10px), tuck; otherwise untuck
+        if (currentLeft < -10) {
+          tuckBell();
+        } else {
+          untuckBell();
+          _userPulledOut = true;
+        }
+        _isDragging = false;
+        return;
+      }
+      _isDragging = false;
+      // Not a drag — it's a tap. Handle as click.
+      // (click event will fire naturally)
+    }, { passive: true });
+
     _bellEl.addEventListener('click', function(e) {
+      // If we just finished a drag, don't treat as click
+      if (_isDragging) { e.stopPropagation(); return; }
       // If tucked, untuck first instead of opening drawer
       if (_tucked) {
         e.stopPropagation();
@@ -134,7 +178,7 @@
     ].join(';');
     _bellEl.appendChild(_badgeEl);
 
-    // Pull-out tab (mobile only) — small arrow that stays visible when tucked
+    // Pull-out tab (mobile only) — small arrow visible when bell is tucked
     _tabEl = document.createElement('div');
     _tabEl.id = 'hhpNotifTab';
     _tabEl.style.cssText = [
@@ -155,30 +199,8 @@
       _userPulledOut = true;
     });
 
-    // Tuck-back button — small ‹ arrow that sits just left of the bell on mobile
-    _tuckBtnEl = document.createElement('div');
-    _tuckBtnEl.id = 'hhpNotifTuckBtn';
-    _tuckBtnEl.style.cssText = [
-      'position:fixed', 'bottom:32px', 'left:80px', 'z-index:997',
-      'width:24px', 'height:24px',
-      'background:rgba(200,150,62,0.85)',
-      'border-radius:50%',
-      'display:flex', 'align-items:center', 'justify-content:center',
-      'color:white', 'font-size:0.7rem', 'cursor:pointer',
-      'box-shadow:0 2px 8px rgba(0,0,0,0.15)',
-      'opacity:0', 'pointer-events:none',
-      'transition:opacity 0.3s ease'
-    ].join(';');
-    _tuckBtnEl.innerHTML = '‹';
-    _tuckBtnEl.setAttribute('aria-label', 'Hide notifications');
-    _tuckBtnEl.addEventListener('click', function(e) {
-      e.stopPropagation();
-      tuckBell();
-    });
-
     document.body.appendChild(_bellEl);
     document.body.appendChild(_tabEl);
-    document.body.appendChild(_tuckBtnEl);
 
     // On mobile, start tucked if nothing is new
     // (we check after data loads in init, so just set up resize listener)
@@ -217,7 +239,7 @@
         '#hhpNotifDrawer::-webkit-scrollbar { width:4px; }',
         '#hhpNotifDrawer::-webkit-scrollbar-thumb { background:rgba(200,150,62,0.3); border-radius:2px; }',
         '@media (max-width:480px) { #hhpNotifDrawer { left:12px; right:12px; width:auto !important; bottom:80px; } }',
-        '@media (min-width:769px) { #hhpNotifTab { display:none !important; } #hhpNotifTuckBtn { display:none !important; } }'
+        '@media (min-width:769px) { #hhpNotifTab { display:none !important; } }'
       ].join('\n');
       document.head.appendChild(style);
     }
@@ -231,8 +253,6 @@
     if (_drawerOpen) {
       // Make sure bell is untucked before showing drawer
       if (_tucked) untuckBell();
-      // Hide tuck button while drawer is open
-      if (_tuckBtnEl) { _tuckBtnEl.style.opacity = '0'; _tuckBtnEl.style.pointerEvents = 'none'; }
       renderDrawer();
       _drawerEl.style.display = 'flex';
       _bellEl.style.transform = 'scale(1.1)';
