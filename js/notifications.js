@@ -17,6 +17,8 @@
   var _activeDeals = [];
   var _drawerOpen = false;
   var _dismissedKey = 'hhp_dismissed_announcements';
+  var _tucked = false;       // mobile: is the bell tucked to the side?
+  var _userPulledOut = false; // user manually pulled it out — keep it out
 
   // ── Helpers ──────────────────────────────────────────────────
   function getSB() {
@@ -44,7 +46,34 @@
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  // ── Mobile detection helper ─────────────────────────────────
+  function isMobile() { return window.innerWidth <= 768; }
+
+  // ── Tuck / untuck the bell (mobile only) ───────────────────
+  function tuckBell() {
+    if (!isMobile() || !_bellEl) return;
+    _tucked = true;
+    _userPulledOut = false;
+    _bellEl.style.left = '-42px';       // mostly hidden, just edge peeking
+    _bellEl.style.borderRadius = '0 50% 50% 0';
+    _tabEl.style.opacity = '1';
+    _tabEl.style.pointerEvents = 'auto';
+  }
+
+  function untuckBell() {
+    if (!_bellEl) return;
+    _tucked = false;
+    _bellEl.style.left = '24px';
+    _bellEl.style.borderRadius = '50%';
+    if (_tabEl) {
+      _tabEl.style.opacity = '0';
+      _tabEl.style.pointerEvents = 'none';
+    }
+  }
+
   // ── Build the floating bell ─────────────────────────────────
+  var _tabEl = null;
+
   function buildBell() {
     if (_bellEl) return;
 
@@ -58,21 +87,32 @@
       'color:white', 'border:none', 'cursor:pointer',
       'box-shadow:0 4px 20px rgba(200,150,62,0.4)',
       'display:flex', 'align-items:center', 'justify-content:center',
-      'font-size:1.4rem', 'transition:transform 0.2s,box-shadow 0.2s'
+      'font-size:1.4rem', 'transition:left 0.35s ease,transform 0.2s,box-shadow 0.2s,border-radius 0.35s ease'
     ].join(';');
     _bellEl.innerHTML = '🔔';
 
     _bellEl.addEventListener('mouseenter', function() {
-      this.style.transform = 'scale(1.1)';
-      this.style.boxShadow = '0 6px 28px rgba(200,150,62,0.55)';
+      if (!_tucked) {
+        this.style.transform = 'scale(1.1)';
+        this.style.boxShadow = '0 6px 28px rgba(200,150,62,0.55)';
+      }
     });
     _bellEl.addEventListener('mouseleave', function() {
-      if (!_drawerOpen) {
+      if (!_drawerOpen && !_tucked) {
         this.style.transform = 'scale(1)';
         this.style.boxShadow = '0 4px 20px rgba(200,150,62,0.4)';
       }
     });
-    _bellEl.addEventListener('click', toggleDrawer);
+    _bellEl.addEventListener('click', function(e) {
+      // If tucked, untuck first instead of opening drawer
+      if (_tucked) {
+        e.stopPropagation();
+        untuckBell();
+        _userPulledOut = true;
+        return;
+      }
+      toggleDrawer();
+    });
 
     // Badge
     _badgeEl = document.createElement('span');
@@ -87,7 +127,41 @@
     ].join(';');
     _bellEl.appendChild(_badgeEl);
 
+    // Pull-out tab (mobile only) — small arrow that stays visible when tucked
+    _tabEl = document.createElement('div');
+    _tabEl.id = 'hhpNotifTab';
+    _tabEl.style.cssText = [
+      'position:fixed', 'bottom:28px', 'left:0', 'z-index:997',
+      'width:28px', 'height:44px',
+      'background:linear-gradient(135deg,var(--gold,#c8963e),#a67c2e)',
+      'border-radius:0 10px 10px 0',
+      'display:flex', 'align-items:center', 'justify-content:center',
+      'color:white', 'font-size:0.75rem', 'cursor:pointer',
+      'box-shadow:2px 2px 10px rgba(200,150,62,0.3)',
+      'opacity:0', 'pointer-events:none',
+      'transition:opacity 0.3s ease'
+    ].join(';');
+    _tabEl.innerHTML = '›';
+    _tabEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      untuckBell();
+      _userPulledOut = true;
+    });
+
     document.body.appendChild(_bellEl);
+    document.body.appendChild(_tabEl);
+
+    // On mobile, start tucked if nothing is new
+    // (we check after data loads in init, so just set up resize listener)
+    window.addEventListener('resize', function() {
+      if (!isMobile()) {
+        // Going to desktop — always untuck
+        untuckBell();
+      } else if (_tucked) {
+        // Staying mobile + tucked — keep tucked
+        tuckBell();
+      }
+    });
   }
 
   // ── Build the drawer ────────────────────────────────────────
@@ -113,7 +187,8 @@
         '@keyframes hhpPromoSlide { from { transform:translateX(100%); } to { transform:translateX(0); } }',
         '#hhpNotifDrawer::-webkit-scrollbar { width:4px; }',
         '#hhpNotifDrawer::-webkit-scrollbar-thumb { background:rgba(200,150,62,0.3); border-radius:2px; }',
-        '@media (max-width:480px) { #hhpNotifDrawer { left:12px; right:12px; width:auto !important; bottom:80px; } }'
+        '@media (max-width:480px) { #hhpNotifDrawer { left:12px; right:12px; width:auto !important; bottom:80px; } }',
+        '@media (min-width:769px) { #hhpNotifTab { display:none !important; } }'
       ].join('\n');
       document.head.appendChild(style);
     }
@@ -125,6 +200,8 @@
   function toggleDrawer() {
     _drawerOpen = !_drawerOpen;
     if (_drawerOpen) {
+      // Make sure bell is untucked before showing drawer
+      if (_tucked) untuckBell();
       renderDrawer();
       _drawerEl.style.display = 'flex';
       _bellEl.style.transform = 'scale(1.1)';
@@ -150,6 +227,10 @@
     _bellEl.innerHTML = '🔔';
     _bellEl.appendChild(_badgeEl);
     document.removeEventListener('click', outsideClickHandler);
+    // On mobile, tuck after closing (unless user manually pulled it out)
+    if (isMobile() && !_userPulledOut) {
+      setTimeout(tuckBell, 400); // slight delay so close animation finishes
+    }
   }
 
   function outsideClickHandler(e) {
@@ -262,8 +343,16 @@
       // Subtle pulse animation on bell
       _bellEl.style.animation = 'none';
       setTimeout(function() { _bellEl.style.animation = ''; }, 10);
+      // Mobile: slide out if tucked — new content needs attention
+      if (isMobile() && _tucked) {
+        untuckBell();
+      }
     } else {
       _badgeEl.style.display = 'none';
+      // Mobile: tuck away if nothing new and user hasn't pulled it out
+      if (isMobile() && !_tucked && !_drawerOpen && !_userPulledOut) {
+        tuckBell();
+      }
     }
   }
 
@@ -533,6 +622,18 @@
     // Update UI
     updateBadge();
     buildPromoStrip();
+
+    // Mobile: if nothing new after data loads, start tucked
+    if (isMobile()) {
+      var dismissed = getDismissed();
+      var unreadCount = _announcements.filter(function(a) { return dismissed.indexOf(a.id) === -1; }).length;
+      unreadCount += _activeDeals.filter(function(d) { return dismissed.indexOf(d.id) === -1; }).length;
+      if (unreadCount === 0) {
+        // Small delay so user sees it tuck away smoothly
+        setTimeout(tuckBell, 1200);
+      }
+      // If there IS new content, bell stays out (untucked) with badge showing
+    }
 
     // Realtime
     subscribeToAnnouncements();
