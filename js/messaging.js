@@ -1263,7 +1263,7 @@
           if (!msg) return;
 
           var profile = await getProfileByUserId(msg.sender_id);
-          var name = profile.full_name || 'Someone';
+          var name = (profile && profile.full_name) ? profile.full_name : 'Someone';
 
           // Toast notification (only if NOT already viewing this conversation)
           var toasted = false;
@@ -1355,7 +1355,11 @@
   // ============================================================
   //  INIT
   // ============================================================
+  var _msgInitialized = false;
   function init() {
+    // Guard against double-init from multiple auth callbacks
+    if (_msgInitialized) return;
+    _msgInitialized = true;
     window.sendMsg = sendMsgReal;
     subscribeToMessages();
     updateUnreadBadges();
@@ -1393,6 +1397,7 @@
         _realtimeChannel.unsubscribe();
         _realtimeChannel = null;
       }
+      _msgInitialized = false;
     }
   };
 

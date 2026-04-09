@@ -106,7 +106,7 @@
     if (sb && sb.channel && !window._dealsRealtimeSubscribed) {
       try {
         window._dealsRealtimeSubscribed = true;
-        sb.channel('deals-realtime')
+        window._dealsRealtimeChannel = sb.channel('deals-realtime')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, function() {
             _fetchActiveDeals();
           })

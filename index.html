@@ -3918,14 +3918,17 @@ function switchView(view) {
       };
       document.body.appendChild(floatingBookBtn);
 
-      // Close menu on outside click
-      document.addEventListener('click', function(e) {
-        var menu = document.getElementById('floatingBookMenu');
-        var btn = document.getElementById('floatingBookBtn');
-        if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && e.target !== btn) {
-          menu.style.display = 'none';
-        }
-      });
+      // Close menu on outside click — add only once to prevent listener accumulation
+      if (!window._floatingBookMenuClickInit) {
+        window._floatingBookMenuClickInit = true;
+        document.addEventListener('click', function(e) {
+          var menu = document.getElementById('floatingBookMenu');
+          var btn = document.getElementById('floatingBookBtn');
+          if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && e.target !== btn) {
+            menu.style.display = 'none';
+          }
+        });
+      }
     }
     floatingBookBtn.style.display = '';
   } else {

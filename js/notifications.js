@@ -516,7 +516,10 @@
   }
 
   // ── Initialize ──────────────────────────────────────────────
+  var _notifInitialized = false;
   async function init() {
+    if (_notifInitialized) return;
+    _notifInitialized = true;
     buildBell();
     buildDrawer();
 
