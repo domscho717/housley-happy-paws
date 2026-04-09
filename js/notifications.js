@@ -56,8 +56,10 @@
     _userPulledOut = false;
     _bellEl.style.left = '-42px';       // mostly hidden, just edge peeking
     _bellEl.style.borderRadius = '0 50% 50% 0';
-    _tabEl.style.opacity = '1';
-    _tabEl.style.pointerEvents = 'auto';
+    if (_tabEl) {
+      _tabEl.style.opacity = '1';
+      _tabEl.style.pointerEvents = 'auto';
+    }
   }
 
   function untuckBell() {

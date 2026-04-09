@@ -549,7 +549,8 @@
     // Resolve full service name from group dropdown + duration dropdown
     window._resolveBookingServiceName = resolveServiceName;
     function resolveServiceName() {
-      var svcGroup = document.getElementById('brm-service').value;
+      var svcEl = document.getElementById('brm-service');
+      var svcGroup = svcEl ? svcEl.value : '';
       if (!svcGroup) return '';
       var isMG = svcGroup === 'Meet & Greet';
       if (isMG) return svcGroup;
@@ -570,7 +571,8 @@
 
     // Show/hide duration dropdown based on service
     function toggleDurationField() {
-      var svcGroup = document.getElementById('brm-service').value;
+      var svcEl = document.getElementById('brm-service');
+      var svcGroup = svcEl ? svcEl.value : '';
       var durCol = document.getElementById('brm-duration-col');
       if (!durCol) return;
       var isHS = svcGroup.toLowerCase().indexOf('house sitting') !== -1;
