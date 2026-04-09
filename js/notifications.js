@@ -58,6 +58,7 @@
     _bellEl.style.borderRadius = '0 50% 50% 0';
     _tabEl.style.opacity = '1';
     _tabEl.style.pointerEvents = 'auto';
+    if (_tuckBtnEl) { _tuckBtnEl.style.opacity = '0'; _tuckBtnEl.style.pointerEvents = 'none'; }
   }
 
   function untuckBell() {
@@ -69,10 +70,16 @@
       _tabEl.style.opacity = '0';
       _tabEl.style.pointerEvents = 'none';
     }
+    // Show the tuck-back button on mobile so user can push it back
+    if (isMobile() && _tuckBtnEl && !_drawerOpen) {
+      _tuckBtnEl.style.opacity = '1';
+      _tuckBtnEl.style.pointerEvents = 'auto';
+    }
   }
 
   // ── Build the floating bell ─────────────────────────────────
   var _tabEl = null;
+  var _tuckBtnEl = null;
 
   function buildBell() {
     if (_bellEl) return;
@@ -148,8 +155,30 @@
       _userPulledOut = true;
     });
 
+    // Tuck-back button — small ‹ arrow that sits just left of the bell on mobile
+    _tuckBtnEl = document.createElement('div');
+    _tuckBtnEl.id = 'hhpNotifTuckBtn';
+    _tuckBtnEl.style.cssText = [
+      'position:fixed', 'bottom:32px', 'left:80px', 'z-index:997',
+      'width:24px', 'height:24px',
+      'background:rgba(200,150,62,0.85)',
+      'border-radius:50%',
+      'display:flex', 'align-items:center', 'justify-content:center',
+      'color:white', 'font-size:0.7rem', 'cursor:pointer',
+      'box-shadow:0 2px 8px rgba(0,0,0,0.15)',
+      'opacity:0', 'pointer-events:none',
+      'transition:opacity 0.3s ease'
+    ].join(';');
+    _tuckBtnEl.innerHTML = '‹';
+    _tuckBtnEl.setAttribute('aria-label', 'Hide notifications');
+    _tuckBtnEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      tuckBell();
+    });
+
     document.body.appendChild(_bellEl);
     document.body.appendChild(_tabEl);
+    document.body.appendChild(_tuckBtnEl);
 
     // On mobile, start tucked if nothing is new
     // (we check after data loads in init, so just set up resize listener)
@@ -188,7 +217,7 @@
         '#hhpNotifDrawer::-webkit-scrollbar { width:4px; }',
         '#hhpNotifDrawer::-webkit-scrollbar-thumb { background:rgba(200,150,62,0.3); border-radius:2px; }',
         '@media (max-width:480px) { #hhpNotifDrawer { left:12px; right:12px; width:auto !important; bottom:80px; } }',
-        '@media (min-width:769px) { #hhpNotifTab { display:none !important; } }'
+        '@media (min-width:769px) { #hhpNotifTab { display:none !important; } #hhpNotifTuckBtn { display:none !important; } }'
       ].join('\n');
       document.head.appendChild(style);
     }
@@ -202,6 +231,8 @@
     if (_drawerOpen) {
       // Make sure bell is untucked before showing drawer
       if (_tucked) untuckBell();
+      // Hide tuck button while drawer is open
+      if (_tuckBtnEl) { _tuckBtnEl.style.opacity = '0'; _tuckBtnEl.style.pointerEvents = 'none'; }
       renderDrawer();
       _drawerEl.style.display = 'flex';
       _bellEl.style.transform = 'scale(1.1)';
