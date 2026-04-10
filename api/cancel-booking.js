@@ -57,19 +57,47 @@ module.exports = async function handler(req, res) {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
         if (intent.status === 'succeeded') {
-          // Payment was captured — issue a full refund
-          const refund = await stripe.refunds.create({
+          // Check if this payment intent is shared by multiple bookings (batch charge)
+          const { data: sharedBookings } = await supabase
+            .from('booking_requests')
+            .select('id, estimated_total, status')
+            .eq('payment_intent_id', booking.payment_intent_id);
+
+          const isBatchPayment = sharedBookings && sharedBookings.length > 1;
+          const refundAmount = isBatchPayment
+            ? Math.round((booking.estimated_total || 0) * 100) // Partial: just this booking's amount in cents
+            : undefined; // Full refund (Stripe defaults to full amount)
+
+          const refundParams = {
             payment_intent: booking.payment_intent_id,
             reason: 'requested_by_customer',
-          });
-          refunded = true;
-          refundResult = { action: 'refunded', refundId: refund.id, amount: refund.amount / 100 };
-          console.log('[cancel] Free cancel refund issued:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
+          };
+          if (refundAmount) refundParams.amount = refundAmount;
 
-          // Update payment record to reflect refund
-          await supabase.from('payments')
-            .update({ status: 'refunded', notes: 'Free cancellation — auto-refund' })
-            .eq('stripe_session_id', booking.payment_intent_id);
+          const refund = await stripe.refunds.create(refundParams);
+          refunded = true;
+          refundResult = { action: isBatchPayment ? 'partial_refund' : 'refunded', refundId: refund.id, amount: refund.amount / 100 };
+          console.log('[cancel] ' + (isBatchPayment ? 'Partial' : 'Full') + ' refund issued:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
+
+          // Update payment record — only mark as refunded if ALL bookings on this payment are canceled
+          if (isBatchPayment) {
+            const activeBookings = sharedBookings.filter(b => b.id !== bookingRequestId && b.status !== 'canceled');
+            if (activeBookings.length === 0) {
+              // All bookings canceled — mark payment as fully refunded
+              await supabase.from('payments')
+                .update({ status: 'refunded', notes: 'All batch bookings canceled — fully refunded' })
+                .eq('stripe_session_id', booking.payment_intent_id);
+            } else {
+              // Some bookings still active — mark as partially refunded
+              await supabase.from('payments')
+                .update({ status: 'partial_refund', notes: 'Partial refund — ' + activeBookings.length + ' booking(s) still active' })
+                .eq('stripe_session_id', booking.payment_intent_id);
+            }
+          } else {
+            await supabase.from('payments')
+              .update({ status: 'refunded', notes: 'Free cancellation — auto-refund' })
+              .eq('stripe_session_id', booking.payment_intent_id);
+          }
         } else if (intent.status === 'requires_capture') {
           // Edge case: if somehow still uncaptured, just cancel the intent
           await stripe.paymentIntents.cancel(booking.payment_intent_id);
@@ -95,17 +123,42 @@ module.exports = async function handler(req, res) {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
         if (intent.status === 'succeeded') {
-          const refund = await stripe.refunds.create({
+          // Check if batch payment — partial refund only this booking's amount
+          const { data: sharedBookings } = await supabase
+            .from('booking_requests')
+            .select('id, estimated_total, status')
+            .eq('payment_intent_id', booking.payment_intent_id);
+
+          const isBatchPayment = sharedBookings && sharedBookings.length > 1;
+          const refundParams = {
             payment_intent: booking.payment_intent_id,
             reason: 'requested_by_customer',
-          });
+          };
+          if (isBatchPayment) {
+            refundParams.amount = Math.round((booking.estimated_total || 0) * 100);
+          }
+
+          const refund = await stripe.refunds.create(refundParams);
           refunded = true;
           refundResult = { action: 'owner_refunded', refundId: refund.id, amount: refund.amount / 100 };
-          console.log('[cancel] Owner override refund:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
+          console.log('[cancel] Owner override ' + (isBatchPayment ? 'partial ' : '') + 'refund:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
 
-          await supabase.from('payments')
-            .update({ status: 'refunded', notes: 'Owner/staff override refund' })
-            .eq('stripe_session_id', booking.payment_intent_id);
+          if (isBatchPayment) {
+            const activeBookings = sharedBookings.filter(b => b.id !== bookingRequestId && b.status !== 'canceled');
+            if (activeBookings.length === 0) {
+              await supabase.from('payments')
+                .update({ status: 'refunded', notes: 'All batch bookings canceled — owner override refund' })
+                .eq('stripe_session_id', booking.payment_intent_id);
+            } else {
+              await supabase.from('payments')
+                .update({ status: 'partial_refund', notes: 'Owner override partial refund — ' + activeBookings.length + ' booking(s) still active' })
+                .eq('stripe_session_id', booking.payment_intent_id);
+            }
+          } else {
+            await supabase.from('payments')
+              .update({ status: 'refunded', notes: 'Owner/staff override refund' })
+              .eq('stripe_session_id', booking.payment_intent_id);
+          }
         }
       } catch (refundErr) {
         console.error('[cancel] Override refund failed:', refundErr.message);
