@@ -4527,26 +4527,33 @@
 
       await _sendBatchNotification(batchBookings, actions);
 
-      // Charge all saved cards in background
-      var chargePromises = batchBookings
-        .filter(function(bk) { return bk.estimated_total > 0 && bk.client_id; })
-        .map(function(bk) {
-          return (async function() {
-            try {
-              var _chgSb = window.HHP_Auth && window.HHP_Auth.supabase;
-              var _chgSess = _chgSb ? await _chgSb.auth.getSession() : null;
-              var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
-              await fetch('/api/charge-saved-card', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
-                body: JSON.stringify({ bookingRequestId: bk.id, amount: bk.estimated_total, service: bk.service, clientProfileId: bk.client_id }),
-              });
-            } catch (e) { console.warn('Batch charge error for ' + bk.id + ':', e); }
-          })();
-        });
-
-      // Fire off charges in background — don't wait
-      Promise.all(chargePromises).catch(function(e) { console.warn('Batch charge error:', e); });
+      // Charge ONE combined payment for the entire batch
+      var chargeableBatch = batchBookings.filter(function(bk) { return bk.estimated_total > 0 && bk.client_id; });
+      if (chargeableBatch.length > 0) {
+        (async function() {
+          try {
+            var _chgSb = window.HHP_Auth && window.HHP_Auth.supabase;
+            var _chgSess = _chgSb ? await _chgSb.auth.getSession() : null;
+            var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
+            var batchTotal = chargeableBatch.reduce(function(sum, bk) { return sum + (bk.estimated_total || 0); }, 0);
+            var batchIds = chargeableBatch.map(function(bk) { return bk.id; });
+            var serviceLabel = chargeableBatch.length > 1
+              ? chargeableBatch[0].service + ' + ' + (chargeableBatch.length - 1) + ' more'
+              : chargeableBatch[0].service;
+            await fetch('/api/charge-saved-card', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
+              body: JSON.stringify({
+                bookingRequestId: batchIds[0],
+                amount: batchTotal,
+                service: serviceLabel,
+                clientProfileId: chargeableBatch[0].client_id,
+                batchBookingIds: batchIds
+              }),
+            });
+          } catch (e) { console.warn('Batch charge error:', e); }
+        })();
+      }
 
       if (typeof toast === 'function') toast('✓ Batch accepted! ' + batchBookings.length + ' booking' + (batchBookings.length !== 1 ? 's' : '') + ' confirmed. Processing payments...');
 
