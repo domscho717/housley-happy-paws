@@ -88,9 +88,27 @@
   // Cache holidays for multiple years
   var _holidayCache = {};
   function getHolidaysForYear(y) {
-    if (!_holidayCache[y]) _holidayCache[y] = getHolidays(y);
+    if (!_holidayCache[y]) {
+      var computed = getHolidays(y);
+      // Merge in any custom holidays from the DB (loaded by booking-system.js)
+      if (window._holidayData && window._holidayData.length > 0) {
+        window._holidayData.forEach(function(row) {
+          // row.date_mmdd is "MM-DD", convert to "YYYY-MM-DD"
+          var fullDate = y + '-' + row.date_mmdd;
+          if (!computed[fullDate]) {
+            computed[fullDate] = row.label || 'Holiday';
+          }
+        });
+      }
+      _holidayCache[y] = computed;
+    }
     return _holidayCache[y];
   }
+
+  // Clear cache (called after DB holidays are loaded or edited)
+  window.clearHolidayCache = function() {
+    _holidayCache = {};
+  };
 
   // Check if a date string is a holiday
   window.isHoliday = function(dateStr) {

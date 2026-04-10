@@ -10788,6 +10788,8 @@ async function addHoliday() {
     toast('✅ Holiday added: ' + label);
     buildHolidayEditor();
     if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) window.HHP_Booking.refreshHolidays();
+    if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
+    if (typeof buildCalendar === 'function') buildCalendar();
   } catch (e) {
     console.error('Add holiday error:', e);
     toast('❌ Failed to add holiday');
@@ -10815,6 +10817,8 @@ async function removeHoliday(id) {
 
     toast('✅ Holiday removed');
     if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) window.HHP_Booking.refreshHolidays();
+    if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
+    if (typeof buildCalendar === 'function') buildCalendar();
   } catch (e) {
     console.error('Remove holiday error:', e);
     toast('❌ Failed to remove holiday');

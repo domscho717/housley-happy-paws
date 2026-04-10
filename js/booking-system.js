@@ -329,6 +329,8 @@
       if (data && data.length > 0) {
         HOLIDAYS = data.map(function(r) { return r.date_mmdd; });
         window._holidayData = data;
+        // Clear the availability.js holiday cache so calendars pick up DB holidays
+        if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
         console.log('✓ Holidays loaded from DB (' + HOLIDAYS.length + ' dates)');
       }
     } catch (e) {
