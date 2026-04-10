@@ -1068,7 +1068,7 @@
       ['brm-service', 'brm-date', 'brm-enddate'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', function() {
-          if (id === 'brm-service') { toggleHouseSittingFields(); updateEndTimeDisplay(); }
+          if (id === 'brm-service') { toggleHouseSittingFields(); updateEndTimeDisplay(); if (typeof window._brmFilterPetsByService === 'function') window._brmFilterPetsByService(); }
           if (id === 'brm-date' || id === 'brm-enddate') toggleHouseSittingFields(); // update end date min/default + nights count
           updatePriceEstimate();
         });
@@ -2292,11 +2292,41 @@
 
       container.innerHTML = html;
 
+      // Filter pets based on selected service (hide cats for dog walks, etc.)
+      window._brmFilterPetsByService();
+
     } catch (err) {
       console.error('Failed to load pets for booking:', err);
       // Show error message (account required, no guest fallback)
       container.innerHTML = '<div style="color:#a66;font-size:0.82rem">Could not load pet profiles. Please try again.</div>';
     }
+  };
+
+  // ── FILTER PET CHECKBOXES BY SERVICE TYPE ──
+  // Dog Walking = dogs only (cats can't go on walks), everything else = all pets
+  window._brmFilterPetsByService = function() {
+    var svcEl = document.getElementById('brm-service');
+    var svcGroup = svcEl ? svcEl.value : '';
+    var labels = document.querySelectorAll('.brm-pet-checkbox-label');
+    if (!labels.length) return;
+
+    var isDogOnly = svcGroup.toLowerCase().indexOf('dog walk') !== -1;
+
+    labels.forEach(function(label) {
+      var cb = label.querySelector('.brm-pet-cb');
+      if (!cb) return;
+      var species = cb.getAttribute('data-species') || 'dog';
+
+      if (isDogOnly && species === 'cat') {
+        label.style.display = 'none';
+        cb.checked = false;
+      } else {
+        label.style.display = '';
+      }
+    });
+
+    // Re-run pet selection update to recalculate totals after filtering
+    window._brmUpdatePetSelection();
   };
 
   // ── UPDATE HIDDEN FIELDS WHEN PET CHECKBOXES CHANGE ──
