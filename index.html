@@ -1459,7 +1459,7 @@ try {
         <div class="service-card mg-card fadeup">
           <div class="sc-icon">🤝</div>
           <div class="sc-name">Meet &amp; Greet</div>
-          <div class="sc-price" style="color:var(--forest)">Free</div>
+          <div class="sc-price" style="color:var(--forest)" data-price-key="meet_greet">Free</div>
           <div class="sc-desc">An introductory visit so your pet can get comfortable with their new sitter. We'll go over your pet's routine, preferences, and any special needs.</div>
           <ul class="sc-features">
             <li>In-home introduction with your pet</li>
@@ -1473,34 +1473,34 @@ try {
         <div class="service-card fadeup">
           <div class="sc-icon">🦮</div>
           <div class="sc-name">Dog Walking</div>
-          <div class="sc-price">$25 <span>/ 30 min</span></div>
-          <div class="sc-price" style="font-size:1.15rem;margin-top:-2px">$45 <span>/ 1 hour</span></div>
+          <div class="sc-price" data-price-key="dog_walk_30">$25 <span>/ 30 min</span></div>
+          <div class="sc-price" style="font-size:1.15rem;margin-top:-2px" data-price-key="dog_walk_60">$45 <span>/ 1 hour</span></div>
           <div class="sc-desc">I come to your home and get your pup ready for a nice, long walk! Every walk is GPS tracked with a detailed report card sent to you afterward. Water bowls will also be refreshed upon returning!</div>
           <ul class="sc-features">
             <li>Live GPS tracking</li><li>Photo updates mid-walk</li>
             <li>Personal walk report card</li><li>Route map included</li>
           </ul>
-          <div style="font-size:0.72rem;color:var(--mid);margin-top:8px;line-height:1.5">+$15 per additional dog · +$5 puppy surcharge · +$10 holiday rate</div>
+          <div style="font-size:0.72rem;color:var(--mid);margin-top:8px;line-height:1.5" data-price-key="dog_walk_surcharges">+$15 per additional dog · +$5 puppy surcharge · +$10 holiday rate</div>
           <button type="button" class="stripe-pay-btn" style="display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;font-family:inherit;transition:opacity 0.2s;" onclick="if(typeof openBookingModal==='function')openBookingModal('Dog Walking')" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Request Dog Walking</button>
         </div>
         <div class="service-card fadeup">
           <div class="sc-icon">🚪</div>
           <div class="sc-name">Drop-In Visit</div>
-          <div class="sc-price">From $20 <span>/ 30 min</span></div>
+          <div class="sc-price" data-price-key="dropin_min">From $20 <span>/ 30 min</span></div>
           <div class="sc-desc">I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! Cats too — feeding, litter box cleaning, and playtime. I also can address any special needs or requests, such as medication, etc.!</div>
           <details style="margin-top:10px;cursor:pointer">
             <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
               <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Rates
             </summary>
             <ul style="list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--warm);border-radius:8px;border:1px solid var(--border)">
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (30 min)</span><span style="font-weight:700">$25</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (1 hour)</span><span style="font-weight:700">$45</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (30 min)</span><span style="font-weight:700">$20</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (1 hour)</span><span style="font-weight:700">$35</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700">+ $15</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700">+ $10</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700">+ $5</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700">+ $10</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (30 min)</span><span style="font-weight:700" data-price-key="dropin_dog_30_detail">$25</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (1 hour)</span><span style="font-weight:700" data-price-key="dropin_dog_60_detail">$45</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (30 min)</span><span style="font-weight:700" data-price-key="dropin_cat_30_detail">$20</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (1 hour)</span><span style="font-weight:700" data-price-key="dropin_cat_60_detail">$35</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700" data-price-key="dropin_extra_dog_detail">+ $15</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700" data-price-key="dropin_extra_cat_detail">+ $10</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700" data-price-key="dropin_puppy_detail">+ $5</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700" data-price-key="dropin_holiday_detail">+ $10</span></li>
             </ul>
           </details>
           <ul class="sc-features">
@@ -1512,20 +1512,20 @@ try {
         <div class="service-card fadeup">
           <div class="sc-icon">🏡</div>
           <div class="sc-name">House Sitting</div>
-          <div class="sc-price">$125 <span>/ night</span></div>
+          <div class="sc-price" data-price-key="housesit_dog_main">$125 <span>/ night</span></div>
           <div class="sc-desc">Going away? I stay at your home and care for your pets in their own environment — keeping their routine, giving medication if needed, and sending regular updates and photos so you have complete peace of mind while you're gone!</div>
           <details style="margin-top:10px;cursor:pointer">
             <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
               <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Additional Rates
             </summary>
             <ul style="list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--warm);border-radius:8px;border:1px solid var(--border)">
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Dog(s)</span><span style="font-weight:700">$125<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Cat(s)</span><span style="font-weight:700">$80<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / dog / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700">+ $15<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / cat / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">3+ Animals</span><span style="font-weight:700">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700">+ $5<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700">+ $10<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Dog(s)</span><span style="font-weight:700" data-price-key="housesit_dog_detail">$125<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Cat(s)</span><span style="font-weight:700" data-price-key="housesit_cat_detail">$80<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700" data-price-key="housesit_extra_dog_detail">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / dog / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700" data-price-key="housesit_extra_cat_detail">+ $15<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / cat / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">3+ Animals</span><span style="font-weight:700" data-price-key="housesit_3plus_detail">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700" data-price-key="housesit_puppy_detail">+ $5<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700" data-price-key="housesit_holiday_detail">+ $10<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
             </ul>
           </details>
           <ul class="sc-features">
@@ -10525,29 +10525,191 @@ async function aiRewrite(section) {
 function openPricingEditor(){ sTab('o','o-content'); setTimeout(()=>showContentSection('pricing',null),100); }
 
 // ============================================================
-// PRICING EDITOR
+// PRICING EDITOR (reads/writes from service_pricing table)
 // ============================================================
-const pricingData=[
-  {key:'walk30',label:'🦮 Dog Walk (30 min)',price:'$25'},{key:'walk60',label:'🦮 Dog Walk (1 hour)',price:'$45'},
-  {key:'dropin30',label:'🚪 Drop-In Visit - Dog (30 min)',price:'$25'},{key:'dropin60',label:'🚪 Drop-In Visit - Dog (1 hour)',price:'$45'},
-  {key:'cat30',label:'🐱 Drop-In Visit - Cat (30 min)',price:'$20'},{key:'cat60',label:'🐱 Drop-In Visit - Cat (1 hour)',price:'$35'},
-  {key:'boarding',label:'🌙 Dog Boarding (per night)',price:'$55'},{key:'boarding24',label:'🌙 Dog Boarding (24hr)',price:'$75'},
-  {key:'daycare_half',label:'☀️ Day Care (half day)',price:'$40'},{key:'daycare_full',label:'☀️ Day Care (full day)',price:'$65'},
-  {key:'housesit_dog',label:'🏡 House Sitting - Dog (per night)',price:'$125'},{key:'housesit_cat',label:'🏡 House Sitting - Cat (per night)',price:'$80'},
-  {key:'housesit_extra_dog',label:'🏡 Additional Dog (per night)',price:'$35'},{key:'housesit_extra_cat',label:'🏡 Additional Cat (per night)',price:'$15'},
-  {key:'housesit_mixed',label:'🏡 House Sitting - Mixed Dog+Cat (per night)',price:'$140'},
-];
-function buildPricingEditor() {
-  const saved=getSiteData().pricing||{};
-  const c=document.getElementById('pricingEditorRows'); if(!c||c.dataset.built) return;
-  c.dataset.built='1';
-  c.innerHTML=pricingData.map(p=>`<div style="display:flex;align-items:center;gap:14px;background:var(--warm);border-radius:8px;padding:12px 16px;border:1px solid var(--border)"><div style="flex:1;font-size:0.88rem;font-weight:600">${p.label}</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:0.8rem;color:var(--mid)">Price:</span><input class="form-in" data-price-key="${p.key}" value="${saved[p.key]||p.price}" style="width:90px;text-align:center;font-weight:700;font-size:0.95rem;padding:7px 10px"></div></div>`).join('');
+async function buildPricingEditor() {
+  const c = document.getElementById('pricingEditorRows');
+  if (!c) return;
+  c.innerHTML = '<div style="text-align:center;padding:20px;color:var(--mid)">Loading pricing...</div>';
+
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { c.innerHTML = '<div style="color:var(--rose);padding:12px">Unable to connect to database.</div>'; return; }
+
+  try {
+    const { data, error } = await sb.from('service_pricing').select('*').order('sort_order');
+    if (error) throw error;
+    if (!data || data.length === 0) { c.innerHTML = '<div style="padding:12px;color:var(--mid)">No pricing data found.</div>'; return; }
+
+    const icons = { dog_walk: '🦮', dropin_dog: '🚪', dropin_cat: '🐱', housesit_dog: '🏡', housesit_cat: '🏡', housesit_mixed: '🏡', meet_greet: '🤝' };
+    function getIcon(key) { for (var k in icons) { if (key.indexOf(k) === 0) return icons[k]; } return '📋'; }
+
+    c.innerHTML = data.map(function(row) {
+      var icon = getIcon(row.service_key);
+      var unitLabel = row.unit === 'night' ? '/night' : '';
+      return '<div style="background:var(--warm);border-radius:10px;padding:14px 16px;border:1px solid var(--border);margin-bottom:10px" data-pricing-row="' + row.service_key + '">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+          '<span style="font-size:1.1rem">' + icon + '</span>' +
+          '<span style="font-weight:700;font-size:0.92rem;flex:1">' + row.service_label + '</span>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Base Price' + (unitLabel ? ' ' + unitLabel : '') + '</label><input class="form-in" data-pk="' + row.service_key + '" data-field="base_price" type="number" step="0.01" value="' + parseFloat(row.base_price) + '" style="font-weight:700;font-size:0.95rem;padding:7px 10px"></div>' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Extra Pet Fee</label><input class="form-in" data-pk="' + row.service_key + '" data-field="extra_pet_fee" type="number" step="0.01" value="' + parseFloat(row.extra_pet_fee) + '" style="padding:7px 10px"></div>' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Extra Cat Fee</label><input class="form-in" data-pk="' + row.service_key + '" data-field="extra_cat_fee" type="number" step="0.01" value="' + parseFloat(row.extra_cat_fee) + '" style="padding:7px 10px"></div>' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Puppy Surcharge</label><input class="form-in" data-pk="' + row.service_key + '" data-field="puppy_surcharge" type="number" step="0.01" value="' + parseFloat(row.puppy_surcharge) + '" style="padding:7px 10px"></div>' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Holiday Surcharge</label><input class="form-in" data-pk="' + row.service_key + '" data-field="holiday_surcharge" type="number" step="0.01" value="' + parseFloat(row.holiday_surcharge) + '" style="padding:7px 10px"></div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load pricing editor:', e);
+    c.innerHTML = '<div style="color:var(--rose);padding:12px">Error loading pricing: ' + (e.message || e) + '</div>';
+  }
 }
-function savePricing() {
-  const pricing={};
-  document.querySelectorAll('[data-price-key]').forEach(el=>{pricing[el.dataset.priceKey]=el.value;});
-  setSiteData({pricing}); applySavedData(); toast('✅ All pricing saved and applied to your site!');
+
+async function savePricing() {
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { toast('❌ Database connection not available'); return; }
+
+  const rows = document.querySelectorAll('[data-pricing-row]');
+  const updates = [];
+
+  rows.forEach(function(row) {
+    const key = row.dataset.pricingRow;
+    const fields = {};
+    row.querySelectorAll('[data-field]').forEach(function(input) {
+      fields[input.dataset.field] = parseFloat(input.value) || 0;
+    });
+    fields.updated_at = new Date().toISOString();
+    updates.push(sb.from('service_pricing').update(fields).eq('service_key', key));
+  });
+
+  try {
+    const results = await Promise.all(updates);
+    const errors = results.filter(function(r) { return r.error; });
+    if (errors.length > 0) {
+      console.error('Pricing save errors:', errors);
+      toast('⚠️ Some prices failed to save. Check console.');
+      return;
+    }
+
+    toast('✅ All pricing saved to database!');
+
+    // Refresh the booking system pricing
+    if (window.HHP_Booking && window.HHP_Booking.refreshPricing) {
+      await window.HHP_Booking.refreshPricing();
+    }
+
+    // Update landing page prices
+    applyDynamicPricing();
+
+    // Update invoice dropdown
+    updateInvoiceDropdown();
+
+  } catch (e) {
+    console.error('Save pricing error:', e);
+    toast('❌ Failed to save pricing: ' + (e.message || e));
+  }
 }
+
+// Update landing page price displays from window._servicePricing
+function applyDynamicPricing() {
+  var data = window._servicePricing;
+  if (!data || !data.length) return;
+
+  var byKey = {};
+  data.forEach(function(r) { byKey[r.service_key] = r; });
+
+  function $(key) { return byKey[key]; }
+  function setPrice(attr, text) {
+    var el = document.querySelector('[data-price-key="' + attr + '"]');
+    if (el) el.innerHTML = text;
+  }
+
+  // Main card prices
+  var w30 = $('dog_walk_30'), w60 = $('dog_walk_60');
+  if (w30) setPrice('dog_walk_30', '$' + parseFloat(w30.base_price) + ' <span>/ 30 min</span>');
+  if (w60) setPrice('dog_walk_60', '$' + parseFloat(w60.base_price) + ' <span>/ 1 hour</span>');
+  if (w30) setPrice('dog_walk_surcharges', '+$' + parseFloat(w30.extra_pet_fee) + ' per additional dog · +$' + parseFloat(w30.puppy_surcharge) + ' puppy surcharge · +$' + parseFloat(w30.holiday_surcharge) + ' holiday rate');
+
+  var dc30 = $('dropin_cat_30');
+  if (dc30) setPrice('dropin_min', 'From $' + parseFloat(dc30.base_price) + ' <span>/ 30 min</span>');
+
+  var hd = $('housesit_dog');
+  if (hd) setPrice('housesit_dog_main', '$' + parseFloat(hd.base_price) + ' <span>/ night</span>');
+
+  // Drop-in detail rates
+  var dd30 = $('dropin_dog_30'), dd60 = $('dropin_dog_60'), dc60 = $('dropin_cat_60');
+  if (dd30) setPrice('dropin_dog_30_detail', '$' + parseFloat(dd30.base_price));
+  if (dd60) setPrice('dropin_dog_60_detail', '$' + parseFloat(dd60.base_price));
+  if (dc30) setPrice('dropin_cat_30_detail', '$' + parseFloat(dc30.base_price));
+  if (dc60) setPrice('dropin_cat_60_detail', '$' + parseFloat(dc60.base_price));
+  if (dd30) setPrice('dropin_extra_dog_detail', '+ $' + parseFloat(dd30.extra_pet_fee));
+  if (dc30) setPrice('dropin_extra_cat_detail', '+ $' + parseFloat(dc30.extra_pet_fee));
+  if (dd30) setPrice('dropin_puppy_detail', '+ $' + parseFloat(dd30.puppy_surcharge));
+  if (dd30) setPrice('dropin_holiday_detail', '+ $' + parseFloat(dd30.holiday_surcharge));
+
+  // House sitting detail rates
+  var hc = $('housesit_cat');
+  if (hd) setPrice('housesit_dog_detail', '$' + parseFloat(hd.base_price) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
+  if (hc) setPrice('housesit_cat_detail', '$' + parseFloat(hc.base_price) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
+  if (hd) setPrice('housesit_extra_dog_detail', '+ $' + parseFloat(hd.extra_pet_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / dog / night</span>');
+  if (hd) setPrice('housesit_extra_cat_detail', '+ $' + parseFloat(hd.extra_cat_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / cat / night</span>');
+  if (hd) setPrice('housesit_3plus_detail', '+ $' + parseFloat(hd.extra_pet_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span>');
+  if (hd) setPrice('housesit_puppy_detail', '+ $' + parseFloat(hd.puppy_surcharge) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
+  if (hd) setPrice('housesit_holiday_detail', '+ $' + parseFloat(hd.holiday_surcharge) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
+}
+
+// Update invoice service dropdown with current pricing
+function updateInvoiceDropdown() {
+  var data = window._servicePricing;
+  var sel = document.getElementById('inv-service');
+  if (!data || !data.length || !sel) return;
+
+  var byKey = {};
+  data.forEach(function(r) { byKey[r.service_key] = r; });
+
+  var options = [
+    { key: 'housesit_dog', icon: '🏠', suffix: '/night' },
+    { key: 'housesit_cat', icon: '🏠', suffix: '/night' },
+    { key: 'dog_walk_30', icon: '🦮', label: 'Dog Walking 30min' },
+    { key: 'dog_walk_60', icon: '🦮', label: 'Dog Walking 1 hour' },
+    { key: 'dropin_dog_30', icon: '🐾', label: 'Drop-In (Dog) 30min' },
+    { key: 'dropin_dog_60', icon: '🐾', label: 'Drop-In (Dog) 1 hour' },
+    { key: 'dropin_cat_30', icon: '🐱', label: 'Drop-In (Cat) 30min' },
+    { key: 'dropin_cat_60', icon: '🐱', label: 'Drop-In (Cat) 1 hour' }
+  ];
+
+  var html = '';
+  options.forEach(function(opt) {
+    var row = byKey[opt.key];
+    if (!row) return;
+    var label = opt.label || row.service_label;
+    var price = '$' + parseFloat(row.base_price) + (opt.suffix || '');
+    html += '<option>' + opt.icon + ' ' + label + ' — ' + price + '</option>';
+  });
+  html += '<option>Other</option>';
+  sel.innerHTML = html;
+}
+
+// Auto-apply pricing when page loads (called after booking system loads pricing)
+(function() {
+  var _pricingApplied = false;
+  function tryApplyPricing() {
+    if (_pricingApplied) return;
+    if (window._servicePricing && window._servicePricing.length > 0) {
+      _pricingApplied = true;
+      applyDynamicPricing();
+      updateInvoiceDropdown();
+    }
+  }
+  // Try immediately, then poll briefly in case booking-system loads async
+  tryApplyPricing();
+  var attempts = 0;
+  var iv = setInterval(function() {
+    tryApplyPricing();
+    if (_pricingApplied || ++attempts > 20) clearInterval(iv);
+  }, 500);
+})();
 
 // ============================================================
 // SERVICE DESCRIPTIONS

@@ -280,8 +280,8 @@
   // 3. BOOKING REQUEST MODAL & FORM
   // ════════════════════════════════════════════════════════════
 
-  // Services list for the form
-  var SERVICES = [
+  // Fallback services list (used if Supabase fetch fails)
+  var DEFAULT_SERVICES = [
     { name: 'Dog Walking - 30 min', price: '$25', base: 25, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Dog Walking - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Drop-In Visit - 30 min', price: '$25', base: 25, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
@@ -292,6 +292,9 @@
     { name: 'House Sitting (Cat)', price: '$80/night', base: 80, type: 'cat', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 0, holiday: 10 },
     { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
   ];
+
+  // Current services array — will be populated from DB or fallback to DEFAULT_SERVICES
+  var SERVICES = DEFAULT_SERVICES.slice();
 
   // Holiday dates (month-day format, add more as needed)
   var HOLIDAYS = [
@@ -314,6 +317,84 @@
     if (!dateStr) return false;
     var md = dateStr.slice(5); // "YYYY-MM-DD" -> "MM-DD"
     return HOLIDAYS.indexOf(md) !== -1;
+  }
+
+  // Load pricing from Supabase table service_pricing
+  async function loadPricingFromDB() {
+    var sb = getSB();
+    if (!sb) {
+      console.warn('Supabase client not available; using default services');
+      return;
+    }
+
+    try {
+      var { data, error } = await sb.from('service_pricing')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        console.warn('No service pricing data found; using default services');
+        return;
+      }
+
+      // Map DB rows to SERVICES format
+      var fetchedServices = data.map(function(row) {
+        // Infer type from service_key
+        var type = 'dog';
+        if (row.service_key.indexOf('cat') !== -1) {
+          type = 'cat';
+        } else if (row.service_key === 'meet_greet') {
+          type = 'any';
+        } else if (row.service_key === 'housesit_mixed') {
+          type = 'both';
+        }
+
+        // Infer group from service_key
+        var group = 'Dog Walking';
+        if (row.service_key.indexOf('dropin') !== -1) {
+          group = 'Drop-In Visit';
+        } else if (row.service_key.indexOf('housesit') !== -1) {
+          group = 'House Sitting';
+        } else if (row.service_key === 'meet_greet') {
+          group = 'Meet & Greet';
+        }
+
+        // Format price display
+        var priceStr = 'Free';
+        if (row.base_price > 0) {
+          priceStr = '$' + row.base_price + (row.unit === 'night' ? '/night' : '');
+        }
+
+        // For housesit_mixed, set extra3plus to 35 (all additional at $35/night)
+        var extra3plus = 0;
+        if (row.service_key.indexOf('housesit') !== -1) {
+          extra3plus = 35;
+        }
+
+        return {
+          name: row.service_label,
+          price: priceStr,
+          base: row.base_price,
+          type: type,
+          group: group,
+          extraPet: row.extra_pet_fee || 0,
+          extraCat: row.extra_cat_fee || 0,
+          extra3plus: extra3plus,
+          puppy: row.puppy_surcharge || 0,
+          holiday: row.holiday_surcharge || 0
+        };
+      });
+
+      // Update global SERVICES and store raw data
+      SERVICES = fetchedServices;
+      window._servicePricing = data;
+
+      console.log('✓ Service pricing loaded from DB (' + SERVICES.length + ' services)');
+    } catch (e) {
+      console.warn('Failed to load service pricing from DB; using default services:', e);
+      SERVICES = DEFAULT_SERVICES.slice();
+    }
   }
 
   function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType, nights) {
@@ -3446,6 +3527,11 @@
     injectBookingCSS();
     createBookingModal();
 
+    // Load pricing from Supabase early, before booking modal is used
+    loadPricingFromDB().catch(function(err) {
+      console.warn('Error loading pricing:', err);
+    });
+
     // Wait for page to fully render then rewire buttons
     setTimeout(rewireBookButtons, 2000);
     setTimeout(rewireBookButtons, 5000);
@@ -4539,6 +4625,13 @@
       if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
       return { date_details: dd, status: 'modified', scheduled_date: dateEl.value, scheduled_time: timeEl ? timeEl.value : '', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
     }, 'modified');
+  };
+
+  // ════════════════════════════════════════════════════════════
+  // PUBLIC API
+  // ════════════════════════════════════════════════════════════
+  window.HHP_Booking = {
+    refreshPricing: loadPricingFromDB
   };
 
 })();
