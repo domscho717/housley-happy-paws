@@ -10787,7 +10787,7 @@ async function addHoliday() {
     labelInput.value = '';
     toast('✅ Holiday added: ' + label);
     buildHolidayEditor();
-    if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) window.HHP_Booking.refreshHolidays();
+    if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) await window.HHP_Booking.refreshHolidays();
     if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
     if (typeof buildCalendar === 'function') buildCalendar();
   } catch (e) {
@@ -10816,7 +10816,7 @@ async function removeHoliday(id) {
     }
 
     toast('✅ Holiday removed');
-    if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) window.HHP_Booking.refreshHolidays();
+    if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) await window.HHP_Booking.refreshHolidays();
     if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
     if (typeof buildCalendar === 'function') buildCalendar();
   } catch (e) {
