@@ -320,8 +320,34 @@
   }
 
   // Load pricing from Supabase table service_pricing
+  // Helper: wait for Supabase library to load (it's async)
+  function waitForSupabase(maxWait) {
+    return new Promise(function(resolve) {
+      if (window.supabase && window.supabase.createClient) { resolve(true); return; }
+      var elapsed = 0;
+      var iv = setInterval(function() {
+        elapsed += 100;
+        if (window.supabase && window.supabase.createClient) { clearInterval(iv); resolve(true); }
+        else if (elapsed >= (maxWait || 5000)) { clearInterval(iv); resolve(false); }
+      }, 100);
+    });
+  }
+
   async function loadPricingFromDB() {
     var sb = getSB();
+    // Pricing is public (RLS allows anyone to read), so create a lightweight client
+    // if auth isn't ready yet — don't skip just because user isn't logged in
+    if (!sb) {
+      await waitForSupabase(5000);
+      try {
+        if (window.supabase && window.supabase.createClient) {
+          if (!window._hhpPricingSB) {
+            window._hhpPricingSB = window.supabase.createClient(sbUrl, sbKey);
+          }
+          sb = window._hhpPricingSB;
+        }
+      } catch(e) {}
+    }
     if (!sb) {
       console.warn('Supabase client not available; using default services');
       return;
@@ -389,6 +415,13 @@
       // Update global SERVICES and store raw data
       SERVICES = fetchedServices;
       window._servicePricing = data;
+
+      // Also update SERVICE_PRICES map used for Stripe checkout
+      SERVICES.forEach(function(svc) {
+        if (svc.base > 0) {
+          SERVICE_PRICES[svc.name] = parseFloat(svc.base);
+        }
+      });
 
       console.log('✓ Service pricing loaded from DB (' + SERVICES.length + ' services)');
     } catch (e) {
