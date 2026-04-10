@@ -9976,6 +9976,16 @@ async function confirmCancelBooking() {
       if (result.refunded) toastMsg = '✅ Booking canceled & refund issued 🐾';
       toast(toastMsg);
       closeModal('cancelBookingModal');
+
+      // Instantly remove the card from the DOM so no reload needed
+      var canceledCard = document.querySelector('[data-request-id="' + _cancelData.bookingRequestId + '"]');
+      if (canceledCard) {
+        canceledCard.style.transition = 'opacity 0.3s, transform 0.3s';
+        canceledCard.style.opacity = '0';
+        canceledCard.style.transform = 'translateX(-20px)';
+        setTimeout(function() { canceledCard.remove(); }, 300);
+      }
+
       // Invalidate cache & refresh widgets
       if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
       if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
@@ -9985,7 +9995,10 @@ async function confirmCancelBooking() {
           loadClientAppts('all');
         }
       } else if (_cancelData.canceledBy === 'owner') {
-        // Refresh owner booking admin + schedules
+        // Refresh owner booking panel + schedules
+        if (typeof window.loadBookingRequestsPanel === 'function') {
+          window.loadBookingRequestsPanel('owner');
+        }
         if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.load === 'function') {
           window.HHP_BookingAdmin.load();
         }
@@ -9993,6 +10006,9 @@ async function confirmCancelBooking() {
         if (typeof loadMasterSchedule === 'function') loadMasterSchedule();
       } else if (_cancelData.canceledBy === 'staff') {
         // Refresh staff bookings
+        if (typeof window.loadBookingRequestsPanel === 'function') {
+          window.loadBookingRequestsPanel('staff');
+        }
         if (typeof loadStaffSchedule === 'function') {
           loadStaffSchedule();
         }
