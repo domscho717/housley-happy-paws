@@ -3519,6 +3519,12 @@ try {
       <div style="font-size:0.84rem;color:#856404;line-height:1.4">You're canceling within 2 days of the booking. Payment will still be processed according to the cancellation policy.</div>
     </div>
 
+    <!-- Refund Eligible Notice -->
+    <div id="cancelModal_refundNotice" style="display:none;background:#d4edda;border:1px solid #28a745;border-radius:8px;padding:12px 14px;margin-bottom:16px;border-left:4px solid #28a745">
+      <div style="font-size:0.72rem;font-weight:700;color:#155724;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">✓ Eligible for Full Refund</div>
+      <div style="font-size:0.84rem;color:#155724;line-height:1.4">This cancellation is more than 2 days before the appointment. A full refund will be issued to the client's card.</div>
+    </div>
+
     <!-- Recurring Options -->
     <div id="cancelModal_recurringGroup" style="display:none;margin-bottom:16px">
       <label style="font-size:0.88rem;font-weight:600;color:var(--ink);display:block;margin-bottom:10px">Cancel:</label>
@@ -9885,13 +9891,16 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
   document.getElementById('cancelModal_date').textContent = dateDisplay;
   document.getElementById('cancelModal_client').textContent = clientName || 'Client';
 
-  // Show/hide warning based on cancel type
+  // Show/hide warning or refund notice based on cancel type
   var cancelType = getCancelType(date);
   var warningEl = document.getElementById('cancelModal_warning');
+  var refundNoticeEl = document.getElementById('cancelModal_refundNotice');
   if (cancelType === 'late') {
     warningEl.style.display = '';
+    if (refundNoticeEl) refundNoticeEl.style.display = 'none';
   } else {
     warningEl.style.display = 'none';
+    if (refundNoticeEl) refundNoticeEl.style.display = '';
   }
 
   // Show/hide recurring options
