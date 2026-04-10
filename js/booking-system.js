@@ -4123,20 +4123,23 @@
       var petStr = bk.pet_names ? bk.pet_names : 'Pets';
       var isMarkedRemoved = document.querySelector('[data-batch-remove-id="' + bk.id + '"]');
 
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0d5c5;' + (isMarkedRemoved ? 'opacity:0.5;text-decoration:line-through' : '') + '" data-batch-appt-id="' + bk.id + '">' +
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0d5c5;' + (isMarkedRemoved ? 'opacity:0.5;text-decoration:line-through' : '') + '" data-batch-appt-id="' + bk.id + '" data-batch-orig-time="' + (bk.preferred_time || '') + '">' +
         '<div style="flex:1;font-size:0.82rem">' +
-          '<div style="font-weight:600">' + dateStr + ' @ ' + timeStr + '</div>' +
+          '<div style="font-weight:600" data-batch-time-display="' + bk.id + '">' + dateStr + ' @ ' + timeStr + '</div>' +
           '<div style="color:var(--mid);font-size:0.75rem">' + petStr + '</div>' +
+          '<div id="batch-time-picker-' + bk.id + '" style="display:none;margin-top:6px"></div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;align-items:center">' +
           '<span style="font-size:0.78rem;color:var(--gold-deep);font-weight:600">$' + Number(bk.estimated_total || 0).toFixed(2) + '</span>' +
+          '<button class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:0.7rem;color:var(--gold-deep);border-color:var(--gold-deep)" onclick="event.stopPropagation();toggleBatchTimeChange(\'' + bk.id + '\',\'' + batch._batchKey + '\')" title="Change time">↻</button>' +
           '<button class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:0.7rem;color:#c00;border-color:#c00" onclick="event.stopPropagation();toggleBatchRemoval(\'' + bk.id + '\',\'' + batch._batchKey + '\')" title="Mark for removal">❌</button>' +
         '</div>' +
       '</div>';
     }).join('');
 
     var anyChanges = batch._bookings.some(function(bk) {
-      return document.querySelector('[data-batch-remove-id="' + bk.id + '"]');
+      return document.querySelector('[data-batch-remove-id="' + bk.id + '"]') ||
+             document.querySelector('[data-batch-appt-id="' + bk.id + '"][data-batch-new-time]');
     });
 
     var actionButtonText = anyChanges ? 'Send to Client for Review' : '✓ Accept Batch';
@@ -4172,6 +4175,27 @@
     '</div>';
   }
 
+  // Check if a batch card has any modifications (removals or time changes)
+  function _hasBatchModifications(batchCard) {
+    if (!batchCard) return false;
+    var apptRows = batchCard.querySelectorAll('[data-batch-appt-id]');
+    return Array.from(apptRows).some(function(el) {
+      return el.hasAttribute('data-batch-remove-id') || el.hasAttribute('data-batch-new-time');
+    });
+  }
+
+  // Update the accept/modify button state on a batch card
+  function _updateBatchActionButton(batchKey) {
+    var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
+    if (!batchCard) return;
+    var hasChanges = _hasBatchModifications(batchCard);
+    var actionBtn = batchCard.querySelector('.btn-forest');
+    if (actionBtn) {
+      actionBtn.textContent = hasChanges ? 'Send to Client for Review' : '✓ Accept Batch';
+      actionBtn.onclick = new Function('event', 'event.stopPropagation();' + (hasChanges ? 'submitBatchModifications' : 'acceptBatchBookings') + '(\'' + batchKey + '\')');
+    }
+  }
+
   // Toggle removal marking on a single appointment in a batch
   window.toggleBatchRemoval = function(bookingId, batchKey) {
     var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
@@ -4186,19 +4210,107 @@
       apptEl.setAttribute('data-batch-remove-id', bookingId);
       apptEl.style.opacity = '0.5';
       apptEl.style.textDecoration = 'line-through';
+      // Also close any open time picker for this appointment
+      var picker = document.getElementById('batch-time-picker-' + bookingId);
+      if (picker) picker.style.display = 'none';
     }
 
-    // Update action button text/behavior
-    var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
-    if (batchCard) {
-      var apptRows = batchCard.querySelectorAll('[data-batch-appt-id]');
-      var hasRemovals = Array.from(apptRows).some(function(el) { return el.hasAttribute('data-batch-remove-id'); });
-      var actionBtn = batchCard.querySelector('.btn-forest');
-      if (actionBtn) {
-        actionBtn.textContent = hasRemovals ? 'Send to Client for Review' : '✓ Accept Batch';
-        actionBtn.onclick = new Function('event', 'event.stopPropagation();' + (hasRemovals ? 'submitBatchModifications' : 'acceptBatchBookings') + '(\'' + batchKey + '\')');
+    _updateBatchActionButton(batchKey);
+  };
+
+  // Toggle time change picker on a single appointment in a batch
+  window.toggleBatchTimeChange = function(bookingId, batchKey) {
+    var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
+    if (!apptEl) return;
+    // Don't allow time change if marked for removal
+    if (apptEl.hasAttribute('data-batch-remove-id')) return;
+
+    var picker = document.getElementById('batch-time-picker-' + bookingId);
+    if (!picker) return;
+
+    if (picker.style.display !== 'none') {
+      // Close picker
+      picker.style.display = 'none';
+      return;
+    }
+
+    // Build time options (5:00 AM to 10:00 PM, every 30 min)
+    var origTime = apptEl.getAttribute('data-batch-orig-time') || '';
+    var currentNew = apptEl.getAttribute('data-batch-new-time') || origTime;
+    var opts = '';
+    for (var h = 5; h <= 22; h++) {
+      for (var m = 0; m < 60; m += 30) {
+        var val = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        var sel = (val === currentNew) ? ' selected' : '';
+        var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+        var ampm = h >= 12 ? 'PM' : 'AM';
+        var label = hr12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+        opts += '<option value="' + val + '"' + sel + '>' + label + '</option>';
       }
     }
+
+    picker.innerHTML = '<div style="display:flex;gap:6px;align-items:center">' +
+      '<select id="batch-time-sel-' + bookingId + '" style="padding:4px 8px;border:1px solid var(--gold);border-radius:6px;font-size:0.78rem;background:#fff">' + opts + '</select>' +
+      '<button class="btn btn-forest btn-sm" style="padding:4px 10px;font-size:0.72rem" onclick="event.stopPropagation();applyBatchTimeChange(\'' + bookingId + '\',\'' + batchKey + '\')">Set</button>' +
+      '<button class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:0.72rem" onclick="event.stopPropagation();cancelBatchTimeChange(\'' + bookingId + '\',\'' + batchKey + '\')">Cancel</button>' +
+    '</div>';
+    picker.style.display = 'block';
+  };
+
+  // Apply the selected time change
+  window.applyBatchTimeChange = function(bookingId, batchKey) {
+    var sel = document.getElementById('batch-time-sel-' + bookingId);
+    if (!sel) return;
+    var newTime = sel.value;
+    var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
+    if (!apptEl) return;
+    var origTime = apptEl.getAttribute('data-batch-orig-time') || '';
+
+    if (newTime === origTime) {
+      // Same as original — remove the change
+      apptEl.removeAttribute('data-batch-new-time');
+      var display = document.querySelector('[data-batch-time-display="' + bookingId + '"]');
+      if (display) {
+        display.innerHTML = display.innerHTML.replace(/ → <strong style="color:var\(--forest\)">.*?<\/strong>/, '');
+        display.style.color = '';
+      }
+    } else {
+      apptEl.setAttribute('data-batch-new-time', newTime);
+      var display = document.querySelector('[data-batch-time-display="' + bookingId + '"]');
+      if (display) {
+        // Show original with strikethrough + new time
+        var origDisplay = display.textContent.split(' → ')[0]; // keep date + original time
+        display.innerHTML = origDisplay + ' → <strong style="color:var(--forest)">' + fmt12(newTime) + '</strong>';
+        display.style.color = 'var(--gold-deep)';
+      }
+    }
+
+    // Close picker
+    var picker = document.getElementById('batch-time-picker-' + bookingId);
+    if (picker) picker.style.display = 'none';
+
+    _updateBatchActionButton(batchKey);
+  };
+
+  // Cancel time change — revert to original
+  window.cancelBatchTimeChange = function(bookingId, batchKey) {
+    var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
+    if (!apptEl) return;
+
+    // If there was a previous time change, remove it
+    if (apptEl.hasAttribute('data-batch-new-time')) {
+      apptEl.removeAttribute('data-batch-new-time');
+      var origTime = apptEl.getAttribute('data-batch-orig-time') || '';
+      var display = document.querySelector('[data-batch-time-display="' + bookingId + '"]');
+      if (display) {
+        display.innerHTML = display.textContent.split(' → ')[0];
+        display.style.color = '';
+      }
+      _updateBatchActionButton(batchKey);
+    }
+
+    var picker = document.getElementById('batch-time-picker-' + bookingId);
+    if (picker) picker.style.display = 'none';
   };
 
   window.filterOwnerRequests = function(status, btn) {
@@ -4473,6 +4585,13 @@
         removedIds.add(el.getAttribute('data-batch-remove-id'));
       });
 
+      // Get time changes
+      var timeChanges = {};
+      document.querySelectorAll('[data-batch-new-time]').forEach(function(el) {
+        var id = el.getAttribute('data-batch-appt-id');
+        if (id) timeChanges[id] = el.getAttribute('data-batch-new-time');
+      });
+
       // Mark card as processing
       var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
       if (batchCard) {
@@ -4486,6 +4605,13 @@
         if (removedIds.has(bk.id)) {
           actions.push({ id: bk.id, action: 'removed' });
           return sb.from('booking_requests').update({ status: 'batch_review' }).eq('id', bk.id);
+        } else if (timeChanges[bk.id]) {
+          actions.push({ id: bk.id, action: 'modified', newTime: timeChanges[bk.id], newDate: bk.preferred_date });
+          return sb.from('booking_requests').update({
+            status: 'batch_review',
+            scheduled_date: bk.preferred_date,
+            scheduled_time: timeChanges[bk.id]
+          }).eq('id', bk.id);
         } else {
           actions.push({ id: bk.id, action: 'accepted' });
           return sb.from('booking_requests').update({
