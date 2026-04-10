@@ -4111,10 +4111,10 @@
   function _renderBatchCard(batch) {
     var clientAvaHTML = '';
     if (batch.avatar_url) {
-      clientAvaHTML = '<img src="' + batch.avatar_url + '" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0">';
+      clientAvaHTML = '<img src="' + batch.avatar_url + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0">';
     } else {
       var initials = (batch.contact_name || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
-      clientAvaHTML = '<div style="width:48px;height:48px;border-radius:50%;background:var(--gold-light,#f5e6c8);display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:700;color:var(--ink,#1e1409);flex-shrink:0;border:2px solid var(--gold)">' + initials + '</div>';
+      clientAvaHTML = '<div style="width:36px;height:36px;border-radius:50%;background:var(--gold-light,#f5e6c8);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--ink,#1e1409);flex-shrink:0;border:2px solid var(--gold)">' + initials + '</div>';
     }
 
     var apptRowsHTML = batch._bookings.map(function(bk, idx) {
@@ -4123,17 +4123,19 @@
       var petStr = bk.pet_names ? bk.pet_names : 'Pets';
       var isMarkedRemoved = document.querySelector('[data-batch-remove-id="' + bk.id + '"]');
 
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0d5c5;' + (isMarkedRemoved ? 'opacity:0.5;text-decoration:line-through' : '') + '" data-batch-appt-id="' + bk.id + '" data-batch-orig-time="' + (bk.preferred_time || '') + '">' +
-        '<div style="flex:1;font-size:0.82rem">' +
-          '<div style="font-weight:600" data-batch-time-display="' + bk.id + '">' + dateStr + ' @ ' + timeStr + '</div>' +
+      return '<div style="padding:8px 0;border-bottom:1px solid #e0d5c5;' + (isMarkedRemoved ? 'opacity:0.5;text-decoration:line-through' : '') + '" data-batch-appt-id="' + bk.id + '" data-batch-orig-time="' + (bk.preferred_time || '') + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<div style="font-size:0.82rem;font-weight:600;min-width:0" data-batch-time-display="' + bk.id + '">' + dateStr + ' @ ' + timeStr + '</div>' +
+          '<span style="font-size:0.78rem;color:var(--gold-deep);font-weight:600;white-space:nowrap;margin-left:8px">$' + Number(bk.estimated_total || 0).toFixed(2) + '</span>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
           '<div style="color:var(--mid);font-size:0.75rem">' + petStr + '</div>' +
-          '<div id="batch-time-picker-' + bk.id + '" style="display:none;margin-top:6px"></div>' +
+          '<div style="display:flex;gap:6px">' +
+            '<button class="btn btn-outline btn-sm" style="padding:3px 10px;font-size:0.72rem;color:var(--gold-deep);border-color:var(--gold-deep)" onclick="event.stopPropagation();toggleBatchTimeChange(\'' + bk.id + '\',\'' + batch._batchKey + '\')">↻ Time</button>' +
+            '<button class="btn btn-outline btn-sm" style="padding:3px 10px;font-size:0.72rem;color:#c00;border-color:#c00" onclick="event.stopPropagation();toggleBatchRemoval(\'' + bk.id + '\',\'' + batch._batchKey + '\')">Remove</button>' +
+          '</div>' +
         '</div>' +
-        '<div style="display:flex;gap:6px;align-items:center">' +
-          '<span style="font-size:0.78rem;color:var(--gold-deep);font-weight:600">$' + Number(bk.estimated_total || 0).toFixed(2) + '</span>' +
-          '<button class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:0.7rem;color:var(--gold-deep);border-color:var(--gold-deep)" onclick="event.stopPropagation();toggleBatchTimeChange(\'' + bk.id + '\',\'' + batch._batchKey + '\')" title="Change time">↻</button>' +
-          '<button class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:0.7rem;color:#c00;border-color:#c00" onclick="event.stopPropagation();toggleBatchRemoval(\'' + bk.id + '\',\'' + batch._batchKey + '\')" title="Mark for removal">❌</button>' +
-        '</div>' +
+        '<div id="batch-time-picker-' + bk.id + '" style="display:none;margin-top:6px"></div>' +
       '</div>';
     }).join('');
 
@@ -4146,31 +4148,31 @@
     var actionButtonFn = anyChanges ? 'submitBatchModifications' : 'acceptBatchBookings';
 
     return '<div class="card" data-batch-id="' + batch._batchKey + '" style="border-left:6px solid var(--gold);position:relative;background:linear-gradient(135deg, rgba(245,230,200,0.15) 0%, rgba(255,255,255,0) 100%)">' +
-      '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">' +
-        '<div>' +
-          '<strong style="font-size:1rem">📦 Batch Booking — ' + batch._batchSize + ' Appointment' + (batch._batchSize !== 1 ? 's' : '') + '</strong>' +
-          '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + batch.contact_email + (batch.contact_phone ? ' · ' + batch.contact_phone : '') + '</div>' +
-        '</div>' +
-        '<span class="badge" style="background:var(--gold-light);color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">pending</span>' +
+      // Header: title + badge
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+        '<strong style="font-size:0.95rem">📦 Batch — ' + batch._batchSize + ' Appt' + (batch._batchSize !== 1 ? 's' : '') + '</strong>' +
+        '<span class="badge" style="background:var(--gold-light);color:var(--ink);padding:3px 8px;border-radius:12px;font-size:0.72rem;font-weight:600">pending</span>' +
       '</div>' +
-      '<div style="display:flex;gap:14px;align-items:start;margin-bottom:14px">' +
-        '<div>' + clientAvaHTML + '</div>' +
-        '<div style="flex:1">' +
-          '<div style="font-weight:600;margin-bottom:2px">' + batch.contact_name + '</div>' +
-          '<div style="font-size:0.82rem;color:var(--mid);margin-bottom:10px">' + batch._firstService + '</div>' +
-          '<div style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:8px;padding:10px;font-size:0.82rem">' +
-            '<div style="font-weight:600;margin-bottom:8px">Appointments:</div>' +
-            apptRowsHTML +
-            '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #e0d5c5;display:flex;justify-content:space-between;align-items:center">' +
-              '<strong style="font-size:0.85rem">Total Estimated</strong>' +
-              '<strong style="color:var(--gold-deep);font-size:0.95rem">$' + Number(batch._totalEstimated).toFixed(2) + '</strong>' +
-            '</div>' +
-          '</div>' +
+      // Client info row
+      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">' +
+        clientAvaHTML +
+        '<div style="min-width:0">' +
+          '<div style="font-weight:600;font-size:0.88rem">' + batch.contact_name + '</div>' +
+          '<div style="font-size:0.75rem;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + batch._firstService + '</div>' +
         '</div>' +
       '</div>' +
-      '<div style="display:flex;gap:8px;margin-top:14px">' +
-        '<button class="btn btn-forest btn-sm" onclick="' + actionButtonFn + '(\'' + batch._batchKey + '\')" style="flex:1;justify-content:center">' + actionButtonText + '</button>' +
-        '<button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00;flex:1;justify-content:center" onclick="declineBatchBookings(\'' + batch._batchKey + '\')">✕ Decline All</button>' +
+      // Appointments list
+      '<div style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:8px;padding:10px;font-size:0.82rem">' +
+        apptRowsHTML +
+        '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e0d5c5;display:flex;justify-content:space-between;align-items:center">' +
+          '<strong style="font-size:0.82rem">Total</strong>' +
+          '<strong style="color:var(--gold-deep);font-size:0.9rem">$' + Number(batch._totalEstimated).toFixed(2) + '</strong>' +
+        '</div>' +
+      '</div>' +
+      // Action buttons — stacked on mobile
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' +
+        '<button class="btn btn-forest btn-sm" onclick="' + actionButtonFn + '(\'' + batch._batchKey + '\')" style="width:100%;justify-content:center;padding:10px">' + actionButtonText + '</button>' +
+        '<button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00;width:100%;justify-content:center;padding:8px" onclick="declineBatchBookings(\'' + batch._batchKey + '\')">✕ Decline All</button>' +
       '</div>' +
     '</div>';
   }
@@ -4249,10 +4251,11 @@
       }
     }
 
-    picker.innerHTML = '<div style="display:flex;gap:6px;align-items:center">' +
-      '<select id="batch-time-sel-' + bookingId + '" style="padding:4px 8px;border:1px solid var(--gold);border-radius:6px;font-size:0.78rem;background:#fff">' + opts + '</select>' +
-      '<button class="btn btn-forest btn-sm" style="padding:4px 10px;font-size:0.72rem" onclick="event.stopPropagation();applyBatchTimeChange(\'' + bookingId + '\',\'' + batchKey + '\')">Set</button>' +
-      '<button class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:0.72rem" onclick="event.stopPropagation();cancelBatchTimeChange(\'' + bookingId + '\',\'' + batchKey + '\')">Cancel</button>' +
+    picker.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#fff;border:1px solid var(--gold);border-radius:8px;padding:8px">' +
+      '<label style="font-size:0.72rem;color:var(--mid);width:100%">New time:</label>' +
+      '<select id="batch-time-sel-' + bookingId + '" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #e0d5c5;border-radius:6px;font-size:0.82rem;background:#fff">' + opts + '</select>' +
+      '<button class="btn btn-forest btn-sm" style="padding:6px 14px;font-size:0.78rem" onclick="event.stopPropagation();applyBatchTimeChange(\'' + bookingId + '\',\'' + batchKey + '\')">Set</button>' +
+      '<button class="btn btn-outline btn-sm" style="padding:6px 10px;font-size:0.78rem" onclick="event.stopPropagation();cancelBatchTimeChange(\'' + bookingId + '\',\'' + batchKey + '\')">✕</button>' +
     '</div>';
     picker.style.display = 'block';
   };
