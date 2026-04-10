@@ -2662,6 +2662,7 @@ try {
               <button class="content-sec-btn active" onclick="showContentSection('hero',this)">🏠 Hero</button>
               <button class="content-sec-btn" onclick="showContentSection('about',this)">👩 About</button>
               <button class="content-sec-btn" onclick="showContentSection('pricing',this)">💰 Pricing</button>
+              <button class="content-sec-btn" onclick="showContentSection('holidays',this)">📅 Holidays</button>
               <button class="content-sec-btn" onclick="showContentSection('services',this)">🐾 Services</button>
               <button class="content-sec-btn" onclick="showContentSection('footer',this)">📄 Footer / Contact</button>
               <button class="content-sec-btn" onclick="showContentSection('photos',this)">🖼️ Photos & Media</button>
@@ -2711,6 +2712,22 @@ try {
                 </div>
                 <div id="pricingEditorRows" style="display:flex;flex-direction:column;gap:14px"></div>
                 <button class="submit-btn gold" style="margin-top:16px" onclick="savePricing()">💾 Save All Pricing</button>
+              </div>
+            </div>
+
+            <!-- Holidays -->
+            <div id="ce-holidays" class="content-edit-panel" style="display:none">
+              <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                  <div class="card-title">📅 Holiday Surcharge Dates</div>
+                </div>
+                <p style="font-size:0.82rem;color:var(--mid);margin-bottom:16px;line-height:1.5">These dates trigger the holiday surcharge on bookings. Add or remove dates as needed — changes take effect immediately for new bookings.</p>
+                <div id="holidayEditorRows" style="display:flex;flex-direction:column;gap:8px"></div>
+                <div style="margin-top:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+                  <div><label class="form-lbl" style="font-size:0.72rem">Date (MM-DD)</label><input class="form-in" id="newHolidayDate" placeholder="MM-DD" style="width:100px;padding:7px 10px"></div>
+                  <div><label class="form-lbl" style="font-size:0.72rem">Label</label><input class="form-in" id="newHolidayLabel" placeholder="e.g. Easter" style="width:180px;padding:7px 10px"></div>
+                  <button class="btn btn-forest btn-sm" onclick="addHoliday()" style="padding:8px 16px">+ Add Holiday</button>
+                </div>
               </div>
             </div>
 
@@ -10439,6 +10456,7 @@ function showContentSection(name, btn) {
     });
   }
   if(name==='pricing') buildPricingEditor();
+  if(name==='holidays') buildHolidayEditor();
   if(name==='services') buildServiceEditor();
   if(name==='photos') {
     // Load photos & wire upload slots when switching to Photos section
@@ -10710,6 +10728,98 @@ function updateInvoiceDropdown() {
     if (_pricingApplied || ++attempts > 20) clearInterval(iv);
   }, 500);
 })();
+
+// ============================================================
+// HOLIDAY EDITOR
+// ============================================================
+async function buildHolidayEditor() {
+  const c = document.getElementById('holidayEditorRows');
+  if (!c) return;
+  c.innerHTML = '<div style="text-align:center;padding:20px;color:var(--mid)">Loading holidays...</div>';
+
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { c.innerHTML = '<div style="color:var(--rose);padding:12px">Unable to connect to database.</div>'; return; }
+
+  try {
+    const { data, error } = await sb.from('holidays').select('*').order('sort_order');
+    if (error) throw error;
+    if (!data || data.length === 0) { c.innerHTML = '<div style="padding:12px;color:var(--mid)">No holidays set. Add some below.</div>'; return; }
+
+    c.innerHTML = data.map(function(h) {
+      return '<div style="display:flex;align-items:center;gap:12px;background:var(--warm);border-radius:8px;padding:10px 14px;border:1px solid var(--border)" data-holiday-id="' + h.id + '">' +
+        '<div style="font-weight:700;font-size:0.95rem;min-width:60px;color:var(--gold-deep)">' + h.date_mmdd + '</div>' +
+        '<div style="flex:1;font-size:0.88rem;color:var(--dark)">' + h.label + '</div>' +
+        '<button onclick="removeHoliday(\'' + h.id + '\')" style="background:none;border:1px solid var(--rose,#c0392b);color:var(--rose,#c0392b);border-radius:6px;padding:4px 12px;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit">Remove</button>' +
+      '</div>';
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load holidays:', e);
+    c.innerHTML = '<div style="color:var(--rose);padding:12px">Error loading holidays.</div>';
+  }
+}
+
+async function addHoliday() {
+  const dateInput = document.getElementById('newHolidayDate');
+  const labelInput = document.getElementById('newHolidayLabel');
+  if (!dateInput || !labelInput) return;
+
+  const dateMmdd = dateInput.value.trim();
+  const label = labelInput.value.trim();
+
+  if (!/^\d{2}-\d{2}$/.test(dateMmdd)) { toast('⚠️ Date must be in MM-DD format (e.g. 04-20)'); return; }
+  if (!label) { toast('⚠️ Please enter a label for this holiday'); return; }
+
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { toast('❌ Database not available'); return; }
+
+  try {
+    // Get next sort order
+    const { data: existing } = await sb.from('holidays').select('sort_order').order('sort_order', { ascending: false }).limit(1);
+    const nextSort = (existing && existing.length > 0) ? existing[0].sort_order + 1 : 1;
+
+    const { error } = await sb.from('holidays').insert([{ date_mmdd: dateMmdd, label: label, sort_order: nextSort }]);
+    if (error) {
+      if (error.code === '23505') { toast('⚠️ That date already exists'); return; }
+      throw error;
+    }
+
+    dateInput.value = '';
+    labelInput.value = '';
+    toast('✅ Holiday added: ' + label);
+    buildHolidayEditor();
+    if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) window.HHP_Booking.refreshHolidays();
+  } catch (e) {
+    console.error('Add holiday error:', e);
+    toast('❌ Failed to add holiday');
+  }
+}
+
+async function removeHoliday(id) {
+  if (!confirm('Remove this holiday date?')) return;
+
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  try {
+    const { error } = await sb.from('holidays').delete().eq('id', id);
+    if (error) throw error;
+
+    // Animate removal
+    const row = document.querySelector('[data-holiday-id="' + id + '"]');
+    if (row) {
+      row.style.transition = 'opacity 0.3s, transform 0.3s';
+      row.style.opacity = '0';
+      row.style.transform = 'translateX(20px)';
+      setTimeout(function() { row.remove(); }, 300);
+    }
+
+    toast('✅ Holiday removed');
+    if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) window.HHP_Booking.refreshHolidays();
+  } catch (e) {
+    console.error('Remove holiday error:', e);
+    toast('❌ Failed to remove holiday');
+  }
+}
 
 // ============================================================
 // SERVICE DESCRIPTIONS

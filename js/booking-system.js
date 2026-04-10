@@ -319,6 +319,23 @@
     return HOLIDAYS.indexOf(md) !== -1;
   }
 
+  // Load holidays from Supabase table
+  async function loadHolidaysFromDB(sb) {
+    try {
+      var { data, error } = await sb.from('holidays')
+        .select('date_mmdd')
+        .order('sort_order', { ascending: true });
+      if (error) throw error;
+      if (data && data.length > 0) {
+        HOLIDAYS = data.map(function(r) { return r.date_mmdd; });
+        window._holidayData = data;
+        console.log('✓ Holidays loaded from DB (' + HOLIDAYS.length + ' dates)');
+      }
+    } catch (e) {
+      console.warn('Failed to load holidays from DB; using defaults:', e);
+    }
+  }
+
   // Load pricing from Supabase table service_pricing
   // Helper: wait for Supabase library to load (it's async)
   function waitForSupabase(maxWait) {
@@ -424,6 +441,9 @@
       });
 
       console.log('✓ Service pricing loaded from DB (' + SERVICES.length + ' services)');
+
+      // Also load holidays from DB using the same client
+      await loadHolidaysFromDB(sb);
     } catch (e) {
       console.warn('Failed to load service pricing from DB; using default services:', e);
       SERVICES = DEFAULT_SERVICES.slice();
@@ -4664,7 +4684,12 @@
   // PUBLIC API
   // ════════════════════════════════════════════════════════════
   window.HHP_Booking = {
-    refreshPricing: loadPricingFromDB
+    refreshPricing: loadPricingFromDB,
+    refreshHolidays: function() {
+      var sb = getSB();
+      if (sb) return loadHolidaysFromDB(sb);
+      return Promise.resolve();
+    }
   };
 
 })();
