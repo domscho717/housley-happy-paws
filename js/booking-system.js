@@ -1062,6 +1062,8 @@
       }
 
     }
+    // Expose globally so openBookingModal can call directly (avoids setTimeout race)
+    window._toggleHSFields = toggleHouseSittingFields;
 
     // Attach listeners for live update
     setTimeout(function() {
@@ -2142,6 +2144,13 @@
           }
           // Trigger change to show duration / house sitting fields
           sel.dispatchEvent(new Event('change'));
+          // Direct HS setup — avoids race condition when listeners are in setTimeout
+          var _isHS = (sel.value || '').toLowerCase().indexOf('house sitting') !== -1;
+          var _multiSec = document.getElementById('brm-multidate-section');
+          var _hsRow = document.getElementById('brm-hs-date-row');
+          if (_multiSec) _multiSec.style.display = _isHS ? 'none' : '';
+          if (_hsRow) _hsRow.style.display = _isHS ? '' : 'none';
+          if (_isHS && typeof window._toggleHSFields === 'function') window._toggleHSFields();
         } else {
           // Restore full dropdown (modal is reused, may have been filtered by a previous open)
           var seen = {};
@@ -2162,11 +2171,22 @@
       if (datesListEl) datesListEl.innerHTML = '';
       var addDateInput = document.getElementById('brm-add-date-input');
       if (addDateInput) { addDateInput.value = ''; addDateInput.defaultValue = ''; }
-      // Also reset House Sitting date range inputs
+      // Also reset House Sitting date range inputs + calendar range state
+      window._hsRangeStart = null;
+      window._hsRangeEnd = null;
+      window._hsCalYear = new Date().getFullYear();
+      window._hsCalMonth = new Date().getMonth();
       var hsDateEl = document.getElementById('brm-date');
       var hsEndEl = document.getElementById('brm-enddate');
       if (hsDateEl) { hsDateEl.value = ''; hsDateEl.defaultValue = ''; }
       if (hsEndEl) { hsEndEl.value = ''; hsEndEl.defaultValue = ''; }
+      // Reset arrival/departure time selects
+      var hsArrReset = document.getElementById('brm-hs-arrival');
+      var hsDepReset = document.getElementById('brm-hs-departure');
+      if (hsArrReset) hsArrReset.selectedIndex = 0;
+      if (hsDepReset) hsDepReset.selectedIndex = 0;
+      // Rebuild HS calendar with fresh state
+      if (typeof window._buildHsCalendar === 'function') window._buildHsCalendar();
       // Show the helper message and rebuild calendar picker
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = '';
