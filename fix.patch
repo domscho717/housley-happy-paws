@@ -1,0 +1,171 @@
+diff --git a/index.html b/index.html
+index a03a259..e4b6687 100644
+--- a/index.html
++++ b/index.html
+@@ -11494,7 +11494,7 @@ document.addEventListener('DOMContentLoaded', function() {
+ <!-- Cloudinary Photo Manager -->
+ <script src="/js/cloudinary-client.js" defer></script>
+     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
+-    <script src="/ux-patch.js?v=20260324d" defer></script>
++    <script src="/ux-patch.js?v=20260324e" defer></script>
+ <script>
+   // Auth-ready callback system — modules register here, fire instantly once auth is done
+   window._hhpAuthCallbacks = [];
+@@ -11539,17 +11539,6 @@ document.addEventListener('DOMContentLoaded', function() {
+       }
+       // Signal auth is ready — all waiting modules fire immediately
+       _fireAuthReady();
+-
+-      // Re-run greeting + booking admin AFTER auth is fully ready (profile loaded)
+-      // This catches the race condition where cached-role path runs loadDashboardStats
+-      // before the profile query finishes
+-      setTimeout(function() {
+-        if (typeof loadDashboardStats === 'function') loadDashboardStats();
+-        if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.init === 'function' &&
+-            window.HHP_Auth && window.HHP_Auth.currentRole === 'owner') {
+-          window.HHP_BookingAdmin.init();
+-        }
+-      }, 500);
+     } else {
+       // Auth not configured — dev mode
+       _fireAuthReady();
+@@ -11642,7 +11631,7 @@ document.addEventListener('DOMContentLoaded', function() {
+   // Exposed globally so customizer.js can re-trigger after widget DOM swap
+   window.loadDashboardStats = loadDashboardStats;
+   async function loadDashboardStats() {
+-    // Instant greeting — set time-of-day + name from auth profile
++    // Instant greeting — runs BEFORE any Supabase calls so users see correct time-of-day immediately
+     try {
+       var _h = new Date().getHours();
+       var _tg = _h < 12 ? 'Good morning' : _h < 17 ? 'Good afternoon' : 'Good evening';
+@@ -11652,22 +11641,7 @@ document.addEventListener('DOMContentLoaded', function() {
+       if (_cEl) {
+         var _cn = '';
+         try { _cn = (window.HHP_Auth.currentUser.profile.full_name || '').split(' ')[0]; } catch(e){}
+-        if (_cn) {
+-          _cEl.textContent = _tg + ', ' + _cn + ' 🐾';
+-        } else {
+-          // Profile not loaded yet — set time-of-day only, retry with name later
+-          _cEl.textContent = _tg + ' 🐾';
+-          setTimeout(function() {
+-            try {
+-              var name = (window.HHP_Auth.currentUser.profile.full_name || '').split(' ')[0];
+-              if (name) {
+-                var h2 = new Date().getHours();
+-                var tg2 = h2 < 12 ? 'Good morning' : h2 < 17 ? 'Good afternoon' : 'Good evening';
+-                _cEl.textContent = tg2 + ', ' + name + ' 🐾';
+-              }
+-            } catch(e2) {}
+-          }, 2000);
+-        }
++        _cEl.textContent = _tg + (_cn ? ', ' + _cn : '') + ' 🐾';
+       }
+     } catch(e){}
+ 
+diff --git a/ux-patch.js b/ux-patch.js
+index f0eb064..db719d7 100644
+--- a/ux-patch.js
++++ b/ux-patch.js
+@@ -119,37 +119,82 @@
+     return { text: 'Happy Birthday, ' + petList + '!', icon: cakeIcon };
+   }
+ 
+-  // ── Greeting: only handles birthday override. Name + time-of-day is set by
+-  //    loadDashboardStats() in index.html which has direct access to auth/profile. ──
+   async function fixGreetings() {
++    // Set a flag so ux-upgrades.js initGreetings() defers to us
+     window._hhpGreetingHandled = true;
+ 
+-    // Only run birthday check if auth is ready
+-    if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
+-      setTimeout(fixGreetings, 3000);
+-      return;
++    var hour = new Date().getHours();
++    var greeting, iconHTML;
++
++    if (hour >= 5 && hour < 12) {
++      greeting = 'Good morning';
++      iconHTML = '<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f305.png" alt="sunrise" style="width:32px;height:32px;vertical-align:middle;margin-left:8px;display:inline-block;">';
++    } else if (hour >= 12 && hour < 17) {
++      greeting = 'Good afternoon';
++      iconHTML = '<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2600.png" alt="sun" style="width:32px;height:32px;vertical-align:middle;margin-left:8px;display:inline-block;">';
++    } else {
++      greeting = 'Good evening';
++      iconHTML = '<img src="https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f319.png" alt="moon" style="width:32px;height:32px;vertical-align:middle;margin-left:8px;display:inline-block;">';
+     }
+ 
++    // Check for pet birthdays today
+     var bdayPets = await _checkBirthdayPets();
+-    if (!bdayPets || bdayPets.length === 0) {
+-      // No birthdays — nothing for ux-patch to do, inline JS handles greeting
+-      return;
+-    }
+ 
+-    // Birthday override — replace greeting with birthday message
+-    var ownerGreet = document.querySelector('#o-overview .ob-h') || document.getElementById('ownerDashGreeting');
++    // Fix owner portal greeting
++    var ownerGreet = document.querySelector('#o-overview .ob-h');
+     if (ownerGreet) {
+-      var ownerBday = _buildBirthdayGreeting(bdayPets, 'Rachel');
+-      if (ownerBday) ownerGreet.innerHTML = ownerBday.text + ' ' + ownerBday.icon;
++      var text = ownerGreet.textContent;
++      if (text.includes('Good morning') || text.includes('Good afternoon') || text.includes('Good evening') || text.includes('Happy Birthday') || text.includes('Welcome')) {
++        var nameMatch = text.match(/,\s*([A-Za-z]+)(?:\s|!|$)/);
++        var name = nameMatch ? nameMatch[1] : 'Rachel';
++        // Owner sees birthday pets across all clients
++        var ownerBday = _buildBirthdayGreeting(bdayPets, name);
++        if (ownerBday) {
++          ownerGreet.innerHTML = ownerBday.text + ' ' + ownerBday.icon;
++        } else {
++          ownerGreet.innerHTML = greeting + ', ' + name + ' ' + iconHTML;
++        }
++      }
+     }
+ 
+-    var clientGreet = document.getElementById('clientDashGreeting');
+-    if (clientGreet) {
+-      var clientName = 'there';
+-      try { clientName = (window.HHP_Auth.currentUser.profile.full_name || '').split(' ')[0] || 'there'; } catch(e) {}
+-      var clientBday = _buildBirthdayGreeting(bdayPets, clientName);
+-      if (clientBday) clientGreet.innerHTML = clientBday.text + ' ' + clientBday.icon;
++    // Fix client portal greeting
++    var clientPortal = document.getElementById('pg-client');
++    if (clientPortal) {
++      clientPortal.querySelectorAll('h1, h2, .p-title').forEach(function(el) {
++        var t = el.textContent;
++        if (t.includes('Good morning') || t.includes('Good afternoon') || t.includes('Good evening') || t.includes('Happy Birthday') || t.includes('Welcome to your Client Portal')) {
++          var nm = t.match(/,\s*([A-Za-z]+)/);
++          var n = nm ? nm[1] : 'there';
++          // Client sees only their own pets' birthdays
++          var clientBday = _buildBirthdayGreeting(bdayPets, n);
++          if (clientBday) {
++            el.innerHTML = clientBday.text + ' ' + clientBday.icon;
++          } else {
++            el.innerHTML = greeting + ', ' + n + '! ' + iconHTML;
++          }
++        }
++      });
+     }
++
++    // Fix staff portal greeting
++    var staffPortal = document.getElementById('pg-staff');
++    if (staffPortal) {
++      staffPortal.querySelectorAll('h1, h2, .p-title, .ob-h, .hhp-staff-greet div').forEach(function(el) {
++        var t = el.textContent;
++        if (t.includes('Good morning') || t.includes('Good afternoon') || t.includes('Good evening') || t.includes('Happy Birthday')) {
++          var nm = t.match(/,\s*([A-Za-z]+)/);
++          var n = nm ? nm[1] : 'there';
++          var staffBday = _buildBirthdayGreeting(bdayPets, name);
++          if (staffBday) {
++            el.innerHTML = staffBday.text + ' ' + staffBday.icon;
++          } else {
++            el.innerHTML = greeting + ', ' + n + '! ' + iconHTML;
++          }
++        }
++      });
++    }
++
++    setTimeout(fixGreetings, 60000);
+   }
+ 
+   // ─────────────────────────────────────────────
