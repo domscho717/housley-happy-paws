@@ -319,6 +319,19 @@
     return HOLIDAYS.indexOf(md) !== -1;
   }
 
+  // Check if ANY date in a range contains a holiday (for house sitting)
+  function hasHolidayInRange(startStr, endStr) {
+    if (!startStr) return false;
+    if (!endStr) return isHoliday(startStr);
+    var s = new Date(startStr + 'T12:00:00');
+    var e = new Date(endStr + 'T12:00:00');
+    for (var d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (isHoliday(key)) return true;
+    }
+    return false;
+  }
+
   // Load holidays from Supabase table
   async function loadHolidaysFromDB(sb) {
     try {
@@ -504,11 +517,11 @@
       parts.push('Puppy surcharge: +$' + svc.puppy + (isMultiNight ? '/night x ' + nights + ' = $' + puppyCost : ''));
     }
 
-    // Holiday surcharge — per night for house sitting
+    // Holiday surcharge — applies to ALL nights if any date in range is a holiday
     var holidayCost = 0;
     if (isHolidayDate && svc.holiday > 0) {
       holidayCost = svc.holiday * (isMultiNight ? nights : 1);
-      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' = $' + holidayCost : ''));
+      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' nights = $' + holidayCost : ''));
     }
 
     var total = (isMultiNight ? baseRate * nights : baseRate) + extraPetCost + puppyCost + holidayCost;
@@ -725,7 +738,10 @@
       var petType = document.getElementById('brm-pettype').value;
       var isPuppy = document.getElementById('brm-puppy').value === 'true';
       var dateVal = document.getElementById('brm-date').value;
-      var holidayFlag = isHoliday(dateVal);
+      var endDateVal = document.getElementById('brm-enddate').value;
+      var isHSSvc = svcName && svcName.toLowerCase().indexOf('house sitting') !== -1;
+      // House Sitting: check entire date range for holidays; others: just the single date
+      var holidayFlag = isHSSvc ? hasHolidayInRange(dateVal, endDateVal) : isHoliday(dateVal);
 
       var estimateEl = document.getElementById('brm-price-estimate');
       var breakdownEl = document.getElementById('brm-price-breakdown');
@@ -750,8 +766,8 @@
       }
 
       var nights = 1;
-      if (svcName.toLowerCase().indexOf('house sitting') !== -1) {
-        nights = calcNights(document.getElementById('brm-date').value, document.getElementById('brm-enddate').value);
+      if (isHSSvc) {
+        nights = calcNights(dateVal, endDateVal);
       }
       var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights);
       if (estimateEl) estimateEl.style.display = 'block';
@@ -2542,13 +2558,14 @@
     }
 
     // Calculate price (with nights for House Sitting)
-    var holidayFlag = isHoliday(date);
     var petCombo = document.getElementById('brm-petcombo') ? document.getElementById('brm-petcombo').value : '';
     var isHouseSitting = service.toLowerCase().indexOf('house sitting') !== -1;
     var nights = 1;
     if (isHouseSitting) {
       nights = calcNights(date, endDate);
     }
+    // House Sitting: check entire date range for holidays; others: just the single date
+    var holidayFlag = isHouseSitting ? hasHolidayInRange(date, endDate) : isHoliday(date);
     var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights);
 
     // For multi-date / recurring pricing — count total visits (time slots), not just unique dates
