@@ -116,6 +116,28 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ message: 'No recurring bookings found', ...results });
     }
 
+    // ── First-week: seed recurring_invoices for initial booking date(s) ──
+    // The acceptance charge already covers the first occurrence (preferred_date).
+    // We must record it here so the Sunday cron doesn't double-bill.
+    if (isFirstWeek && firstWeekBookingId) {
+      for (const booking of bookings) {
+        const initialDate = booking.preferred_date;
+        if (initialDate && booking.payment_intent_id) {
+          await supabase.from('recurring_invoices').upsert({
+            booking_request_id: booking.id,
+            invoice_date: estDateStr(),
+            service_date: initialDate,
+            amount: booking.estimated_total || 0,
+            service: booking.service,
+            client_email: booking.contact_email,
+            client_name: booking.contact_name,
+            stripe_invoice_id: booking.payment_intent_id,
+            status: 'paid',
+          }, { onConflict: 'booking_request_id,service_date', ignoreDuplicates: true });
+        }
+      }
+    }
+
     // ── Find all service dates this week per booking, group by client + service ──
     // Key: "clientEmail||serviceType" → { booking, entries: [{ booking, date, amount }] }
     const clientGroups = {};
