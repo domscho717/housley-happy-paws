@@ -2328,14 +2328,14 @@
 
       container.innerHTML = html;
 
-      // Filter pets based on selected service (hide cats for dog walks, etc.)
-      window._brmFilterPetsByService();
-
     } catch (err) {
       console.error('Failed to load pets for booking:', err);
       // Show error message (account required, no guest fallback)
       container.innerHTML = '<div style="color:#a66;font-size:0.82rem">Could not load pet profiles. Please try again.</div>';
     }
+
+    // Filter pets based on selected service (outside try/catch so pet load isn't blocked)
+    try { if (typeof window._brmFilterPetsByService === 'function') window._brmFilterPetsByService(); } catch(e) { console.warn('Pet filter error:', e); }
   };
 
   // ── FILTER PET CHECKBOXES BY SERVICE TYPE ──
