@@ -2899,7 +2899,7 @@
       }
       if (submitBtn) { submitBtn.textContent = 'Request Sent!'; }
 
-      // Reset form after delay
+      // Reset form after brief delay (just enough to read success message)
       setTimeout(function() {
         var form = document.getElementById('bookingRequestForm');
         if (form) form.reset();
@@ -2917,11 +2917,11 @@
         closeBookingModal();
         if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('btn-loading'); submitBtn.textContent = 'Send Request to Rachel'; }
         if (successEl) successEl.textContent = '';
-      }, 4000);
+      }, 1500);
 
     } catch (err) {
       console.error('Booking request error:', err);
-      if (errEl) errEl.textContent = 'Error: ' + (err.message || 'Something went wrong. Please try again.');
+      if (errEl) errEl.textContent = 'Something went wrong. Please try again or contact us if the issue persists.';
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Request to Rachel'; }
     }
   };
@@ -5154,9 +5154,10 @@
     }
 
     try {
+      var _hsToken = window.HHP_Auth && window.HHP_Auth.supabase ? (await window.HHP_Auth.supabase.auth.getSession()).data.session?.access_token : '';
       var resp = await fetch('/api/complete-housesitting', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_hsToken || '') },
         body: JSON.stringify({
           bookingRequestId: rpt.bookingId,
           adjustedNights: rpt.currentNights !== rpt.originalNights ? rpt.currentNights : null,

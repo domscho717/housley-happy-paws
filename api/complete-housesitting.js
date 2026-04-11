@@ -24,8 +24,28 @@ const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
 module.exports = async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Auth check — require valid Bearer token (owner/staff only)
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const supabaseForAuth = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+  );
+  const { data: { user }, error: authErr } = await supabaseForAuth.auth.getUser(authHeader.replace('Bearer ', ''));
+  if (authErr || !user) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
   const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
@@ -260,37 +280,7 @@ module.exports = async function handler(req, res) {
         .eq('stripe_session_id', booking.payment_intent_id);
     }
 
-    // 5. Fetch client profile for notifications
-    const { data: clientProfile } = await supabase
-      .from('profiles')
-      .select('email, full_name')
-      .eq('user_id', booking.client_id)
-      .maybeSingle();
-
-    // 6. Store service report
-    await supabase.from('service_reports').insert({
-      booking_id: bookingRequestId,
-      client_id: booking.client_id,
-      author_id: booking.owner_id || null,
-      service: booking.service || 'House Sitting',
-      report_date: new Date().toISOString().split('T')[0],
-      duration: finalNights + ' nights',
-      personal_note: reportNotes || '',
-      pet_name: booking.pet_names || '',
-      mood: reportRating ? ['😟 Poor', '😐 Fair', '🙂 Good', '😊 Great', '⭐ Excellent'][reportRating - 1] : null,
-      media: {
-        original_nights: originalNights,
-        final_nights: finalNights,
-        per_night_rate: perNightRate,
-        original_total: booking.estimated_total,
-        final_total: finalAmount,
-        rating: reportRating || null,
-      },
-      arrival_time: booking.preferred_time || null,
-      departure_time: booking.preferred_end_time || null,
-    });
-
-    // 7. Update booking status
+    // 5-7. Compute end date, then run report insert + booking update + client profile fetch in parallel
     const newEndDate = adjustedNights !== null && adjustedNights !== undefined && adjustedNights !== originalNights
       ? (() => {
           const d = new Date(booking.preferred_date + 'T12:00:00');
@@ -299,42 +289,71 @@ module.exports = async function handler(req, res) {
         })()
       : booking.preferred_end_date;
 
-    await supabase.from('booking_requests')
-      .update({
-        status: 'completed',
-        preferred_end_date: newEndDate,
-        estimated_total: finalAmount,
-        admin_notes: (booking.admin_notes || '') + '\n✅ House sitting completed — ' + finalNights + ' nights, $' + finalAmount.toFixed(2) + ' (' + new Date().toLocaleDateString() + ')',
-      })
-      .eq('id', bookingRequestId);
+    const [, , { data: clientProfile }] = await Promise.all([
+      // 6. Store service report
+      supabase.from('service_reports').insert({
+        booking_id: bookingRequestId,
+        client_id: booking.client_id,
+        author_id: booking.owner_id || null,
+        service: booking.service || 'House Sitting',
+        report_date: new Date().toISOString().split('T')[0],
+        duration: finalNights + ' nights',
+        personal_note: reportNotes || '',
+        pet_name: booking.pet_names || '',
+        mood: reportRating ? ['😟 Poor', '😐 Fair', '🙂 Good', '😊 Great', '⭐ Excellent'][reportRating - 1] : null,
+        media: {
+          original_nights: originalNights,
+          final_nights: finalNights,
+          per_night_rate: perNightRate,
+          original_total: booking.estimated_total,
+          final_total: finalAmount,
+          rating: reportRating || null,
+        },
+        arrival_time: booking.preferred_time || null,
+        departure_time: booking.preferred_end_time || null,
+      }),
+      // 7. Update booking status
+      supabase.from('booking_requests')
+        .update({
+          status: 'completed',
+          preferred_end_date: newEndDate,
+          estimated_total: finalAmount,
+          admin_notes: (booking.admin_notes || '') + '\n✅ House sitting completed — ' + finalNights + ' nights, $' + finalAmount.toFixed(2) + ' (' + new Date().toLocaleDateString() + ')',
+        })
+        .eq('id', bookingRequestId),
+      // 5. Fetch client profile for notifications
+      supabase.from('profiles')
+        .select('email, full_name')
+        .eq('user_id', booking.client_id)
+        .maybeSingle(),
+    ]);
 
-    // 8. Send notification to client
+    // 8. Send notifications in parallel (message + in-app + email)
+    const nightLabel = finalNights === 1 ? '1 night' : finalNights + ' nights';
+    const adjustNote = finalNights !== originalNights
+      ? ` (adjusted from ${originalNights} to ${finalNights} nights)`
+      : '';
+
+    const notifPromises = [];
     if (booking.client_id) {
-      const nightLabel = finalNights === 1 ? '1 night' : finalNights + ' nights';
-      const adjustNote = finalNights !== originalNights
-        ? ` (adjusted from ${originalNights} to ${finalNights} nights)`
-        : '';
-
-      await supabase.from('messages').insert({
-        sender_id: booking.owner_id || booking.client_id,
-        receiver_id: booking.client_id,
-        message: `🏠 House Sitting Report\n\nYour house sitting stay${adjustNote} has been completed!\n\n📅 ${booking.preferred_date} → ${newEndDate} (${nightLabel})\n💰 Final charge: $${finalAmount.toFixed(2)}\n\n${reportNotes ? '📝 Notes from your sitter:\n' + reportNotes : ''}`,
-        read: false,
-      });
-
-      // In-app notification
-      await supabase.from('notifications').insert({
-        user_id: booking.client_id,
-        title: 'House Sitting Complete',
-        body: `Your ${nightLabel} house sitting stay is complete! Final charge: $${finalAmount.toFixed(2)}`,
-        type: 'report',
-        read: false,
-      });
+      notifPromises.push(
+        supabase.from('messages').insert({
+          sender_id: booking.owner_id || booking.client_id,
+          receiver_id: booking.client_id,
+          message: `🏠 House Sitting Report\n\nYour house sitting stay${adjustNote} has been completed!\n\n📅 ${booking.preferred_date} → ${newEndDate} (${nightLabel})\n💰 Final charge: $${finalAmount.toFixed(2)}\n\n${reportNotes ? '📝 Notes from your sitter:\n' + reportNotes : ''}`,
+          read: false,
+        }),
+        supabase.from('notifications').insert({
+          user_id: booking.client_id,
+          title: 'House Sitting Complete',
+          body: `Your ${nightLabel} house sitting stay is complete! Final charge: $${finalAmount.toFixed(2)}`,
+          type: 'report',
+          read: false,
+        })
+      );
     }
-
-    // Send email notification
-    try {
-      await fetch((process.env.NEXT_PUBLIC_SITE_URL || 'https://www.housleyhappypaws.com') + '/api/service-completed-notification', {
+    notifPromises.push(
+      fetch((process.env.NEXT_PUBLIC_SITE_URL || 'https://www.housleyhappypaws.com') + '/api/service-completed-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -345,10 +364,9 @@ module.exports = async function handler(req, res) {
           notes: reportNotes || 'No notes provided.',
           amount: finalAmount.toFixed(2),
         }),
-      });
-    } catch (emailErr) {
-      console.warn('[hs-complete] Email notification failed (non-blocking):', emailErr.message);
-    }
+      }).catch(emailErr => console.warn('[hs-complete] Email failed:', emailErr.message))
+    );
+    await Promise.all(notifPromises);
 
     return res.status(200).json({
       success: true,

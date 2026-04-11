@@ -409,48 +409,9 @@
     }
   }
 
-  // ── Promo strip (on services/booking section) — DISABLED per owner request ──
+  // Promo strip — disabled per owner request
   function buildPromoStrip() {
     if (_promoStripEl) { _promoStripEl.remove(); _promoStripEl = null; }
-    return;
-    if (_activeDeals.length === 0) {
-      if (_promoStripEl) { _promoStripEl.remove(); _promoStripEl = null; }
-      return;
-    }
-
-    // Find the services section to prepend the strip
-    var servicesSection = document.getElementById('services') || document.querySelector('.services-grid');
-    if (!servicesSection) return;
-
-    if (!_promoStripEl) {
-      _promoStripEl = document.createElement('div');
-      _promoStripEl.id = 'hhpPromoStrip';
-      _promoStripEl.style.cssText = [
-        'background:linear-gradient(135deg,rgba(200,150,62,0.1),rgba(200,150,62,0.04))',
-        'border:1px solid rgba(200,150,62,0.2)',
-        'border-radius:12px', 'padding:12px 20px',
-        'margin-bottom:20px', 'display:flex', 'align-items:center',
-        'gap:12px', 'flex-wrap:wrap', 'animation:hhpPromoSlide 0.4s ease'
-      ].join(';');
-      servicesSection.parentElement.insertBefore(_promoStripEl, servicesSection);
-    }
-
-    var html = '<div style="font-size:1.1rem">🏷️</div>';
-    html += '<div style="flex:1;min-width:200px">';
-
-    if (_activeDeals.length === 1) {
-      var d = _activeDeals[0];
-      html += '<div style="font-weight:700;font-size:0.88rem;color:var(--dark,#1e1409)">' + escapeHtml(d.name) + '</div>';
-      if (d.details) html += '<div style="font-size:0.78rem;color:var(--mid,#8c6b4a)">' + escapeHtml(d.details) + '</div>';
-    } else {
-      html += '<div style="font-weight:700;font-size:0.88rem;color:var(--dark,#1e1409)">' + _activeDeals.length + ' Active Specials!</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid,#8c6b4a)">' + _activeDeals.map(function(d) { return d.name; }).join(' · ') + '</div>';
-    }
-    html += '</div>';
-
-    // CTA removed — bell bubble already shows the deal info
-
-    _promoStripEl.innerHTML = html;
   }
 
   // ── Fetch data from Supabase ────────────────────────────────
