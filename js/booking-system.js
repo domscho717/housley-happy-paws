@@ -2161,12 +2161,14 @@
           // Trigger change to show duration / house sitting fields
           sel.dispatchEvent(new Event('change'));
           // Direct HS setup — avoids race condition when listeners are in setTimeout
-          var _isHS = (sel.value || '').toLowerCase().indexOf('house sitting') !== -1;
-          var _multiSec = document.getElementById('brm-multidate-section');
-          var _hsRow = document.getElementById('brm-hs-date-row');
-          if (_multiSec) _multiSec.style.display = _isHS ? 'none' : '';
-          if (_hsRow) _hsRow.style.display = _isHS ? '' : 'none';
-          if (_isHS && typeof window._toggleHSFields === 'function') window._toggleHSFields();
+          try {
+            var _isHS = (sel.value || '').toLowerCase().indexOf('house sitting') !== -1;
+            var _multiSec = document.getElementById('brm-multidate-section');
+            var _hsRow = document.getElementById('brm-hs-date-row');
+            if (_multiSec) _multiSec.style.display = _isHS ? 'none' : '';
+            if (_hsRow) _hsRow.style.display = _isHS ? '' : 'none';
+            if (_isHS && typeof window._toggleHSFields === 'function') window._toggleHSFields();
+          } catch(hsErr) { console.warn('HS setup error:', hsErr); }
         } else {
           // Restore full dropdown (modal is reused, may have been filtered by a previous open)
           var seen = {};
@@ -2202,14 +2204,18 @@
       if (hsArrReset) hsArrReset.selectedIndex = 0;
       if (hsDepReset) hsDepReset.selectedIndex = 0;
       // Rebuild HS calendar with fresh state
-      if (typeof window._buildHsCalendar === 'function') window._buildHsCalendar();
+      try {
+        if (typeof window._buildHsCalendar === 'function') window._buildHsCalendar();
+      } catch(calErr) { console.warn('HS calendar build error:', calErr); }
       // Show the helper message and rebuild calendar picker
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = '';
       // Reset calendar picker to current month and rebuild
       window._brmCalPickerYear = new Date().getFullYear();
       window._brmCalPickerMonth = new Date().getMonth();
-      if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
+      try {
+        if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
+      } catch(calErr2) { console.warn('Cal picker build error:', calErr2); }
 
       // Pre-fill and show greeting if logged in
       if (window.HHP_Auth && window.HHP_Auth.currentUser) {
