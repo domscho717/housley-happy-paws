@@ -120,10 +120,12 @@ module.exports = async function handler(req, res) {
     // ── First-week: seed recurring_invoices for initial booking date(s) ──
     // The acceptance charge already covers the first occurrence (preferred_date).
     // We must record it here so the Sunday cron doesn't double-bill.
+    // NOTE: Always seed regardless of payment_intent_id — the acceptance flow
+    // always charges the first occurrence, and the PI may not be committed yet.
     if (isFirstWeek && firstWeekBookingId) {
       for (const booking of bookings) {
         const initialDate = booking.preferred_date;
-        if (initialDate && booking.payment_intent_id) {
+        if (initialDate) {
           await supabase.from('recurring_invoices').upsert({
             booking_request_id: booking.id,
             invoice_date: estDateStr(),
@@ -132,7 +134,7 @@ module.exports = async function handler(req, res) {
             service: booking.service,
             client_email: booking.contact_email,
             client_name: booking.contact_name,
-            stripe_invoice_id: booking.payment_intent_id,
+            stripe_invoice_id: booking.payment_intent_id || 'acceptance_charge',
             status: 'paid',
           }, { onConflict: 'booking_request_id,service_date', ignoreDuplicates: true });
         }
