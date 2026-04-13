@@ -17,6 +17,7 @@
 
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { sendEmail, sendToRachel, escHtml, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -250,6 +251,64 @@ module.exports = async function handler(req, res) {
             paid_at: chargeResult.method === 'auto_charge' ? new Date().toISOString() : null,
           });
           results.charged++;
+
+          // ── If card declined → invoice sent, notify client + owner ──
+          if (chargeResult.method === 'invoice') {
+            const safeName = escHtml(group.clientName || 'Client');
+            const safeService = escHtml(group.service);
+            const payLink = chargeResult.invoiceUrl || SITE_URL;
+            const amountFmt = '$' + totalAmount.toFixed(2);
+
+            // Build service date list HTML
+            const dateListHTML = group.entries.map(e => {
+              const d = new Date(e.date + 'T12:00:00');
+              return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            }).join('<br>');
+
+            // Email to client: card declined, here's how to pay
+            try {
+              await sendEmail({
+                to: group.clientEmail,
+                subject: `⚠️ Payment Declined — Action Needed — ${safeService} — Housley Happy Paws`,
+                title: 'Payment Declined — Action Needed',
+                bodyHTML: `
+                  <p>Hi ${safeName}!</p>
+                  <p>We tried to charge your card on file for your upcoming recurring <strong>${safeService}</strong> service, but the payment was <strong>declined</strong>.</p>
+                  <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #ffc107">
+                    <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService} — ${amountFmt}</div>
+                    <div style="margin-bottom:8px">${dateListHTML}</div>
+                    ${allPets ? `<div style="margin-bottom:4px">🐾 Pets: ${escHtml(allPets)}</div>` : ''}
+                  </div>
+                  <p><strong>We'll try your card again in about 12 hours.</strong> If that also fails, this week's services will be canceled automatically.</p>
+                  <p>You can also pay now using the link below:</p>
+                  <div style="margin:20px 0;text-align:center">
+                    <a href="${payLink}" style="display:inline-block;padding:14px 32px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:1.05rem">Pay ${amountFmt} Now →</a>
+                  </div>
+                  <p>If you have questions or need to update your payment method, please don't hesitate to reach out.</p>
+                  <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Questions? Reply to this email or call 717-715-7595</p>
+                `,
+              });
+            } catch (emailErr) { console.error('[recurring] Decline email to client failed:', emailErr.message); }
+
+            // Notify Rachel too
+            try {
+              await sendToRachel({
+                subject: `⚠️ Recurring Payment Declined: ${safeName} — ${safeService}`,
+                title: 'Recurring Payment Declined',
+                bodyHTML: `
+                  <p><strong>${safeName}</strong>'s card was declined for their recurring <strong>${safeService}</strong> (${amountFmt}).</p>
+                  <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #ffc107">
+                    <div style="font-weight:700;margin-bottom:8px">${safeService} — ${amountFmt}</div>
+                    <div>${dateListHTML}</div>
+                  </div>
+                  <p>An invoice has been sent to the client. The system will retry in ~12 hours. If still unpaid by end of day, this week's services will be auto-canceled.</p>
+                  <div style="margin-top:20px">
+                    <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View Dashboard →</a>
+                  </div>
+                `,
+              });
+            } catch (emailErr) { console.error('[recurring] Decline email to owner failed:', emailErr.message); }
+          }
         } else {
           results.errors.push({ group: groupKey, error: chargeResult.error });
         }
