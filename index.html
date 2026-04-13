@@ -9949,6 +9949,7 @@ async function confirmCancelBooking() {
     var cancelOption = document.querySelector('input[name="cancelOption"]:checked');
     var option = cancelOption ? cancelOption.value : 'this';
     var isSingleCancel = _cancelData.isRecurring && option === 'this';
+    var isStopRecurring = _cancelData.isRecurring && option === 'future';
 
     // Check refund selection (only present for owner/staff paid cancels)
     var refundOption = document.querySelector('input[name="refundOption"]:checked');
@@ -9966,6 +9967,7 @@ async function confirmCancelBooking() {
         canceledBy: _cancelData.canceledBy,
         cancelSingle: isSingleCancel,
         cancelDate: isSingleCancel ? _cancelData.date : undefined,
+        stopRecurring: isStopRecurring || undefined,
         issueRefund: issueRefund
       })
     });
