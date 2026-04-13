@@ -6653,7 +6653,7 @@ async function loadCalendarBookings(year, month) {
         var { data: recurInvs } = await sb.from('recurring_invoices')
           .select('booking_request_id, service_date, status')
           .in('booking_request_id', recurBookingIds)
-          .in('status', ['sent', 'captured']);
+          .in('status', ['paid', 'sent', 'captured']);
         if (recurInvs) {
           recurInvs.forEach(function(ri) {
             _recurInvPaidDates[ri.booking_request_id + '|' + ri.service_date] = true;
@@ -7221,7 +7221,7 @@ async function loadClientAppts(filter, tabBtn) {
             // Per-date paid status from recurring_invoices
             var datePaidKey = b.id + '|' + nd.date;
             var datePaidStatus = _clientRecurPaidDates[datePaidKey] || '';
-            var isDatePaid = datePaidStatus === 'sent' || datePaidStatus === 'captured';
+            var isDatePaid = datePaidStatus === 'paid' || datePaidStatus === 'sent' || datePaidStatus === 'captured';
             var paidBadge = '';
             if (b.estimated_total > 0) {
               if (isDatePaid) {
@@ -8290,7 +8290,7 @@ async function showBookingDetail(bookingId, role, source) {
             var ddTime = (typeof getRecurringTime === 'function') ? getRecurringTime(b, dd) : '';
             var ddTimeStr = ddTime && (typeof fmt12h === 'function') ? fmt12h(ddTime) : ddTime;
             var ddInvStatus = _detailPaidMap[dd] || '';
-            var ddPaid = ddInvStatus === 'sent' || ddInvStatus === 'captured';
+            var ddPaid = ddInvStatus === 'paid' || ddInvStatus === 'sent' || ddInvStatus === 'captured';
 
             var ddBadge = '';
             if (b.estimated_total > 0) {
@@ -13008,7 +13008,7 @@ async function loadClientUpcomingCharges() {
         var { data: _upInvs } = await sb.from('recurring_invoices')
           .select('booking_request_id, service_date, status')
           .in('booking_request_id', _recurIds)
-          .in('status', ['sent', 'captured']);
+          .in('status', ['paid', 'sent', 'captured']);
         if (_upInvs) _upInvs.forEach(function(ri) {
           _upcomingPaidDates[ri.booking_request_id + '|' + ri.service_date] = true;
         });
