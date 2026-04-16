@@ -1,63 +1,91 @@
 {
     "rewrites": [
-          { "source": "/links", "destination": "/links.html" },
-          { "source": "/((?!api/)(?!js/)(?!links).*)", "destination": "/index.html" }
+        {
+            "source": "/links",
+            "destination": "/links.html"
+        },
+        {
+            "source": "/((?!api/)(?!js/)(?!links).*)",
+            "destination": "/index.html"
+        }
     ],
     "headers": [
-          {
-                  "source": "/api/(.*)",
-                  "headers": [
-                            { "key": "Access-Control-Allow-Origin", "value": "https://www.housleyhappypaws.com" },
-                            { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
-                            { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
-                  ]
-          },
-          {
-                  "source": "/js/:path*",
-                  "headers": [
-                            { "key": "Cache-Control", "value": "public, max-age=300, stale-while-revalidate=600" }
-                  ]
-          },
-          {
-                  "source": "/(.*\\.(css|woff2?|ttf|eot|svg|png|jpg|jpeg|gif|ico|webp))",
-                  "headers": [
-                            { "key": "Cache-Control", "value": "public, max-age=604800, immutable" }
-                  ]
-          },
-          {
-                  "source": "/(.*)",
-                  "headers": [
-                            { "key": "X-Content-Type-Options", "value": "nosniff" },
-                            { "key": "X-Frame-Options", "value": "DENY" },
-                            { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-                            { "key": "X-XSS-Protection", "value": "1; mode=block" }
-                  ]
-          }
+        {
+            "source": "/api/(.*)",
+            "headers": [
+                {
+                    "key": "Access-Control-Allow-Origin",
+                    "value": "https://www.housleyhappypaws.com"
+                },
+                {
+                    "key": "Access-Control-Allow-Methods",
+                    "value": "GET,POST,OPTIONS"
+                },
+                {
+                    "key": "Access-Control-Allow-Headers",
+                    "value": "Content-Type"
+                }
+            ]
+        },
+        {
+            "source": "/js/:path*",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=300, stale-while-revalidate=600"
+                }
+            ]
+        },
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "strict-origin-when-cross-origin"
+                },
+                {
+                    "key": "X-XSS-Protection",
+                    "value": "1; mode=block"
+                }
+            ]
+        }
     ],
     "crons": [
-          {
-                  "path": "/api/recurring-invoices",
-                  "schedule": "0 13 * * 0"
-          },
-          {
-                  "path": "/api/capture-payments",
-                  "schedule": "0 11 * * 0"
-          },
-          {
-                  "path": "/api/capture-payments?retry=true",
-                  "schedule": "0 23 * * 0"
-          },
-          {
-                  "path": "/api/unpaid-reminders",
-                  "schedule": "0 13 * * *"
-          },
-          {
-                  "path": "/api/pre-booking-reminder",
-                  "schedule": "*/15 * * * *"
-          },
-          {
-                  "path": "/api/retry-failed-payments",
-                  "schedule": "0 6,14,22 * * *"
-          }
+        {
+            "path": "/api/recurring-invoices",
+            "schedule": "0 13 * * 0"
+        },
+        {
+            "path": "/api/capture-payments",
+            "schedule": "0 11 * * 0"
+        },
+        {
+            "path": "/api/capture-payments?retry=true",
+            "schedule": "0 23 * * 0"
+        },
+        {
+            "path": "/api/unpaid-reminders",
+            "schedule": "0 13 * * *"
+        },
+        {
+            "path": "/api/pre-booking-reminder",
+            "schedule": "*/15 * * * *"
+        },
+        {
+            "path": "/api/retry-failed-payments",
+            "schedule": "0 6,14,22 * * *"
+        },
+        {
+            "path": "/api/retry-recurring",
+            "schedule": "0 1 * * 1"
+        }
     ]
 }

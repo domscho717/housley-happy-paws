@@ -32,7 +32,7 @@ async function showClientProfile(profileId) {
   // Now fetch pets, bookings, payments using the correct user_id
   const [petsRes, bookingsRes, paymentsRes] = await Promise.all([
     sb.from('pets').select('*').eq('owner_id', uid),
-    sb.from('bookings').select('*').eq('client_id', uid).order('date', { ascending: false }).limit(20),
+    sb.from('booking_requests').select('*').eq('client_id', uid).order('created_at', { ascending: false }).limit(20),
     sb.from('payments').select('*').eq('client_id', uid).order('created_at', { ascending: false }).limit(20)
   ]);
 

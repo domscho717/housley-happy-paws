@@ -88,9 +88,27 @@
   // Cache holidays for multiple years
   var _holidayCache = {};
   function getHolidaysForYear(y) {
-    if (!_holidayCache[y]) _holidayCache[y] = getHolidays(y);
+    if (!_holidayCache[y]) {
+      var computed = getHolidays(y);
+      // Merge in any custom holidays from the DB (loaded by booking-system.js)
+      if (window._holidayData && window._holidayData.length > 0) {
+        window._holidayData.forEach(function(row) {
+          // row.date_mmdd is "MM-DD", convert to "YYYY-MM-DD"
+          var fullDate = y + '-' + row.date_mmdd;
+          if (!computed[fullDate]) {
+            computed[fullDate] = row.label || 'Holiday';
+          }
+        });
+      }
+      _holidayCache[y] = computed;
+    }
     return _holidayCache[y];
   }
+
+  // Clear cache (called after DB holidays are loaded or edited)
+  window.clearHolidayCache = function() {
+    _holidayCache = {};
+  };
 
   // Check if a date string is a holiday
   window.isHoliday = function(dateStr) {
@@ -415,12 +433,12 @@
       var sb = window.HHP_Auth.supabase;
       var staffName = '';
       if (window.HHP_Auth.currentUser) {
-        var { data: prof } = await sb.from('profiles').select('full_name').eq('user_id', window.HHP_Auth.currentUser.id).single();
+        var { data: prof } = await sb.from('profiles').select('full_name').eq('user_id', window.HHP_Auth.currentUser.id).maybeSingle();
         if (prof) staffName = prof.full_name;
       }
       // Send a message to the owner about the availability change
       try {
-        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).single();
+        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
         if (ownerProf) {
           await sb.from('messages').insert({
             sender_id: window.HHP_Auth.currentUser.id,
@@ -489,9 +507,9 @@
     if (window.HHP_Auth && window.HHP_Auth.supabase && window.HHP_Auth.currentUser) {
       var sb = window.HHP_Auth.supabase;
       try {
-        var { data: prof } = await sb.from('profiles').select('full_name').eq('user_id', window.HHP_Auth.currentUser.id).single();
+        var { data: prof } = await sb.from('profiles').select('full_name').eq('user_id', window.HHP_Auth.currentUser.id).maybeSingle();
         var staffName = prof ? prof.full_name : 'Staff member';
-        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).single();
+        var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
         if (ownerProf) {
           await sb.from('messages').insert({
             sender_id: window.HHP_Auth.currentUser.id,

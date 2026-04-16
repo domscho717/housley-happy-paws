@@ -13,7 +13,7 @@ module.exports = async function handler(req, res) {
   );
 
   try {
-    const { bookingRequestId, canceledBy, cancelSingle, cancelDate, issueRefund } = req.body;
+    const { bookingRequestId, canceledBy, cancelSingle, cancelDate, issueRefund, stopRecurring } = req.body;
 
     if (!bookingRequestId || !canceledBy) {
       return res.status(400).json({ error: 'bookingRequestId and canceledBy are required' });
@@ -57,19 +57,47 @@ module.exports = async function handler(req, res) {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
         if (intent.status === 'succeeded') {
-          // Payment was captured — issue a full refund
-          const refund = await stripe.refunds.create({
+          // Check if this payment intent is shared by multiple bookings (batch charge)
+          const { data: sharedBookings } = await supabase
+            .from('booking_requests')
+            .select('id, estimated_total, status')
+            .eq('payment_intent_id', booking.payment_intent_id);
+
+          const isBatchPayment = sharedBookings && sharedBookings.length > 1;
+          const refundAmount = isBatchPayment
+            ? Math.round((booking.estimated_total || 0) * 100) // Partial: just this booking's amount in cents
+            : undefined; // Full refund (Stripe defaults to full amount)
+
+          const refundParams = {
             payment_intent: booking.payment_intent_id,
             reason: 'requested_by_customer',
-          });
-          refunded = true;
-          refundResult = { action: 'refunded', refundId: refund.id, amount: refund.amount / 100 };
-          console.log('[cancel] Free cancel refund issued:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
+          };
+          if (refundAmount) refundParams.amount = refundAmount;
 
-          // Update payment record to reflect refund
-          await supabase.from('payments')
-            .update({ status: 'refunded', notes: 'Free cancellation — auto-refund' })
-            .eq('stripe_session_id', booking.payment_intent_id);
+          const refund = await stripe.refunds.create(refundParams);
+          refunded = true;
+          refundResult = { action: isBatchPayment ? 'partial_refund' : 'refunded', refundId: refund.id, amount: refund.amount / 100 };
+          console.log('[cancel] ' + (isBatchPayment ? 'Partial' : 'Full') + ' refund issued:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
+
+          // Update payment record — only mark as refunded if ALL bookings on this payment are canceled
+          if (isBatchPayment) {
+            const activeBookings = sharedBookings.filter(b => b.id !== bookingRequestId && b.status !== 'canceled');
+            if (activeBookings.length === 0) {
+              // All bookings canceled — mark payment as fully refunded
+              await supabase.from('payments')
+                .update({ status: 'refunded', notes: 'All batch bookings canceled — fully refunded' })
+                .eq('stripe_session_id', booking.payment_intent_id);
+            } else {
+              // Some bookings still active — mark as partially refunded
+              await supabase.from('payments')
+                .update({ status: 'partial_refund', notes: 'Partial refund — ' + activeBookings.length + ' booking(s) still active' })
+                .eq('stripe_session_id', booking.payment_intent_id);
+            }
+          } else {
+            await supabase.from('payments')
+              .update({ status: 'refunded', notes: 'Free cancellation — auto-refund' })
+              .eq('stripe_session_id', booking.payment_intent_id);
+          }
         } else if (intent.status === 'requires_capture') {
           // Edge case: if somehow still uncaptured, just cancel the intent
           await stripe.paymentIntents.cancel(booking.payment_intent_id);
@@ -95,17 +123,42 @@ module.exports = async function handler(req, res) {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
         if (intent.status === 'succeeded') {
-          const refund = await stripe.refunds.create({
+          // Check if batch payment — partial refund only this booking's amount
+          const { data: sharedBookings } = await supabase
+            .from('booking_requests')
+            .select('id, estimated_total, status')
+            .eq('payment_intent_id', booking.payment_intent_id);
+
+          const isBatchPayment = sharedBookings && sharedBookings.length > 1;
+          const refundParams = {
             payment_intent: booking.payment_intent_id,
             reason: 'requested_by_customer',
-          });
+          };
+          if (isBatchPayment) {
+            refundParams.amount = Math.round((booking.estimated_total || 0) * 100);
+          }
+
+          const refund = await stripe.refunds.create(refundParams);
           refunded = true;
           refundResult = { action: 'owner_refunded', refundId: refund.id, amount: refund.amount / 100 };
-          console.log('[cancel] Owner override refund:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
+          console.log('[cancel] Owner override ' + (isBatchPayment ? 'partial ' : '') + 'refund:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
 
-          await supabase.from('payments')
-            .update({ status: 'refunded', notes: 'Owner/staff override refund' })
-            .eq('stripe_session_id', booking.payment_intent_id);
+          if (isBatchPayment) {
+            const activeBookings = sharedBookings.filter(b => b.id !== bookingRequestId && b.status !== 'canceled');
+            if (activeBookings.length === 0) {
+              await supabase.from('payments')
+                .update({ status: 'refunded', notes: 'All batch bookings canceled — owner override refund' })
+                .eq('stripe_session_id', booking.payment_intent_id);
+            } else {
+              await supabase.from('payments')
+                .update({ status: 'partial_refund', notes: 'Owner override partial refund — ' + activeBookings.length + ' booking(s) still active' })
+                .eq('stripe_session_id', booking.payment_intent_id);
+            }
+          } else {
+            await supabase.from('payments')
+              .update({ status: 'refunded', notes: 'Owner/staff override refund' })
+              .eq('stripe_session_id', booking.payment_intent_id);
+          }
         }
       } catch (refundErr) {
         console.error('[cancel] Override refund failed:', refundErr.message);
@@ -120,15 +173,31 @@ module.exports = async function handler(req, res) {
       cancellation_type: cancellationType,
     };
 
-    if (isSingleCancel && cancelDate) {
-      // For single occurrence cancel, add to canceled_dates array
+    // Handle "Stop Recurring" — mark as completed, not canceled
+    const isStopRecurring = stopRecurring && isRecurring;
+
+    if (isStopRecurring) {
+      updateData.status = 'completed';
+      updateData.cancellation_type = 'stop_recurring';
+      try {
+        const pattern = typeof booking.recurrence_pattern === 'string'
+          ? JSON.parse(booking.recurrence_pattern) : booking.recurrence_pattern;
+        const todayEST = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const todayStr = todayEST.toLocaleDateString('en-CA');
+        if (pattern.type === 'per_card' && Array.isArray(pattern.schedules)) {
+          pattern.schedules.forEach(s => { s.ongoing = false; s.end_date = todayStr; });
+        } else {
+          pattern.end_date = todayStr;
+        }
+        updateData.recurrence_pattern = pattern;
+      } catch(pe) { console.warn('Pattern update error:', pe); }
+    } else if (isSingleCancel && cancelDate) {
       const currentCanceledDates = Array.isArray(booking.canceled_dates) ? booking.canceled_dates : [];
       if (!currentCanceledDates.includes(cancelDate)) {
         currentCanceledDates.push(cancelDate);
         updateData.canceled_dates = currentCanceledDates;
       }
     } else {
-      // For full booking cancel, set status to canceled
       updateData.status = 'canceled';
     }
 
@@ -140,6 +209,41 @@ module.exports = async function handler(req, res) {
     if (updateErr) {
       console.error('Failed to update booking:', updateErr.message);
       return res.status(500).json({ error: 'Failed to update booking cancellation status' });
+    }
+
+    // 5b. For stop recurring, handle this week's charge based on 48-hour policy
+    if (isStopRecurring) {
+      try {
+        const todayEST = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const todayStr = todayEST.toLocaleDateString('en-CA');
+        const { data: futureInvoices } = await supabase
+          .from('recurring_invoices')
+          .select('*')
+          .eq('booking_request_id', bookingRequestId)
+          .gte('service_date', todayStr)
+          .eq('status', 'sent');
+
+        if (futureInvoices && futureInvoices.length > 0) {
+          for (const inv of futureInvoices) {
+            const svcCancelType = calculateCancellationType(booking, inv.service_date);
+            if (svcCancelType === 'free' && inv.stripe_invoice_id) {
+              try {
+                if (inv.stripe_invoice_id.startsWith('pi_')) {
+                  const intent = await stripe.paymentIntents.retrieve(inv.stripe_invoice_id);
+                  if (intent.status === 'succeeded') {
+                    await stripe.refunds.create({ payment_intent: inv.stripe_invoice_id, reason: 'requested_by_customer' });
+                  }
+                } else if (inv.stripe_invoice_id.startsWith('in_')) {
+                  await stripe.invoices.voidInvoice(inv.stripe_invoice_id);
+                }
+                await supabase.from('recurring_invoices').update({ status: 'voided' }).eq('id', inv.id);
+              } catch(voidErr) { console.warn('Void future invoice:', voidErr.message); }
+            } else if (svcCancelType === 'late') {
+              await supabase.from('recurring_invoices').update({ status: 'captured' }).eq('id', inv.id);
+            }
+          }
+        }
+      } catch(stopErr) { console.error('Stop recurring invoice handling:', stopErr); }
     }
 
     // 6. For recurring single-day cancel, also handle the specific recurring_invoice
@@ -179,7 +283,7 @@ module.exports = async function handler(req, res) {
       ? new Date(serviceDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
       : 'TBD';
     const timeFmt = booking.preferred_time ? fmt12(booking.preferred_time) : '';
-    const cancelLabel = isSingleCancel ? 'a single visit' : 'the booking';
+    const cancelLabel = isStopRecurring ? 'the recurring service (stopped by client)' : (isSingleCancel ? 'a single visit' : 'the booking');
     const refundAmount = refundResult && refundResult.amount ? '$' + refundResult.amount.toFixed(2) : (booking.estimated_total ? '$' + Number(booking.estimated_total).toFixed(2) : '');
     const refundNote = refunded
       ? `<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">💳 A full refund of ${refundAmount} has been issued to your card on file. Please allow 5-10 business days for it to appear.</div>`
@@ -277,7 +381,8 @@ module.exports = async function handler(req, res) {
 
     // 8. Return success response
     let message = 'Booking canceled.';
-    if (refunded) message = cancellationType === 'free' ? 'Booking canceled. Full refund issued.' : 'Booking canceled. Refund issued by owner.';
+    if (isStopRecurring) message = 'Recurring service stopped. No further charges will be made.';
+    else if (refunded) message = cancellationType === 'free' ? 'Booking canceled. Full refund issued.' : 'Booking canceled. Refund issued by owner.';
     else if (cancellationType === 'free') message = 'Booking canceled. No charge applied.';
     else if (cancellationType === 'late') message = 'Booking canceled. Late cancellation — no refund per policy.';
 

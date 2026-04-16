@@ -17,6 +17,8 @@
   var _activeDeals = [];
   var _drawerOpen = false;
   var _dismissedKey = 'hhp_dismissed_announcements';
+  var _tucked = false;       // mobile: is the bell tucked to the side?
+  var _userPulledOut = false; // user manually pulled it out — keep it out
 
   // ── Helpers ──────────────────────────────────────────────────
   function getSB() {
@@ -44,7 +46,36 @@
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  // ── Mobile detection helper ─────────────────────────────────
+  function isMobile() { return window.innerWidth <= 768; }
+
+  // ── Tuck / untuck the bell (mobile only) ───────────────────
+  function tuckBell() {
+    if (!isMobile() || !_bellEl) return;
+    _tucked = true;
+    _userPulledOut = false;
+    _bellEl.style.left = '-42px';       // mostly hidden, just edge peeking
+    _bellEl.style.borderRadius = '0 50% 50% 0';
+    if (_tabEl) {
+      _tabEl.style.opacity = '1';
+      _tabEl.style.pointerEvents = 'auto';
+    }
+  }
+
+  function untuckBell() {
+    if (!_bellEl) return;
+    _tucked = false;
+    _bellEl.style.left = '24px';
+    _bellEl.style.borderRadius = '50%';
+    if (_tabEl) {
+      _tabEl.style.opacity = '0';
+      _tabEl.style.pointerEvents = 'none';
+    }
+  }
+
   // ── Build the floating bell ─────────────────────────────────
+  var _tabEl = null;
+
   function buildBell() {
     if (_bellEl) return;
 
@@ -58,21 +89,83 @@
       'color:white', 'border:none', 'cursor:pointer',
       'box-shadow:0 4px 20px rgba(200,150,62,0.4)',
       'display:flex', 'align-items:center', 'justify-content:center',
-      'font-size:1.4rem', 'transition:transform 0.2s,box-shadow 0.2s'
+      'font-size:1.4rem', 'transition:left 0.35s ease,transform 0.2s,box-shadow 0.2s,border-radius 0.35s ease'
     ].join(';');
     _bellEl.innerHTML = '🔔';
 
     _bellEl.addEventListener('mouseenter', function() {
-      this.style.transform = 'scale(1.1)';
-      this.style.boxShadow = '0 6px 28px rgba(200,150,62,0.55)';
+      if (!_tucked) {
+        this.style.transform = 'scale(1.1)';
+        this.style.boxShadow = '0 6px 28px rgba(200,150,62,0.55)';
+      }
     });
     _bellEl.addEventListener('mouseleave', function() {
-      if (!_drawerOpen) {
+      if (!_drawerOpen && !_tucked) {
         this.style.transform = 'scale(1)';
         this.style.boxShadow = '0 4px 20px rgba(200,150,62,0.4)';
       }
     });
-    _bellEl.addEventListener('click', toggleDrawer);
+    // Touch/swipe handling for mobile — drag bell left to tuck, right to untuck
+    var _touchStartX = 0;
+    var _touchStartLeft = 0;
+    var _isDragging = false;
+
+    _bellEl.addEventListener('touchstart', function(e) {
+      if (!isMobile() || _drawerOpen) return;
+      _touchStartX = e.touches[0].clientX;
+      _touchStartLeft = parseInt(_bellEl.style.left) || 24;
+      _isDragging = false;
+      // Disable transition during drag for smooth tracking
+      _bellEl.style.transition = 'transform 0.2s,box-shadow 0.2s,border-radius 0.35s ease';
+    }, { passive: true });
+
+    _bellEl.addEventListener('touchmove', function(e) {
+      if (!isMobile() || _drawerOpen) return;
+      var dx = e.touches[0].clientX - _touchStartX;
+      // Only allow dragging left (negative dx) from untucked, or right from tucked
+      if (Math.abs(dx) > 8) _isDragging = true;
+      var newLeft = Math.max(-42, Math.min(24, _touchStartLeft + dx));
+      _bellEl.style.left = newLeft + 'px';
+    }, { passive: true });
+
+    _bellEl.addEventListener('touchend', function(e) {
+      if (!isMobile() || _drawerOpen) {
+        _isDragging = false;
+        return;
+      }
+      // Restore transition
+      _bellEl.style.transition = 'left 0.35s ease,transform 0.2s,box-shadow 0.2s,border-radius 0.35s ease';
+
+      var currentLeft = parseInt(_bellEl.style.left) || 24;
+
+      if (_isDragging) {
+        // Snap: if dragged past midpoint (-10px), tuck; otherwise untuck
+        if (currentLeft < -10) {
+          tuckBell();
+        } else {
+          untuckBell();
+          _userPulledOut = true;
+        }
+        _isDragging = false;
+        return;
+      }
+      _isDragging = false;
+      // Not a drag — it's a tap. Handle as click.
+      // (click event will fire naturally)
+    }, { passive: true });
+
+    _bellEl.addEventListener('click', function(e) {
+      // If we just finished a drag, don't treat as click
+      if (_isDragging) { e.stopPropagation(); return; }
+      // If tucked, untuck first instead of opening drawer
+      if (_tucked) {
+        e.stopPropagation();
+        untuckBell();
+        _userPulledOut = true;
+        return;
+      }
+      toggleDrawer();
+    });
 
     // Badge
     _badgeEl = document.createElement('span');
@@ -87,7 +180,41 @@
     ].join(';');
     _bellEl.appendChild(_badgeEl);
 
+    // Pull-out tab (mobile only) — small arrow visible when bell is tucked
+    _tabEl = document.createElement('div');
+    _tabEl.id = 'hhpNotifTab';
+    _tabEl.style.cssText = [
+      'position:fixed', 'bottom:28px', 'left:0', 'z-index:997',
+      'width:28px', 'height:44px',
+      'background:linear-gradient(135deg,var(--gold,#c8963e),#a67c2e)',
+      'border-radius:0 10px 10px 0',
+      'display:flex', 'align-items:center', 'justify-content:center',
+      'color:white', 'font-size:0.75rem', 'cursor:pointer',
+      'box-shadow:2px 2px 10px rgba(200,150,62,0.3)',
+      'opacity:0', 'pointer-events:none',
+      'transition:opacity 0.3s ease'
+    ].join(';');
+    _tabEl.innerHTML = '›';
+    _tabEl.addEventListener('click', function(e) {
+      e.stopPropagation();
+      untuckBell();
+      _userPulledOut = true;
+    });
+
     document.body.appendChild(_bellEl);
+    document.body.appendChild(_tabEl);
+
+    // On mobile, start tucked if nothing is new
+    // (we check after data loads in init, so just set up resize listener)
+    window.addEventListener('resize', function() {
+      if (!isMobile()) {
+        // Going to desktop — always untuck
+        untuckBell();
+      } else if (_tucked) {
+        // Staying mobile + tucked — keep tucked
+        tuckBell();
+      }
+    });
   }
 
   // ── Build the drawer ────────────────────────────────────────
@@ -113,7 +240,8 @@
         '@keyframes hhpPromoSlide { from { transform:translateX(100%); } to { transform:translateX(0); } }',
         '#hhpNotifDrawer::-webkit-scrollbar { width:4px; }',
         '#hhpNotifDrawer::-webkit-scrollbar-thumb { background:rgba(200,150,62,0.3); border-radius:2px; }',
-        '@media (max-width:480px) { #hhpNotifDrawer { left:12px; right:12px; width:auto !important; bottom:80px; } }'
+        '@media (max-width:480px) { #hhpNotifDrawer { left:12px; right:12px; width:auto !important; bottom:80px; } }',
+        '@media (min-width:769px) { #hhpNotifTab { display:none !important; } }'
       ].join('\n');
       document.head.appendChild(style);
     }
@@ -125,6 +253,8 @@
   function toggleDrawer() {
     _drawerOpen = !_drawerOpen;
     if (_drawerOpen) {
+      // Make sure bell is untucked before showing drawer
+      if (_tucked) untuckBell();
       renderDrawer();
       _drawerEl.style.display = 'flex';
       _bellEl.style.transform = 'scale(1.1)';
@@ -150,6 +280,10 @@
     _bellEl.innerHTML = '🔔';
     _bellEl.appendChild(_badgeEl);
     document.removeEventListener('click', outsideClickHandler);
+    // On mobile, tuck after closing (unless user manually pulled it out)
+    if (isMobile() && !_userPulledOut) {
+      setTimeout(tuckBell, 400); // slight delay so close animation finishes
+    }
   }
 
   function outsideClickHandler(e) {
@@ -262,53 +396,22 @@
       // Subtle pulse animation on bell
       _bellEl.style.animation = 'none';
       setTimeout(function() { _bellEl.style.animation = ''; }, 10);
+      // Mobile: slide out if tucked — new content needs attention
+      if (isMobile() && _tucked) {
+        untuckBell();
+      }
     } else {
       _badgeEl.style.display = 'none';
+      // Mobile: tuck away if nothing new and user hasn't pulled it out
+      if (isMobile() && !_tucked && !_drawerOpen && !_userPulledOut) {
+        tuckBell();
+      }
     }
   }
 
-  // ── Promo strip (on services/booking section) — DISABLED per owner request ──
+  // Promo strip — disabled per owner request
   function buildPromoStrip() {
     if (_promoStripEl) { _promoStripEl.remove(); _promoStripEl = null; }
-    return;
-    if (_activeDeals.length === 0) {
-      if (_promoStripEl) { _promoStripEl.remove(); _promoStripEl = null; }
-      return;
-    }
-
-    // Find the services section to prepend the strip
-    var servicesSection = document.getElementById('services') || document.querySelector('.services-grid');
-    if (!servicesSection) return;
-
-    if (!_promoStripEl) {
-      _promoStripEl = document.createElement('div');
-      _promoStripEl.id = 'hhpPromoStrip';
-      _promoStripEl.style.cssText = [
-        'background:linear-gradient(135deg,rgba(200,150,62,0.1),rgba(200,150,62,0.04))',
-        'border:1px solid rgba(200,150,62,0.2)',
-        'border-radius:12px', 'padding:12px 20px',
-        'margin-bottom:20px', 'display:flex', 'align-items:center',
-        'gap:12px', 'flex-wrap:wrap', 'animation:hhpPromoSlide 0.4s ease'
-      ].join(';');
-      servicesSection.parentElement.insertBefore(_promoStripEl, servicesSection);
-    }
-
-    var html = '<div style="font-size:1.1rem">🏷️</div>';
-    html += '<div style="flex:1;min-width:200px">';
-
-    if (_activeDeals.length === 1) {
-      var d = _activeDeals[0];
-      html += '<div style="font-weight:700;font-size:0.88rem;color:var(--dark,#1e1409)">' + escapeHtml(d.name) + '</div>';
-      if (d.details) html += '<div style="font-size:0.78rem;color:var(--mid,#8c6b4a)">' + escapeHtml(d.details) + '</div>';
-    } else {
-      html += '<div style="font-weight:700;font-size:0.88rem;color:var(--dark,#1e1409)">' + _activeDeals.length + ' Active Specials!</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid,#8c6b4a)">' + _activeDeals.map(function(d) { return d.name; }).join(' · ') + '</div>';
-    }
-    html += '</div>';
-
-    // CTA removed — bell bubble already shows the deal info
-
-    _promoStripEl.innerHTML = html;
   }
 
   // ── Fetch data from Supabase ────────────────────────────────
@@ -485,6 +588,8 @@
             updateBadge();
             buildPromoStrip();
             if (_drawerOpen) renderDrawer();
+          }).catch(function(err) {
+            console.warn('Failed to fetch active deals in realtime:', err);
           });
         })
         .subscribe();
@@ -514,16 +619,35 @@
   }
 
   // ── Initialize ──────────────────────────────────────────────
+  var _notifInitialized = false;
   async function init() {
+    if (_notifInitialized) return;
+    _notifInitialized = true;
     buildBell();
     buildDrawer();
 
     // Fetch data
-    await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+    try {
+      await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+    } catch (err) {
+      console.warn('Failed to fetch notifications data:', err);
+    }
 
     // Update UI
     updateBadge();
     buildPromoStrip();
+
+    // Mobile: if nothing new after data loads, start tucked
+    if (isMobile()) {
+      var dismissed = getDismissed();
+      var unreadCount = _announcements.filter(function(a) { return dismissed.indexOf(a.id) === -1; }).length;
+      unreadCount += _activeDeals.filter(function(d) { return dismissed.indexOf(d.id) === -1; }).length;
+      if (unreadCount === 0) {
+        // Small delay so user sees it tuck away smoothly
+        setTimeout(tuckBell, 1200);
+      }
+      // If there IS new content, bell stays out (untucked) with badge showing
+    }
 
     // Realtime
     subscribeToAnnouncements();
@@ -564,7 +688,11 @@
     loadHistory: loadAnnouncementHistory,
     saveAnnouncement: saveAnnouncement,
     refresh: async function() {
-      await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+      try {
+        await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+      } catch (err) {
+        console.warn('Failed to refresh notifications:', err);
+      }
       updateBadge();
       buildPromoStrip();
       if (_drawerOpen) renderDrawer();

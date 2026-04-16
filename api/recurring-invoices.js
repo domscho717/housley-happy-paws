@@ -17,6 +17,7 @@
 
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { sendEmail, sendToRachel, escHtml, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -46,6 +47,8 @@ module.exports = async function handler(req, res) {
   );
 
   // ── Date helpers (Eastern time, auto-adjusts for DST) ──
+  // IMPORTANT: All date window math uses date STRINGS (YYYY-MM-DD) to avoid
+  // timezone double-conversion bugs. The server runs in UTC but we need EST dates.
   function estDateStr(d) {
     return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   }
@@ -54,45 +57,43 @@ module.exports = async function handler(req, res) {
       weekday: 'short', month: 'short', day: 'numeric'
     });
   }
+  // Add N days to a YYYY-MM-DD string, returns YYYY-MM-DD (timezone-safe)
+  function addDaysStr(dateStr, n) {
+    const d = new Date(dateStr + 'T12:00:00Z'); // noon UTC avoids DST edge
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  // Get day-of-week (0=Sun) from a YYYY-MM-DD string (timezone-safe)
+  function dayOfWeekStr(dateStr) {
+    return new Date(dateStr + 'T12:00:00Z').getUTCDay();
+  }
 
-  const estNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const todayEST = estDateStr(); // e.g. "2026-04-07"
 
   // ── Determine billing window ──
   const firstWeekBookingId = req.query.bookingId || (req.body && req.body.bookingId);
   const isFirstWeek = req.query.firstWeek === 'true' || (req.body && req.body.firstWeek);
 
-  let weekStart, weekEnd;
+  let weekStartStr, weekEndStr;
 
   if (isFirstWeek && firstWeekBookingId) {
     // First-week trigger: bill from today through this Saturday
-    weekStart = new Date(estNow);
-    weekStart.setHours(0, 0, 0, 0);
-    // Find this Saturday (end of current week)
-    const dayOfWeek = weekStart.getDay(); // 0=Sun, 6=Sat
-    const daysUntilSat = (6 - dayOfWeek + 7) % 7;
-    weekEnd = new Date(weekStart);
-    if (daysUntilSat === 0 && dayOfWeek === 6) {
-      // Today is Saturday — just bill for today
-      weekEnd.setHours(23, 59, 59, 999);
-    } else {
-      weekEnd.setDate(weekEnd.getDate() + daysUntilSat);
-      weekEnd.setHours(23, 59, 59, 999);
-    }
+    weekStartStr = todayEST;
+    const dow = dayOfWeekStr(todayEST); // 0=Sun, 6=Sat
+    const daysUntilSat = dow === 6 ? 0 : (6 - dow + 7) % 7;
+    weekEndStr = addDaysStr(todayEST, daysUntilSat);
   } else {
     // Regular Sunday cron: this Sunday (today) through Saturday
-    weekStart = new Date(estNow);
-    weekStart.setHours(0, 0, 0, 0);
-    weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
+    weekStartStr = todayEST;
+    weekEndStr = addDaysStr(todayEST, 6);
   }
 
   // Build array of date strings for the billing window
   const weekDates = [];
-  const cursor = new Date(weekStart);
-  while (cursor <= weekEnd) {
-    weekDates.push(estDateStr(cursor));
-    cursor.setDate(cursor.getDate() + 1);
+  let cursorStr = weekStartStr;
+  while (cursorStr <= weekEndStr) {
+    weekDates.push(cursorStr);
+    cursorStr = addDaysStr(cursorStr, 1);
   }
 
   const results = { processed: 0, charged: 0, skipped: 0, errors: [], weekDates };
@@ -116,11 +117,44 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ message: 'No recurring bookings found', ...results });
     }
 
+    // ── First-week: seed recurring_invoices for initial booking date(s) ──
+    // The acceptance charge already covers the first occurrence (preferred_date).
+    // We must record it here so the Sunday cron doesn't double-bill.
+    // NOTE: Always seed regardless of payment_intent_id — the acceptance flow
+    // always charges the first occurrence, and the PI may not be committed yet.
+    if (isFirstWeek && firstWeekBookingId) {
+      for (const booking of bookings) {
+        const initialDate = booking.preferred_date;
+        if (initialDate) {
+          await supabase.from('recurring_invoices').upsert({
+            booking_request_id: booking.id,
+            invoice_date: estDateStr(),
+            service_date: initialDate,
+            amount: booking.estimated_total || 0,
+            service: booking.service,
+            client_email: booking.contact_email,
+            client_name: booking.contact_name,
+            stripe_invoice_id: booking.payment_intent_id || 'acceptance_charge',
+            status: 'paid',
+          }, { onConflict: 'booking_request_id,service_date', ignoreDuplicates: true });
+        }
+      }
+    }
+
     // ── Find all service dates this week per booking, group by client + service ──
     // Key: "clientEmail||serviceType" → { booking, entries: [{ booking, date, amount }] }
     const clientGroups = {};
 
-    for (const booking of bookings) {
+// Batch-fetch ALL already-billed dates to avoid N*M per-date queries
+    const bookingIds = bookings.map(b => b.id);
+    const { data: allBilledRaw } = await supabase
+      .from('recurring_invoices')
+      .select('booking_request_id, service_date')
+      .in('booking_request_id', bookingIds)
+      .in('service_date', weekDates);
+    const billedSet = new Set((allBilledRaw || []).map(r => r.booking_request_id + ':' + r.service_date));
+
+        for (const booking of bookings) {
       results.processed++;
       const pattern = typeof booking.recurrence_pattern === 'string'
         ? JSON.parse(booking.recurrence_pattern)
@@ -131,14 +165,8 @@ module.exports = async function handler(req, res) {
         if (!checkIfDateIsRecurring(dateStr, pattern, booking)) continue;
 
         // Check if already billed for this booking + date
-        const { data: existing } = await supabase
-          .from('recurring_invoices')
-          .select('id')
-          .eq('booking_request_id', booking.id)
-          .eq('service_date', dateStr)
-          .limit(1);
-
-        if (existing && existing.length > 0) continue; // Already invoiced
+        // Check in-memory batch set instead of per-date DB query
+        if (billedSet.has(booking.id + ':' + dateStr)) continue; // Already invoiced
 
         // Skip bookings with missing critical data
         if (!booking.contact_email || !booking.estimated_total || booking.estimated_total <= 0) continue;
@@ -225,6 +253,64 @@ module.exports = async function handler(req, res) {
             paid_at: chargeResult.method === 'auto_charge' ? new Date().toISOString() : null,
           });
           results.charged++;
+
+          // ── If card declined → invoice sent, notify client + owner ──
+          if (chargeResult.method === 'invoice') {
+            const safeName = escHtml(group.clientName || 'Client');
+            const safeService = escHtml(group.service);
+            const payLink = chargeResult.invoiceUrl || SITE_URL;
+            const amountFmt = '$' + totalAmount.toFixed(2);
+
+            // Build service date list HTML
+            const dateListHTML = group.entries.map(e => {
+              const d = new Date(e.date + 'T12:00:00');
+              return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            }).join('<br>');
+
+            // Email to client: card declined, here's how to pay
+            try {
+              await sendEmail({
+                to: group.clientEmail,
+                subject: `⚠️ Payment Declined — Action Needed — ${safeService} — Housley Happy Paws`,
+                title: 'Payment Declined — Action Needed',
+                bodyHTML: `
+                  <p>Hi ${safeName}!</p>
+                  <p>We tried to charge your card on file for your upcoming recurring <strong>${safeService}</strong> service, but the payment was <strong>declined</strong>.</p>
+                  <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #ffc107">
+                    <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService} — ${amountFmt}</div>
+                    <div style="margin-bottom:8px">${dateListHTML}</div>
+                    ${allPets ? `<div style="margin-bottom:4px">🐾 Pets: ${escHtml(allPets)}</div>` : ''}
+                  </div>
+                  <p><strong>We'll try your card again in about 12 hours.</strong> If that also fails, this week's services will be canceled automatically.</p>
+                  <p>You can also pay now using the link below:</p>
+                  <div style="margin:20px 0;text-align:center">
+                    <a href="${payLink}" style="display:inline-block;padding:14px 32px;background:#c8963e;color:white;border-radius:8px;text-decoration:none;font-weight:700;font-size:1.05rem">Pay ${amountFmt} Now →</a>
+                  </div>
+                  <p>If you have questions or need to update your payment method, please don't hesitate to reach out.</p>
+                  <p style="font-size:0.85rem;color:#8c6b4a;margin-top:16px">Questions? Reply to this email or call 717-715-7595</p>
+                `,
+              });
+            } catch (emailErr) { console.error('[recurring] Decline email to client failed:', emailErr.message); }
+
+            // Notify Rachel too
+            try {
+              await sendToRachel({
+                subject: `⚠️ Recurring Payment Declined: ${safeName} — ${safeService}`,
+                title: 'Recurring Payment Declined',
+                bodyHTML: `
+                  <p><strong>${safeName}</strong>'s card was declined for their recurring <strong>${safeService}</strong> (${amountFmt}).</p>
+                  <div style="background:#fff3cd;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #ffc107">
+                    <div style="font-weight:700;margin-bottom:8px">${safeService} — ${amountFmt}</div>
+                    <div>${dateListHTML}</div>
+                  </div>
+                  <p>An invoice has been sent to the client. The system will retry in ~12 hours. If still unpaid by end of day, this week's services will be auto-canceled.</p>
+                  <div style="margin-top:20px">
+                    <a href="${SITE_URL}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:700">View Dashboard →</a>
+                  </div>
+                `,
+              });
+            } catch (emailErr) { console.error('[recurring] Decline email to owner failed:', emailErr.message); }
+          }
         } else {
           results.errors.push({ group: groupKey, error: chargeResult.error });
         }
@@ -233,7 +319,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const weekLabel = `${estDateStr(weekStart)} to ${estDateStr(weekEnd)}`;
+    const weekLabel = `${weekStartStr} to ${weekEndStr}`;
     return res.status(200).json({
       message: `Weekly billing processed for ${weekLabel}`,
       ...results,

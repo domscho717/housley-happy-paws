@@ -1,0 +1,750 @@
+diff --git a/js/booking-system.js b/js/booking-system.js
+index 2a9eaac..5adb6de 100644
+--- a/js/booking-system.js
++++ b/js/booking-system.js
+@@ -106,7 +106,7 @@
+     if (sb && sb.channel && !window._dealsRealtimeSubscribed) {
+       try {
+         window._dealsRealtimeSubscribed = true;
+-        sb.channel('deals-realtime')
++        window._dealsRealtimeChannel = sb.channel('deals-realtime')
+           .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, function() {
+             _fetchActiveDeals();
+           })
+@@ -280,8 +280,8 @@
+   // 3. BOOKING REQUEST MODAL & FORM
+   // ════════════════════════════════════════════════════════════
+ 
+-  // Services list for the form
+-  var SERVICES = [
++  // Fallback services list (used if Supabase fetch fails)
++  var DEFAULT_SERVICES = [
+     { name: 'Dog Walking - 30 min', price: '$25', base: 25, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
+     { name: 'Dog Walking - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
+     { name: 'Drop-In Visit - 30 min', price: '$25', base: 25, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
+@@ -293,6 +293,9 @@
+     { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
+   ];
+ 
++  // Current services array — will be populated from DB or fallback to DEFAULT_SERVICES
++  var SERVICES = DEFAULT_SERVICES.slice();
++
+   // Holiday dates (month-day format, add more as needed)
+   var HOLIDAYS = [
+     '01-01', // New Year's Day
+@@ -316,6 +319,139 @@
+     return HOLIDAYS.indexOf(md) !== -1;
+   }
+ 
++  // Load holidays from Supabase table
++  async function loadHolidaysFromDB(sb) {
++    try {
++      var { data, error } = await sb.from('holidays')
++        .select('date_mmdd')
++        .order('sort_order', { ascending: true });
++      if (error) throw error;
++      if (data && data.length > 0) {
++        HOLIDAYS = data.map(function(r) { return r.date_mmdd; });
++        window._holidayData = data;
++        // Clear the availability.js holiday cache so calendars pick up DB holidays
++        if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
++        console.log('✓ Holidays loaded from DB (' + HOLIDAYS.length + ' dates)');
++      }
++    } catch (e) {
++      console.warn('Failed to load holidays from DB; using defaults:', e);
++    }
++  }
++
++  // Load pricing from Supabase table service_pricing
++  // Helper: wait for Supabase library to load (it's async)
++  function waitForSupabase(maxWait) {
++    return new Promise(function(resolve) {
++      if (window.supabase && window.supabase.createClient) { resolve(true); return; }
++      var elapsed = 0;
++      var iv = setInterval(function() {
++        elapsed += 100;
++        if (window.supabase && window.supabase.createClient) { clearInterval(iv); resolve(true); }
++        else if (elapsed >= (maxWait || 5000)) { clearInterval(iv); resolve(false); }
++      }, 100);
++    });
++  }
++
++  async function loadPricingFromDB() {
++    var sb = getSB();
++    // Pricing is public (RLS allows anyone to read), so create a lightweight client
++    // if auth isn't ready yet — don't skip just because user isn't logged in
++    if (!sb) {
++      await waitForSupabase(5000);
++      try {
++        if (window.supabase && window.supabase.createClient) {
++          if (!window._hhpPricingSB) {
++            window._hhpPricingSB = window.supabase.createClient(sbUrl, sbKey);
++          }
++          sb = window._hhpPricingSB;
++        }
++      } catch(e) {}
++    }
++    if (!sb) {
++      console.warn('Supabase client not available; using default services');
++      return;
++    }
++
++    try {
++      var { data, error } = await sb.from('service_pricing')
++        .select('*')
++        .order('sort_order', { ascending: true });
++
++      if (error) throw error;
++      if (!data || data.length === 0) {
++        console.warn('No service pricing data found; using default services');
++        return;
++      }
++
++      // Map DB rows to SERVICES format
++      var fetchedServices = data.map(function(row) {
++        // Infer type from service_key
++        var type = 'dog';
++        if (row.service_key.indexOf('cat') !== -1) {
++          type = 'cat';
++        } else if (row.service_key === 'meet_greet') {
++          type = 'any';
++        } else if (row.service_key === 'housesit_mixed') {
++          type = 'both';
++        }
++
++        // Infer group from service_key
++        var group = 'Dog Walking';
++        if (row.service_key.indexOf('dropin') !== -1) {
++          group = 'Drop-In Visit';
++        } else if (row.service_key.indexOf('housesit') !== -1) {
++          group = 'House Sitting';
++        } else if (row.service_key === 'meet_greet') {
++          group = 'Meet & Greet';
++        }
++
++        // Format price display
++        var priceStr = 'Free';
++        if (row.base_price > 0) {
++          priceStr = '$' + row.base_price + (row.unit === 'night' ? '/night' : '');
++        }
++
++        // For housesit_mixed, set extra3plus to 35 (all additional at $35/night)
++        var extra3plus = 0;
++        if (row.service_key.indexOf('housesit') !== -1) {
++          extra3plus = 35;
++        }
++
++        return {
++          name: row.service_label,
++          price: priceStr,
++          base: row.base_price,
++          type: type,
++          group: group,
++          extraPet: row.extra_pet_fee || 0,
++          extraCat: row.extra_cat_fee || 0,
++          extra3plus: extra3plus,
++          puppy: row.puppy_surcharge || 0,
++          holiday: row.holiday_surcharge || 0
++        };
++      });
++
++      // Update global SERVICES and store raw data
++      SERVICES = fetchedServices;
++      window._servicePricing = data;
++
++      // Also update SERVICE_PRICES map used for Stripe checkout
++      SERVICES.forEach(function(svc) {
++        if (svc.base > 0) {
++          SERVICE_PRICES[svc.name] = parseFloat(svc.base);
++        }
++      });
++
++      console.log('✓ Service pricing loaded from DB (' + SERVICES.length + ' services)');
++
++      // Also load holidays from DB using the same client
++      await loadHolidaysFromDB(sb);
++    } catch (e) {
++      console.warn('Failed to load service pricing from DB; using default services:', e);
++      SERVICES = DEFAULT_SERVICES.slice();
++    }
++  }
++
+   function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType, nights) {
+     var svc = null;
+     for (var i = 0; i < SERVICES.length; i++) {
+@@ -549,7 +685,8 @@
+     // Resolve full service name from group dropdown + duration dropdown
+     window._resolveBookingServiceName = resolveServiceName;
+     function resolveServiceName() {
+-      var svcGroup = document.getElementById('brm-service').value;
++      var svcEl = document.getElementById('brm-service');
++      var svcGroup = svcEl ? svcEl.value : '';
+       if (!svcGroup) return '';
+       var isMG = svcGroup === 'Meet & Greet';
+       if (isMG) return svcGroup;
+@@ -570,7 +707,8 @@
+ 
+     // Show/hide duration dropdown based on service
+     function toggleDurationField() {
+-      var svcGroup = document.getElementById('brm-service').value;
++      var svcEl = document.getElementById('brm-service');
++      var svcGroup = svcEl ? svcEl.value : '';
+       var durCol = document.getElementById('brm-duration-col');
+       if (!durCol) return;
+       var isHS = svcGroup.toLowerCase().indexOf('house sitting') !== -1;
+@@ -2617,10 +2755,11 @@
+ 
+       if (error) throw error;
+ 
+-      // Send email notification to Rachel
++      // Send email notification to Rachel + client notification
+       try {
+         if (shouldSplit && dateCardDetails.length > 1) {
+-          // Split bookings — send one email per booking so each has a valid date
++          // Split bookings — if multiple bookings created, send batch "received" notification
++          // but individual booking emails to Rachel
+           for (var ei = 0; ei < dateCardDetails.length; ei++) {
+             var dc = dateCardDetails[ei];
+             await sendBookingNotification({
+@@ -2636,6 +2775,23 @@
+               estimatedTotal: data && data[ei] ? data[ei].estimated_total : null,
+             });
+           }
++
++          // Send ONE "received" notification to client for batch submission
++          if (typeof toast === 'function') toast('✓ Sent ' + dateCardDetails.length + ' booking requests to Rachel!');
++          var clientMsg = 'We received your ' + dateCardDetails.length + ' booking requests! Rachel will review them and get back to you shortly.';
++          try {
++            var sb = getSB();
++            if (sb && clientId) {
++              var owner = window.HHP_Auth && window.HHP_Auth.currentUser;
++              await sb.from('messages').insert({
++                sender_id: owner ? owner.id : null,
++                sender_name: 'Rachel Housley',
++                recipient_id: clientId,
++                body: clientMsg,
++                is_alert: false,
++              });
++            }
++          } catch (msgErr) { console.warn('Client message failed:', msgErr); }
+         } else {
+           // Single booking or recurring — send one email
+           var dateDisplay = isHouseSitting ? date + ' to ' + endDate : date;
+@@ -2658,6 +2814,7 @@
+             estimatedTotal: data && data[0] ? data[0].estimated_total : null,
+             isRecurring: isRecurring,
+           });
++          if (typeof toast === 'function') toast('✓ Booking request sent!');
+         }
+       } catch (emailErr) {
+         console.warn('Email notification failed:', emailErr);
+@@ -3444,6 +3601,11 @@
+     injectBookingCSS();
+     createBookingModal();
+ 
++    // Load pricing from Supabase early, before booking modal is used
++    loadPricingFromDB().catch(function(err) {
++      console.warn('Error loading pricing:', err);
++    });
++
+     // Wait for page to fully render then rewire buttons
+     setTimeout(rewireBookButtons, 2000);
+     setTimeout(rewireBookButtons, 5000);
+@@ -3729,6 +3891,73 @@
+     }
+   };
+ 
++  // ── Batch grouping helper: group pending bookings by client_id + created_at (2-second window) ──
++  function _groupPendingBookingsByBatch(requests) {
++    var pending = requests.filter(function(r) { return r.status === 'pending'; });
++    var nonPending = requests.filter(function(r) { return r.status !== 'pending'; });
++
++    if (pending.length === 0) return nonPending;
++
++    var batchMap = {};
++    var batchOrder = [];
++
++    pending.forEach(function(r) {
++      var createdAtTime = r.created_at ? new Date(r.created_at).getTime() : 0;
++      var batchKey = r.client_id + '|' + Math.floor(createdAtTime / 2000); // 2-second window
++
++      if (!batchMap[batchKey]) {
++        batchMap[batchKey] = [];
++        batchOrder.push(batchKey);
++      }
++      batchMap[batchKey].push(r);
++    });
++
++    // Sort batches by most recent created_at
++    var sortedBatches = batchOrder.map(function(key) {
++      var batch = batchMap[key];
++      return {
++        batchKey: key,
++        bookings: batch,
++        created_at: batch[0].created_at,
++      };
++    }).sort(function(a, b) {
++      var timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
++      var timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
++      return timeB - timeA;
++    });
++
++    // Flatten back: each batch is represented, then non-pending
++    var result = [];
++    sortedBatches.forEach(function(b) {
++      if (b.bookings.length === 1) {
++        // Single booking — render as-is
++        result.push(b.bookings[0]);
++      } else {
++        // Batched bookings — create a synthetic "batch" object
++        var firstBooking = b.bookings[0];
++        result.push({
++          _isBatch: true,
++          _batchKey: b.batchKey,
++          _bookings: b.bookings,
++          id: b.batchKey,
++          client_id: firstBooking.client_id,
++          contact_name: firstBooking.contact_name,
++          contact_email: firstBooking.contact_email,
++          contact_phone: firstBooking.contact_phone,
++          avatar_url: firstBooking.avatar_url,
++          created_at: firstBooking.created_at,
++          status: 'pending',
++          // Synthesized fields for batch display
++          _batchSize: b.bookings.length,
++          _totalEstimated: b.bookings.reduce(function(sum, bk) { return sum + (bk.estimated_total || 0); }, 0),
++          _firstService: firstBooking.service,
++        });
++      }
++    });
++
++    return result.concat(nonPending);
++  }
++
+   function _renderBookingRequestsList(container, portal) {
+     if (!container) return;
+ 
+@@ -3737,7 +3966,15 @@
+       return;
+     }
+ 
+-    container.innerHTML = _bookingPanelState.requests.map(function(r) {
++    // Group pending bookings by batch
++    var displayRequests = _groupPendingBookingsByBatch(_bookingPanelState.requests);
++
++    container.innerHTML = displayRequests.map(function(r) {
++      // ── Handle batch cards ──
++      if (r._isBatch) {
++        return _renderBatchCard(r);
++      }
++      // Individual booking rendering (non-batch)
+       var dateStr = r.preferred_date ? new Date(r.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+       var isHS = (r.service || '').toLowerCase().indexOf('house sitting') !== -1;
+       var endDateStr = '';
+@@ -3870,6 +4107,100 @@
+     }).join('');
+   }
+ 
++  // ── Batch card renderer ──
++  function _renderBatchCard(batch) {
++    var clientAvaHTML = '';
++    if (batch.avatar_url) {
++      clientAvaHTML = '<img src="' + batch.avatar_url + '" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0">';
++    } else {
++      var initials = (batch.contact_name || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
++      clientAvaHTML = '<div style="width:48px;height:48px;border-radius:50%;background:var(--gold-light,#f5e6c8);display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:700;color:var(--ink,#1e1409);flex-shrink:0;border:2px solid var(--gold)">' + initials + '</div>';
++    }
++
++    var apptRowsHTML = batch._bookings.map(function(bk, idx) {
++      var dateStr = bk.preferred_date ? new Date(bk.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
++      var timeStr = bk.preferred_time ? fmt12(bk.preferred_time) : 'TBD';
++      var petStr = bk.pet_names ? bk.pet_names : 'Pets';
++      var isMarkedRemoved = document.querySelector('[data-batch-remove-id="' + bk.id + '"]');
++
++      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e0d5c5;' + (isMarkedRemoved ? 'opacity:0.5;text-decoration:line-through' : '') + '" data-batch-appt-id="' + bk.id + '">' +
++        '<div style="flex:1;font-size:0.82rem">' +
++          '<div style="font-weight:600">' + dateStr + ' @ ' + timeStr + '</div>' +
++          '<div style="color:var(--mid);font-size:0.75rem">' + petStr + '</div>' +
++        '</div>' +
++        '<div style="display:flex;gap:6px;align-items:center">' +
++          '<span style="font-size:0.78rem;color:var(--gold-deep);font-weight:600">$' + Number(bk.estimated_total || 0).toFixed(2) + '</span>' +
++          '<button class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:0.7rem;color:#c00;border-color:#c00" onclick="event.stopPropagation();toggleBatchRemoval(\'' + bk.id + '\',\'' + batch._batchKey + '\')" title="Mark for removal">❌</button>' +
++        '</div>' +
++      '</div>';
++    }).join('');
++
++    var anyChanges = batch._bookings.some(function(bk) {
++      return document.querySelector('[data-batch-remove-id="' + bk.id + '"]');
++    });
++
++    var actionButtonText = anyChanges ? 'Send to Client for Review' : '✓ Accept Batch';
++    var actionButtonFn = anyChanges ? 'submitBatchModifications' : 'acceptBatchBookings';
++
++    return '<div class="card" data-batch-id="' + batch._batchKey + '" style="border-left:6px solid var(--gold);position:relative;background:linear-gradient(135deg, rgba(245,230,200,0.15) 0%, rgba(255,255,255,0) 100%)">' +
++      '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">' +
++        '<div>' +
++          '<strong style="font-size:1rem">📦 Batch Booking — ' + batch._batchSize + ' Appointment' + (batch._batchSize !== 1 ? 's' : '') + '</strong>' +
++          '<div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + batch.contact_email + (batch.contact_phone ? ' · ' + batch.contact_phone : '') + '</div>' +
++        '</div>' +
++        '<span class="badge" style="background:var(--gold-light);color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">pending</span>' +
++      '</div>' +
++      '<div style="display:flex;gap:14px;align-items:start;margin-bottom:14px">' +
++        '<div>' + clientAvaHTML + '</div>' +
++        '<div style="flex:1">' +
++          '<div style="font-weight:600;margin-bottom:2px">' + batch.contact_name + '</div>' +
++          '<div style="font-size:0.82rem;color:var(--mid);margin-bottom:10px">' + batch._firstService + '</div>' +
++          '<div style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:8px;padding:10px;font-size:0.82rem">' +
++            '<div style="font-weight:600;margin-bottom:8px">Appointments:</div>' +
++            apptRowsHTML +
++            '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #e0d5c5;display:flex;justify-content:space-between;align-items:center">' +
++              '<strong style="font-size:0.85rem">Total Estimated</strong>' +
++              '<strong style="color:var(--gold-deep);font-size:0.95rem">$' + Number(batch._totalEstimated).toFixed(2) + '</strong>' +
++            '</div>' +
++          '</div>' +
++        '</div>' +
++      '</div>' +
++      '<div style="display:flex;gap:8px;margin-top:14px">' +
++        '<button class="btn btn-forest btn-sm" onclick="' + actionButtonFn + '(\'' + batch._batchKey + '\')" style="flex:1;justify-content:center">' + actionButtonText + '</button>' +
++        '<button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00;flex:1;justify-content:center" onclick="declineBatchBookings(\'' + batch._batchKey + '\')">✕ Decline All</button>' +
++      '</div>' +
++    '</div>';
++  }
++
++  // Toggle removal marking on a single appointment in a batch
++  window.toggleBatchRemoval = function(bookingId, batchKey) {
++    var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
++    if (!apptEl) return;
++
++    var isCurrentlyMarked = apptEl.hasAttribute('data-batch-remove-id');
++    if (isCurrentlyMarked) {
++      apptEl.removeAttribute('data-batch-remove-id');
++      apptEl.style.opacity = '1';
++      apptEl.style.textDecoration = 'none';
++    } else {
++      apptEl.setAttribute('data-batch-remove-id', bookingId);
++      apptEl.style.opacity = '0.5';
++      apptEl.style.textDecoration = 'line-through';
++    }
++
++    // Update action button text/behavior
++    var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
++    if (batchCard) {
++      var apptRows = batchCard.querySelectorAll('[data-batch-appt-id]');
++      var hasRemovals = Array.from(apptRows).some(function(el) { return el.hasAttribute('data-batch-remove-id'); });
++      var actionBtn = batchCard.querySelector('.btn-forest');
++      if (actionBtn) {
++        actionBtn.textContent = hasRemovals ? 'Send to Client for Review' : '✓ Accept Batch';
++        actionBtn.onclick = new Function('event', 'event.stopPropagation();' + (hasRemovals ? 'submitBatchModifications' : 'acceptBatchBookings') + '(\'' + batchKey + '\')');
++      }
++    }
++  };
++
+   window.filterOwnerRequests = function(status, btn) {
+     _bookingPanelState.currentFilter = status;
+     var panel = document.getElementById('o-requests');
+@@ -3937,6 +4268,81 @@
+     }
+   }
+ 
++  // Batch notification: send ONE email + ONE in-app message for multiple bookings
++  async function _sendBatchNotification(bookings, actions) {
++    if (!bookings || bookings.length === 0) return;
++    var firstBooking = bookings[0];
++    if (!firstBooking.contact_email) return;
++
++    var sb = getSB();
++    var owner = window.HHP_Auth && window.HHP_Auth.currentUser;
++    var ownerName = 'Rachel Housley';
++    try { if (owner && owner.profile && owner.profile.full_name) ownerName = owner.profile.full_name; } catch(e){}
++
++    // Build email body with appointment details
++    var appointmentDetails = bookings.map(function(bk) {
++      var action = actions.find(function(a) { return a.id === bk.id; });
++      var dateStr = bk.preferred_date ? new Date(bk.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
++      var timeStr = bk.preferred_time ? fmt12(bk.preferred_time) : 'TBD';
++
++      if (action && action.action === 'removed') {
++        return '• ' + dateStr + ' - REMOVED (not available)';
++      } else if (action && action.action === 'modified') {
++        var newDateStr = action.newDate ? new Date(action.newDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : dateStr;
++        var newTimeStr = action.newTime ? fmt12(action.newTime) : timeStr;
++        return '• ' + dateStr + ' @ ' + timeStr + ' → NEW TIME: ' + newDateStr + ' @ ' + newTimeStr;
++      } else {
++        return '• ' + dateStr + ' @ ' + timeStr + ' (confirmed)';
++      }
++    }).join('\n');
++
++    var totalAmount = bookings.reduce(function(sum, bk) {
++      var action = actions.find(function(a) { return a.id === bk.id; });
++      return action && action.action === 'removed' ? sum : sum + (bk.estimated_total || 0);
++    }, 0);
++
++    var hasModifications = actions.some(function(a) { return a.action !== 'accepted'; });
++
++    // 1. Send email
++    try {
++      await fetch('/api/booking-status-notification', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({
++          email: firstBooking.contact_email,
++          name: firstBooking.contact_name || 'Client',
++          service: 'Batch Booking (' + bookings.length + ' appointments)',
++          status: hasModifications ? 'modified' : 'accepted',
++          scheduledDate: firstBooking.preferred_date,
++          scheduledTime: firstBooking.preferred_time,
++          appointmentDetails: appointmentDetails,
++          estimatedTotal: totalAmount,
++          isBatch: true,
++          hasModifications: hasModifications,
++        }),
++      });
++    } catch (e) { console.warn('Batch email notification failed:', e); }
++
++    // 2. Insert in-app message
++    if (sb && firstBooking.client_id) {
++      try {
++        var msgTitle = hasModifications ? '📋 Your batch booking requires review' : '✓ Your batch booking is confirmed!';
++        var msgBody = msgTitle + '\n\n' + appointmentDetails;
++        if (totalAmount > 0) {
++          msgBody += '\n\nTotal: $' + Number(totalAmount).toFixed(2);
++        }
++
++        await sb.from('messages').insert({
++          sender_id: owner ? owner.id : null,
++          sender_name: ownerName,
++          recipient_id: firstBooking.client_id,
++          body: msgBody,
++          is_alert: true,
++        });
++      } catch (e) { console.warn('Batch in-app message failed:', e); }
++    }
++  }
++
+   // Optimistic UI helper: fade card and show status instantly
+   function _optimisticCard(requestId, newStatus) {
+     var card = document.querySelector('[data-request-id="' + requestId + '"]');
+@@ -3962,6 +4368,206 @@
+     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
+   }
+ 
++  // Batch accept: all bookings in batch are accepted as-is
++  window.acceptBatchBookings = async function(batchKey) {
++    var sb = getSB();
++    if (!sb) return;
++
++    try {
++      // Find all bookings in this batch
++      var batchBookings = _bookingPanelState.requests.filter(function(r) {
++        return r.status === 'pending' &&
++               r.client_id &&
++               r.created_at &&
++               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
++      });
++
++      if (batchBookings.length === 0) {
++        if (typeof toast === 'function') toast('Batch not found');
++        return;
++      }
++
++      // Mark card as processing
++      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
++      if (batchCard) {
++        batchCard.style.opacity = '0.7';
++        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
++      }
++
++      // Update all bookings to 'accepted'
++      var updatePromises = batchBookings.map(function(bk) {
++        return sb.from('booking_requests').update({
++          status: 'accepted',
++          scheduled_date: bk.preferred_date,
++          scheduled_time: bk.preferred_time
++        }).eq('id', bk.id);
++      });
++
++      await Promise.all(updatePromises);
++
++      // Send ONE batch notification
++      var actions = batchBookings.map(function(bk) {
++        return { id: bk.id, action: 'accepted' };
++      });
++
++      await _sendBatchNotification(batchBookings, actions);
++
++      // Charge all saved cards in background
++      var chargePromises = batchBookings
++        .filter(function(bk) { return bk.estimated_total > 0 && bk.client_id; })
++        .map(function(bk) {
++          return (async function() {
++            try {
++              var _chgSb = window.HHP_Auth && window.HHP_Auth.supabase;
++              var _chgSess = _chgSb ? await _chgSb.auth.getSession() : null;
++              var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
++              await fetch('/api/charge-saved-card', {
++                method: 'POST',
++                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
++                body: JSON.stringify({ bookingRequestId: bk.id, amount: bk.estimated_total, service: bk.service, clientProfileId: bk.client_id }),
++              });
++            } catch (e) { console.warn('Batch charge error for ' + bk.id + ':', e); }
++          })();
++        });
++
++      // Fire off charges in background — don't wait
++      Promise.all(chargePromises).catch(function(e) { console.warn('Batch charge error:', e); });
++
++      if (typeof toast === 'function') toast('✓ Batch accepted! ' + batchBookings.length + ' booking' + (batchBookings.length !== 1 ? 's' : '') + ' confirmed. Processing payments...');
++
++      _afterBookingAction();
++      setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
++
++    } catch (e) {
++      console.error('Failed to accept batch:', e);
++      if (typeof toast === 'function') toast('Error accepting batch');
++      if (batchCard) {
++        batchCard.style.opacity = '1';
++        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
++      }
++    }
++  };
++
++  // Batch submit with modifications: mark as 'batch_review' for client to review
++  window.submitBatchModifications = async function(batchKey) {
++    var sb = getSB();
++    if (!sb) return;
++
++    try {
++      // Find all bookings in this batch
++      var batchBookings = _bookingPanelState.requests.filter(function(r) {
++        return r.status === 'pending' &&
++               r.client_id &&
++               r.created_at &&
++               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
++      });
++
++      if (batchBookings.length === 0) {
++        if (typeof toast === 'function') toast('Batch not found');
++        return;
++      }
++
++      // Get marked removals
++      var removedIds = new Set();
++      document.querySelectorAll('[data-batch-remove-id]').forEach(function(el) {
++        removedIds.add(el.getAttribute('data-batch-remove-id'));
++      });
++
++      // Mark card as processing
++      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
++      if (batchCard) {
++        batchCard.style.opacity = '0.7';
++        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
++      }
++
++      // Build actions array and update DB
++      var actions = [];
++      var updatePromises = batchBookings.map(function(bk) {
++        if (removedIds.has(bk.id)) {
++          actions.push({ id: bk.id, action: 'removed' });
++          return sb.from('booking_requests').update({ status: 'batch_review' }).eq('id', bk.id);
++        } else {
++          actions.push({ id: bk.id, action: 'accepted' });
++          return sb.from('booking_requests').update({
++            status: 'batch_review',
++            scheduled_date: bk.preferred_date,
++            scheduled_time: bk.preferred_time
++          }).eq('id', bk.id);
++        }
++      });
++
++      await Promise.all(updatePromises);
++
++      // Send ONE batch notification with the actions
++      await _sendBatchNotification(batchBookings, actions);
++
++      if (typeof toast === 'function') toast('✓ Batch submitted for client review');
++
++      _afterBookingAction();
++      setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
++
++    } catch (e) {
++      console.error('Failed to submit batch modifications:', e);
++      if (typeof toast === 'function') toast('Error submitting batch');
++      if (batchCard) {
++        batchCard.style.opacity = '1';
++        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
++      }
++    }
++  };
++
++  // Batch decline: decline all bookings in batch
++  window.declineBatchBookings = async function(batchKey) {
++    var sb = getSB();
++    if (!sb) return;
++    if (!confirm('Are you sure you want to decline ALL bookings in this batch?')) return;
++
++    try {
++      var batchBookings = _bookingPanelState.requests.filter(function(r) {
++        return r.status === 'pending' &&
++               r.client_id &&
++               r.created_at &&
++               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
++      });
++
++      if (batchBookings.length === 0) {
++        if (typeof toast === 'function') toast('Batch not found');
++        return;
++      }
++
++      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
++      if (batchCard) {
++        batchCard.style.opacity = '0.7';
++        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
++      }
++
++      var updatePromises = batchBookings.map(function(bk) {
++        return sb.from('booking_requests').update({ status: 'declined' }).eq('id', bk.id);
++      });
++
++      await Promise.all(updatePromises);
++
++      var actions = batchBookings.map(function(bk) {
++        return { id: bk.id, action: 'removed' };
++      });
++
++      await _sendBatchNotification(batchBookings, actions);
++
++      if (typeof toast === 'function') toast('Batch declined. Client notified.');
++      _afterBookingAction();
++      setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
++
++    } catch (e) {
++      console.error('Failed to decline batch:', e);
++      if (typeof toast === 'function') toast('Error declining batch');
++      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
++      if (batchCard) {
++        batchCard.style.opacity = '1';
++        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
++      }
++    }
++  };
++
+   window.acceptBookingRequest = async function(requestId) {
+     var sb = getSB();
+     if (!sb) return;
+@@ -4539,4 +5145,16 @@
+     }, 'modified');
+   };
+ 
++  // ════════════════════════════════════════════════════════════
++  // PUBLIC API
++  // ════════════════════════════════════════════════════════════
++  window.HHP_Booking = {
++    refreshPricing: loadPricingFromDB,
++    refreshHolidays: function() {
++      var sb = getSB();
++      if (sb) return loadHolidaysFromDB(sb);
++      return Promise.resolve();
++    }
++  };
++
+ })();

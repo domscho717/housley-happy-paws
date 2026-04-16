@@ -124,6 +124,12 @@
     var heroCol = document.querySelector('.hero-photo-col');
     if (!heroCol) return;
 
+    // Clear old carousel timer if it exists
+    if (window._hhpHeroCarouselTimer) {
+      clearInterval(window._hhpHeroCarouselTimer);
+      window._hhpHeroCarouselTimer = null;
+    }
+
     // Check for real hero photo
     var realHero = null;
     if (window.HHP_Photos && window.HHP_Photos.photos && window.HHP_Photos.photos.hero) {
@@ -230,10 +236,10 @@
     rightArr.addEventListener('click', function() { goToHeroSlide(currentHero + 1); });
 
     // Auto-advance
-    var heroTimer = setInterval(function() { goToHeroSlide(currentHero + 1); }, 6000);
-    container.addEventListener('mouseenter', function() { clearInterval(heroTimer); });
+    window._hhpHeroCarouselTimer = setInterval(function() { goToHeroSlide(currentHero + 1); }, 6000);
+    container.addEventListener('mouseenter', function() { clearInterval(window._hhpHeroCarouselTimer); });
     container.addEventListener('mouseleave', function() {
-      heroTimer = setInterval(function() { goToHeroSlide(currentHero + 1); }, 6000);
+      window._hhpHeroCarouselTimer = setInterval(function() { goToHeroSlide(currentHero + 1); }, 6000);
     });
 
     // Touch / swipe support
@@ -438,7 +444,11 @@
 
       // Slow-change the banner image
       var immIdx = 0;
-      setInterval(function() {
+      // Clear old banner timer if it exists
+      if (window._hhpGalleryBannerTimer) {
+        clearInterval(window._hhpGalleryBannerTimer);
+      }
+      window._hhpGalleryBannerTimer = setInterval(function() {
         immIdx = (immIdx + 1) % photos.length;
         bannerInner.style.opacity = '0';
         setTimeout(function() {
@@ -490,7 +500,16 @@
   function openLightbox(photo, allPhotos) {
     var overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;';
-    overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+
+    // Create a close function that handles all cleanup
+    var closeLightbox = function() {
+      if (overlay.parentElement) {
+        document.body.removeChild(overlay);
+      }
+      document.removeEventListener('keydown', keyHandler);
+    };
+
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) closeLightbox(); });
 
     var img = document.createElement('img');
     img.src = getOptImg(photo.public_id, 1600);
@@ -500,7 +519,7 @@
     var closeBtn = document.createElement('button');
     closeBtn.innerHTML = '&times;';
     closeBtn.style.cssText = 'position:absolute;top:20px;right:24px;background:none;border:none;color:white;font-size:2.5rem;cursor:pointer;';
-    closeBtn.addEventListener('click', function() { document.body.removeChild(overlay); });
+    closeBtn.addEventListener('click', closeLightbox);
     overlay.appendChild(closeBtn);
 
     // Caption / date
@@ -511,8 +530,8 @@
     if (photo.client_name) caption.textContent += ' — ' + photo.client_name;
     overlay.appendChild(caption);
 
-    // Keyboard close
-    var keyHandler = function(e) { if (e.key === 'Escape') { document.body.removeChild(overlay); document.removeEventListener('keydown', keyHandler); } };
+    // Keyboard close — use closeLightbox function to ensure listener is removed
+    var keyHandler = function(e) { if (e.key === 'Escape') { closeLightbox(); } };
     document.addEventListener('keydown', keyHandler);
 
     document.body.appendChild(overlay);

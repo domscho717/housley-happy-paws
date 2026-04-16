@@ -19,26 +19,30 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // Check if user is owner or staff
-  const supabaseCheck = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
-  const { data: profile } = await supabaseCheck
-    .from('profiles')
-    .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (!profile || (profile.role !== 'owner' && profile.role !== 'staff')) {
-    return res.status(403).json({ error: 'Forbidden: owner or staff access required' });
-  }
-
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const supabase = createClient(
     process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
 
+  // Check if user is owner, staff, OR a client charging their own card
+  // Use service role client to bypass RLS on profiles table
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const { clientProfileId } = req.body || {};
+  const isOwnerOrStaff = callerProfile && (callerProfile.role === 'owner' || callerProfile.role === 'staff');
+  const isSelfCharge = callerProfile && callerProfile.role === 'client' && user.id === clientProfileId;
+
+  if (!isOwnerOrStaff && !isSelfCharge) {
+    return res.status(403).json({ error: 'Forbidden: owner/staff access or self-charge required' });
+  }
+
   try {
-    const { bookingRequestId, amount, service, clientProfileId } = req.body;
+    const { bookingRequestId, amount, service, batchBookingIds } = req.body;
     if (!amount || !clientProfileId) {
       return res.status(400).json({ error: 'amount and clientProfileId are required' });
     }
@@ -99,7 +103,9 @@ module.exports = async function handler(req, res) {
     const amountCents = Math.round(amount * 100);
     const devShareCents = connectedAccountId ? Math.round(amountCents * 0.15) : 0;
 
-    console.log(`[charge] Charging $${amount} immediately for ${service || 'Pet Care'}`);
+    const isBatch = Array.isArray(batchBookingIds) && batchBookingIds.length > 1;
+    const batchLabel = isBatch ? ` (${batchBookingIds.length} appointments)` : '';
+    console.log(`[charge] Charging $${amount} immediately for ${service || 'Pet Care'}${batchLabel}`);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
@@ -109,9 +115,11 @@ module.exports = async function handler(req, res) {
       off_session: true,
       confirm: true,
       capture_method: 'automatic',
-      description: `Housley Happy Paws — ${service || 'Pet Care Service'}`,
+      description: `Housley Happy Paws — ${service || 'Pet Care Service'}${batchLabel}`,
       metadata: {
-        booking_request_id: bookingRequestId || '',
+        booking_request_id: bookingRequestId || (isBatch ? batchBookingIds[0] : ''),
+        batch_booking_ids: isBatch ? batchBookingIds.join(',') : '',
+        batch_size: isBatch ? String(batchBookingIds.length) : '1',
         client_name: profile.full_name || '',
         service: service || '',
       },
@@ -137,6 +145,10 @@ module.exports = async function handler(req, res) {
         }
       }
 
+      const paymentNote = isBatch
+        ? `Batch charge — ${batchBookingIds.length} appointments`
+        : bookingRequestId ? 'Charged at acceptance (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Charged';
+
       await supabase.from('payments').insert({
         stripe_session_id: paymentIntent.id,
         client_email: profile.email,
@@ -145,16 +157,25 @@ module.exports = async function handler(req, res) {
         amount: amount,
         service: service || 'Pet Care',
         status: 'paid',
-        notes: bookingRequestId ? 'Charged at acceptance (Request #' + bookingRequestId.slice(0, 8) + ')' : 'Charged',
+        notes: paymentNote,
         paid_at: new Date().toISOString(),
       });
     }
 
-    if (bookingRequestId && paymentIntent.status === 'succeeded') {
-      await supabase
-        .from('booking_requests')
-        .update({ payment_intent_id: paymentIntent.id })
-        .eq('id', bookingRequestId);
+    // Link payment intent to booking request(s)
+    if (paymentIntent.status === 'succeeded') {
+      if (isBatch) {
+        // Update all bookings in the batch with the same payment intent
+        await supabase
+          .from('booking_requests')
+          .update({ payment_intent_id: paymentIntent.id })
+          .in('id', batchBookingIds);
+      } else if (bookingRequestId) {
+        await supabase
+          .from('booking_requests')
+          .update({ payment_intent_id: paymentIntent.id })
+          .eq('id', bookingRequestId);
+      }
     }
 
     res.status(200).json({

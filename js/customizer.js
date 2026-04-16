@@ -412,6 +412,15 @@
       var ov=document.getElementById('cust-picker-ov');
       if(ov){ov.style.opacity='0';var s=document.getElementById('cust-picker-sh');if(s)s.style.transform='translateY(100%)';setTimeout(function(){if(ov.parentElement)ov.remove();},300);}
       if(btn){btn.textContent='✏️ Customize';btn.style.background='none';btn.style.color='var(--mid)';btn.style.borderColor='var(--border)';}
+      // Cleanup event listeners
+      if(window._hhpCustomizerDragListeners){
+        window._hhpCustomizerDragListeners.forEach(function(l){l.el.removeEventListener(l.evt,l.fn,l.opts);});
+        window._hhpCustomizerDragListeners=null;
+      }
+      if(window._hhpCustomizerPickerListeners){
+        window._hhpCustomizerPickerListeners.forEach(function(l){l.el.removeEventListener(l.evt,l.fn,l.opts);});
+        window._hhpCustomizerPickerListeners=null;
+      }
     }
   }
 
@@ -476,12 +485,18 @@
         if(currentY>100){_toggleEdit();}
         else{sh.style.transform='translateY(0)';ov.style.opacity='1';}
       }
-      handle.addEventListener('touchstart',onDragStart,{passive:true});
-      handle.addEventListener('touchmove',onDragMove,{passive:true});
-      handle.addEventListener('touchend',onDragEnd);
-      handle.addEventListener('mousedown',onDragStart);
-      document.addEventListener('mousemove',onDragMove);
-      document.addEventListener('mouseup',onDragEnd);
+      // Store listener references for cleanup
+      var _dragListeners = [
+        { el: handle, evt: 'touchstart', fn: onDragStart, opts: {passive:true} },
+        { el: handle, evt: 'touchmove', fn: onDragMove, opts: {passive:true} },
+        { el: handle, evt: 'touchend', fn: onDragEnd },
+        { el: handle, evt: 'mousedown', fn: onDragStart },
+        { el: document, evt: 'mousemove', fn: onDragMove },
+        { el: document, evt: 'mouseup', fn: onDragEnd }
+      ];
+      _dragListeners.forEach(function(l) { l.el.addEventListener(l.evt, l.fn, l.opts); });
+      // Store for cleanup when edit mode closes
+      window._hhpCustomizerDragListeners = _dragListeners;
     }
 
     // ── Widget reorder drag ──
@@ -551,12 +566,18 @@
       _savePickerOrder(portal);
     }
 
-    list.addEventListener('mousedown',onStart);
-    list.addEventListener('touchstart',onStart,{passive:false});
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('touchmove',onMove,{passive:false});
-    document.addEventListener('mouseup',onEnd);
-    document.addEventListener('touchend',onEnd);
+    // Store listener references for cleanup
+    var _pickerListeners = [
+      { el: list, evt: 'mousedown', fn: onStart },
+      { el: list, evt: 'touchstart', fn: onStart, opts: {passive:false} },
+      { el: document, evt: 'mousemove', fn: onMove },
+      { el: document, evt: 'touchmove', fn: onMove, opts: {passive:false} },
+      { el: document, evt: 'mouseup', fn: onEnd },
+      { el: document, evt: 'touchend', fn: onEnd }
+    ];
+    _pickerListeners.forEach(function(l) { l.el.addEventListener(l.evt, l.fn, l.opts); });
+    // Store for cleanup when picker is closed
+    window._hhpCustomizerPickerListeners = _pickerListeners;
   }
 
   function _savePickerOrder(portal){
@@ -851,7 +872,7 @@
       var lim=sz==='full'?8:2;
       var{data}=await sb.from('payments').select('amount,created_at,status').eq('client_id',u.id).order('created_at',{ascending:false}).limit(lim);
       var h='<div style="font-weight:600;font-size:0.82rem;margin-bottom:8px">Payment History</div>';
-      if(data&&data.length){data.forEach(function(p){var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var st=p.status==='succeeded'?'✅':'⏳';h+='<div style="display:flex;justify-content:space-between;padding:6px;margin-bottom:4px;font-size:0.78rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'c\',\'c-bill\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span>'+st+' '+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)).toFixed(2)+'</span></div>';});}
+      if(data&&data.length){data.forEach(function(p){var d=new Date(p.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'});var isTip=p.service&&p.service.indexOf('(Tip)')>-1;var st=isTip?'\u{1F49A}':(p.status==='succeeded'||p.status==='paid')?'\u2705':'\u{1F504}';h+='<div style="display:flex;justify-content:space-between;padding:6px;margin-bottom:4px;font-size:0.78rem;border-bottom:1px solid var(--border);cursor:pointer;border-radius:4px;transition:background 0.15s" onclick="sTab(\'c\',\'c-bill\')" onmouseover="this.style.background=\'rgba(0,0,0,0.02)\'" onmouseout="this.style.background=\'\'"><span>'+st+' '+d+'</span><span style="font-weight:600;color:var(--forest)">$'+((p.amount||0)).toFixed(2)+'</span></div>';});}
       else{h+='<div style="color:var(--mid);font-size:0.8rem">No payments yet</div>';}
       h+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"><a href="javascript:sTab(\'c\',\'c-bill\')" style="color:var(--forest);font-weight:600;font-size:0.78rem;text-decoration:none;cursor:pointer">💳 Manage Card on File</a></div>';
       return h;
@@ -1503,7 +1524,7 @@
       if(!pet){if(typeof toast==='function')toast('Pet not found');return;}
       // Get owner info
       var ownerName='';
-      if(pet.owner_id){var{data:owner}=await sb.from('profiles').select('full_name').eq('user_id',pet.owner_id).single();if(owner)ownerName=owner.full_name;}
+      if(pet.owner_id){var{data:owner}=await sb.from('profiles').select('full_name').eq('user_id',pet.owner_id).maybeSingle();if(owner)ownerName=owner.full_name;}
       // Build modal
       var old=document.getElementById('pet-profile-modal');if(old)old.remove();
       var ov=document.createElement('div');ov.id='pet-profile-modal';

@@ -51,11 +51,16 @@
   // ── Active Deals Cache — fetched from Supabase, auto-applied to pricing ──
   var _activeDealsCache = [];
   var _dealsLoaded = false;
+  var _dealsFetching = false;  // Prevent concurrent fetches
   var _clientUsedDealIds = []; // deal IDs the current client has already redeemed
 
   async function _fetchActiveDeals() {
+    // Prevent concurrent calls
+    if (_dealsFetching) return;
+    _dealsFetching = true;
+
     var sb = getSB();
-    if (!sb) return;
+    if (!sb) { _dealsFetching = false; return; }
     try {
       var clientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null);
 
@@ -70,12 +75,15 @@
       _dealsLoaded = true;
       _clientUsedDealIds = results[1] && results[1].data ? results[1].data.map(function(r) { return r.deal_id; }) : [];
     } catch (e) { console.warn('Failed to load active deals:', e); }
+    finally { _dealsFetching = false; }
   }
 
   // Public refresh function called when owner adds/deactivates deals
   window._refreshActiveDeals = function() {
     _fetchActiveDeals().then(function() {
       if (typeof window._brmUpdatePrice === 'function') window._brmUpdatePrice();
+    }).catch(function(err) {
+      console.warn('Failed to refresh deals:', err);
     });
   };
 
@@ -88,13 +96,17 @@
         // Auth not ready — schedule retries
         setTimeout(_initDeals, 2000);
       }
+    }).catch(function(err) {
+      console.warn('Failed to initialize deals:', err);
+      // Retry after delay
+      setTimeout(_initDeals, 5000);
     });
     // Subscribe to realtime deal changes so pricing updates everywhere automatically
     var sb = getSB();
     if (sb && sb.channel && !window._dealsRealtimeSubscribed) {
       try {
         window._dealsRealtimeSubscribed = true;
-        sb.channel('deals-realtime')
+        window._dealsRealtimeChannel = sb.channel('deals-realtime')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, function() {
             _fetchActiveDeals();
           })
@@ -268,8 +280,8 @@
   // 3. BOOKING REQUEST MODAL & FORM
   // ════════════════════════════════════════════════════════════
 
-  // Services list for the form
-  var SERVICES = [
+  // Fallback services list (used if Supabase fetch fails)
+  var DEFAULT_SERVICES = [
     { name: 'Dog Walking - 30 min', price: '$25', base: 25, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Dog Walking - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Dog Walking', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Drop-In Visit - 30 min', price: '$25', base: 25, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
@@ -280,6 +292,9 @@
     { name: 'House Sitting (Cat)', price: '$80/night', base: 80, type: 'cat', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 0, holiday: 10 },
     { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
   ];
+
+  // Current services array — will be populated from DB or fallback to DEFAULT_SERVICES
+  var SERVICES = DEFAULT_SERVICES.slice();
 
   // Holiday dates (month-day format, add more as needed)
   var HOLIDAYS = [
@@ -302,6 +317,152 @@
     if (!dateStr) return false;
     var md = dateStr.slice(5); // "YYYY-MM-DD" -> "MM-DD"
     return HOLIDAYS.indexOf(md) !== -1;
+  }
+
+  // Check if ANY date in a range contains a holiday (for house sitting)
+  function hasHolidayInRange(startStr, endStr) {
+    if (!startStr) return false;
+    if (!endStr) return isHoliday(startStr);
+    var s = new Date(startStr + 'T12:00:00');
+    var e = new Date(endStr + 'T12:00:00');
+    for (var d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+      var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      if (isHoliday(key)) return true;
+    }
+    return false;
+  }
+
+  // Load holidays from Supabase table
+  async function loadHolidaysFromDB(sb) {
+    try {
+      var { data, error } = await sb.from('holidays')
+        .select('date_mmdd')
+        .order('sort_order', { ascending: true });
+      if (error) throw error;
+      if (data && data.length > 0) {
+        HOLIDAYS = data.map(function(r) { return r.date_mmdd; });
+        window._holidayData = data;
+        // Clear the availability.js holiday cache so calendars pick up DB holidays
+        if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
+        console.log('✓ Holidays loaded from DB (' + HOLIDAYS.length + ' dates)');
+      }
+    } catch (e) {
+      console.warn('Failed to load holidays from DB; using defaults:', e);
+    }
+  }
+
+  // Load pricing from Supabase table service_pricing
+  // Helper: wait for Supabase library to load (it's async)
+  function waitForSupabase(maxWait) {
+    return new Promise(function(resolve) {
+      if (window.supabase && window.supabase.createClient) { resolve(true); return; }
+      var elapsed = 0;
+      var iv = setInterval(function() {
+        elapsed += 100;
+        if (window.supabase && window.supabase.createClient) { clearInterval(iv); resolve(true); }
+        else if (elapsed >= (maxWait || 5000)) { clearInterval(iv); resolve(false); }
+      }, 100);
+    });
+  }
+
+  async function loadPricingFromDB() {
+    var sb = getSB();
+    // Pricing is public (RLS allows anyone to read), so create a lightweight client
+    // if auth isn't ready yet — don't skip just because user isn't logged in
+    if (!sb) {
+      await waitForSupabase(5000);
+      try {
+        if (window.supabase && window.supabase.createClient) {
+          if (!window._hhpPricingSB) {
+            window._hhpPricingSB = window.supabase.createClient(sbUrl, sbKey);
+          }
+          sb = window._hhpPricingSB;
+        }
+      } catch(e) {}
+    }
+    if (!sb) {
+      console.warn('Supabase client not available; using default services');
+      return;
+    }
+
+    try {
+      var { data, error } = await sb.from('service_pricing')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        console.warn('No service pricing data found; using default services');
+        return;
+      }
+
+      // Map DB rows to SERVICES format
+      var fetchedServices = data.map(function(row) {
+        // Infer type from service_key
+        var type = 'dog';
+        if (row.service_key.indexOf('cat') !== -1) {
+          type = 'cat';
+        } else if (row.service_key === 'meet_greet') {
+          type = 'any';
+        } else if (row.service_key === 'housesit_mixed') {
+          type = 'both';
+        }
+
+        // Infer group from service_key
+        var group = 'Dog Walking';
+        if (row.service_key.indexOf('dropin') !== -1) {
+          group = 'Drop-In Visit';
+        } else if (row.service_key.indexOf('housesit') !== -1) {
+          group = 'House Sitting';
+        } else if (row.service_key === 'meet_greet') {
+          group = 'Meet & Greet';
+        }
+
+        // Format price display
+        var priceStr = 'Free';
+        if (row.base_price > 0) {
+          priceStr = '$' + row.base_price + (row.unit === 'night' ? '/night' : '');
+        }
+
+        // For housesit_mixed, set extra3plus to 35 (all additional at $35/night)
+        var extra3plus = 0;
+        if (row.service_key.indexOf('housesit') !== -1) {
+          extra3plus = 35;
+        }
+
+        return {
+          name: row.service_label,
+          price: priceStr,
+          base: row.base_price,
+          type: type,
+          group: group,
+          extraPet: row.extra_pet_fee || 0,
+          extraCat: row.extra_cat_fee || 0,
+          extra3plus: extra3plus,
+          puppy: row.puppy_surcharge || 0,
+          holiday: row.holiday_surcharge || 0
+        };
+      });
+
+      // Update global SERVICES and store raw data
+      SERVICES = fetchedServices;
+      window._servicePricing = data;
+
+      // Also update SERVICE_PRICES map used for Stripe checkout
+      SERVICES.forEach(function(svc) {
+        if (svc.base > 0) {
+          SERVICE_PRICES[svc.name] = parseFloat(svc.base);
+        }
+      });
+
+      console.log('✓ Service pricing loaded from DB (' + SERVICES.length + ' services)');
+
+      // Also load holidays from DB using the same client
+      await loadHolidaysFromDB(sb);
+    } catch (e) {
+      console.warn('Failed to load service pricing from DB; using default services:', e);
+      SERVICES = DEFAULT_SERVICES.slice();
+    }
   }
 
   function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType, nights) {
@@ -356,11 +517,11 @@
       parts.push('Puppy surcharge: +$' + svc.puppy + (isMultiNight ? '/night x ' + nights + ' = $' + puppyCost : ''));
     }
 
-    // Holiday surcharge — per night for house sitting
+    // Holiday surcharge — applies to ALL nights if any date in range is a holiday
     var holidayCost = 0;
     if (isHolidayDate && svc.holiday > 0) {
       holidayCost = svc.holiday * (isMultiNight ? nights : 1);
-      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' = $' + holidayCost : ''));
+      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' nights = $' + holidayCost : ''));
     }
 
     var total = (isMultiNight ? baseRate * nights : baseRate) + extraPetCost + puppyCost + holidayCost;
@@ -427,11 +588,11 @@
       '      <div class="brm-row" id="brm-hs-times-row">',
       '        <div class="brm-col">',
       '          <label class="brm-label">Arrival Time *</label>',
-      '          <select id="brm-hs-arrival" class="brm-input"><option value="">Select arrival time</option></select>',
+      '          <select id="brm-hs-arrival" class="brm-input">' + (function(){var o='<option value="">Select arrival time</option>';for(var h=5;h<=22;h++){for(var m=0;m<60;m+=30){var hr12=h>12?h-12:(h===0?12:h);var ampm=h>=12?'PM':'AM';var mm=m===0?'00':'30';o+='<option value="'+((h<10?'0':'')+h)+':'+mm+'">'+hr12+':'+mm+' '+ampm+'</option>';}}return o;})() + '</select>',
       '        </div>',
       '        <div class="brm-col">',
       '          <label class="brm-label">Departure Time *</label>',
-      '          <select id="brm-hs-departure" class="brm-input"><option value="">Select departure time</option></select>',
+      '          <select id="brm-hs-departure" class="brm-input">' + (function(){var o='<option value="">Select departure time</option>';for(var h=5;h<=22;h++){for(var m=0;m<60;m+=30){var hr12=h>12?h-12:(h===0?12:h);var ampm=h>=12?'PM':'AM';var mm=m===0?'00':'30';o+='<option value="'+((h<10?'0':'')+h)+':'+mm+'">'+hr12+':'+mm+' '+ampm+'</option>';}}return o;})() + '</select>',
       '        </div>',
       '      </div>',
       '      <div id="brm-hs-nights-row" style="text-align:center;padding:8px 0;font-size:0.9rem;font-weight:600;color:#6b5c4d"></div>',
@@ -537,7 +698,8 @@
     // Resolve full service name from group dropdown + duration dropdown
     window._resolveBookingServiceName = resolveServiceName;
     function resolveServiceName() {
-      var svcGroup = document.getElementById('brm-service').value;
+      var svcEl = document.getElementById('brm-service');
+      var svcGroup = svcEl ? svcEl.value : '';
       if (!svcGroup) return '';
       var isMG = svcGroup === 'Meet & Greet';
       if (isMG) return svcGroup;
@@ -558,7 +720,8 @@
 
     // Show/hide duration dropdown based on service
     function toggleDurationField() {
-      var svcGroup = document.getElementById('brm-service').value;
+      var svcEl = document.getElementById('brm-service');
+      var svcGroup = svcEl ? svcEl.value : '';
       var durCol = document.getElementById('brm-duration-col');
       if (!durCol) return;
       var isHS = svcGroup.toLowerCase().indexOf('house sitting') !== -1;
@@ -575,7 +738,10 @@
       var petType = document.getElementById('brm-pettype').value;
       var isPuppy = document.getElementById('brm-puppy').value === 'true';
       var dateVal = document.getElementById('brm-date').value;
-      var holidayFlag = isHoliday(dateVal);
+      var endDateVal = document.getElementById('brm-enddate').value;
+      var isHSSvc = svcName && svcName.toLowerCase().indexOf('house sitting') !== -1;
+      // House Sitting: check entire date range for holidays; others: just the single date
+      var holidayFlag = isHSSvc ? hasHolidayInRange(dateVal, endDateVal) : isHoliday(dateVal);
 
       var estimateEl = document.getElementById('brm-price-estimate');
       var breakdownEl = document.getElementById('brm-price-breakdown');
@@ -600,8 +766,8 @@
       }
 
       var nights = 1;
-      if (svcName.toLowerCase().indexOf('house sitting') !== -1) {
-        nights = calcNights(document.getElementById('brm-date').value, document.getElementById('brm-enddate').value);
+      if (isHSSvc) {
+        nights = calcNights(dateVal, endDateVal);
       }
       var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights);
       if (estimateEl) estimateEl.style.display = 'block';
@@ -760,7 +926,8 @@
             dealNote.className = 'brm-deal-note';
             dealNote.style.cssText = 'background:linear-gradient(135deg,rgba(61,90,71,0.08),rgba(61,90,71,0.03));border:1px solid rgba(61,90,71,0.2);border-radius:8px;padding:8px 12px;margin-top:8px';
             var discLabel = activeDeal.discount_type === 'percent' ? activeDeal.discount_value + '% off' : '$' + Number(activeDeal.discount_value).toFixed(0) + ' off';
-            dealNote.innerHTML = '<div style="font-weight:700;font-size:0.82rem;color:var(--forest)">🏷️ ' + (activeDeal.name || 'Special') + ' — ' + discLabel + '</div>' +
+            var dealNameEscaped = (activeDeal.name || 'Special').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            dealNote.innerHTML = '<div style="font-weight:700;font-size:0.82rem;color:var(--forest)">🏷️ ' + dealNameEscaped + ' — ' + discLabel + '</div>' +
               '<div style="font-size:0.78rem;color:var(--forest)">You save $' + dealResult.savingsAmount.toFixed(2) + '!</div>';
             breakdownEl.appendChild(dealNote);
           }
@@ -911,13 +1078,15 @@
       }
 
     }
+    // Expose globally so openBookingModal can call directly (avoids setTimeout race)
+    window._toggleHSFields = toggleHouseSittingFields;
 
     // Attach listeners for live update
     setTimeout(function() {
       ['brm-service', 'brm-date', 'brm-enddate'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener('change', function() {
-          if (id === 'brm-service') { toggleHouseSittingFields(); updateEndTimeDisplay(); }
+          if (id === 'brm-service') { toggleHouseSittingFields(); updateEndTimeDisplay(); if (typeof window._brmFilterPetsByService === 'function') window._brmFilterPetsByService(); }
           if (id === 'brm-date' || id === 'brm-enddate') toggleHouseSittingFields(); // update end date min/default + nights count
           updatePriceEstimate();
         });
@@ -996,6 +1165,8 @@
       html += '</select>';
       // No per-slot X button — remove the whole date card to redo times
       html += '</div>';
+      // "Apply to all dates" button — appears after selecting a time when 2+ cards exist
+      html += '<div class="brm-apply-all-wrap" data-tsid="' + tsId + '" style="display:none;margin-top:4px;margin-bottom:2px"></div>';
       // Per-slot recurring toggle
       html += '<div style="margin-top:4px">';
       html += '<label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;cursor:pointer;color:#8c6b4a;font-weight:600">';
@@ -1063,6 +1234,8 @@
       if (msg) msg.style.display = cards.length > 0 ? 'none' : '';
       // Update selected-dates chip strip
       _updateSelectedChips();
+      // Check if "Apply to all" button should show on first card
+      if (typeof window._brmCheckApplyAll === 'function') window._brmCheckApplyAll();
     }
 
     // Render a row of small date chips above the calendar showing selected dates
@@ -1146,6 +1319,17 @@
         '<button type="button" onclick="window._brmAddTimeSlot(' + idx + ')" style="background:none;border:1px dashed #c8963e;color:#c8963e;border-radius:6px;padding:6px 14px;font-size:0.78rem;font-weight:600;cursor:pointer;margin-top:2px">+ Add another time</button>';
       container.appendChild(card);
 
+      // Sort date cards chronologically (closest date first)
+      window._brmDateCards.sort(function(a, b) {
+        if (!a || !b) return 0;
+        return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0);
+      });
+      window._brmDateCards.forEach(function(c) {
+        if (!c) return;
+        var el = document.getElementById('brm-dc-' + c.idx);
+        if (el) container.appendChild(el);
+      });
+
       // Clear the date input for next selection
       dateInput.value = '';
       dateInput._lastVal = '';
@@ -1188,6 +1372,73 @@
       _syncPrimaryFromCards();
       updatePriceEstimate();
     };
+
+    // ── "Apply to all dates" feature (first card only) ──
+    // Called from _syncPrimaryFromCards on every time change, card add/remove
+    window._brmCheckApplyAll = function() {
+      // Hide all existing apply-all buttons first
+      document.querySelectorAll('.brm-apply-all-wrap').forEach(function(w) {
+        w.style.display = 'none';
+        w.innerHTML = '';
+      });
+      var cards = (window._brmDateCards || []).filter(function(c) { return !!c; });
+      if (cards.length < 2) return;
+      var firstCard = cards[0];
+      var sel = document.getElementById('brm-dc-time-' + firstCard.idx);
+      if (!sel || !sel.value) return;
+      var timeVal = sel.value;
+      var slot = sel.closest('.brm-time-slot');
+      if (!slot) return;
+      var tsId = slot.getAttribute('data-tsid');
+      var wrap = slot.querySelector('.brm-apply-all-wrap[data-tsid="' + tsId + '"]');
+      if (!wrap) return;
+      var parts = timeVal.split(':');
+      var h = parseInt(parts[0], 10);
+      var m = parts[1];
+      var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      var label = hr12 + ':' + m + ' ' + ampm;
+      wrap.style.display = 'block';
+      wrap.innerHTML = '<button type="button" onclick="window._brmApplyTimeToAll()' +
+        '" style="background:none;border:1px solid #c8963e;color:#c8963e;border-radius:6px;' +
+        'padding:5px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;' +
+        'transition:all 0.15s"' +
+        ' onmouseenter="this.style.background=\'#c8963e\';this.style.color=\'#fff\'"' +
+        ' onmouseleave="this.style.background=\'none\';this.style.color=\'#c8963e\'"' +
+        ' ontouchstart="this.style.background=\'#c8963e\';this.style.color=\'#fff\'"' +
+        '>Apply ' + label + ' to all dates</button>';
+    };
+
+    window._brmApplyTimeToAll = function() {
+      var cards = (window._brmDateCards || []).filter(function(c) { return !!c; });
+      if (cards.length < 2) return;
+      var firstSel = document.getElementById('brm-dc-time-' + cards[0].idx);
+      if (!firstSel || !firstSel.value) return;
+      var timeVal = firstSel.value;
+      cards.forEach(function(c, i) {
+        if (i === 0) return;
+        var sel = document.getElementById('brm-dc-time-' + c.idx);
+        if (sel) sel.value = timeVal;
+      });
+      document.querySelectorAll('.brm-apply-all-wrap').forEach(function(w) {
+        w.style.display = 'none';
+        w.innerHTML = '';
+      });
+      _syncPrimaryFromCards();
+      updatePriceEstimate();
+      var parts = timeVal.split(':');
+      var h = parseInt(parts[0], 10);
+      var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      if (typeof toast === 'function') toast('Time set to ' + hr12 + ':' + parts[1] + ' ' + ampm + ' for all dates');
+    };
+
+    // Event delegation fallback for mobile — catches time selects that inline onchange misses
+    document.addEventListener('change', function(e) {
+      if (e.target && e.target.classList.contains('brm-dc-time-sel')) {
+        if (typeof window._brmCheckApplyAll === 'function') window._brmCheckApplyAll();
+      }
+    });
 
     // ── Visual calendar date picker ──
     window._buildBrmCalPicker = function() {
@@ -1909,6 +2160,15 @@
           }
           // Trigger change to show duration / house sitting fields
           sel.dispatchEvent(new Event('change'));
+          // Direct HS setup — avoids race condition when listeners are in setTimeout
+          try {
+            var _isHS = (sel.value || '').toLowerCase().indexOf('house sitting') !== -1;
+            var _multiSec = document.getElementById('brm-multidate-section');
+            var _hsRow = document.getElementById('brm-hs-date-row');
+            if (_multiSec) _multiSec.style.display = _isHS ? 'none' : '';
+            if (_hsRow) _hsRow.style.display = _isHS ? '' : 'none';
+            if (_isHS && typeof window._toggleHSFields === 'function') window._toggleHSFields();
+          } catch(hsErr) { console.warn('HS setup error:', hsErr); }
         } else {
           // Restore full dropdown (modal is reused, may have been filtered by a previous open)
           var seen = {};
@@ -1929,18 +2189,33 @@
       if (datesListEl) datesListEl.innerHTML = '';
       var addDateInput = document.getElementById('brm-add-date-input');
       if (addDateInput) { addDateInput.value = ''; addDateInput.defaultValue = ''; }
-      // Also reset House Sitting date range inputs
+      // Also reset House Sitting date range inputs + calendar range state
+      window._hsRangeStart = null;
+      window._hsRangeEnd = null;
+      window._hsCalYear = new Date().getFullYear();
+      window._hsCalMonth = new Date().getMonth();
       var hsDateEl = document.getElementById('brm-date');
       var hsEndEl = document.getElementById('brm-enddate');
       if (hsDateEl) { hsDateEl.value = ''; hsDateEl.defaultValue = ''; }
       if (hsEndEl) { hsEndEl.value = ''; hsEndEl.defaultValue = ''; }
+      // Reset arrival/departure time selects
+      var hsArrReset = document.getElementById('brm-hs-arrival');
+      var hsDepReset = document.getElementById('brm-hs-departure');
+      if (hsArrReset) hsArrReset.selectedIndex = 0;
+      if (hsDepReset) hsDepReset.selectedIndex = 0;
+      // Rebuild HS calendar with fresh state
+      try {
+        if (typeof window._buildHsCalendar === 'function') window._buildHsCalendar();
+      } catch(calErr) { console.warn('HS calendar build error:', calErr); }
       // Show the helper message and rebuild calendar picker
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = '';
       // Reset calendar picker to current month and rebuild
       window._brmCalPickerYear = new Date().getFullYear();
       window._brmCalPickerMonth = new Date().getMonth();
-      if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
+      try {
+        if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
+      } catch(calErr2) { console.warn('Cal picker build error:', calErr2); }
 
       // Pre-fill and show greeting if logged in
       if (window.HHP_Auth && window.HHP_Auth.currentUser) {
@@ -2064,6 +2339,36 @@
       // Show error message (account required, no guest fallback)
       container.innerHTML = '<div style="color:#a66;font-size:0.82rem">Could not load pet profiles. Please try again.</div>';
     }
+
+    // Filter pets based on selected service (outside try/catch so pet load isn't blocked)
+    try { if (typeof window._brmFilterPetsByService === 'function') window._brmFilterPetsByService(); } catch(e) { console.warn('Pet filter error:', e); }
+  };
+
+  // ── FILTER PET CHECKBOXES BY SERVICE TYPE ──
+  // Dog Walking = dogs only (cats can't go on walks), everything else = all pets
+  window._brmFilterPetsByService = function() {
+    var svcEl = document.getElementById('brm-service');
+    var svcGroup = svcEl ? svcEl.value : '';
+    var labels = document.querySelectorAll('.brm-pet-checkbox-label');
+    if (!labels.length) return;
+
+    var isDogOnly = svcGroup.toLowerCase().indexOf('dog walk') !== -1;
+
+    labels.forEach(function(label) {
+      var cb = label.querySelector('.brm-pet-cb');
+      if (!cb) return;
+      var species = cb.getAttribute('data-species') || 'dog';
+
+      if (isDogOnly && species === 'cat') {
+        label.style.display = 'none';
+        cb.checked = false;
+      } else {
+        label.style.display = '';
+      }
+    });
+
+    // Re-run pet selection update to recalculate totals after filtering
+    window._brmUpdatePetSelection();
   };
 
   // ── UPDATE HIDDEN FIELDS WHEN PET CHECKBOXES CHANGE ──
@@ -2259,13 +2564,14 @@
     }
 
     // Calculate price (with nights for House Sitting)
-    var holidayFlag = isHoliday(date);
     var petCombo = document.getElementById('brm-petcombo') ? document.getElementById('brm-petcombo').value : '';
     var isHouseSitting = service.toLowerCase().indexOf('house sitting') !== -1;
     var nights = 1;
     if (isHouseSitting) {
       nights = calcNights(date, endDate);
     }
+    // House Sitting: check entire date range for holidays; others: just the single date
+    var holidayFlag = isHouseSitting ? hasHolidayInRange(date, endDate) : isHoliday(date);
     var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights);
 
     // For multi-date / recurring pricing — count total visits (time slots), not just unique dates
@@ -2362,7 +2668,12 @@
       try {
         var pmData = window._cachedPaymentMethods;
         if (!pmData || Date.now() - (window._cachedPaymentMethodsAt || 0) > 60000) {
-          var pmResp = await fetch('/api/get-payment-methods?profileId=' + encodeURIComponent(window.HHP_Auth.currentUser.id) + '&email=' + encodeURIComponent(window.HHP_Auth.currentUser.email));
+          var _pmSb = window.HHP_Auth && window.HHP_Auth.supabase;
+          var _pmSess = _pmSb ? await _pmSb.auth.getSession() : null;
+          var _pmToken = _pmSess && _pmSess.data && _pmSess.data.session ? _pmSess.data.session.access_token : '';
+          var pmResp = await fetch('/api/get-payment-methods?profileId=' + encodeURIComponent(window.HHP_Auth.currentUser.id) + '&email=' + encodeURIComponent(window.HHP_Auth.currentUser.email), {
+            headers: { 'Authorization': 'Bearer ' + _pmToken }
+          });
           pmData = await pmResp.json();
           window._cachedPaymentMethods = pmData;
           window._cachedPaymentMethodsAt = Date.now();
@@ -2517,10 +2828,11 @@
 
       if (error) throw error;
 
-      // Send email notification to Rachel
+      // Send email notification to Rachel + client notification
       try {
         if (shouldSplit && dateCardDetails.length > 1) {
-          // Split bookings — send one email per booking so each has a valid date
+          // Split bookings — if multiple bookings created, send batch "received" notification
+          // but individual booking emails to Rachel
           for (var ei = 0; ei < dateCardDetails.length; ei++) {
             var dc = dateCardDetails[ei];
             await sendBookingNotification({
@@ -2536,6 +2848,23 @@
               estimatedTotal: data && data[ei] ? data[ei].estimated_total : null,
             });
           }
+
+          // Send ONE "received" notification to client for batch submission
+          if (typeof toast === 'function') toast('✓ Sent ' + dateCardDetails.length + ' booking requests to Rachel!');
+          var clientMsg = 'We received your ' + dateCardDetails.length + ' booking requests! Rachel will review them and get back to you shortly.';
+          try {
+            var sb = getSB();
+            if (sb && clientId) {
+              var owner = window.HHP_Auth && window.HHP_Auth.currentUser;
+              await sb.from('messages').insert({
+                sender_id: owner ? owner.id : null,
+                sender_name: 'Rachel Housley',
+                recipient_id: clientId,
+                body: clientMsg,
+                is_alert: false,
+              });
+            }
+          } catch (msgErr) { console.warn('Client message failed:', msgErr); }
         } else {
           // Single booking or recurring — send one email
           var dateDisplay = isHouseSitting ? date + ' to ' + endDate : date;
@@ -2558,6 +2887,7 @@
             estimatedTotal: data && data[0] ? data[0].estimated_total : null,
             isRecurring: isRecurring,
           });
+          if (typeof toast === 'function') toast('✓ Booking request sent!');
         }
       } catch (emailErr) {
         console.warn('Email notification failed:', emailErr);
@@ -2569,7 +2899,7 @@
       }
       if (submitBtn) { submitBtn.textContent = 'Request Sent!'; }
 
-      // Reset form after delay
+      // Reset form after brief delay (just enough to read success message)
       setTimeout(function() {
         var form = document.getElementById('bookingRequestForm');
         if (form) form.reset();
@@ -2587,11 +2917,11 @@
         closeBookingModal();
         if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('btn-loading'); submitBtn.textContent = 'Send Request to Rachel'; }
         if (successEl) successEl.textContent = '';
-      }, 4000);
+      }, 1500);
 
     } catch (err) {
       console.error('Booking request error:', err);
-      if (errEl) errEl.textContent = 'Error: ' + (err.message || 'Something went wrong. Please try again.');
+      if (errEl) errEl.textContent = 'Something went wrong. Please try again or contact us if the issue persists.';
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Request to Rachel'; }
     }
   };
@@ -3163,9 +3493,11 @@
 
         if (newStatus === 'accepted' && req && req.service && req.estimated_total > 0 && req.client_id) {
           try {
+            var _chgSess = sb ? await sb.auth.getSession() : null;
+            var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
             var chargeResp = await fetch('/api/charge-saved-card', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
               body: JSON.stringify({
                 bookingRequestId: requestId,
                 amount: req.estimated_total,
@@ -3341,6 +3673,11 @@
   function initBookingSystem() {
     injectBookingCSS();
     createBookingModal();
+
+    // Load pricing from Supabase early, before booking modal is used
+    loadPricingFromDB().catch(function(err) {
+      console.warn('Error loading pricing:', err);
+    });
 
     // Wait for page to fully render then rewire buttons
     setTimeout(rewireBookButtons, 2000);
@@ -3627,6 +3964,73 @@
     }
   };
 
+  // ── Batch grouping helper: group pending bookings by client_id + created_at (2-second window) ──
+  function _groupPendingBookingsByBatch(requests) {
+    var pending = requests.filter(function(r) { return r.status === 'pending'; });
+    var nonPending = requests.filter(function(r) { return r.status !== 'pending'; });
+
+    if (pending.length === 0) return nonPending;
+
+    var batchMap = {};
+    var batchOrder = [];
+
+    pending.forEach(function(r) {
+      var createdAtTime = r.created_at ? new Date(r.created_at).getTime() : 0;
+      var batchKey = r.client_id + '|' + Math.floor(createdAtTime / 2000); // 2-second window
+
+      if (!batchMap[batchKey]) {
+        batchMap[batchKey] = [];
+        batchOrder.push(batchKey);
+      }
+      batchMap[batchKey].push(r);
+    });
+
+    // Sort batches by most recent created_at
+    var sortedBatches = batchOrder.map(function(key) {
+      var batch = batchMap[key];
+      return {
+        batchKey: key,
+        bookings: batch,
+        created_at: batch[0].created_at,
+      };
+    }).sort(function(a, b) {
+      var timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      var timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    // Flatten back: each batch is represented, then non-pending
+    var result = [];
+    sortedBatches.forEach(function(b) {
+      if (b.bookings.length === 1) {
+        // Single booking — render as-is
+        result.push(b.bookings[0]);
+      } else {
+        // Batched bookings — create a synthetic "batch" object
+        var firstBooking = b.bookings[0];
+        result.push({
+          _isBatch: true,
+          _batchKey: b.batchKey,
+          _bookings: b.bookings,
+          id: b.batchKey,
+          client_id: firstBooking.client_id,
+          contact_name: firstBooking.contact_name,
+          contact_email: firstBooking.contact_email,
+          contact_phone: firstBooking.contact_phone,
+          avatar_url: firstBooking.avatar_url,
+          created_at: firstBooking.created_at,
+          status: 'pending',
+          // Synthesized fields for batch display
+          _batchSize: b.bookings.length,
+          _totalEstimated: b.bookings.reduce(function(sum, bk) { return sum + (bk.estimated_total || 0); }, 0),
+          _firstService: firstBooking.service,
+        });
+      }
+    });
+
+    return result.concat(nonPending);
+  }
+
   function _renderBookingRequestsList(container, portal) {
     if (!container) return;
 
@@ -3635,7 +4039,15 @@
       return;
     }
 
-    container.innerHTML = _bookingPanelState.requests.map(function(r) {
+    // Group pending bookings by batch
+    var displayRequests = _groupPendingBookingsByBatch(_bookingPanelState.requests);
+
+    container.innerHTML = displayRequests.map(function(r) {
+      // ── Handle batch cards ──
+      if (r._isBatch) {
+        return _renderBatchCard(r);
+      }
+      // Individual booking rendering (non-batch)
       var dateStr = r.preferred_date ? new Date(r.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
       var isHS = (r.service || '').toLowerCase().indexOf('house sitting') !== -1;
       var endDateStr = '';
@@ -3768,6 +4180,215 @@
     }).join('');
   }
 
+  // ── Batch card renderer ──
+  function _renderBatchCard(batch) {
+    var clientAvaHTML = '';
+    if (batch.avatar_url) {
+      clientAvaHTML = '<img src="' + batch.avatar_url + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0">';
+    } else {
+      var initials = (batch.contact_name || '?').split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
+      clientAvaHTML = '<div style="width:36px;height:36px;border-radius:50%;background:var(--gold-light,#f5e6c8);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:var(--ink,#1e1409);flex-shrink:0;border:2px solid var(--gold)">' + initials + '</div>';
+    }
+
+    var apptRowsHTML = batch._bookings.map(function(bk, idx) {
+      var dateStr = bk.preferred_date ? new Date(bk.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+      var timeStr = bk.preferred_time ? fmt12(bk.preferred_time) : 'TBD';
+      var petStr = bk.pet_names ? bk.pet_names : 'Pets';
+      var isMarkedRemoved = document.querySelector('[data-batch-remove-id="' + bk.id + '"]');
+
+      return '<div style="padding:8px 0;border-bottom:1px solid #e0d5c5;' + (isMarkedRemoved ? 'opacity:0.5;text-decoration:line-through' : '') + '" data-batch-appt-id="' + bk.id + '" data-batch-orig-time="' + (bk.preferred_time || '') + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          '<div style="font-size:0.82rem;font-weight:600;min-width:0" data-batch-time-display="' + bk.id + '">' + dateStr + ' @ ' + timeStr + '</div>' +
+          '<span style="font-size:0.78rem;color:var(--gold-deep);font-weight:600;white-space:nowrap;margin-left:8px">$' + Number(bk.estimated_total || 0).toFixed(2) + '</span>' +
+        '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">' +
+          '<div style="color:var(--mid);font-size:0.75rem">' + petStr + '</div>' +
+          '<div style="display:flex;gap:6px">' +
+            '<button class="btn btn-outline btn-sm" style="padding:3px 10px;font-size:0.72rem;color:var(--gold-deep);border-color:var(--gold-deep)" onclick="event.stopPropagation();toggleBatchTimeChange(\'' + bk.id + '\',\'' + batch._batchKey + '\')">↻ Time</button>' +
+            '<button class="btn btn-outline btn-sm" style="padding:3px 10px;font-size:0.72rem;color:#c00;border-color:#c00" onclick="event.stopPropagation();toggleBatchRemoval(\'' + bk.id + '\',\'' + batch._batchKey + '\')">Remove</button>' +
+          '</div>' +
+        '</div>' +
+        '<div id="batch-time-picker-' + bk.id + '" style="display:none;margin-top:6px"></div>' +
+      '</div>';
+    }).join('');
+
+    var anyChanges = batch._bookings.some(function(bk) {
+      return document.querySelector('[data-batch-remove-id="' + bk.id + '"]') ||
+             document.querySelector('[data-batch-appt-id="' + bk.id + '"][data-batch-new-time]');
+    });
+
+    var actionButtonText = anyChanges ? 'Send to Client for Review' : '✓ Accept Batch';
+    var actionButtonFn = anyChanges ? 'submitBatchModifications' : 'acceptBatchBookings';
+
+    return '<div class="card" data-batch-id="' + batch._batchKey + '" style="border-left:6px solid var(--gold);position:relative;background:linear-gradient(135deg, rgba(245,230,200,0.15) 0%, rgba(255,255,255,0) 100%)">' +
+      // Header: title + badge
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+        '<strong style="font-size:0.95rem">📦 Batch — ' + batch._batchSize + ' Appt' + (batch._batchSize !== 1 ? 's' : '') + '</strong>' +
+        '<span class="badge" style="background:var(--gold-light);color:var(--ink);padding:3px 8px;border-radius:12px;font-size:0.72rem;font-weight:600">pending</span>' +
+      '</div>' +
+      // Client info row
+      '<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">' +
+        clientAvaHTML +
+        '<div style="min-width:0">' +
+          '<div style="font-weight:600;font-size:0.88rem">' + batch.contact_name + '</div>' +
+          '<div style="font-size:0.75rem;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + batch._firstService + '</div>' +
+        '</div>' +
+      '</div>' +
+      // Appointments list
+      '<div style="background:#f0ebe3;border:1px solid #e0d5c5;border-radius:8px;padding:10px;font-size:0.82rem">' +
+        apptRowsHTML +
+        '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #e0d5c5;display:flex;justify-content:space-between;align-items:center">' +
+          '<strong style="font-size:0.82rem">Total</strong>' +
+          '<strong style="color:var(--gold-deep);font-size:0.9rem">$' + Number(batch._totalEstimated).toFixed(2) + '</strong>' +
+        '</div>' +
+      '</div>' +
+      // Action buttons — stacked on mobile
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' +
+        '<button class="btn btn-forest btn-sm" onclick="' + actionButtonFn + '(\'' + batch._batchKey + '\')" style="width:100%;justify-content:center;padding:10px">' + actionButtonText + '</button>' +
+        '<button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00;width:100%;justify-content:center;padding:8px" onclick="declineBatchBookings(\'' + batch._batchKey + '\')">✕ Decline All</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // Check if a batch card has any modifications (removals or time changes)
+  function _hasBatchModifications(batchCard) {
+    if (!batchCard) return false;
+    var apptRows = batchCard.querySelectorAll('[data-batch-appt-id]');
+    return Array.from(apptRows).some(function(el) {
+      return el.hasAttribute('data-batch-remove-id') || el.hasAttribute('data-batch-new-time');
+    });
+  }
+
+  // Update the accept/modify button state on a batch card
+  function _updateBatchActionButton(batchKey) {
+    var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
+    if (!batchCard) return;
+    var hasChanges = _hasBatchModifications(batchCard);
+    var actionBtn = batchCard.querySelector('.btn-forest');
+    if (actionBtn) {
+      actionBtn.textContent = hasChanges ? 'Send to Client for Review' : '✓ Accept Batch';
+      actionBtn.onclick = new Function('event', 'event.stopPropagation();' + (hasChanges ? 'submitBatchModifications' : 'acceptBatchBookings') + '(\'' + batchKey + '\')');
+    }
+  }
+
+  // Toggle removal marking on a single appointment in a batch
+  window.toggleBatchRemoval = function(bookingId, batchKey) {
+    var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
+    if (!apptEl) return;
+
+    var isCurrentlyMarked = apptEl.hasAttribute('data-batch-remove-id');
+    if (isCurrentlyMarked) {
+      apptEl.removeAttribute('data-batch-remove-id');
+      apptEl.style.opacity = '1';
+      apptEl.style.textDecoration = 'none';
+    } else {
+      apptEl.setAttribute('data-batch-remove-id', bookingId);
+      apptEl.style.opacity = '0.5';
+      apptEl.style.textDecoration = 'line-through';
+      // Also close any open time picker for this appointment
+      var picker = document.getElementById('batch-time-picker-' + bookingId);
+      if (picker) picker.style.display = 'none';
+    }
+
+    _updateBatchActionButton(batchKey);
+  };
+
+  // Toggle time change picker on a single appointment in a batch
+  window.toggleBatchTimeChange = function(bookingId, batchKey) {
+    var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
+    if (!apptEl) return;
+    // Don't allow time change if marked for removal
+    if (apptEl.hasAttribute('data-batch-remove-id')) return;
+
+    var picker = document.getElementById('batch-time-picker-' + bookingId);
+    if (!picker) return;
+
+    if (picker.style.display !== 'none') {
+      // Close picker
+      picker.style.display = 'none';
+      return;
+    }
+
+    // Build time options (5:00 AM to 10:00 PM, every 30 min)
+    var origTime = apptEl.getAttribute('data-batch-orig-time') || '';
+    var currentNew = apptEl.getAttribute('data-batch-new-time') || origTime;
+    var opts = '';
+    for (var h = 5; h <= 22; h++) {
+      for (var m = 0; m < 60; m += 30) {
+        var val = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+        var sel = (val === currentNew) ? ' selected' : '';
+        var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+        var ampm = h >= 12 ? 'PM' : 'AM';
+        var label = hr12 + ':' + String(m).padStart(2, '0') + ' ' + ampm;
+        opts += '<option value="' + val + '"' + sel + '>' + label + '</option>';
+      }
+    }
+
+    picker.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:#fff;border:1px solid var(--gold);border-radius:8px;padding:8px">' +
+      '<label style="font-size:0.72rem;color:var(--mid);width:100%">New time:</label>' +
+      '<select id="batch-time-sel-' + bookingId + '" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #e0d5c5;border-radius:6px;font-size:0.82rem;background:#fff">' + opts + '</select>' +
+      '<button class="btn btn-forest btn-sm" style="padding:6px 14px;font-size:0.78rem" onclick="event.stopPropagation();applyBatchTimeChange(\'' + bookingId + '\',\'' + batchKey + '\')">Set</button>' +
+      '<button class="btn btn-outline btn-sm" style="padding:6px 10px;font-size:0.78rem" onclick="event.stopPropagation();cancelBatchTimeChange(\'' + bookingId + '\',\'' + batchKey + '\')">✕</button>' +
+    '</div>';
+    picker.style.display = 'block';
+  };
+
+  // Apply the selected time change
+  window.applyBatchTimeChange = function(bookingId, batchKey) {
+    var sel = document.getElementById('batch-time-sel-' + bookingId);
+    if (!sel) return;
+    var newTime = sel.value;
+    var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
+    if (!apptEl) return;
+    var origTime = apptEl.getAttribute('data-batch-orig-time') || '';
+
+    if (newTime === origTime) {
+      // Same as original — remove the change
+      apptEl.removeAttribute('data-batch-new-time');
+      var display = document.querySelector('[data-batch-time-display="' + bookingId + '"]');
+      if (display) {
+        display.innerHTML = display.innerHTML.replace(/ → <strong style="color:var\(--forest\)">.*?<\/strong>/, '');
+        display.style.color = '';
+      }
+    } else {
+      apptEl.setAttribute('data-batch-new-time', newTime);
+      var display = document.querySelector('[data-batch-time-display="' + bookingId + '"]');
+      if (display) {
+        // Show original with strikethrough + new time
+        var origDisplay = display.textContent.split(' → ')[0]; // keep date + original time
+        display.innerHTML = origDisplay + ' → <strong style="color:var(--forest)">' + fmt12(newTime) + '</strong>';
+        display.style.color = 'var(--gold-deep)';
+      }
+    }
+
+    // Close picker
+    var picker = document.getElementById('batch-time-picker-' + bookingId);
+    if (picker) picker.style.display = 'none';
+
+    _updateBatchActionButton(batchKey);
+  };
+
+  // Cancel time change — revert to original
+  window.cancelBatchTimeChange = function(bookingId, batchKey) {
+    var apptEl = document.querySelector('[data-batch-appt-id="' + bookingId + '"]');
+    if (!apptEl) return;
+
+    // If there was a previous time change, remove it
+    if (apptEl.hasAttribute('data-batch-new-time')) {
+      apptEl.removeAttribute('data-batch-new-time');
+      var origTime = apptEl.getAttribute('data-batch-orig-time') || '';
+      var display = document.querySelector('[data-batch-time-display="' + bookingId + '"]');
+      if (display) {
+        display.innerHTML = display.textContent.split(' → ')[0];
+        display.style.color = '';
+      }
+      _updateBatchActionButton(batchKey);
+    }
+
+    var picker = document.getElementById('batch-time-picker-' + bookingId);
+    if (picker) picker.style.display = 'none';
+  };
+
   window.filterOwnerRequests = function(status, btn) {
     _bookingPanelState.currentFilter = status;
     var panel = document.getElementById('o-requests');
@@ -3835,6 +4456,81 @@
     }
   }
 
+  // Batch notification: send ONE email + ONE in-app message for multiple bookings
+  async function _sendBatchNotification(bookings, actions) {
+    if (!bookings || bookings.length === 0) return;
+    var firstBooking = bookings[0];
+    if (!firstBooking.contact_email) return;
+
+    var sb = getSB();
+    var owner = window.HHP_Auth && window.HHP_Auth.currentUser;
+    var ownerName = 'Rachel Housley';
+    try { if (owner && owner.profile && owner.profile.full_name) ownerName = owner.profile.full_name; } catch(e){}
+
+    // Build email body with appointment details
+    var appointmentDetails = bookings.map(function(bk) {
+      var action = actions.find(function(a) { return a.id === bk.id; });
+      var dateStr = bk.preferred_date ? new Date(bk.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+      var timeStr = bk.preferred_time ? fmt12(bk.preferred_time) : 'TBD';
+
+      if (action && action.action === 'removed') {
+        return '• ' + dateStr + ' - REMOVED (not available)';
+      } else if (action && action.action === 'modified') {
+        var newDateStr = action.newDate ? new Date(action.newDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : dateStr;
+        var newTimeStr = action.newTime ? fmt12(action.newTime) : timeStr;
+        return '• ' + dateStr + ' @ ' + timeStr + ' → NEW TIME: ' + newDateStr + ' @ ' + newTimeStr;
+      } else {
+        return '• ' + dateStr + ' @ ' + timeStr + ' (confirmed)';
+      }
+    }).join('\n');
+
+    var totalAmount = bookings.reduce(function(sum, bk) {
+      var action = actions.find(function(a) { return a.id === bk.id; });
+      return action && action.action === 'removed' ? sum : sum + (bk.estimated_total || 0);
+    }, 0);
+
+    var hasModifications = actions.some(function(a) { return a.action !== 'accepted'; });
+
+    // 1. Send email
+    try {
+      await fetch('/api/booking-status-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: firstBooking.contact_email,
+          name: firstBooking.contact_name || 'Client',
+          service: 'Batch Booking (' + bookings.length + ' appointments)',
+          status: hasModifications ? 'modified' : 'accepted',
+          scheduledDate: firstBooking.preferred_date,
+          scheduledTime: firstBooking.preferred_time,
+          appointmentDetails: appointmentDetails,
+          estimatedTotal: totalAmount,
+          isBatch: true,
+          hasModifications: hasModifications,
+        }),
+      });
+    } catch (e) { console.warn('Batch email notification failed:', e); }
+
+    // 2. Insert in-app message
+    if (sb && firstBooking.client_id) {
+      try {
+        var msgTitle = hasModifications ? '📋 Your batch booking requires review' : '✓ Your batch booking is confirmed!';
+        var msgBody = msgTitle + '\n\n' + appointmentDetails;
+        if (totalAmount > 0) {
+          msgBody += '\n\nTotal: $' + Number(totalAmount).toFixed(2);
+        }
+
+        await sb.from('messages').insert({
+          sender_id: owner ? owner.id : null,
+          sender_name: ownerName,
+          recipient_id: firstBooking.client_id,
+          body: msgBody,
+          is_alert: true,
+        });
+      } catch (e) { console.warn('Batch in-app message failed:', e); }
+    }
+  }
+
   // Optimistic UI helper: fade card and show status instantly
   function _optimisticCard(requestId, newStatus) {
     var card = document.querySelector('[data-request-id="' + requestId + '"]');
@@ -3859,6 +4555,227 @@
     if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
     if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
   }
+
+  // Batch accept: all bookings in batch are accepted as-is
+  window.acceptBatchBookings = async function(batchKey) {
+    var sb = getSB();
+    if (!sb) return;
+
+    try {
+      // Find all bookings in this batch
+      var batchBookings = _bookingPanelState.requests.filter(function(r) {
+        return r.status === 'pending' &&
+               r.client_id &&
+               r.created_at &&
+               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
+      });
+
+      if (batchBookings.length === 0) {
+        if (typeof toast === 'function') toast('Batch not found');
+        return;
+      }
+
+      // Mark card as processing
+      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
+      if (batchCard) {
+        batchCard.style.opacity = '0.7';
+        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
+      }
+
+      // Update all bookings to 'accepted'
+      var updatePromises = batchBookings.map(function(bk) {
+        return sb.from('booking_requests').update({
+          status: 'accepted',
+          scheduled_date: bk.preferred_date,
+          scheduled_time: bk.preferred_time
+        }).eq('id', bk.id);
+      });
+
+      await Promise.all(updatePromises);
+
+      // Send ONE batch notification
+      var actions = batchBookings.map(function(bk) {
+        return { id: bk.id, action: 'accepted' };
+      });
+
+      await _sendBatchNotification(batchBookings, actions);
+
+      // Charge ONE combined payment for the entire batch
+      var chargeableBatch = batchBookings.filter(function(bk) { return bk.estimated_total > 0 && bk.client_id; });
+      if (chargeableBatch.length > 0) {
+        (async function() {
+          try {
+            var _chgSb = window.HHP_Auth && window.HHP_Auth.supabase;
+            var _chgSess = _chgSb ? await _chgSb.auth.getSession() : null;
+            var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
+            var batchTotal = chargeableBatch.reduce(function(sum, bk) { return sum + (bk.estimated_total || 0); }, 0);
+            var batchIds = chargeableBatch.map(function(bk) { return bk.id; });
+            var serviceLabel = chargeableBatch.length > 1
+              ? chargeableBatch[0].service + ' + ' + (chargeableBatch.length - 1) + ' more'
+              : chargeableBatch[0].service;
+            await fetch('/api/charge-saved-card', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
+              body: JSON.stringify({
+                bookingRequestId: batchIds[0],
+                amount: batchTotal,
+                service: serviceLabel,
+                clientProfileId: chargeableBatch[0].client_id,
+                batchBookingIds: batchIds
+              }),
+            });
+          } catch (e) { console.warn('Batch charge error:', e); }
+        })();
+      }
+
+      if (typeof toast === 'function') toast('✓ Batch accepted! ' + batchBookings.length + ' booking' + (batchBookings.length !== 1 ? 's' : '') + ' confirmed. Processing payments...');
+
+      _afterBookingAction();
+      setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
+
+    } catch (e) {
+      console.error('Failed to accept batch:', e);
+      if (typeof toast === 'function') toast('Error accepting batch');
+      if (batchCard) {
+        batchCard.style.opacity = '1';
+        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
+      }
+    }
+  };
+
+  // Batch submit with modifications: mark as 'batch_review' for client to review
+  window.submitBatchModifications = async function(batchKey) {
+    var sb = getSB();
+    if (!sb) return;
+
+    try {
+      // Find all bookings in this batch
+      var batchBookings = _bookingPanelState.requests.filter(function(r) {
+        return r.status === 'pending' &&
+               r.client_id &&
+               r.created_at &&
+               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
+      });
+
+      if (batchBookings.length === 0) {
+        if (typeof toast === 'function') toast('Batch not found');
+        return;
+      }
+
+      // Get marked removals
+      var removedIds = new Set();
+      document.querySelectorAll('[data-batch-remove-id]').forEach(function(el) {
+        removedIds.add(el.getAttribute('data-batch-remove-id'));
+      });
+
+      // Get time changes
+      var timeChanges = {};
+      document.querySelectorAll('[data-batch-new-time]').forEach(function(el) {
+        var id = el.getAttribute('data-batch-appt-id');
+        if (id) timeChanges[id] = el.getAttribute('data-batch-new-time');
+      });
+
+      // Mark card as processing
+      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
+      if (batchCard) {
+        batchCard.style.opacity = '0.7';
+        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
+      }
+
+      // Build actions array and update DB
+      var actions = [];
+      var updatePromises = batchBookings.map(function(bk) {
+        if (removedIds.has(bk.id)) {
+          actions.push({ id: bk.id, action: 'removed' });
+          return sb.from('booking_requests').update({ status: 'batch_review' }).eq('id', bk.id);
+        } else if (timeChanges[bk.id]) {
+          actions.push({ id: bk.id, action: 'modified', newTime: timeChanges[bk.id], newDate: bk.preferred_date });
+          return sb.from('booking_requests').update({
+            status: 'batch_review',
+            scheduled_date: bk.preferred_date,
+            scheduled_time: timeChanges[bk.id]
+          }).eq('id', bk.id);
+        } else {
+          actions.push({ id: bk.id, action: 'accepted' });
+          return sb.from('booking_requests').update({
+            status: 'batch_review',
+            scheduled_date: bk.preferred_date,
+            scheduled_time: bk.preferred_time
+          }).eq('id', bk.id);
+        }
+      });
+
+      await Promise.all(updatePromises);
+
+      // Send ONE batch notification with the actions
+      await _sendBatchNotification(batchBookings, actions);
+
+      if (typeof toast === 'function') toast('✓ Batch submitted for client review');
+
+      _afterBookingAction();
+      setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
+
+    } catch (e) {
+      console.error('Failed to submit batch modifications:', e);
+      if (typeof toast === 'function') toast('Error submitting batch');
+      if (batchCard) {
+        batchCard.style.opacity = '1';
+        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
+      }
+    }
+  };
+
+  // Batch decline: decline all bookings in batch
+  window.declineBatchBookings = async function(batchKey) {
+    var sb = getSB();
+    if (!sb) return;
+    if (!confirm('Are you sure you want to decline ALL bookings in this batch?')) return;
+
+    try {
+      var batchBookings = _bookingPanelState.requests.filter(function(r) {
+        return r.status === 'pending' &&
+               r.client_id &&
+               r.created_at &&
+               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
+      });
+
+      if (batchBookings.length === 0) {
+        if (typeof toast === 'function') toast('Batch not found');
+        return;
+      }
+
+      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
+      if (batchCard) {
+        batchCard.style.opacity = '0.7';
+        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
+      }
+
+      var updatePromises = batchBookings.map(function(bk) {
+        return sb.from('booking_requests').update({ status: 'declined' }).eq('id', bk.id);
+      });
+
+      await Promise.all(updatePromises);
+
+      var actions = batchBookings.map(function(bk) {
+        return { id: bk.id, action: 'removed' };
+      });
+
+      await _sendBatchNotification(batchBookings, actions);
+
+      if (typeof toast === 'function') toast('Batch declined. Client notified.');
+      _afterBookingAction();
+      setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
+
+    } catch (e) {
+      console.error('Failed to decline batch:', e);
+      if (typeof toast === 'function') toast('Error declining batch');
+      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
+      if (batchCard) {
+        batchCard.style.opacity = '1';
+        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
+      }
+    }
+  };
 
   window.acceptBookingRequest = async function(requestId) {
     var sb = getSB();
@@ -3887,9 +4804,12 @@
       if (req.estimated_total > 0 && req.client_id) {
         (async function() {
           try {
+            var _chgSb = window.HHP_Auth && window.HHP_Auth.supabase;
+            var _chgSess2 = _chgSb ? await _chgSb.auth.getSession() : null;
+            var _chgToken2 = _chgSess2 && _chgSess2.data && _chgSess2.data.session ? _chgSess2.data.session.access_token : '';
             var chargeResp = await fetch('/api/charge-saved-card', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken2 },
               body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
             });
             var chargeData = await chargeResp.json();
@@ -4234,9 +5154,10 @@
     }
 
     try {
+      var _hsToken = window.HHP_Auth && window.HHP_Auth.supabase ? (await window.HHP_Auth.supabase.auth.getSession()).data.session?.access_token : '';
       var resp = await fetch('/api/complete-housesitting', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_hsToken || '') },
         body: JSON.stringify({
           bookingRequestId: rpt.bookingId,
           adjustedNights: rpt.currentNights !== rpt.originalNights ? rpt.currentNights : null,
@@ -4315,9 +5236,12 @@
                 }
               } else {
                 // One-time bookings: charge immediately
+                var _chgSb3 = window.HHP_Auth && window.HHP_Auth.supabase;
+                var _chgSess3 = _chgSb3 ? await _chgSb3.auth.getSession() : null;
+                var _chgToken3 = _chgSess3 && _chgSess3.data && _chgSess3.data.session ? _chgSess3.data.session.access_token : '';
                 var chargeResp = await fetch('/api/charge-saved-card', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken3 },
                   body: JSON.stringify({ bookingRequestId: requestId, amount: booking.estimated_total, service: booking.service, clientProfileId: booking.client_id }),
                 });
                 var chargeData = await chargeResp.json();
@@ -4429,6 +5353,18 @@
       if (typeof toast === 'function') toast('✓ Time suggestion sent! Client notified.');
       return { date_details: dd, status: 'modified', scheduled_date: dateEl.value, scheduled_time: timeEl ? timeEl.value : '', admin_notes: (booking.admin_notes || '') + '\nTime change suggested for ' + dd[idx].date + ': ' + dateEl.value + ' ' + (timeEl ? timeEl.value : '') };
     }, 'modified');
+  };
+
+  // ════════════════════════════════════════════════════════════
+  // PUBLIC API
+  // ════════════════════════════════════════════════════════════
+  window.HHP_Booking = {
+    refreshPricing: loadPricingFromDB,
+    refreshHolidays: function() {
+      var sb = getSB();
+      if (sb) return loadHolidaysFromDB(sb);
+      return Promise.resolve();
+    }
   };
 
 })();

@@ -285,6 +285,10 @@ const HHP_Auth = window.HHP_Auth = {
         try { if (window.HHP_Messaging && window.HHP_Messaging.cleanup) window.HHP_Messaging.cleanup(); } catch(e) { console.warn('Messaging cleanup:', e); }
         try { if (window.HHP_Notif && window.HHP_Notif.cleanup) window.HHP_Notif.cleanup(); } catch(e) { console.warn('Notif cleanup:', e); }
         try { if (window.HHP_ServiceTimer) window.HHP_ServiceTimer.stopTimer(); } catch(e) {}
+        // Clean up deals realtime subscription
+        try { if (window._dealsRealtimeChannel) { window._dealsRealtimeChannel.unsubscribe(); window._dealsRealtimeChannel = null; window._dealsRealtimeSubscribed = false; } } catch(e) {}
+        // Remove any orphaned modals
+        try { document.querySelectorAll('[id$="-modal"]').forEach(function(m) { m.remove(); }); } catch(e) {}
         // Reset customizer so next login does a full init (not stale refreshAll)
         try { if (window.HHP_Customizer) window.HHP_Customizer._forceReinit = true; } catch(e) {}
         await this.supabase.auth.signOut();

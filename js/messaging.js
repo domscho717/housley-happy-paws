@@ -242,7 +242,7 @@
     if (_profileCache[userId]) return _profileCache[userId];
     var sb = getSB();
     if (!sb) return { full_name: 'Unknown', role: 'client' };
-    var { data } = await sb.from('profiles').select('id, user_id, full_name, role, avatar_url').eq('user_id', userId).single();
+    var { data } = await sb.from('profiles').select('id, user_id, full_name, role, avatar_url').eq('user_id', userId).maybeSingle();
     if (data) _profileCache[userId] = data;
     return data || { full_name: 'Unknown', role: 'client' };
   }
@@ -253,7 +253,7 @@
     if (_ownerUserIdCache) return _ownerUserIdCache;
     var sb = getSB();
     if (!sb) return null;
-    var { data } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).single();
+    var { data } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
     if (data) _ownerUserIdCache = data.user_id;
     return _ownerUserIdCache;
   }
@@ -384,6 +384,7 @@
       .update({ read_at: new Date().toISOString() })
       .eq('sender_id', senderUserId)
       .eq('recipient_id', user.id)
+      .neq('sender_id', user.id)
       .is('read_at', null);
 
     // Refresh alerts card and badges so read messages disappear
@@ -890,6 +891,15 @@
     var panel = document.getElementById('o-msgs');
     if (!panel) return;
 
+    // Auto-mark self-messages as read (system notifications to owner)
+    try {
+      await sb.from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('sender_id', user.id)
+        .eq('recipient_id', user.id)
+        .is('read_at', null);
+    } catch(e) {}
+
     var convos = await getConversationList();
 
     // Filter out cleared conversations (unless new messages came in after clearing)
@@ -1253,7 +1263,7 @@
           if (!msg) return;
 
           var profile = await getProfileByUserId(msg.sender_id);
-          var name = profile.full_name || 'Someone';
+          var name = (profile && profile.full_name) ? profile.full_name : 'Someone';
 
           // Toast notification (only if NOT already viewing this conversation)
           var toasted = false;
@@ -1345,7 +1355,11 @@
   // ============================================================
   //  INIT
   // ============================================================
+  var _msgInitialized = false;
   function init() {
+    // Guard against double-init from multiple auth callbacks
+    if (_msgInitialized) return;
+    _msgInitialized = true;
     window.sendMsg = sendMsgReal;
     subscribeToMessages();
     updateUnreadBadges();
@@ -1383,6 +1397,7 @@
         _realtimeChannel.unsubscribe();
         _realtimeChannel = null;
       }
+      _msgInitialized = false;
     }
   };
 
