@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Housley Happy Paws — Rachel Housley · Lancaster, PA</title>
+<meta name="description" content="Professional pet care in Lancaster, PA — dog walking, drop-in visits, boarding, cat care & more. Insured, background-checked, CPR & First Aid certified. Book online with Housley Happy Paws.">
+<meta name="keywords" content="pet care Lancaster PA, dog walking Lancaster, pet sitting, dog boarding, cat care, drop-in visits, Housley Happy Paws, Rachel Housley">
+<link rel="canonical" href="https://www.housleyhappypaws.com/">
+<!-- Open Graph / Social Sharing -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.housleyhappypaws.com/">
+<meta property="og:title" content="Housley Happy Paws — Trusted Pet Care in Lancaster, PA">
+<meta property="og:description" content="Professional dog walking, pet sitting, boarding & more. Insured, CPR certified, GPS-tracked walks. Book online today!">
+<meta property="og:image" content="https://res.cloudinary.com/dg1p1zjgv/image/upload/c_fill,w_1200,h_630,q_auto,f_auto/housley-happy-paws/xyjtyotxknzaerw47fhi">
+<meta property="og:site_name" content="Housley Happy Paws">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Housley Happy Paws — Trusted Pet Care in Lancaster, PA">
+<meta name="twitter:description" content="Professional dog walking, pet sitting, boarding & more. Insured, CPR certified, GPS-tracked walks.">
+<meta name="twitter:image" content="https://res.cloudinary.com/dg1p1zjgv/image/upload/c_fill,w_1200,h_630,q_auto,f_auto/housley-happy-paws/xyjtyotxknzaerw47fhi">
 <link rel="preconnect" href="https://niysrippazlkpvdkzepp.supabase.co" crossorigin>
 <link rel="dns-prefetch" href="https://niysrippazlkpvdkzepp.supabase.co">
 <!-- Critical: hide portal pages BEFORE anything else loads to prevent flash -->
@@ -14,8 +29,19 @@
 // Instant page restore: show the correct portal/panel immediately on reload (no flash)
 try{
   var _lv=sessionStorage.getItem('hhp_last_view');
+  // Check for public walk tracking link (?track=walkId or ?track_booking=bookingId)
+  var _trackParam=(new URLSearchParams(window.location.search)).get('track');
+  var _trackBookingParam=(new URLSearchParams(window.location.search)).get('track_booking');
+  if((_trackParam&&/^[0-9a-f-]{36}$/i.test(_trackParam))||(_trackBookingParam&&/^[0-9a-f-]{36}$/i.test(_trackBookingParam))){
+    var _eh2=document.getElementById('early-hide');
+    if(_eh2)_eh2.textContent='#pg-public,#pg-client,#pg-staff,#pg-owner{display:none!important;visibility:hidden!important}#pg-walk-tracking{display:block!important;visibility:visible!important}';
+    if(_trackParam) window._hhpTrackWalkId=_trackParam;
+    if(_trackBookingParam) window._hhpTrackBookingId=_trackBookingParam;
+  }
   var _lp=sessionStorage.getItem('hhp_last_panel');
-  if(!_lv||_lv==='public'){
+  if(window._hhpTrackWalkId){
+    // Tracking page — early-hide already handled above
+  } else if(!_lv||_lv==='public'){
     // Public page — remove early-hide immediately
     var s=document.getElementById('early-hide');if(s)s.remove();
   } else {
@@ -1301,6 +1327,60 @@ try {
   <a href="#services" class="nav-menu-item nav-menu-book">Book Now</a>
 </div>
 
+<!-- ========= PUBLIC WALK TRACKING PAGE ========= -->
+<div class="page" id="pg-walk-tracking" style="display:none">
+  <div id="walk-tracking-root" style="min-height:100vh;background:#faf6ee;font-family:'Jost',sans-serif">
+    <!-- Status bar -->
+    <div id="wt-header" style="background:linear-gradient(135deg,#3d5a47,#4a6b54);color:white;padding:16px 20px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.15)">
+      <div style="font-size:1.5rem">🐾</div>
+      <div style="flex:1">
+        <div id="wt-title" style="font-weight:700;font-size:1.1rem">Loading walk...</div>
+        <div id="wt-subtitle" style="font-size:0.82rem;opacity:0.85"></div>
+      </div>
+      <div id="wt-live-badge" style="display:none;background:#22c55e;color:white;padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;display:flex;align-items:center;gap:5px">
+        <div style="width:7px;height:7px;background:white;border-radius:50%;animation:pulse 1.5s infinite"></div>
+        LIVE
+      </div>
+    </div>
+    <!-- Map container -->
+    <div id="wt-map-wrap" style="position:relative">
+      <div id="wt-map" style="height:calc(100vh - 200px);min-height:350px;background:#e8e0d0"></div>
+      <button id="wt-fullscreen-btn" onclick="toggleTrackingFullscreen()" style="position:absolute;top:12px;right:12px;z-index:1000;background:white;border:1px solid #ccc;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);display:flex;align-items:center;gap:4px">
+        <span id="wt-fs-icon">⛶</span> <span id="wt-fs-label">Fullscreen</span>
+      </button>
+    </div>
+    <!-- Info bar -->
+    <div id="wt-info" style="padding:16px 20px;background:white;border-top:1px solid rgba(61,90,71,0.12)">
+      <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:0.88rem;color:#5c4a3a">
+        <div id="wt-elapsed"><strong>Elapsed:</strong> <span>—</span></div>
+        <div id="wt-distance" style="display:none"><strong>Distance:</strong> <span>—</span></div>
+        <div id="wt-points" style="display:none"><strong>GPS Points:</strong> <span>—</span></div>
+        <div id="wt-started"><strong>Started:</strong> <span>—</span></div>
+      </div>
+    </div>
+    <!-- Completed state extras -->
+    <div id="wt-completed-bar" style="display:none;padding:12px 20px;background:linear-gradient(135deg,rgba(61,90,71,0.08),transparent);border-top:1px solid rgba(61,90,71,0.1);text-align:center">
+      <div style="font-weight:700;color:#3d5a47;font-size:0.95rem">✅ Walk Completed</div>
+      <div id="wt-completed-info" style="font-size:0.82rem;color:#8c6b4a;margin-top:4px"></div>
+    </div>
+    <!-- Error / loading states -->
+    <div id="wt-loading" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:10">
+      <div style="font-size:2.5rem;margin-bottom:12px">🗺️</div>
+      <div style="font-weight:600;color:#3d5a47">Loading walk tracking...</div>
+    </div>
+    <div id="wt-error" style="display:none;padding:60px 20px;text-align:center">
+      <div style="font-size:2.5rem;margin-bottom:12px">🐾</div>
+      <div style="font-weight:700;font-size:1.1rem;color:#3d5a47;margin-bottom:8px">Walk Not Found</div>
+      <div style="font-size:0.9rem;color:#8c6b4a">This tracking link may have expired or the walk hasn't started yet.</div>
+      <a href="/" style="display:inline-block;margin-top:20px;padding:10px 24px;background:#3d5a47;color:white;border-radius:8px;text-decoration:none;font-weight:600">Visit Housley Happy Paws</a>
+    </div>
+    <!-- Branding footer -->
+    <div style="padding:16px 20px;text-align:center;font-size:0.78rem;color:#8c6b4a;border-top:1px solid rgba(61,90,71,0.08)">
+      🐾 Powered by <a href="/" style="color:#3d5a47;font-weight:600;text-decoration:none">Housley Happy Paws</a> · Lancaster, PA
+    </div>
+  </div>
+</div>
+
 <!-- ========= PUBLIC PAGE ========= -->
 <div class="page active" id="pg-public">
 
@@ -1379,7 +1459,7 @@ try {
         <div class="service-card mg-card fadeup">
           <div class="sc-icon">🤝</div>
           <div class="sc-name">Meet &amp; Greet</div>
-          <div class="sc-price" style="color:var(--forest)">Free</div>
+          <div class="sc-price" style="color:var(--forest)" data-price-key="meet_greet">Free</div>
           <div class="sc-desc">An introductory visit so your pet can get comfortable with their new sitter. We'll go over your pet's routine, preferences, and any special needs.</div>
           <ul class="sc-features">
             <li>In-home introduction with your pet</li>
@@ -1393,34 +1473,34 @@ try {
         <div class="service-card fadeup">
           <div class="sc-icon">🦮</div>
           <div class="sc-name">Dog Walking</div>
-          <div class="sc-price">$25 <span>/ 30 min</span></div>
-          <div class="sc-price" style="font-size:1.15rem;margin-top:-2px">$45 <span>/ 1 hour</span></div>
+          <div class="sc-price" data-price-key="dog_walk_30">$25 <span>/ 30 min</span></div>
+          <div class="sc-price" style="font-size:1.15rem;margin-top:-2px" data-price-key="dog_walk_60">$45 <span>/ 1 hour</span></div>
           <div class="sc-desc">I come to your home and get your pup ready for a nice, long walk! Every walk is GPS tracked with a detailed report card sent to you afterward. Water bowls will also be refreshed upon returning!</div>
           <ul class="sc-features">
             <li>Live GPS tracking</li><li>Photo updates mid-walk</li>
             <li>Personal walk report card</li><li>Route map included</li>
           </ul>
-          <div style="font-size:0.72rem;color:var(--mid);margin-top:8px;line-height:1.5">+$15 per additional dog · +$5 puppy surcharge · +$10 holiday rate</div>
+          <div style="font-size:0.72rem;color:var(--mid);margin-top:8px;line-height:1.5" data-price-key="dog_walk_surcharges">+$15 per additional dog · +$5 puppy surcharge · +$10 holiday rate</div>
           <button type="button" class="stripe-pay-btn" style="display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;font-family:inherit;transition:opacity 0.2s;" onclick="if(typeof openBookingModal==='function')openBookingModal('Dog Walking')" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Request Dog Walking</button>
         </div>
         <div class="service-card fadeup">
           <div class="sc-icon">🚪</div>
           <div class="sc-name">Drop-In Visit</div>
-          <div class="sc-price">From $20 <span>/ 30 min</span></div>
+          <div class="sc-price" data-price-key="dropin_min">From $20 <span>/ 30 min</span></div>
           <div class="sc-desc">I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! Cats too — feeding, litter box cleaning, and playtime. I also can address any special needs or requests, such as medication, etc.!</div>
           <details style="margin-top:10px;cursor:pointer">
             <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
               <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Rates
             </summary>
             <ul style="list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--warm);border-radius:8px;border:1px solid var(--border)">
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (30 min)</span><span style="font-weight:700">$25</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (1 hour)</span><span style="font-weight:700">$45</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (30 min)</span><span style="font-weight:700">$20</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (1 hour)</span><span style="font-weight:700">$35</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700">+ $15</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700">+ $10</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700">+ $5</span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700">+ $10</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (30 min)</span><span style="font-weight:700" data-price-key="dropin_dog_30_detail">$25</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (1 hour)</span><span style="font-weight:700" data-price-key="dropin_dog_60_detail">$45</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (30 min)</span><span style="font-weight:700" data-price-key="dropin_cat_30_detail">$20</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐱 Cat (1 hour)</span><span style="font-weight:700" data-price-key="dropin_cat_60_detail">$35</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700" data-price-key="dropin_extra_dog_detail">+ $15</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700" data-price-key="dropin_extra_cat_detail">+ $10</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700" data-price-key="dropin_puppy_detail">+ $5</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700" data-price-key="dropin_holiday_detail">+ $10</span></li>
             </ul>
           </details>
           <ul class="sc-features">
@@ -1432,20 +1512,20 @@ try {
         <div class="service-card fadeup">
           <div class="sc-icon">🏡</div>
           <div class="sc-name">House Sitting</div>
-          <div class="sc-price">$125 <span>/ night</span></div>
+          <div class="sc-price" data-price-key="housesit_dog_main">$125 <span>/ night</span></div>
           <div class="sc-desc">Going away? I stay at your home and care for your pets in their own environment — keeping their routine, giving medication if needed, and sending regular updates and photos so you have complete peace of mind while you're gone!</div>
           <details style="margin-top:10px;cursor:pointer">
             <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
               <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Additional Rates
             </summary>
             <ul style="list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--warm);border-radius:8px;border:1px solid var(--border)">
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Dog(s)</span><span style="font-weight:700">$125<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Cat(s)</span><span style="font-weight:700">$80<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / dog / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700">+ $15<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / cat / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">3+ Animals</span><span style="font-weight:700">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700">+ $5<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700">+ $10<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Dog(s)</span><span style="font-weight:700" data-price-key="housesit_dog_detail">$125<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Cat(s)</span><span style="font-weight:700" data-price-key="housesit_cat_detail">$80<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700" data-price-key="housesit_extra_dog_detail">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / dog / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700" data-price-key="housesit_extra_cat_detail">+ $15<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / cat / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">3+ Animals</span><span style="font-weight:700" data-price-key="housesit_3plus_detail">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700" data-price-key="housesit_puppy_detail">+ $5<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700" data-price-key="housesit_holiday_detail">+ $10<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
             </ul>
           </details>
           <ul class="sc-features">
@@ -2582,6 +2662,7 @@ try {
               <button class="content-sec-btn active" onclick="showContentSection('hero',this)">🏠 Hero</button>
               <button class="content-sec-btn" onclick="showContentSection('about',this)">👩 About</button>
               <button class="content-sec-btn" onclick="showContentSection('pricing',this)">💰 Pricing</button>
+              <button class="content-sec-btn" onclick="showContentSection('holidays',this)">📅 Holidays</button>
               <button class="content-sec-btn" onclick="showContentSection('services',this)">🐾 Services</button>
               <button class="content-sec-btn" onclick="showContentSection('footer',this)">📄 Footer / Contact</button>
               <button class="content-sec-btn" onclick="showContentSection('photos',this)">🖼️ Photos & Media</button>
@@ -2631,6 +2712,22 @@ try {
                 </div>
                 <div id="pricingEditorRows" style="display:flex;flex-direction:column;gap:14px"></div>
                 <button class="submit-btn gold" style="margin-top:16px" onclick="savePricing()">💾 Save All Pricing</button>
+              </div>
+            </div>
+
+            <!-- Holidays -->
+            <div id="ce-holidays" class="content-edit-panel" style="display:none">
+              <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                  <div class="card-title">📅 Holiday Surcharge Dates</div>
+                </div>
+                <p style="font-size:0.82rem;color:var(--mid);margin-bottom:16px;line-height:1.5">These dates trigger the holiday surcharge on bookings. Add or remove dates as needed — changes take effect immediately for new bookings.</p>
+                <div id="holidayEditorRows" style="display:flex;flex-direction:column;gap:8px"></div>
+                <div style="margin-top:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+                  <div><label class="form-lbl" style="font-size:0.72rem">Date (MM-DD)</label><input class="form-in" id="newHolidayDate" placeholder="MM-DD" style="width:100px;padding:7px 10px"></div>
+                  <div><label class="form-lbl" style="font-size:0.72rem">Label</label><input class="form-in" id="newHolidayLabel" placeholder="e.g. Easter" style="width:180px;padding:7px 10px"></div>
+                  <button class="btn btn-forest btn-sm" onclick="addHoliday()" style="padding:8px 16px">+ Add Holiday</button>
+                </div>
               </div>
             </div>
 
@@ -3226,6 +3323,49 @@ try {
   </div>
 </div>
 
+<!-- Tip Modal (Client) -->
+<div class="overlay" id="tipModal" onclick="if(event.target===this)closeModal('tipModal')">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <div>
+        <div class="modal-title">Leave a Tip</div>
+        <p style="font-size:0.82rem;color:var(--mid);margin-top:3px" id="tip-modal-subtitle">Show your appreciation!</p>
+      </div>
+      <button class="modal-close" onclick="closeModal('tipModal')">✕</button>
+    </div>
+    <div id="tip-loading" style="display:none;text-align:center;padding:20px;font-size:0.9rem;color:var(--mid)">Loading service details...</div>
+    <div id="tip-content">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:0.85rem;color:var(--mid);margin-bottom:8px">Service total: <strong id="tip-service-amount">$0.00</strong></div>
+        <div id="tip-options" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm tip-opt" data-pct="15" onclick="selectTipOption(this,15)" style="min-width:70px">15%<br><span style="font-size:0.72rem;color:var(--mid)" class="tip-amt">$0.00</span></button>
+          <button class="btn btn-outline btn-sm tip-opt" data-pct="20" onclick="selectTipOption(this,20)" style="min-width:70px">20%<br><span style="font-size:0.72rem;color:var(--mid)" class="tip-amt">$0.00</span></button>
+          <button class="btn btn-outline btn-sm tip-opt" data-pct="25" onclick="selectTipOption(this,25)" style="min-width:70px">25%<br><span style="font-size:0.72rem;color:var(--mid)" class="tip-amt">$0.00</span></button>
+          <button class="btn btn-outline btn-sm tip-opt" data-pct="custom" onclick="selectTipOption(this,'custom')" style="min-width:70px">Custom</button>
+        </div>
+      </div>
+      <div id="tip-custom-wrap" style="display:none;margin-bottom:14px">
+        <label class="form-lbl">Custom tip amount ($)</label>
+        <input class="form-in" id="tip-custom-input" type="number" min="1" max="500" step="0.01" placeholder="Enter amount">
+      </div>
+      <input type="hidden" id="tip-booking-id">
+      <input type="hidden" id="tip-report-id">
+      <input type="hidden" id="tip-service">
+      <input type="hidden" id="tip-pet-names">
+      <input type="hidden" id="tip-amount" value="0">
+      <div id="tip-summary" style="text-align:center;margin-bottom:14px;font-size:0.95rem;font-weight:600;color:var(--forest);display:none">Tip: $<span id="tip-display">0.00</span></div>
+      <button class="submit-btn gold" id="tip-submit-btn" onclick="submitTip()" style="width:100%" disabled>Select a tip amount</button>
+      <div style="font-size:0.72rem;color:var(--mid);text-align:center;margin-top:8px">Your saved card will be charged immediately.</div>
+    </div>
+    <div id="tip-success" style="display:none;text-align:center;padding:20px">
+      <div style="font-size:2.5rem;margin-bottom:10px">💚</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--forest);margin-bottom:6px">Thank you for your tip!</div>
+      <div style="font-size:0.85rem;color:var(--mid)">Rachel truly appreciates your generosity.</div>
+      <button class="btn btn-outline btn-sm" onclick="closeModal('tipModal')" style="margin-top:16px">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- Owner Review Response Modal -->
 <div class="overlay" id="reviewResponseModal" onclick="if(event.target===this)closeModal('reviewResponseModal')">
   <div class="modal" style="max-width:440px">
@@ -3377,6 +3517,12 @@ try {
     <div id="cancelModal_warning" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:16px;border-left:4px solid #ffc107">
       <div style="font-size:0.72rem;font-weight:700;color:#856404;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">⚠️ Late Cancellation Fee</div>
       <div style="font-size:0.84rem;color:#856404;line-height:1.4">You're canceling within 2 days of the booking. Payment will still be processed according to the cancellation policy.</div>
+    </div>
+
+    <!-- Refund Eligible Notice -->
+    <div id="cancelModal_refundNotice" style="display:none;background:#d4edda;border:1px solid #28a745;border-radius:8px;padding:12px 14px;margin-bottom:16px;border-left:4px solid #28a745">
+      <div style="font-size:0.72rem;font-weight:700;color:#155724;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:6px">✓ Eligible for Full Refund</div>
+      <div style="font-size:0.84rem;color:#155724;line-height:1.4">This cancellation is more than 2 days before the appointment. A full refund will be issued to the client's card.</div>
     </div>
 
     <!-- Recurring Options -->
@@ -3795,14 +3941,17 @@ function switchView(view) {
       };
       document.body.appendChild(floatingBookBtn);
 
-      // Close menu on outside click
-      document.addEventListener('click', function(e) {
-        var menu = document.getElementById('floatingBookMenu');
-        var btn = document.getElementById('floatingBookBtn');
-        if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && e.target !== btn) {
-          menu.style.display = 'none';
-        }
-      });
+      // Close menu on outside click — add only once to prevent listener accumulation
+      if (!window._floatingBookMenuClickInit) {
+        window._floatingBookMenuClickInit = true;
+        document.addEventListener('click', function(e) {
+          var menu = document.getElementById('floatingBookMenu');
+          var btn = document.getElementById('floatingBookBtn');
+          if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && e.target !== btn) {
+            menu.style.display = 'none';
+          }
+        });
+      }
     }
     floatingBookBtn.style.display = '';
   } else {
@@ -4028,7 +4177,7 @@ function selectViewAsClient(userId, fullName, profileId) {
           // Guard: don't update if user exited view-as mode before fetch resolved
           if (!window._viewingAsClient || window._viewingAsClient.userId !== userId) return;
           if (res.data && res.data.avatar_url) {
-            clientAva.innerHTML = '<img src="' + res.data.avatar_url + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
+            clientAva.innerHTML = '<img loading="lazy" src="' + res.data.avatar_url + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
           } else {
             var initial = (fullName || '?').charAt(0).toUpperCase();
             clientAva.innerHTML = '<span style="font-size:1.1rem">' + initial + '</span>';
@@ -6368,6 +6517,39 @@ async function openReportFromService(data) {
     if (aiQ2) aiQ2.value = data.petNames;
   }
 
+  // ── Inject walk route map into the report form ──
+  if (data.walkId && typeof HHP_Tracking !== 'undefined' && typeof HHP_Tracking.buildReportRouteMap === 'function') {
+    // Fetch tracking points from Supabase for the walk
+    var sb2 = window.HHP_Auth && window.HHP_Auth.supabase;
+    if (sb2) {
+      try {
+        var { data: walkRec } = await sb2.from('walks').select('route_summary').eq('id', data.walkId).single();
+        if (walkRec && walkRec.route_summary && walkRec.route_summary.length > 0) {
+          var mapContainer = isOwner ? 'rpt-route-map' : 'srpt-route-map';
+          var existingMap = document.getElementById(mapContainer);
+          if (!existingMap) {
+            // Create map container in the report form, before the submit button
+            var reportForm = document.getElementById(isOwner ? 'o-reports' : 's-reports');
+            var submitBtn = reportForm ? reportForm.querySelector('button[onclick*="submit"]') || reportForm.querySelector('.rpt-submit') : null;
+            if (reportForm) {
+              var mapDiv = document.createElement('div');
+              mapDiv.id = mapContainer;
+              mapDiv.style.cssText = 'margin:16px 0;border-radius:12px;overflow:hidden';
+              mapDiv.innerHTML = HHP_Tracking.buildReportRouteMap(walkRec.route_summary, data.walkId);
+              if (submitBtn && submitBtn.parentElement) {
+                submitBtn.parentElement.insertBefore(mapDiv, submitBtn);
+              } else {
+                reportForm.appendChild(mapDiv);
+              }
+              // Init the leaflet map inside the injected HTML
+              if (typeof _loadLeaflet === 'function') _loadLeaflet();
+            }
+          }
+        }
+      } catch(e) { console.warn('Report route map error:', e); }
+    }
+  }
+
   // Scroll to the report form
   var panel = document.getElementById(isOwner ? 'o-reports' : 's-reports');
   if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -6463,6 +6645,23 @@ async function loadCalendarBookings(year, month) {
       });
     }
 
+    // Load recurring_invoices for per-date paid status on recurring bookings
+    var _recurInvPaidDates = {}; // "bookingId|date" → true
+    try {
+      var recurBookingIds = (bookings || []).filter(function(b) { return b.recurrence_pattern; }).map(function(b) { return b.id; });
+      if (recurBookingIds.length > 0) {
+        var { data: recurInvs } = await sb.from('recurring_invoices')
+          .select('booking_request_id, service_date, status')
+          .in('booking_request_id', recurBookingIds)
+          .in('status', ['paid', 'sent', 'captured']);
+        if (recurInvs) {
+          recurInvs.forEach(function(ri) {
+            _recurInvPaidDates[ri.booking_request_id + '|' + ri.service_date] = true;
+          });
+        }
+      }
+    } catch(riErr) { console.warn('Recurring invoices load:', riErr); }
+
     // Load availability blocks (owner's blocked dates show on all calendars)
     window._calOwnerBlocks = {};
     try {
@@ -6523,11 +6722,14 @@ async function loadCalendarBookings(year, month) {
         }
       }
 
-      // Determine paid status
-      var isPaid = false;
+      // Determine paid status for one-time bookings
+      var isRecurringBooking = !!b.recurrence_pattern;
+      var isPaidOneTime = false;
       var shortId = b.id ? b.id.slice(0, 8) : '';
-      if (paidSet.has(shortId)) isPaid = true;
-      if (paidSet.has((b.contact_email || '').toLowerCase() + '|' + b.estimated_total)) isPaid = true;
+      if (!isRecurringBooking) {
+        if (paidSet.has(shortId)) isPaidOneTime = true;
+        if (paidSet.has((b.contact_email || '').toLowerCase() + '|' + b.estimated_total)) isPaidOneTime = true;
+      }
 
       // Service icon
       var svc = (b.service || '').toLowerCase();
@@ -6539,14 +6741,20 @@ async function loadCalendarBookings(year, month) {
       else if (svc.indexOf('meet') !== -1) icon = '🤝';
 
       var statusTag = b.status === 'pending' ? ' ⏳' : (b.status === 'completed' ? ' ✔️' : '');
-      // Only show paid/unpaid tags in portal calendars, not public
-      var paidTag = (role === 'owner' || role === 'client') ? (isPaid ? ' ✅' : (b.estimated_total > 0 ? ' ❌' : '')) : '';
       var petName = (role !== 'public') && b.pet_names ? ' · ' + b.pet_names.split(',')[0].trim() : '';
 
-      // Public calendar: only mark as "busy" — no icons, names, or counts
-      var eventLabel = (role === 'public') ? '⏰' : icon + petName + statusTag + paidTag;
-
       dates.forEach(function(dateKey) {
+        // For recurring bookings, check per-date paid status from recurring_invoices
+        var isPaid = isRecurringBooking
+          ? !!_recurInvPaidDates[b.id + '|' + dateKey]
+          : isPaidOneTime;
+
+        // Only show paid/unpaid tags in portal calendars, not public
+        var paidTag = (role === 'owner' || role === 'client') ? (isPaid ? ' ✅' : (b.estimated_total > 0 ? ' ❌' : '')) : '';
+
+        // Public calendar: only mark as "busy" — no icons, names, or counts
+        var eventLabel = (role === 'public') ? '⏰' : icon + petName + statusTag + paidTag;
+
         if (!calEvents[dateKey]) {
           calEvents[dateKey] = { label: eventLabel, type: 'event', bookings: [], _dynamic: true };
         } else if (calEvents[dateKey]._dynamic) {
@@ -6878,6 +7086,22 @@ async function loadClientAppts(filter, tabBtn) {
       });
     }
 
+    // Load recurring_invoices for per-date paid status on recurring bookings
+    var _clientRecurPaidDates = {}; // "bookingId|date" → status
+    try {
+      var _recurIds = (appts || []).filter(function(b) { return b.recurrence_pattern; }).map(function(b) { return b.id; });
+      if (_recurIds.length > 0) {
+        var { data: _recurInvData } = await sb.from('recurring_invoices')
+          .select('booking_request_id, service_date, status, invoice_date')
+          .in('booking_request_id', _recurIds);
+        if (_recurInvData) {
+          _recurInvData.forEach(function(ri) {
+            _clientRecurPaidDates[ri.booking_request_id + '|' + ri.service_date] = ri.status;
+          });
+        }
+      }
+    } catch(riErr) { console.warn('Recurring invoices client load:', riErr); }
+
     if (!appts || appts.length === 0) {
       listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">📅</div><div style="font-weight:600;margin-bottom:6px">No appointments ' + (filter === 'upcoming' ? 'coming up' : filter === 'past' ? 'in the past' : filter === 'canceled' ? 'canceled' : 'yet') + '</div><div style="font-size:0.84rem">Book a service to get started!</div></div>';
       return;
@@ -6993,20 +7217,44 @@ async function loadClientAppts(filter, tabBtn) {
             var dateStr = ndDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
             var timeStr = nd.time ? ((typeof fmt12h === 'function') ? fmt12h(nd.time) : nd.time) : '';
             var isNext = idx === 0;
+
+            // Per-date paid status from recurring_invoices
+            var datePaidKey = b.id + '|' + nd.date;
+            var datePaidStatus = _clientRecurPaidDates[datePaidKey] || '';
+            var isDatePaid = datePaidStatus === 'paid' || datePaidStatus === 'sent' || datePaidStatus === 'captured';
+            var paidBadge = '';
+            if (b.estimated_total > 0) {
+              if (isDatePaid) {
+                paidBadge = '<span style="font-size:0.65rem;font-weight:700;color:#155724;background:#d4edda;padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0">Paid</span>';
+              } else if (datePaidStatus === 'voided') {
+                paidBadge = '<span style="font-size:0.65rem;font-weight:700;color:#856404;background:#fff3cd;padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0">Refunded</span>';
+              } else {
+                var ndSunday = new Date(nd.date + 'T12:00:00');
+                ndSunday.setDate(ndSunday.getDate() - ndSunday.getDay());
+                var todayStr = _localDateStr();
+                if (nd.date <= todayStr) {
+                  paidBadge = '<span style="font-size:0.65rem;font-weight:700;color:#c62828;background:#fde8e8;padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0">Unpaid</span>';
+                } else {
+                  paidBadge = '<span style="font-size:0.65rem;font-weight:600;color:#0d47a1;background:#e3f2fd;padding:2px 7px;border-radius:4px;margin-left:auto;flex-shrink:0">Upcoming</span>';
+                }
+              }
+            }
+
             html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + (isNext ? 'var(--cream,white)' : 'transparent') + ';border-radius:8px;' + (isNext ? 'border:1.5px solid var(--forest);' : '') + '">';
             html += '<div style="width:6px;height:6px;border-radius:50%;background:' + (isNext ? 'var(--forest)' : 'var(--mid)') + ';flex-shrink:0"></div>';
             html += '<div style="flex:1;font-size:0.84rem;' + (isNext ? 'font-weight:700;color:var(--ink)' : 'color:var(--mid)') + '">' + dateStr + (timeStr ? ' at ' + timeStr : '') + '</div>';
             if (isNext) html += '<span style="font-size:0.68rem;font-weight:700;color:var(--forest);background:#d4edda;padding:2px 8px;border-radius:4px">NEXT</span>';
+            html += paidBadge;
             html += '</div>';
           });
           html += '</div></div>';
         }
 
         // Action buttons
-        html += '<div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border)">';
-        html += '<button onclick="event.stopPropagation();showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);font-size:0.78rem;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">View Details</button>';
-        html += '<button onclick="event.stopPropagation();requestRecurringChange(\'' + b.id + '\')" style="flex:1;padding:8px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold-pale);font-size:0.78rem;font-weight:600;color:var(--gold-deep);cursor:pointer;font-family:inherit">Reschedule</button>';
-        html += '<button onclick="event.stopPropagation();requestRecurringCancel(\'' + b.id + '\')" style="padding:8px 12px;border:1.5px solid #f8d7da;border-radius:8px;background:#fef2f2;font-size:0.78rem;font-weight:600;color:#c62828;cursor:pointer;font-family:inherit">Cancel</button>';
+        html += '<div style="padding:10px 16px;display:flex;gap:8px;border-top:1px solid var(--border);flex-wrap:wrap">';
+        html += '<button onclick="event.stopPropagation();showBookingDetail(\'' + b.id + '\',\'client\',\'booking_requests\')" style="flex:1;min-width:80px;padding:8px;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);font-size:0.78rem;font-weight:600;color:var(--ink);cursor:pointer;font-family:inherit">View Details</button>';
+        html += '<button onclick="event.stopPropagation();requestRecurringChange(\'' + b.id + '\')" style="flex:1;min-width:80px;padding:8px;border:1.5px solid var(--gold);border-radius:8px;background:var(--gold-pale);font-size:0.78rem;font-weight:600;color:var(--gold-deep);cursor:pointer;font-family:inherit">Reschedule</button>';
+        html += '<button onclick="event.stopPropagation();stopRecurringService(\'' + b.id + '\',\'' + (b.service || 'service').replace(/'/g, "\\'" ) + '\')" style="padding:8px 12px;border:1.5px solid #f8d7da;border-radius:8px;background:#fef2f2;font-size:0.78rem;font-weight:600;color:#c62828;cursor:pointer;font-family:inherit">Stop Recurring</button>';
         html += '</div>';
 
         // Price
@@ -7032,14 +7280,30 @@ async function loadClientAppts(filter, tabBtn) {
         html += '<div style="font-weight:700;font-size:1rem;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;gap:8px">📅 Appointments</div>';
       }
 
-      // ── Sort by date (newest first), then by time (earliest first) within each date ──
+      // ── Sort: active upcoming first (soonest), then past (newest), canceled last ──
+      var _sortToday = _localDateStr();
       singleAppts.sort(function(a, b) {
         var dateA = a.preferred_date || '0000-00-00';
         var dateB = b.preferred_date || '0000-00-00';
-        if (dateA !== dateB) return dateB.localeCompare(dateA); // newest date first
+        var canceledA = a.status === 'canceled' || a.status === 'rejected' || a.status === 'declined';
+        var canceledB = b.status === 'canceled' || b.status === 'rejected' || b.status === 'declined';
+        var upA = !canceledA && dateA >= _sortToday;
+        var upB = !canceledB && dateB >= _sortToday;
+        // Priority: upcoming active > past/completed > canceled
+        if (upA && !upB) return -1;
+        if (!upA && upB) return 1;
+        if (!canceledA && canceledB) return -1;
+        if (canceledA && !canceledB) return 1;
+        // Within upcoming: soonest first (ascending)
+        if (upA && upB) {
+          if (dateA !== dateB) return dateA.localeCompare(dateB);
+        } else {
+          // Within past/canceled: newest first (descending)
+          if (dateA !== dateB) return dateB.localeCompare(dateA);
+        }
         var timeA = a.preferred_time || '00:00';
         var timeB = b.preferred_time || '00:00';
-        return timeA.localeCompare(timeB); // earliest time first within same date
+        return timeA.localeCompare(timeB);
       });
 
       // ── Group by date ──
@@ -7092,8 +7356,8 @@ async function loadClientAppts(filter, tabBtn) {
           var isDeclined = b.status === 'rejected' || b.status === 'declined' || b.status === 'canceled';
           var cardOpacity = isDeclined ? 'opacity:0.5;' : '';
 
-          var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'payment_hold' ? '#fde8e8' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : '#e2e3e5';
-          var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'payment_hold' ? 'Payment Needed' : b.status === 'completed' ? 'Completed' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
+          var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'payment_hold' ? '#fde8e8' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : b.status === 'in_progress' ? '#dbeafe' : '#e2e3e5';
+          var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'payment_hold' ? 'Payment Needed' : b.status === 'completed' ? 'Completed' : b.status === 'in_progress' ? '▶ In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
           // Payment badge: check paidSet for status (held vs paid)
           var listPayStatus = paidSet.has(shortId) ? (paidStatusMap && paidStatusMap[shortId] || 'paid') : (b.payment_intent_id ? 'paid' : '');
           var paidBadge = '';
@@ -7115,7 +7379,7 @@ async function loadClientAppts(filter, tabBtn) {
           var timeDisplay = fmt12h(b.preferred_time) || '';
           var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
 
-          var borderColor = b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'payment_hold' ? '#c62828' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
+          var borderColor = b.status === 'in_progress' ? '#2196F3' : b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'payment_hold' ? '#c62828' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
 
           // ── Time change banner (whole booking) ──
           if (isTimeChange) {
@@ -7172,6 +7436,13 @@ async function loadClientAppts(filter, tabBtn) {
           html += paidBadge;
           if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
           html += '</div></div></div>';
+
+          // In-progress: show Track Live Walk banner below the card
+          if (b.status === 'in_progress') {
+            html += '<a href="/?track_booking=' + b.id + '" target="_blank" onclick="event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border-radius:10px;margin-top:4px;font-size:0.88rem;font-weight:700;text-decoration:none;cursor:pointer;animation:pulse 2s infinite">';
+            html += '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite"></div>';
+            html += '<span>📍 Track Live Walk</span></a>';
+          }
 
           // Pay Now button moved to detail view (showBookingDetail)
         }); // end bookingsForDate loop
@@ -7288,9 +7559,11 @@ async function clientAcceptTimeChange(bookingId) {
 
     if (bk.estimated_total > 0 && bk.client_id) {
       try {
+        var _sess = await sb.auth.getSession();
+        var _token = _sess && _sess.data && _sess.data.session ? _sess.data.session.access_token : '';
         var chargeResp = await fetch('/api/charge-saved-card', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
           body: JSON.stringify({
             bookingRequestId: bookingId,
             amount: bk.estimated_total,
@@ -7710,6 +7983,40 @@ function closeBookingDetail() {
   setTimeout(function() { overlay.style.display = 'none'; }, 300);
 }
 
+// ── STOP RECURRING SERVICE ──
+async function stopRecurringService(bookingId, serviceName) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) return;
+
+  var confirmed = confirm(
+    'Stop Recurring: ' + (serviceName || 'Service') + '\n\n' +
+    'This will stop all future visits for this recurring service.\n\n' +
+    '• If this week has already been charged and a visit is within 48 hours, the 48-hour cancellation policy applies.\n' +
+    '• Any future weeks that haven\'t been charged yet will simply not be billed.\n' +
+    '• Once stopped, this recurring service will be marked as completed.\n\n' +
+    'Are you sure you want to stop this recurring service?'
+  );
+  if (!confirmed) return;
+
+  try {
+    toast('Stopping recurring service...');
+    var resp = await fetch('/api/cancel-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingRequestId: bookingId, canceledBy: 'client', stopRecurring: true })
+    });
+    var result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'Failed to stop recurring service');
+    toast('Recurring service stopped successfully!');
+    if (typeof loadClientAppointments === 'function') loadClientAppointments();
+    if (typeof fetchCalendarBookings === 'function') fetchCalendarBookings();
+  } catch(e) {
+    console.error('Stop recurring error:', e);
+    toast('Error stopping service: ' + e.message);
+  }
+}
+
 // role: 'client', 'owner', or 'staff'
 // source: 'booking_requests' or 'bookings' (which table the ID is from)
 async function showBookingDetail(bookingId, role, source) {
@@ -7747,8 +8054,8 @@ async function showBookingDetail(bookingId, role, source) {
     else if (svcLower.indexOf('day care') !== -1) icon = '☀️';
 
     // Status badge
-    var statusColors = { pending: '#e0a800', accepted: '#28a745', confirmed: '#28a745', completed: '#17a2b8', canceled: '#dc3545', rejected: '#6c757d', modified: '#e67e22', payment_hold: '#c62828' };
-    var statusLabels = { pending: 'Pending', accepted: 'Confirmed', confirmed: 'Confirmed', completed: 'Completed', canceled: 'Canceled', rejected: 'Declined', modified: 'Time Change', payment_hold: 'Payment Needed' };
+    var statusColors = { pending: '#e0a800', accepted: '#28a745', confirmed: '#28a745', completed: '#17a2b8', canceled: '#dc3545', rejected: '#6c757d', modified: '#e67e22', payment_hold: '#c62828', in_progress: '#2196F3' };
+    var statusLabels = { pending: 'Pending', accepted: 'Confirmed', confirmed: 'Confirmed', completed: 'Completed', canceled: 'Canceled', rejected: 'Declined', modified: 'Time Change', payment_hold: 'Payment Needed', in_progress: 'In Progress' };
     var st = b.status || 'pending';
     var stColor = statusColors[st] || '#6c757d';
     var stLabel = statusLabels[st] || st;
@@ -7777,6 +8084,30 @@ async function showBookingDetail(bookingId, role, source) {
     h += '<span style="display:inline-block;background:' + stColor + ';color:white;font-size:0.72rem;font-weight:700;padding:3px 12px;border-radius:50px;text-transform:uppercase;margin-top:4px">' + stLabel + '</span>';
     h += '</div></div>';
 
+    // Client: prominent live tracking banner at top when booking is in progress
+    var isHouseSittingSvc = svc && svc.toLowerCase().indexOf('house sitting') !== -1;
+    var _detailToday = _localDateStr();
+    var _detailIsToday = dateVal === _detailToday;
+    if (role === 'client' && (st === 'in_progress' || (st === 'accepted' || st === 'confirmed')) && _detailIsToday && !isHouseSittingSvc) {
+      var _topWalk = null;
+      try {
+        var { data: _tw } = await sb.from('walks').select('id, status, start_time').eq('booking_id', bookingId).eq('status', 'in_progress').limit(1);
+        if (_tw && _tw.length > 0) _topWalk = _tw[0];
+      } catch(_twe) { console.warn('Client top walk check:', _twe); }
+      if (_topWalk) {
+        var _topElapsed = Math.floor((Date.now() - new Date(_topWalk.start_time).getTime()) / 60000);
+        h += '<div style="background:linear-gradient(135deg,rgba(61,90,71,0.1),rgba(74,124,89,0.08));border:2px solid var(--forest,#3d5a47);border-radius:14px;padding:16px;margin-bottom:16px">';
+        h += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
+        h += '<div style="width:12px;height:12px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite;flex-shrink:0"></div>';
+        h += '<span style="font-size:0.95rem;font-weight:800;color:var(--forest,#3d5a47)">Walk In Progress</span>';
+        h += '<span style="font-size:0.78rem;color:var(--mid);margin-left:auto">' + _topElapsed + ' min</span>';
+        h += '</div>';
+        h += '<a href="/?track=' + _topWalk.id + '" target="_blank" style="display:flex;width:100%;padding:14px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;font-family:inherit;align-items:center;justify-content:center;gap:10px;text-decoration:none;box-sizing:border-box;box-shadow:0 4px 12px rgba(61,90,71,0.3)">';
+        h += '<span style="font-size:1.2rem">📍</span> Track Live Walk</a>';
+        h += '</div>';
+      }
+    }
+
     // Payment badge (owner/staff only get the big verified/unverified badge)
     if (role === 'owner' || role === 'staff') {
       if (st === 'pending') {
@@ -7799,12 +8130,18 @@ async function showBookingDetail(bookingId, role, source) {
           h += '<div style="font-size:1.4rem">🔄</div>';
           h += '<div><div style="font-weight:700;color:#0d47a1;font-size:0.9rem">Payment Processing</div>';
           h += '<div style="font-size:0.78rem;color:#0d47a1">$' + Number(b.estimated_total || 0).toFixed(2) + ' is being processed</div></div></div>';
-        } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id) {
-          // Accepted but payment not yet processed (recurring future week)
+        } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id && b.recurrence_pattern) {
+          // Recurring booking — future week not yet charged by Sunday cron
           h += '<div style="background:#fff8e1;border:1.5px solid #e0a800;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">🕐</div>';
           h += '<div><div style="font-weight:700;color:#7a6200;font-size:0.9rem">Payment Pending</div>';
           h += '<div style="font-size:0.78rem;color:#7a6200">$' + Number(b.estimated_total || 0).toFixed(2) + ' — charges the Sunday before appointment week</div></div></div>';
+        } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id && !b.recurrence_pattern) {
+          // Non-recurring booking with no payment — needs payment method
+          h += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
+          h += '<div style="font-size:1.4rem">💳</div>';
+          h += '<div><div style="font-weight:700;color:#c62828;font-size:0.9rem">Payment Needed</div>';
+          h += '<div style="font-size:0.78rem;color:#c62828">$' + Number(b.estimated_total || 0).toFixed(2) + ' — please add a card to process payment</div></div></div>';
         } else {
           h += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">❌</div>';
@@ -7893,8 +8230,10 @@ async function showBookingDetail(bookingId, role, source) {
         h += '<div style="font-size:0.78rem;color:#155724;font-weight:600">✅ Paid' + (paymentInfo && paymentInfo.paid_at ? ' on ' + new Date(paymentInfo.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') + '</div>';
       } else if (isHeld) {
         h += '<div style="font-size:0.78rem;color:#0d47a1;font-weight:600">🔄 Payment processing</div>';
-      } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id) {
+      } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id && b.recurrence_pattern) {
         h += '<div style="font-size:0.78rem;color:#7a6200;font-weight:600">🕐 Charges the Sunday before your appointment week</div>';
+      } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id && !b.recurrence_pattern) {
+        h += '<div style="font-size:0.78rem;color:#c62828;font-weight:600">💳 Payment needed — please add a card on file</div>';
       } else {
         h += '<div style="font-size:0.78rem;color:var(--mid)">⏳ Payment pending</div>';
       }
@@ -7917,13 +8256,80 @@ async function showBookingDetail(bookingId, role, source) {
 
     h += '</div>'; // end info rows
 
+    // ── RECURRING SCHEDULE SECTION (in detail drawer) ──
+    if (b.recurrence_pattern) {
+      var _activeStatuses = { pending:1, accepted:1, confirmed:1, in_progress:1, modified:1, payment_hold:1 };
+      if (_activeStatuses[st]) {
+        h += '<div style="background:var(--warm);border-radius:10px;padding:14px;margin-bottom:12px">';
+        h += '<div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px;display:flex;align-items:center;gap:6px">🔄 Recurring Schedule</div>';
+
+        // Get next 4 dates
+        var _detailRecurDates = [];
+        try {
+          var _dToday = _localDateStr();
+          var _dCursor = new Date();
+          _dCursor.setHours(12,0,0,0);
+          var _dLimit = new Date(_dCursor);
+          _dLimit.setDate(_dLimit.getDate() + 90);
+          var _canceledSet = Array.isArray(b.canceled_dates) ? b.canceled_dates : [];
+          while (_dCursor <= _dLimit && _detailRecurDates.length < 4) {
+            var _dk = _localDateStr(_dCursor);
+            if (_dk >= _dToday && typeof isRecurringOnDate === 'function' && isRecurringOnDate(b, _dk)) {
+              _detailRecurDates.push(_dk);
+            }
+            _dCursor.setDate(_dCursor.getDate() + 1);
+          }
+        } catch(re) {}
+
+        // Load per-date payment status from recurring_invoices
+        if (_detailRecurDates.length > 0) {
+          var _detailPaidMap = {};
+          try {
+            var { data: _detailInvs } = await sb.from('recurring_invoices')
+              .select('service_date, status')
+              .eq('booking_request_id', b.id)
+              .in('service_date', _detailRecurDates);
+            if (_detailInvs) _detailInvs.forEach(function(ri) { _detailPaidMap[ri.service_date] = ri.status; });
+          } catch(die) {}
+
+          _detailRecurDates.forEach(function(dd, di) {
+            var ddDate = new Date(dd + 'T12:00:00');
+            var ddStr = ddDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            var ddTime = (typeof getRecurringTime === 'function') ? getRecurringTime(b, dd) : '';
+            var ddTimeStr = ddTime && (typeof fmt12h === 'function') ? fmt12h(ddTime) : ddTime;
+            var ddInvStatus = _detailPaidMap[dd] || '';
+            var ddPaid = ddInvStatus === 'paid' || ddInvStatus === 'sent' || ddInvStatus === 'captured';
+
+            var ddBadge = '';
+            if (b.estimated_total > 0) {
+              if (ddPaid) ddBadge = '<span style="font-size:0.65rem;font-weight:700;color:#155724;background:#d4edda;padding:2px 7px;border-radius:4px">Paid</span>';
+              else if (ddInvStatus === 'voided') ddBadge = '<span style="font-size:0.65rem;font-weight:700;color:#856404;background:#fff3cd;padding:2px 7px;border-radius:4px">Refunded</span>';
+              else ddBadge = '<span style="font-size:0.65rem;font-weight:600;color:#0d47a1;background:#e3f2fd;padding:2px 7px;border-radius:4px">Upcoming</span>';
+            }
+
+            h += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;' + (di === 0 ? 'background:var(--cream,white);border-radius:8px;border:1.5px solid var(--forest);' : '') + '">';
+            h += '<div style="width:6px;height:6px;border-radius:50%;background:' + (di === 0 ? 'var(--forest)' : 'var(--mid)') + ';flex-shrink:0"></div>';
+            h += '<div style="flex:1;font-size:0.84rem;' + (di === 0 ? 'font-weight:700;color:var(--ink)' : 'color:var(--mid)') + '">' + ddStr + (ddTimeStr ? ' at ' + ddTimeStr : '') + '</div>';
+            if (di === 0) h += '<span style="font-size:0.68rem;font-weight:700;color:var(--forest);background:#d4edda;padding:2px 8px;border-radius:4px">NEXT</span>';
+            h += ddBadge;
+            h += '</div>';
+          });
+        } else {
+          h += '<div style="font-size:0.84rem;color:var(--mid);text-align:center;padding:8px">No upcoming visits scheduled</div>';
+        }
+
+        h += '<div style="font-size:0.75rem;color:var(--mid);margin-top:8px">$' + Number(b.estimated_total || 0).toFixed(2) + '/visit \u00B7 Charged weekly on Sundays</div>';
+        h += '</div>';
+      }
+    }
+
     // ── ACTION BUTTONS ──
     var today = _localDateStr();
     var isToday = dateVal === today;
     var isActive = (st === 'accepted' || st === 'confirmed');
 
     // House Sitting: Complete & Report button (owner/staff, when end date is today or past)
-    var isHouseSittingSvc = svc && svc.toLowerCase().indexOf('house sitting') !== -1;
+    // (isHouseSittingSvc already declared above)
     if ((role === 'owner' || role === 'staff') && isHouseSittingSvc && isActive && b.preferred_end_date) {
       var hsEndPast = b.preferred_end_date <= today;
       var hsStarted = b.preferred_date <= today;
@@ -7983,6 +8389,29 @@ async function showBookingDetail(bookingId, role, source) {
     // Mark Complete button (owner/staff, for today's active bookings with no active walk)
     if ((role === 'owner' || role === 'staff') && isActive && !isToday) {
       // Future booking — no start/stop, but maybe useful later
+    }
+
+    // Client: Live tracking button when walk is in progress
+    if (role === 'client' && isToday && (isActive || st === 'in_progress' || st === 'payment_hold') && !isHouseSittingSvc) {
+      var clientActiveWalk = null;
+      try {
+        var { data: caw } = await sb.from('walks').select('id, status, start_time').eq('booking_id', bookingId).eq('status', 'in_progress').limit(1);
+        if (caw && caw.length > 0) clientActiveWalk = caw[0];
+      } catch(cwe) { console.warn('Client walk check:', cwe); }
+
+      if (clientActiveWalk) {
+        var cElapsed = Math.floor((Date.now() - new Date(clientActiveWalk.start_time).getTime()) / 60000);
+        h += '<div style="margin-bottom:12px">';
+        h += '<div style="background:rgba(61,90,71,0.08);border-radius:12px;padding:14px;margin-bottom:10px;border:1.5px solid var(--forest,#3d5a47)">';
+        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">';
+        h += '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></div>';
+        h += '<span style="font-size:0.82rem;font-weight:700;color:var(--forest,#3d5a47)">Walk In Progress</span>';
+        h += '<span style="font-size:0.7rem;color:var(--mid);margin-left:auto">' + cElapsed + ' min elapsed</span>';
+        h += '</div>';
+        h += '<a href="/?track=' + clientActiveWalk.id + '" target="_blank" style="display:flex;width:100%;padding:13px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border:none;border-radius:10px;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:inherit;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-sizing:border-box">';
+        h += '<span style="font-size:1.1rem">📍</span> Track Live Walk</a>';
+        h += '</div></div>';
+      }
     }
 
     // Cancel button (for active bookings that aren't completed)
@@ -8136,6 +8565,7 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
             staffName: staffName,
             isDogWalk: isDogWalk,
             address: address || '',
+            walkId: walk && walk.id ? walk.id : '',
           })
         }).catch(function(e) { console.warn('Service started email error:', e); });
       }
@@ -8363,7 +8793,7 @@ function handleLspMediaUpload(input) {
         if (file.type.startsWith('video/')) {
           thumb.innerHTML = '<div style="width:100%;height:100%;background:var(--ink);display:flex;align-items:center;justify-content:center;color:white;font-size:1.2rem">🎬</div>';
         } else {
-          thumb.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover">';
+          thumb.innerHTML = '<img loading="lazy" src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover">';
         }
         var removeBtn = document.createElement('button');
         removeBtn.style.cssText = 'position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);color:white;border:none;font-size:0.6rem;cursor:pointer;display:flex;align-items:center;justify-content:center';
@@ -8681,7 +9111,7 @@ function handleHsMediaUpload(input) {
           if (file.type.startsWith('video/')) {
             el.innerHTML = '<div style="width:100%;height:100%;background:#1a1a1a;display:flex;align-items:center;justify-content:center"><span style="color:white;font-size:1.5rem">🎬</span></div>';
           } else {
-            el.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover">';
+            el.innerHTML = '<img loading="lazy" src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover">';
           }
           grid.appendChild(el);
         }
@@ -9112,10 +9542,35 @@ async function endServiceFromPanel() {
     // Update booking status to completed (but NOT for recurring — keep 'accepted' so the series continues)
     if (d.bookingId) {
       try {
-        var { data: bkCheck } = await sb.from('booking_requests').select('recurrence_pattern').eq('id', d.bookingId).single();
+        var { data: bkCheck } = await sb.from('booking_requests').select('recurrence_pattern, canceled_dates').eq('id', d.bookingId).maybeSingle();
         if (bkCheck && bkCheck.recurrence_pattern) {
-          // Recurring booking: restore to 'accepted' so cron + calendar + client view keep working
-          await sb.from('booking_requests').update({ status: 'accepted' }).eq('id', d.bookingId);
+          // Recurring booking: check if there are future dates remaining
+          var _hasMoreDates = false;
+          try {
+            var _todayChk = _localDateStr();
+            var _chkCursor = new Date();
+            _chkCursor.setHours(12,0,0,0);
+            // Start from tomorrow to check future dates
+            _chkCursor.setDate(_chkCursor.getDate() + 1);
+            var _chkEnd = new Date(_chkCursor);
+            _chkEnd.setDate(_chkEnd.getDate() + 90);
+            while (_chkCursor <= _chkEnd) {
+              var _chkDk = _localDateStr(_chkCursor);
+              if (typeof isRecurringOnDate === 'function' && isRecurringOnDate(bkCheck, _chkDk)) {
+                _hasMoreDates = true;
+                break;
+              }
+              _chkCursor.setDate(_chkCursor.getDate() + 1);
+            }
+          } catch(rdErr) { _hasMoreDates = true; /* err on side of keeping active */ }
+
+          if (_hasMoreDates) {
+            // More dates ahead: restore to 'accepted' so cron + calendar + client view keep working
+            await sb.from('booking_requests').update({ status: 'accepted' }).eq('id', d.bookingId);
+          } else {
+            // No more future dates: mark as completed — the recurring service is done
+            await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
+          }
         } else {
           // One-time booking: mark completed as normal
           var { error: bkErr } = await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
@@ -9253,7 +9708,7 @@ async function viewCompletedReport(bookingId) {
         if (m.type === 'video') {
           h += '<div onclick="window.open(\'' + m.url + '\',\'_blank\')" style="width:70px;height:70px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="color:white;font-size:1.5rem">🎬</span></div>';
         } else {
-          h += '<img src="' + (m.url || m.thumbnail || '') + '" onclick="window.open(\'' + (m.url || '') + '\',\'_blank\')" style="width:70px;height:70px;object-fit:cover;border-radius:8px;cursor:pointer">';
+          h += '<img loading="lazy" src="' + (m.url || m.thumbnail || '') + '" onclick="window.open(\'' + (m.url || '') + '\',\'_blank\')" style="width:70px;height:70px;object-fit:cover;border-radius:8px;cursor:pointer">';
         }
       });
       h += '</div></div>';
@@ -9444,13 +9899,16 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
   document.getElementById('cancelModal_date').textContent = dateDisplay;
   document.getElementById('cancelModal_client').textContent = clientName || 'Client';
 
-  // Show/hide warning based on cancel type
+  // Show/hide warning or refund notice based on cancel type
   var cancelType = getCancelType(date);
   var warningEl = document.getElementById('cancelModal_warning');
+  var refundNoticeEl = document.getElementById('cancelModal_refundNotice');
   if (cancelType === 'late') {
     warningEl.style.display = '';
+    if (refundNoticeEl) refundNoticeEl.style.display = 'none';
   } else {
     warningEl.style.display = 'none';
+    if (refundNoticeEl) refundNoticeEl.style.display = '';
   }
 
   // Show/hide recurring options
@@ -9499,6 +9957,7 @@ async function confirmCancelBooking() {
     var cancelOption = document.querySelector('input[name="cancelOption"]:checked');
     var option = cancelOption ? cancelOption.value : 'this';
     var isSingleCancel = _cancelData.isRecurring && option === 'this';
+    var isStopRecurring = _cancelData.isRecurring && option === 'future';
 
     // Check refund selection (only present for owner/staff paid cancels)
     var refundOption = document.querySelector('input[name="refundOption"]:checked');
@@ -9516,6 +9975,7 @@ async function confirmCancelBooking() {
         canceledBy: _cancelData.canceledBy,
         cancelSingle: isSingleCancel,
         cancelDate: isSingleCancel ? _cancelData.date : undefined,
+        stopRecurring: isStopRecurring || undefined,
         issueRefund: issueRefund
       })
     });
@@ -9526,6 +9986,16 @@ async function confirmCancelBooking() {
       if (result.refunded) toastMsg = '✅ Booking canceled & refund issued 🐾';
       toast(toastMsg);
       closeModal('cancelBookingModal');
+
+      // Instantly remove the card from the DOM so no reload needed
+      var canceledCard = document.querySelector('[data-request-id="' + _cancelData.bookingRequestId + '"]');
+      if (canceledCard) {
+        canceledCard.style.transition = 'opacity 0.3s, transform 0.3s';
+        canceledCard.style.opacity = '0';
+        canceledCard.style.transform = 'translateX(-20px)';
+        setTimeout(function() { canceledCard.remove(); }, 300);
+      }
+
       // Invalidate cache & refresh widgets
       if (window.HHP_Cache) HHP_Cache.invalidate('booking_requests');
       if (window.HHP_Customizer && HHP_Customizer.refreshAll) HHP_Customizer.refreshAll();
@@ -9535,7 +10005,10 @@ async function confirmCancelBooking() {
           loadClientAppts('all');
         }
       } else if (_cancelData.canceledBy === 'owner') {
-        // Refresh owner booking admin + schedules
+        // Refresh owner booking panel + schedules
+        if (typeof window.loadBookingRequestsPanel === 'function') {
+          window.loadBookingRequestsPanel('owner');
+        }
         if (window.HHP_BookingAdmin && typeof window.HHP_BookingAdmin.load === 'function') {
           window.HHP_BookingAdmin.load();
         }
@@ -9543,6 +10016,9 @@ async function confirmCancelBooking() {
         if (typeof loadMasterSchedule === 'function') loadMasterSchedule();
       } else if (_cancelData.canceledBy === 'staff') {
         // Refresh staff bookings
+        if (typeof window.loadBookingRequestsPanel === 'function') {
+          window.loadBookingRequestsPanel('staff');
+        }
         if (typeof loadStaffSchedule === 'function') {
           loadStaffSchedule();
         }
@@ -10015,6 +10491,7 @@ function showContentSection(name, btn) {
     });
   }
   if(name==='pricing') buildPricingEditor();
+  if(name==='holidays') buildHolidayEditor();
   if(name==='services') buildServiceEditor();
   if(name==='photos') {
     // Load photos & wire upload slots when switching to Photos section
@@ -10101,28 +10578,286 @@ async function aiRewrite(section) {
 function openPricingEditor(){ sTab('o','o-content'); setTimeout(()=>showContentSection('pricing',null),100); }
 
 // ============================================================
-// PRICING EDITOR
+// PRICING EDITOR (reads/writes from service_pricing table)
 // ============================================================
-const pricingData=[
-  {key:'walk30',label:'🦮 Dog Walk (30 min)',price:'$25'},{key:'walk60',label:'🦮 Dog Walk (1 hour)',price:'$45'},
-  {key:'dropin30',label:'🚪 Drop-In Visit - Dog (30 min)',price:'$25'},{key:'dropin60',label:'🚪 Drop-In Visit - Dog (1 hour)',price:'$45'},
-  {key:'cat30',label:'🐱 Drop-In Visit - Cat (30 min)',price:'$20'},{key:'cat60',label:'🐱 Drop-In Visit - Cat (1 hour)',price:'$35'},
-  {key:'boarding',label:'🌙 Dog Boarding (per night)',price:'$55'},{key:'boarding24',label:'🌙 Dog Boarding (24hr)',price:'$75'},
-  {key:'daycare_half',label:'☀️ Day Care (half day)',price:'$40'},{key:'daycare_full',label:'☀️ Day Care (full day)',price:'$65'},
-  {key:'housesit_dog',label:'🏡 House Sitting - Dog (per night)',price:'$125'},{key:'housesit_cat',label:'🏡 House Sitting - Cat (per night)',price:'$80'},
-  {key:'housesit_extra_dog',label:'🏡 Additional Dog (per night)',price:'$35'},{key:'housesit_extra_cat',label:'🏡 Additional Cat (per night)',price:'$15'},
-  {key:'housesit_mixed',label:'🏡 House Sitting - Mixed Dog+Cat (per night)',price:'$140'},
-];
-function buildPricingEditor() {
-  const saved=getSiteData().pricing||{};
-  const c=document.getElementById('pricingEditorRows'); if(!c||c.dataset.built) return;
-  c.dataset.built='1';
-  c.innerHTML=pricingData.map(p=>`<div style="display:flex;align-items:center;gap:14px;background:var(--warm);border-radius:8px;padding:12px 16px;border:1px solid var(--border)"><div style="flex:1;font-size:0.88rem;font-weight:600">${p.label}</div><div style="display:flex;align-items:center;gap:8px"><span style="font-size:0.8rem;color:var(--mid)">Price:</span><input class="form-in" data-price-key="${p.key}" value="${saved[p.key]||p.price}" style="width:90px;text-align:center;font-weight:700;font-size:0.95rem;padding:7px 10px"></div></div>`).join('');
+async function buildPricingEditor() {
+  const c = document.getElementById('pricingEditorRows');
+  if (!c) return;
+  c.innerHTML = '<div style="text-align:center;padding:20px;color:var(--mid)">Loading pricing...</div>';
+
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { c.innerHTML = '<div style="color:var(--rose);padding:12px">Unable to connect to database.</div>'; return; }
+
+  try {
+    const { data, error } = await sb.from('service_pricing').select('*').order('sort_order');
+    if (error) throw error;
+    if (!data || data.length === 0) { c.innerHTML = '<div style="padding:12px;color:var(--mid)">No pricing data found.</div>'; return; }
+
+    const icons = { dog_walk: '🦮', dropin_dog: '🚪', dropin_cat: '🐱', housesit_dog: '🏡', housesit_cat: '🏡', housesit_mixed: '🏡', meet_greet: '🤝' };
+    function getIcon(key) { for (var k in icons) { if (key.indexOf(k) === 0) return icons[k]; } return '📋'; }
+
+    c.innerHTML = data.map(function(row) {
+      var icon = getIcon(row.service_key);
+      var unitLabel = row.unit === 'night' ? '/night' : '';
+      return '<div style="background:var(--warm);border-radius:10px;padding:14px 16px;border:1px solid var(--border);margin-bottom:10px" data-pricing-row="' + row.service_key + '">' +
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+          '<span style="font-size:1.1rem">' + icon + '</span>' +
+          '<span style="font-weight:700;font-size:0.92rem;flex:1">' + row.service_label + '</span>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Base Price' + (unitLabel ? ' ' + unitLabel : '') + '</label><input class="form-in" data-pk="' + row.service_key + '" data-field="base_price" type="number" step="0.01" value="' + parseFloat(row.base_price) + '" style="font-weight:700;font-size:0.95rem;padding:7px 10px"></div>' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Extra Pet Fee</label><input class="form-in" data-pk="' + row.service_key + '" data-field="extra_pet_fee" type="number" step="0.01" value="' + parseFloat(row.extra_pet_fee) + '" style="padding:7px 10px"></div>' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Extra Cat Fee</label><input class="form-in" data-pk="' + row.service_key + '" data-field="extra_cat_fee" type="number" step="0.01" value="' + parseFloat(row.extra_cat_fee) + '" style="padding:7px 10px"></div>' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Puppy Surcharge</label><input class="form-in" data-pk="' + row.service_key + '" data-field="puppy_surcharge" type="number" step="0.01" value="' + parseFloat(row.puppy_surcharge) + '" style="padding:7px 10px"></div>' +
+          '<div><label class="form-lbl" style="font-size:0.72rem">Holiday Surcharge</label><input class="form-in" data-pk="' + row.service_key + '" data-field="holiday_surcharge" type="number" step="0.01" value="' + parseFloat(row.holiday_surcharge) + '" style="padding:7px 10px"></div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load pricing editor:', e);
+    c.innerHTML = '<div style="color:var(--rose);padding:12px">Error loading pricing: ' + (e.message || e) + '</div>';
+  }
 }
-function savePricing() {
-  const pricing={};
-  document.querySelectorAll('[data-price-key]').forEach(el=>{pricing[el.dataset.priceKey]=el.value;});
-  setSiteData({pricing}); applySavedData(); toast('✅ All pricing saved and applied to your site!');
+
+async function savePricing() {
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { toast('❌ Database connection not available'); return; }
+
+  const rows = document.querySelectorAll('[data-pricing-row]');
+  const updates = [];
+
+  rows.forEach(function(row) {
+    const key = row.dataset.pricingRow;
+    const fields = {};
+    row.querySelectorAll('[data-field]').forEach(function(input) {
+      fields[input.dataset.field] = parseFloat(input.value) || 0;
+    });
+    fields.updated_at = new Date().toISOString();
+    updates.push(sb.from('service_pricing').update(fields).eq('service_key', key));
+  });
+
+  try {
+    const results = await Promise.all(updates);
+    const errors = results.filter(function(r) { return r.error; });
+    if (errors.length > 0) {
+      console.error('Pricing save errors:', errors);
+      toast('⚠️ Some prices failed to save. Check console.');
+      return;
+    }
+
+    toast('✅ All pricing saved to database!');
+
+    // Refresh the booking system pricing
+    if (window.HHP_Booking && window.HHP_Booking.refreshPricing) {
+      await window.HHP_Booking.refreshPricing();
+    }
+
+    // Update landing page prices
+    applyDynamicPricing();
+
+    // Update invoice dropdown
+    updateInvoiceDropdown();
+
+  } catch (e) {
+    console.error('Save pricing error:', e);
+    toast('❌ Failed to save pricing: ' + (e.message || e));
+  }
+}
+
+// Update landing page price displays from window._servicePricing
+function applyDynamicPricing() {
+  var data = window._servicePricing;
+  if (!data || !data.length) return;
+
+  var byKey = {};
+  data.forEach(function(r) { byKey[r.service_key] = r; });
+
+  function $(key) { return byKey[key]; }
+  function setPrice(attr, text) {
+    var el = document.querySelector('[data-price-key="' + attr + '"]');
+    if (el) el.innerHTML = text;
+  }
+
+  // Main card prices
+  var w30 = $('dog_walk_30'), w60 = $('dog_walk_60');
+  if (w30) setPrice('dog_walk_30', '$' + parseFloat(w30.base_price) + ' <span>/ 30 min</span>');
+  if (w60) setPrice('dog_walk_60', '$' + parseFloat(w60.base_price) + ' <span>/ 1 hour</span>');
+  if (w30) setPrice('dog_walk_surcharges', '+$' + parseFloat(w30.extra_pet_fee) + ' per additional dog · +$' + parseFloat(w30.puppy_surcharge) + ' puppy surcharge · +$' + parseFloat(w30.holiday_surcharge) + ' holiday rate');
+
+  var dc30 = $('dropin_cat_30');
+  if (dc30) setPrice('dropin_min', 'From $' + parseFloat(dc30.base_price) + ' <span>/ 30 min</span>');
+
+  var hd = $('housesit_dog');
+  if (hd) setPrice('housesit_dog_main', '$' + parseFloat(hd.base_price) + ' <span>/ night</span>');
+
+  // Drop-in detail rates
+  var dd30 = $('dropin_dog_30'), dd60 = $('dropin_dog_60'), dc60 = $('dropin_cat_60');
+  if (dd30) setPrice('dropin_dog_30_detail', '$' + parseFloat(dd30.base_price));
+  if (dd60) setPrice('dropin_dog_60_detail', '$' + parseFloat(dd60.base_price));
+  if (dc30) setPrice('dropin_cat_30_detail', '$' + parseFloat(dc30.base_price));
+  if (dc60) setPrice('dropin_cat_60_detail', '$' + parseFloat(dc60.base_price));
+  if (dd30) setPrice('dropin_extra_dog_detail', '+ $' + parseFloat(dd30.extra_pet_fee));
+  if (dc30) setPrice('dropin_extra_cat_detail', '+ $' + parseFloat(dc30.extra_pet_fee));
+  if (dd30) setPrice('dropin_puppy_detail', '+ $' + parseFloat(dd30.puppy_surcharge));
+  if (dd30) setPrice('dropin_holiday_detail', '+ $' + parseFloat(dd30.holiday_surcharge));
+
+  // House sitting detail rates
+  var hc = $('housesit_cat');
+  if (hd) setPrice('housesit_dog_detail', '$' + parseFloat(hd.base_price) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
+  if (hc) setPrice('housesit_cat_detail', '$' + parseFloat(hc.base_price) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
+  if (hd) setPrice('housesit_extra_dog_detail', '+ $' + parseFloat(hd.extra_pet_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / dog / night</span>');
+  if (hd) setPrice('housesit_extra_cat_detail', '+ $' + parseFloat(hd.extra_cat_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / cat / night</span>');
+  if (hd) setPrice('housesit_3plus_detail', '+ $' + parseFloat(hd.extra_pet_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span>');
+  if (hd) setPrice('housesit_puppy_detail', '+ $' + parseFloat(hd.puppy_surcharge) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
+  if (hd) setPrice('housesit_holiday_detail', '+ $' + parseFloat(hd.holiday_surcharge) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
+}
+
+// Update invoice service dropdown with current pricing
+function updateInvoiceDropdown() {
+  var data = window._servicePricing;
+  var sel = document.getElementById('inv-service');
+  if (!data || !data.length || !sel) return;
+
+  var byKey = {};
+  data.forEach(function(r) { byKey[r.service_key] = r; });
+
+  var options = [
+    { key: 'housesit_dog', icon: '🏠', suffix: '/night' },
+    { key: 'housesit_cat', icon: '🏠', suffix: '/night' },
+    { key: 'dog_walk_30', icon: '🦮', label: 'Dog Walking 30min' },
+    { key: 'dog_walk_60', icon: '🦮', label: 'Dog Walking 1 hour' },
+    { key: 'dropin_dog_30', icon: '🐾', label: 'Drop-In (Dog) 30min' },
+    { key: 'dropin_dog_60', icon: '🐾', label: 'Drop-In (Dog) 1 hour' },
+    { key: 'dropin_cat_30', icon: '🐱', label: 'Drop-In (Cat) 30min' },
+    { key: 'dropin_cat_60', icon: '🐱', label: 'Drop-In (Cat) 1 hour' }
+  ];
+
+  var html = '';
+  options.forEach(function(opt) {
+    var row = byKey[opt.key];
+    if (!row) return;
+    var label = opt.label || row.service_label;
+    var price = '$' + parseFloat(row.base_price) + (opt.suffix || '');
+    html += '<option>' + opt.icon + ' ' + label + ' — ' + price + '</option>';
+  });
+  html += '<option>Other</option>';
+  sel.innerHTML = html;
+}
+
+// Auto-apply pricing when page loads (called after booking system loads pricing)
+(function() {
+  var _pricingApplied = false;
+  function tryApplyPricing() {
+    if (_pricingApplied) return;
+    if (window._servicePricing && window._servicePricing.length > 0) {
+      _pricingApplied = true;
+      applyDynamicPricing();
+      updateInvoiceDropdown();
+    }
+  }
+  // Try immediately, then poll briefly in case booking-system loads async
+  tryApplyPricing();
+  var attempts = 0;
+  var iv = setInterval(function() {
+    tryApplyPricing();
+    if (_pricingApplied || ++attempts > 20) clearInterval(iv);
+  }, 500);
+})();
+
+// ============================================================
+// HOLIDAY EDITOR
+// ============================================================
+async function buildHolidayEditor() {
+  const c = document.getElementById('holidayEditorRows');
+  if (!c) return;
+  c.innerHTML = '<div style="text-align:center;padding:20px;color:var(--mid)">Loading holidays...</div>';
+
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { c.innerHTML = '<div style="color:var(--rose);padding:12px">Unable to connect to database.</div>'; return; }
+
+  try {
+    const { data, error } = await sb.from('holidays').select('*').order('sort_order');
+    if (error) throw error;
+    if (!data || data.length === 0) { c.innerHTML = '<div style="padding:12px;color:var(--mid)">No holidays set. Add some below.</div>'; return; }
+
+    c.innerHTML = data.map(function(h) {
+      return '<div style="display:flex;align-items:center;gap:12px;background:var(--warm);border-radius:8px;padding:10px 14px;border:1px solid var(--border)" data-holiday-id="' + h.id + '">' +
+        '<div style="font-weight:700;font-size:0.95rem;min-width:60px;color:var(--gold-deep)">' + h.date_mmdd + '</div>' +
+        '<div style="flex:1;font-size:0.88rem;color:var(--dark)">' + h.label + '</div>' +
+        '<button onclick="removeHoliday(\'' + h.id + '\')" style="background:none;border:1px solid var(--rose,#c0392b);color:var(--rose,#c0392b);border-radius:6px;padding:4px 12px;font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit">Remove</button>' +
+      '</div>';
+    }).join('');
+  } catch (e) {
+    console.error('Failed to load holidays:', e);
+    c.innerHTML = '<div style="color:var(--rose);padding:12px">Error loading holidays.</div>';
+  }
+}
+
+async function addHoliday() {
+  const dateInput = document.getElementById('newHolidayDate');
+  const labelInput = document.getElementById('newHolidayLabel');
+  if (!dateInput || !labelInput) return;
+
+  const dateMmdd = dateInput.value.trim();
+  const label = labelInput.value.trim();
+
+  if (!/^\d{2}-\d{2}$/.test(dateMmdd)) { toast('⚠️ Date must be in MM-DD format (e.g. 04-20)'); return; }
+  if (!label) { toast('⚠️ Please enter a label for this holiday'); return; }
+
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { toast('❌ Database not available'); return; }
+
+  try {
+    // Get next sort order
+    const { data: existing } = await sb.from('holidays').select('sort_order').order('sort_order', { ascending: false }).limit(1);
+    const nextSort = (existing && existing.length > 0) ? existing[0].sort_order + 1 : 1;
+
+    const { error } = await sb.from('holidays').insert([{ date_mmdd: dateMmdd, label: label, sort_order: nextSort }]);
+    if (error) {
+      if (error.code === '23505') { toast('⚠️ That date already exists'); return; }
+      throw error;
+    }
+
+    dateInput.value = '';
+    labelInput.value = '';
+    toast('✅ Holiday added: ' + label);
+    buildHolidayEditor();
+    if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) await window.HHP_Booking.refreshHolidays();
+    if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
+    if (typeof buildCalendar === 'function') buildCalendar();
+  } catch (e) {
+    console.error('Add holiday error:', e);
+    toast('❌ Failed to add holiday');
+  }
+}
+
+async function removeHoliday(id) {
+  if (!confirm('Remove this holiday date?')) return;
+
+  const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+
+  try {
+    const { error } = await sb.from('holidays').delete().eq('id', id);
+    if (error) throw error;
+
+    // Animate removal
+    const row = document.querySelector('[data-holiday-id="' + id + '"]');
+    if (row) {
+      row.style.transition = 'opacity 0.3s, transform 0.3s';
+      row.style.opacity = '0';
+      row.style.transform = 'translateX(20px)';
+      setTimeout(function() { row.remove(); }, 300);
+    }
+
+    toast('✅ Holiday removed');
+    if (window.HHP_Booking && window.HHP_Booking.refreshHolidays) await window.HHP_Booking.refreshHolidays();
+    if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
+    if (typeof buildCalendar === 'function') buildCalendar();
+  } catch (e) {
+    console.error('Remove holiday error:', e);
+    toast('❌ Failed to remove holiday');
+  }
 }
 
 // ============================================================
@@ -10529,6 +11264,7 @@ function downloadLandingPage() {
 
 // ── Saved Card Management ──
 async function loadSavedCard() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var display = document.getElementById('savedCardDisplay');
   var addBtn = document.getElementById('addCardBtn');
   if (!display) return;
@@ -10543,7 +11279,11 @@ async function loadSavedCard() {
   var email = u.email;
 
   try {
-    var resp = await fetch('/api/get-payment-methods?profileId=' + profileId + '&email=' + encodeURIComponent(email));
+    var _sess = await sb.auth.getSession();
+    var _token = _sess && _sess.data && _sess.data.session ? _sess.data.session.access_token : '';
+    var resp = await fetch('/api/get-payment-methods?profileId=' + profileId + '&email=' + encodeURIComponent(email), {
+      headers: { 'Authorization': 'Bearer ' + _token }
+    });
     var data = await resp.json();
 
     if (data.hasCard && data.methods.length > 0) {
@@ -10585,6 +11325,7 @@ async function loadSavedCard() {
 }
 
 async function addPaymentMethod() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
     toast('Please sign in first.');
     return;
@@ -10596,9 +11337,11 @@ async function addPaymentMethod() {
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting to Stripe...'; }
 
   try {
+    var _aSess = await sb.auth.getSession();
+    var _aToken = _aSess && _aSess.data && _aSess.data.session ? _aSess.data.session.access_token : '';
     var resp = await fetch('/api/create-setup-session', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _aToken },
       body: JSON.stringify({
         email: u.email,
         name: p.full_name || '',
@@ -10620,6 +11363,7 @@ async function addPaymentMethod() {
 }
 
 async function removePaymentMethod() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   if (!window._savedPaymentMethodId) {
     toast('No payment method to remove.');
     return;
@@ -10633,9 +11377,11 @@ async function removePaymentMethod() {
   if (removeBtn) { removeBtn.disabled = true; removeBtn.textContent = 'Removing...'; }
 
   try {
+    var _rSess = await sb.auth.getSession();
+    var _rToken = _rSess && _rSess.data && _rSess.data.session ? _rSess.data.session.access_token : '';
     var resp = await fetch('/api/remove-payment-method', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _rToken },
       body: JSON.stringify({ paymentMethodId: window._savedPaymentMethodId }),
     });
     var data = await resp.json();
@@ -10660,13 +11406,68 @@ async function removePaymentMethod() {
   if (params.get('card_saved') === 'success') {
     // Clean URL first
     window.history.replaceState({}, '', window.location.pathname);
-    setTimeout(function() {
+    setTimeout(async function() {
       loadSavedCard();
       // Check if there's a pending booking to restore
       if (typeof window._restorePendingBooking === 'function' && window._restorePendingBooking()) {
         // Booking form was restored — toast is shown inside _restorePendingBooking
       } else {
         toast('✅ Payment method saved! Your card is on file for future bookings.');
+      }
+
+      // ── Auto-charge unpaid bookings now that a card is on file ──
+      try {
+        var _sb = window.HHP_Auth && window.HHP_Auth.supabase;
+        var _user = window.HHP_Auth && window.HHP_Auth.currentUser;
+        if (_sb && _user) {
+          // Find unpaid accepted or payment_hold bookings for this client
+          var { data: unpaidBookings } = await _sb.from('booking_requests')
+            .select('id, service, estimated_total, status, payment_intent_id')
+            .eq('client_id', _user.id)
+            .in('status', ['accepted', 'confirmed', 'payment_hold'])
+            .is('payment_intent_id', null);
+
+          var chargeable = (unpaidBookings || []).filter(function(b) { return b.estimated_total > 0; });
+          if (chargeable.length > 0) {
+            var totalAmount = chargeable.reduce(function(s, b) { return s + parseFloat(b.estimated_total); }, 0);
+            var allIds = chargeable.map(function(b) { return b.id; });
+            var serviceLabel = chargeable.length > 1
+              ? chargeable[0].service + ' + ' + (chargeable.length - 1) + ' more'
+              : chargeable[0].service;
+
+            toast('💳 Processing $' + totalAmount.toFixed(2) + ' for ' + chargeable.length + ' unpaid booking' + (chargeable.length > 1 ? 's' : '') + '...');
+
+            var _sess = await _sb.auth.getSession();
+            var _token = _sess && _sess.data && _sess.data.session ? _sess.data.session.access_token : '';
+            var resp = await fetch('/api/charge-saved-card', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
+              body: JSON.stringify({
+                bookingRequestId: allIds[0],
+                amount: totalAmount,
+                service: serviceLabel,
+                clientProfileId: _user.id,
+                batchBookingIds: allIds.length > 1 ? allIds : undefined
+              })
+            });
+            var result = await resp.json();
+            if (result.success) {
+              // Restore any payment_hold bookings to accepted
+              var holdIds = chargeable.filter(function(b) { return b.status === 'payment_hold'; }).map(function(b) { return b.id; });
+              if (holdIds.length > 0) {
+                await _sb.from('booking_requests').update({ status: 'accepted' }).in('id', holdIds);
+              }
+              toast('✅ Payment of $' + totalAmount.toFixed(2) + ' processed for ' + chargeable.length + ' booking' + (chargeable.length > 1 ? 's' : '') + '!');
+              // Refresh the appointments view
+              if (typeof loadClientAppts === 'function') loadClientAppts('all');
+              if (typeof loadDashboardStats === 'function') loadDashboardStats();
+            } else {
+              toast('⚠️ Card saved but payment of $' + totalAmount.toFixed(2) + ' could not be processed: ' + (result.message || result.error || 'Please try again.'));
+            }
+          }
+        }
+      } catch (autoChargeErr) {
+        console.warn('Auto-charge after card save failed:', autoChargeErr);
       }
     }, 1000);
   } else if (params.get('card_saved') === 'cancelled') {
@@ -11288,7 +12089,7 @@ async function showClientProfile(profileId) {
     sh.style.cssText = 'width:100%;max-width:500px;max-height:85vh;background:var(--cream,white);border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
 
     var avatar = client.avatar_url
-      ? '<img src="' + client.avatar_url + '" style="width:100%;height:100%;object-fit:cover">'
+      ? '<img loading="lazy" src="' + client.avatar_url + '" style="width:100%;height:100%;object-fit:cover">'
       : '<span style="font-size:1.8rem;font-weight:700;color:var(--forest)">' + (client.full_name ? client.full_name.charAt(0).toUpperCase() : '?') + '</span>';
 
     var joinDate = client.created_at ? new Date(client.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -11328,7 +12129,7 @@ async function showClientProfile(profileId) {
     if (pets.length) {
       h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Pets</div>';
       pets.forEach(function(pet) {
-        var petAvatar = pet.photo_url ? '<img src="' + pet.photo_url + '" style="width:100%;height:100%;object-fit:cover">' : (pet.species === 'cat' ? '🐱' : '🐶');
+        var petAvatar = pet.photo_url ? '<img loading="lazy" src="' + pet.photo_url + '" style="width:100%;height:100%;object-fit:cover">' : (pet.species === 'cat' ? '🐱' : '🐶');
         h += '<div style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all 0.15s" onclick="document.getElementById(\'client-profile-modal\').remove();HHP_Customizer.openPetProfile(\'' + pet.id + '\')" onmouseover="this.style.borderColor=\'var(--gold)\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.borderColor=\'var(--border)\';this.style.boxShadow=\'none\'">';
         h += '<div style="width:36px;height:36px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.9rem">' + petAvatar + '</div>';
         h += '<div style="flex:1"><div style="font-weight:700;font-size:0.88rem">' + pet.name + '</div><div style="font-size:0.75rem;color:var(--mid)">' + (pet.breed || pet.species || '') + (pet.sex ? ' · ' + pet.sex : '') + '</div></div>';
@@ -11539,6 +12340,8 @@ async function submitInterest(service) {
   var notes = document.getElementById(prefix + '-notes')?.value || '';
   var freq = document.getElementById(prefix + '-freq')?.value || '';
   if (!name.trim() || !contact.trim()) { toast('Please fill in your name and contact info.'); return; }
+
+  // Save to Supabase interest list
   var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
   if (sb) {
     var existing = await _loadSiteContent('interest_' + service) || { entries: [] };
@@ -11550,9 +12353,26 @@ async function submitInterest(service) {
     existing.entries.push(entry);
     await _saveSiteContent('interest_' + service, existing);
   }
+
+  // Send email notification to Rachel
+  try {
+    var emailBody = { service: service, name: name, contact: contact, pet: pet, notes: notes, frequency: freq };
+    if (service === 'wedding') {
+      emailBody.weddingDate = document.getElementById('wed-date')?.value || '';
+      emailBody.serviceType = document.getElementById('wed-type')?.value || '';
+    }
+    fetch('/api/interest-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(emailBody)
+    }).catch(function(e) { console.error('Interest email failed:', e); });
+  } catch (emailErr) {
+    console.error('Interest email error:', emailErr);
+  }
+
   closeModal(modalId);
-  var emojiMap = { pawbus: '🚌', boarding: '🌙', daycare: '☀️', wedding: '💍' };
-  var emoji = emojiMap[service] || '🎉';
+  var emojiMap = { pawbus: '\uD83D\uDE8C', boarding: '\uD83C\uDF19', daycare: '\u2600\uFE0F', wedding: '\uD83D\uDC8D' };
+  var emoji = emojiMap[service] || '\uD83C\uDF89';
   toast(emoji + ' Added to interest list! Rachel will reach out soon.');
 }
 
@@ -12243,6 +13063,21 @@ async function loadClientUpcomingCharges() {
     }
 
     // Collect upcoming dates (next 14 days) for all bookings
+    // Load per-date paid status for recurring bookings in upcoming charges
+    var _upcomingPaidDates = {};
+    try {
+      var _recurIds = bookings.filter(function(b) { return b.recurrence_pattern; }).map(function(b) { return b.id; });
+      if (_recurIds.length > 0) {
+        var { data: _upInvs } = await sb.from('recurring_invoices')
+          .select('booking_request_id, service_date, status')
+          .in('booking_request_id', _recurIds)
+          .in('status', ['paid', 'sent', 'captured']);
+        if (_upInvs) _upInvs.forEach(function(ri) {
+          _upcomingPaidDates[ri.booking_request_id + '|' + ri.service_date] = true;
+        });
+      }
+    } catch(upErr) { console.warn('Upcoming paid dates load:', upErr); }
+
     var upcoming = [];
     var today = new Date();
     for (var d = 0; d < 14; d++) {
@@ -12261,7 +13096,7 @@ async function loadClientUpcomingCharges() {
             petNames: b.pet_names || '',
             bookingId: b.id,
             isRecurring: !!b.recurrence_pattern,
-            isPaid: !!b.payment_intent_id
+            isPaid: b.recurrence_pattern ? !!_upcomingPaidDates[b.id + '|' + dateStr] : !!b.payment_intent_id
           });
         }
       });
@@ -12440,7 +13275,7 @@ function renderReportMediaGrid() {
     if (m.type === 'video') {
       div.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#1a1a1a;color:white;font-size:1.5rem">🎬</div>';
     } else {
-      div.innerHTML = '<img src="' + m.thumbnail + '" style="width:100%;height:100%;object-fit:cover" alt="Upload">';
+      div.innerHTML = '<img loading="lazy" src="' + m.thumbnail + '" style="width:100%;height:100%;object-fit:cover" alt="Upload">';
     }
     div.innerHTML += '<button onclick="removeReportMedia(' + i + ')" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);color:white;border:none;cursor:pointer;font-size:0.7rem;display:flex;align-items:center;justify-content:center">✕</button>';
     grid.appendChild(div);
@@ -12719,7 +13554,7 @@ async function loadClientReports() {
           if (m.type === 'video') {
             return '<div style="width:48px;height:48px;border-radius:6px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;color:white;font-size:0.9rem">🎬</div>';
           }
-          return '<img src="' + (m.thumbnail || m.url) + '" style="width:48px;height:48px;border-radius:6px;object-fit:cover" alt="">';
+          return '<img loading="lazy" src="' + (m.thumbnail || m.url) + '" style="width:48px;height:48px;border-radius:6px;object-fit:cover" alt="">';
         }).join('');
         if (r.media.length > 3) {
           thumbs += '<div style="width:48px;height:48px;border-radius:6px;background:var(--warm);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--mid)">+' + (r.media.length - 3) + '</div>';
@@ -12776,7 +13611,7 @@ function openReportDetail(reportOrId) {
       if (m.type === 'video') {
         photosHtml += '<div style="border-radius:10px;overflow:hidden;aspect-ratio:1;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="window.open(\'' + m.url + '\',\'_blank\')"><div style="color:white;text-align:center"><div style="font-size:2rem">🎬</div><div style="font-size:0.7rem;margin-top:4px">Play Video</div></div></div>';
       } else {
-        photosHtml += '<img src="' + m.url + '" style="width:100%;border-radius:10px;aspect-ratio:1;object-fit:cover;cursor:pointer" onclick="window.open(\'' + m.url + '\',\'_blank\')" alt="">';
+        photosHtml += '<img loading="lazy" src="' + m.url + '" style="width:100%;border-radius:10px;aspect-ratio:1;object-fit:cover;cursor:pointer" onclick="window.open(\'' + m.url + '\',\'_blank\')" alt="">';
       }
     });
     photosHtml += '</div>';
@@ -12799,8 +13634,9 @@ function openReportDetail(reportOrId) {
     (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false, true) + '</div>' : ''; })() +
     '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
     '<div id="reportRouteMapContainer"></div>' +
-    '<div style="display:flex;gap:10px;margin-top:12px"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
-    '<button class="btn btn-gold btn-sm" onclick="openReviewFromReport(\'' + (report.id || '').replace(/'/g, "\\'") + '\',\'' + (report.booking_id || '').replace(/'/g, "\\'") + '\',\'' + (report.service || '').replace(/'/g, "\\'") + '\',\'' + (report.pet_name || '').replace(/'/g, "\\'") + '\')">⭐ Leave a Review</button></div>';
+    '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
+    '<button class="btn btn-gold btn-sm" onclick="openReviewFromReport(\'' + (report.id || '').replace(/'/g, "\\'") + '\',\'' + (report.booking_id || '').replace(/'/g, "\\'") + '\',\'' + (report.service || '').replace(/'/g, "\\'") + '\',\'' + (report.pet_name || '').replace(/'/g, "\\'") + '\')">⭐ Leave a Review</button>' +
+    '<button class="btn btn-sm" style="background:var(--forest);color:white" onclick="openTipModal(\'' + (report.booking_id || '').replace(/'/g, "\\'") + '\',\'' + (report.id || '').replace(/'/g, "\\'") + '\',\'' + (report.service || '').replace(/'/g, "\\'") + '\',\'' + (report.pet_name || '').replace(/'/g, "\\'") + '\')">💚 Leave a Tip</button></div>';
 
   // Show modal
   modal.style.display = 'flex';
@@ -12979,6 +13815,188 @@ async function submitClientReview() {
   toast('⭐ Thank you for your review! Rachel will see it soon.');
 }
 
+// ── Tip Functions ──
+var _tipServiceAmount = 0;
+
+async function openTipModal(bookingId, reportId, service, petName) {
+  // Reset state
+  document.getElementById('tip-booking-id').value = bookingId || '';
+  document.getElementById('tip-report-id').value = reportId || '';
+  document.getElementById('tip-service').value = service || '';
+  document.getElementById('tip-pet-names').value = petName || '';
+  document.getElementById('tip-amount').value = '0';
+  document.getElementById('tip-modal-subtitle').textContent = (petName ? petName + ' — ' : '') + (service || 'Your visit');
+  document.getElementById('tip-content').style.display = 'block';
+  document.getElementById('tip-success').style.display = 'none';
+  document.getElementById('tip-loading').style.display = 'block';
+  document.getElementById('tip-summary').style.display = 'none';
+  document.getElementById('tip-custom-wrap').style.display = 'none';
+  document.getElementById('tip-submit-btn').disabled = true;
+  document.getElementById('tip-submit-btn').textContent = 'Select a tip amount';
+  // Deselect all tip options
+  document.querySelectorAll('.tip-opt').forEach(function(b) { b.style.background = ''; b.style.color = ''; });
+
+  closeModal('reportModal');
+  var modal = document.getElementById('tipModal');
+  if (modal) modal.style.display = 'flex';
+
+  // Fetch the booking amount
+  _tipServiceAmount = 0;
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  if (sb && bookingId) {
+    try {
+      var { data: bk } = await sb.from('booking_requests').select('estimated_total, service').eq('id', bookingId).maybeSingle();
+      if (bk && bk.estimated_total) {
+        _tipServiceAmount = parseFloat(bk.estimated_total);
+      }
+    } catch(e) { console.warn('Tip: could not load booking amount', e); }
+  }
+
+  document.getElementById('tip-loading').style.display = 'none';
+  if (_tipServiceAmount > 0) {
+    document.getElementById('tip-service-amount').textContent = '$' + _tipServiceAmount.toFixed(2);
+    // Update percentage amounts
+    document.querySelectorAll('.tip-opt').forEach(function(b) {
+      var pct = b.getAttribute('data-pct');
+      if (pct && pct !== 'custom') {
+        var amt = (_tipServiceAmount * parseInt(pct) / 100);
+        b.querySelector('.tip-amt').textContent = '$' + amt.toFixed(2);
+      }
+    });
+  } else {
+    document.getElementById('tip-service-amount').textContent = 'N/A';
+    // Show flat amounts instead
+    var flatAmounts = [5, 10, 20];
+    var btns = document.querySelectorAll('.tip-opt');
+    for (var i = 0; i < 3; i++) {
+      btns[i].setAttribute('data-pct', 'flat-' + flatAmounts[i]);
+      btns[i].innerHTML = '$' + flatAmounts[i] + '<br><span style="font-size:0.72rem;color:var(--mid)" class="tip-amt"></span>';
+      btns[i].onclick = (function(amt, btn) { return function() { selectTipOption(btn, 'flat-' + amt); }; })(flatAmounts[i], btns[i]);
+    }
+  }
+
+  // Check if already tipped
+  if (sb && bookingId) {
+    try {
+      var user = HHP_Auth.currentUser;
+      var { data: existing } = await sb.from('tips').select('id').eq('booking_request_id', bookingId).eq('client_id', user.id).eq('status', 'succeeded').maybeSingle();
+      if (existing) {
+        document.getElementById('tip-content').style.display = 'none';
+        document.getElementById('tip-success').querySelector('div:nth-child(2)').textContent = 'You already left a tip for this service!';
+        document.getElementById('tip-success').style.display = 'block';
+      }
+    } catch(e) {}
+  }
+}
+
+function selectTipOption(btn, pctOrType) {
+  // Deselect all
+  document.querySelectorAll('.tip-opt').forEach(function(b) { b.style.background = ''; b.style.color = ''; });
+  // Select this one
+  btn.style.background = 'var(--forest)';
+  btn.style.color = 'white';
+
+  var customWrap = document.getElementById('tip-custom-wrap');
+  var tipAmt = 0;
+
+  if (pctOrType === 'custom') {
+    customWrap.style.display = 'block';
+    document.getElementById('tip-custom-input').value = '';
+    document.getElementById('tip-custom-input').focus();
+    document.getElementById('tip-custom-input').oninput = function() {
+      var val = parseFloat(this.value);
+      if (val > 0) {
+        document.getElementById('tip-amount').value = val.toFixed(2);
+        document.getElementById('tip-display').textContent = val.toFixed(2);
+        document.getElementById('tip-summary').style.display = 'block';
+        document.getElementById('tip-submit-btn').disabled = false;
+        document.getElementById('tip-submit-btn').textContent = 'Send $' + val.toFixed(2) + ' Tip';
+      } else {
+        document.getElementById('tip-submit-btn').disabled = true;
+        document.getElementById('tip-submit-btn').textContent = 'Enter an amount';
+        document.getElementById('tip-summary').style.display = 'none';
+      }
+    };
+    return;
+  }
+
+  customWrap.style.display = 'none';
+
+  if (typeof pctOrType === 'string' && pctOrType.startsWith('flat-')) {
+    tipAmt = parseFloat(pctOrType.replace('flat-', ''));
+  } else {
+    tipAmt = _tipServiceAmount * pctOrType / 100;
+  }
+
+  tipAmt = Math.round(tipAmt * 100) / 100;
+  document.getElementById('tip-amount').value = tipAmt.toFixed(2);
+  document.getElementById('tip-display').textContent = tipAmt.toFixed(2);
+  document.getElementById('tip-summary').style.display = 'block';
+  document.getElementById('tip-submit-btn').disabled = false;
+  document.getElementById('tip-submit-btn').textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+}
+
+async function submitTip() {
+  var tipAmt = parseFloat(document.getElementById('tip-amount').value);
+  if (!tipAmt || tipAmt <= 0) { toast('Please select a tip amount.'); return; }
+
+  var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+  var user = (typeof HHP_Auth !== 'undefined' && HHP_Auth.currentUser) ? HHP_Auth.currentUser : null;
+  if (!sb || !user) { toast('Please sign in first.'); return; }
+
+  var btn = document.getElementById('tip-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+
+  try {
+    var session = await sb.auth.getSession();
+    var token = session.data.session ? session.data.session.access_token : null;
+    if (!token) { toast('Session expired. Please sign in again.'); btn.disabled = false; btn.textContent = 'Send Tip'; return; }
+
+    var resp = await fetch('/api/charge-tip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({
+        bookingRequestId: document.getElementById('tip-booking-id').value || null,
+        serviceReportId: document.getElementById('tip-report-id').value || null,
+        tipAmount: tipAmt,
+        service: document.getElementById('tip-service').value || 'Pet Care',
+        petNames: document.getElementById('tip-pet-names').value || null
+      })
+    });
+
+    var data = await resp.json();
+
+    if (data.success) {
+      document.getElementById('tip-content').style.display = 'none';
+      document.getElementById('tip-success').style.display = 'block';
+      toast('💚 Tip of $' + tipAmt.toFixed(2) + ' sent! Thank you!');
+    } else if (data.error === 'already_tipped') {
+      toast('You already left a tip for this service.');
+      document.getElementById('tip-content').style.display = 'none';
+      document.getElementById('tip-success').querySelector('div:nth-child(2)').textContent = 'You already left a tip for this service!';
+      document.getElementById('tip-success').style.display = 'block';
+    } else if (data.error === 'no_card') {
+      toast('No saved payment method. Please add a card in your Payment Info.');
+      btn.disabled = false;
+      btn.textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+    } else if (data.error === 'card_declined') {
+      toast(data.message || 'Card declined. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+    } else {
+      toast('Tip failed: ' + (data.message || data.error || 'Unknown error'));
+      btn.disabled = false;
+      btn.textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+    }
+  } catch(err) {
+    console.error('Tip error:', err);
+    toast('Failed to process tip. Please try again.');
+    btn.disabled = false;
+    btn.textContent = 'Send $' + tipAmt.toFixed(2) + ' Tip';
+  }
+}
+
 // ── Auto-prompt review after viewing a report ──
 function _maybePromptReview(report) {
   if (!report || !report.id) return;
@@ -13053,6 +14071,14 @@ async function loadOwnerReviews() {
   }
 }
 
+// ── HTML escape helper to prevent XSS ──
+function _escHtml(str) {
+  if (!str) return '';
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 function filterReviews(filter) {
   _rvCurrentFilter = filter;
   // Update button states
@@ -13096,8 +14122,8 @@ function renderReviewsList(filter) {
     // Header row
     h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">';
     h += '<div>';
-    h += '<div style="font-weight:700;font-size:0.92rem">' + (r.client_name || 'Client') + '</div>';
-    h += '<div style="font-size:0.76rem;color:var(--mid);margin-top:2px">' + (r.service || '') + (r.pet_name ? ' · ' + r.pet_name : '') + ' · ' + dateStr + '</div>';
+    h += '<div style="font-weight:700;font-size:0.92rem">' + _escHtml(r.client_name || 'Client') + '</div>';
+    h += '<div style="font-size:0.76rem;color:var(--mid);margin-top:2px">' + _escHtml(r.service || '') + (r.pet_name ? ' · ' + _escHtml(r.pet_name) : '') + ' · ' + dateStr + '</div>';
     h += '</div>';
     h += '<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">' + statusBadge + featuredBadge + '</div>';
     h += '</div>';
@@ -13105,11 +14131,11 @@ function renderReviewsList(filter) {
     h += '<div style="margin-bottom:8px">' + _rvStarsHTML(r.rating, '1.1rem') + '</div>';
     // Review text
     if (r.review_text) {
-      h += '<div style="font-size:0.86rem;color:var(--ink);line-height:1.6;margin-bottom:10px;background:var(--warm);border-radius:8px;padding:10px 12px">"' + r.review_text + '"</div>';
+      h += '<div style="font-size:0.86rem;color:var(--ink);line-height:1.6;margin-bottom:10px;background:var(--warm);border-radius:8px;padding:10px 12px">"' + _escHtml(r.review_text) + '"</div>';
     }
     // Owner response
     if (r.owner_response) {
-      h += '<div style="font-size:0.82rem;color:var(--forest);margin-bottom:10px;padding-left:12px;border-left:3px solid var(--forest)"><strong>Your reply:</strong> ' + r.owner_response + '</div>';
+      h += '<div style="font-size:0.82rem;color:var(--forest);margin-bottom:10px;padding-left:12px;border-left:3px solid var(--forest)"><strong>Your reply:</strong> ' + _escHtml(r.owner_response) + '</div>';
     }
     // Action buttons
     h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
@@ -13165,7 +14191,7 @@ function openOwnerResponse(reviewId) {
   if (!review) return;
   document.getElementById('rvr-review-id').value = reviewId;
   document.getElementById('rvr-text').value = review.owner_response || '';
-  document.getElementById('rvr-preview').innerHTML = '<strong>' + (review.client_name || 'Client') + '</strong> — ' + _rvStarsHTML(review.rating) + (review.review_text ? '<div style="margin-top:6px;font-style:italic">"' + review.review_text + '"</div>' : '');
+  document.getElementById('rvr-preview').innerHTML = '<strong>' + _escHtml(review.client_name || 'Client') + '</strong> — ' + _rvStarsHTML(review.rating) + (review.review_text ? '<div style="margin-top:6px;font-style:italic">"' + _escHtml(review.review_text) + '"</div>' : '');
   var modal = document.getElementById('reviewResponseModal');
   if (modal) modal.style.display = 'flex';
 }
@@ -15242,7 +16268,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260406d" defer></script>
+  <script src="/js/booking-system.js?v=20260407c" defer></script>
   <script src="/js/messaging.js?v=20260402a" defer></script>
   <script src="/js/gallery.js" defer></script>
   <script src="/js/notifications.js" defer></script>
@@ -15263,8 +16289,12 @@ document.addEventListener('DOMContentLoaded', function() {
       js.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
       js.onload=function(){
         leafletLoaded=true;
-        var t=document.createElement('script');t.src='/js/live-tracking.js';
-        if(cb)t.onload=cb;document.body.appendChild(t);
+        // Check if live-tracking.js is already loaded to prevent double-load
+        var existingScript=document.querySelector('script[src="/js/live-tracking.js"]');
+        if(!existingScript){
+          var t=document.createElement('script');t.src='/js/live-tracking.js';
+          if(cb)t.onload=cb;document.body.appendChild(t);
+        }else if(cb){cb();}
       };
       document.body.appendChild(js);
     };
@@ -15945,5 +16975,229 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(eagerLoadTracking, 1000);
   })();
   </script>
-  <script src="/js/service-timer.js" defer></script></body>
+  <script src="/js/service-timer.js" defer></script>
+  <!-- ═══════════════════════════════════════════════════════════════
+       PUBLIC WALK TRACKING PAGE — no auth required
+       Activated when URL has ?track={walkId}
+       ═══════════════════════════════════════════════════════════════ -->
+  <script>
+  (function(){
+    var walkId = window._hhpTrackWalkId || null;
+    var trackBookingId = window._hhpTrackBookingId || null;
+    if (!walkId && !trackBookingId) return;
+
+    // Force tracking page visible (early-hide style may be removed by auth system)
+    var _tp = document.getElementById('pg-walk-tracking');
+    if (_tp) { _tp.style.display = 'block'; _tp.style.visibility = 'visible'; }
+    ['pg-public','pg-client','pg-staff','pg-owner'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) { el.style.display = 'none'; el.style.visibility = 'hidden'; }
+    });
+
+    // If we have a booking ID but no walk ID, look up the active walk for this booking
+    if (!walkId && trackBookingId) {
+      (async function() {
+        try {
+          var sb = null;
+          // Wait for supabase to be ready (up to 5 seconds)
+          for (var _w = 0; _w < 50; _w++) {
+            sb = window.HHP_Auth && window.HHP_Auth.supabase;
+            if (sb) break;
+            await new Promise(function(r) { setTimeout(r, 100); });
+          }
+          if (!sb) { console.error('Supabase not available for track_booking lookup'); return; }
+          var { data: walks } = await sb.from('walks').select('id').eq('booking_id', trackBookingId).eq('status', 'in_progress').limit(1);
+          if (walks && walks.length > 0) {
+            walkId = walks[0].id;
+            window._hhpTrackWalkId = walkId;
+            initTracking();
+          } else {
+            // No active walk — show error
+            var loadEl = document.getElementById('wt-loading');
+            if (loadEl) loadEl.style.display = 'none';
+            var errEl = document.getElementById('wt-error');
+            if (errEl) { errEl.style.display = 'block'; errEl.innerHTML = '<div style="text-align:center;padding:40px 20px"><div style="font-size:2rem;margin-bottom:12px">🐾</div><div style="font-size:1.1rem;font-weight:700;margin-bottom:8px">Walk Not Active</div><div style="color:#666">The walk for this booking may have ended or hasn\'t started yet.</div></div>'; }
+          }
+        } catch(e) { console.error('track_booking lookup error:', e); }
+      })();
+      // Don't call initTracking yet — the async lookup will call it
+    }
+
+    var _wtMap = null;
+    var _wtPolyline = null;
+    var _wtCurrentMarker = null;
+    var _wtStartMarker = null;
+    var _wtRefreshTimer = null;
+    var _wtIsFullscreen = false;
+
+    // Toggle fullscreen for the map
+    window.toggleTrackingFullscreen = function() {
+      var wrap = document.getElementById('wt-map-wrap');
+      var mapEl = document.getElementById('wt-map');
+      var btn = document.getElementById('wt-fullscreen-btn');
+      var icon = document.getElementById('wt-fs-icon');
+      var label = document.getElementById('wt-fs-label');
+      _wtIsFullscreen = !_wtIsFullscreen;
+      if (_wtIsFullscreen) {
+        wrap.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#000';
+        mapEl.style.height = '100vh';
+        icon.textContent = '✕';
+        label.textContent = 'Close';
+        btn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:10001;background:white;border:1px solid #ccc;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:0.9rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;gap:4px';
+      } else {
+        wrap.style.cssText = 'position:relative';
+        mapEl.style.height = 'calc(100vh - 200px)';
+        icon.textContent = '⛶';
+        label.textContent = 'Fullscreen';
+        btn.style.cssText = 'position:absolute;top:12px;right:12px;z-index:1000;background:white;border:1px solid #ccc;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;box-shadow:0 2px 6px rgba(0,0,0,0.15);display:flex;align-items:center;gap:4px';
+      }
+      if (_wtMap) setTimeout(function(){ _wtMap.invalidateSize(); }, 100);
+    };
+
+    // Escape key closes fullscreen
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && _wtIsFullscreen) toggleTrackingFullscreen();
+    });
+
+    function loadTrackingData() {
+      fetch('/api/walk-tracking?walkId=' + encodeURIComponent(walkId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.error) {
+            document.getElementById('wt-loading').style.display = 'none';
+            document.getElementById('wt-error').style.display = 'block';
+            return;
+          }
+          renderTracking(data);
+          // Auto-refresh for live walks
+          if (data.walk.status === 'in_progress') {
+            _wtRefreshTimer = setTimeout(loadTrackingData, 12000);
+          }
+        })
+        .catch(function() {
+          document.getElementById('wt-loading').style.display = 'none';
+          document.getElementById('wt-error').style.display = 'block';
+        });
+    }
+
+    function renderTracking(data) {
+      var w = data.walk;
+      var pts = data.trackingPoints || [];
+      var isLive = w.status === 'in_progress';
+
+      // Hide loading
+      document.getElementById('wt-loading').style.display = 'none';
+
+      // Update header
+      document.getElementById('wt-title').textContent = (w.petName || 'Your pet') + "'s " + (w.service || 'Walk');
+      document.getElementById('wt-subtitle').textContent = 'with ' + (w.walkerName || 'your walker');
+
+      // Live badge
+      var badge = document.getElementById('wt-live-badge');
+      badge.style.display = isLive ? 'flex' : 'none';
+
+      // Info bar
+      var elapsedMin = w.elapsedMinutes || 0;
+      var elapsedText = elapsedMin < 60 ? elapsedMin + ' min' : Math.floor(elapsedMin/60) + 'h ' + (elapsedMin%60) + 'm';
+      document.querySelector('#wt-elapsed span').textContent = elapsedText;
+
+      if (w.distance) {
+        var distEl = document.getElementById('wt-distance');
+        distEl.style.display = '';
+        distEl.querySelector('span').textContent = w.distance;
+      }
+      if (pts.length > 0) {
+        var ptsEl = document.getElementById('wt-points');
+        ptsEl.style.display = '';
+        ptsEl.querySelector('span').textContent = pts.length;
+      }
+      var startDate = new Date(w.startTime);
+      document.querySelector('#wt-started span').textContent = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      // Completed bar
+      if (!isLive && w.endTime) {
+        var compBar = document.getElementById('wt-completed-bar');
+        compBar.style.display = '';
+        var endDate = new Date(w.endTime);
+        document.getElementById('wt-completed-info').textContent = 'Finished at ' + endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' · ' + elapsedText + (w.distance ? ' · ' + w.distance : '');
+      }
+
+      // Render map
+      if (pts.length === 0) {
+        document.getElementById('wt-map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;color:#8c6b4a"><div style="font-size:3rem;margin-bottom:12px">📍</div><div style="font-weight:600">Waiting for GPS signal...</div><div style="font-size:0.85rem;margin-top:6px;opacity:0.7">The map will appear once tracking begins</div></div>';
+        return;
+      }
+
+      renderMap(pts, isLive);
+    }
+
+    function renderMap(pts, isLive) {
+      // Ensure Leaflet is loaded
+      if (typeof L === 'undefined') {
+        // Load Leaflet
+        var css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+        document.head.appendChild(css);
+        var js = document.createElement('script');
+        js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+        js.onload = function() { renderMap(pts, isLive); };
+        document.body.appendChild(js);
+        return;
+      }
+
+      var coords = pts.map(function(p) { return [p.lat, p.lng]; });
+      var firstPt = coords[0];
+      var lastPt = coords[coords.length - 1];
+
+      if (!_wtMap) {
+        _wtMap = L.map('wt-map', { zoomControl: true, attributionControl: false }).setView(lastPt, 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_wtMap);
+
+        // Start marker
+        _wtStartMarker = L.circleMarker(firstPt, {
+          radius: 7, color: '#3d5a47', fillColor: '#c8963e', fillOpacity: 1, weight: 2
+        }).addTo(_wtMap).bindPopup('Walk Start');
+
+        // Route polyline
+        _wtPolyline = L.polyline(coords, { color: '#3d5a47', weight: 4, opacity: 0.8 }).addTo(_wtMap);
+
+        // Current/end marker
+        _wtCurrentMarker = L.circleMarker(lastPt, {
+          radius: isLive ? 10 : 8,
+          color: isLive ? '#22c55e' : '#3d5a47',
+          fillColor: isLive ? '#22c55e' : '#c25656',
+          fillOpacity: 1, weight: 2
+        }).addTo(_wtMap).bindPopup(isLive ? 'Current Location' : 'Walk End');
+
+        // Fit bounds
+        if (coords.length > 1) {
+          _wtMap.fitBounds(coords, { padding: [40, 40] });
+        }
+      } else {
+        // Update existing map
+        _wtPolyline.setLatLngs(coords);
+        _wtCurrentMarker.setLatLng(lastPt);
+        if (isLive && coords.length > 1) {
+          _wtMap.fitBounds(coords, { padding: [40, 40], animate: true });
+        }
+      }
+    }
+
+    function initTracking() {
+      if (!walkId) return;
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadTrackingData);
+      } else {
+        loadTrackingData();
+      }
+    }
+
+    // Start loading — if we have walkId directly, init now. If track_booking, async lookup handles it.
+    if (walkId) {
+      initTracking();
+    }
+  })();
+  </script>
+</body>
 </html>
