@@ -3,8 +3,27 @@ const { createClient } = require('@supabase/supabase-js');
 const { sendEmail, sendToRachel, fmt12, escHtml, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // --- Authentication: require valid Bearer token ---
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized — missing token' });
+  }
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAuth = createClient(
+    process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+  );
+  const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser(token);
+  if (authErr || !user) {
+    return res.status(401).json({ error: 'Unauthorized — invalid or expired token' });
+  }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const supabase = createClient(
@@ -32,6 +51,19 @@ module.exports = async function handler(req, res) {
 
     if (booking.status === 'canceled') {
       return res.status(400).json({ error: 'Booking is already canceled' });
+    }
+
+    // --- Authorization: caller must be the booking's client, OR owner/staff ---
+    const { data: callerProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    const callerRole = callerProfile ? callerProfile.role : 'client';
+    const isOwnerOrStaff = callerRole === 'owner' || callerRole === 'staff';
+    const isBookingOwner = booking.client_id === user.id || booking.contact_email === user.email;
+    if (!isOwnerOrStaff && !isBookingOwner) {
+      return res.status(403).json({ error: 'Forbidden — you can only cancel your own bookings' });
     }
 
     // 2. Determine if this is single occurrence or full booking cancel

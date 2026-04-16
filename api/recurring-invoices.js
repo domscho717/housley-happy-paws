@@ -24,14 +24,38 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth: verify cron secret or manual trigger
-  const cronSecret = req.headers['authorization'];
+  // Auth: verify cron secret OR Bearer token (for first-week trigger from frontend)
+  const authHeader = req.headers['authorization'] || '';
   const manualSecret = req.headers['x-cron-secret'];
   const envSecret = process.env.CRON_SECRET;
-  if (envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret) {
-    // Allow first-week trigger from frontend (no secret needed for POST with bookingId)
-    const isFirstWeekTrigger = (req.query.firstWeek === 'true' || (req.body && req.body.firstWeek));
-    if (!isFirstWeekTrigger) {
+  const isFirstWeekTrigger = (req.query.firstWeek === 'true' || (req.body && req.body.firstWeek));
+  const isCronAuth = envSecret && (authHeader === `Bearer ${envSecret}` || manualSecret === envSecret);
+
+  if (!isCronAuth) {
+    if (isFirstWeekTrigger) {
+      // First-week trigger requires a valid user Bearer token (owner/staff only)
+      if (!authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Unauthorized — missing token' });
+      }
+      const token = authHeader.replace('Bearer ', '');
+      const supabaseAuth = createClient(
+        process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+      );
+      const { data: { user: authUser }, error: authErr } = await supabaseAuth.auth.getUser(token);
+      if (authErr || !authUser) {
+        return res.status(401).json({ error: 'Unauthorized — invalid or expired token' });
+      }
+      // Verify caller is owner or staff
+      const svcSupabase = createClient(
+        process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+      );
+      const { data: callerProfile } = await svcSupabase.from('profiles').select('role').eq('id', authUser.id).single();
+      if (!callerProfile || (callerProfile.role !== 'owner' && callerProfile.role !== 'staff')) {
+        return res.status(403).json({ error: 'Forbidden — only owner/staff can trigger first-week billing' });
+      }
+    } else {
       return res.status(401).json({ error: 'Unauthorized' });
     }
   }

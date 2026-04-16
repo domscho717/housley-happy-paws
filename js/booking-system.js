@@ -26,6 +26,12 @@
     return null;
   }
 
+  // ── HTML escape utility — prevents XSS from user-supplied fields ──
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
   // ── Service price map (cents) — used to create dynamic checkout sessions ──
   // No more hardcoded payment links! Checkout sessions are created on-the-fly
   // via /api/create-checkout-session, so test↔live is just an env var swap.
@@ -319,19 +325,6 @@
     return HOLIDAYS.indexOf(md) !== -1;
   }
 
-  // Check if ANY date in a range contains a holiday (for house sitting)
-  function hasHolidayInRange(startStr, endStr) {
-    if (!startStr) return false;
-    if (!endStr) return isHoliday(startStr);
-    var s = new Date(startStr + 'T12:00:00');
-    var e = new Date(endStr + 'T12:00:00');
-    for (var d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
-      var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-      if (isHoliday(key)) return true;
-    }
-    return false;
-  }
-
   // Load holidays from Supabase table
   async function loadHolidaysFromDB(sb) {
     try {
@@ -517,11 +510,11 @@
       parts.push('Puppy surcharge: +$' + svc.puppy + (isMultiNight ? '/night x ' + nights + ' = $' + puppyCost : ''));
     }
 
-    // Holiday surcharge — applies to ALL nights if any date in range is a holiday
+    // Holiday surcharge — per night for house sitting
     var holidayCost = 0;
     if (isHolidayDate && svc.holiday > 0) {
       holidayCost = svc.holiday * (isMultiNight ? nights : 1);
-      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' nights = $' + holidayCost : ''));
+      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' = $' + holidayCost : ''));
     }
 
     var total = (isMultiNight ? baseRate * nights : baseRate) + extraPetCost + puppyCost + holidayCost;
@@ -588,11 +581,11 @@
       '      <div class="brm-row" id="brm-hs-times-row">',
       '        <div class="brm-col">',
       '          <label class="brm-label">Arrival Time *</label>',
-      '          <select id="brm-hs-arrival" class="brm-input">' + (function(){var o='<option value="">Select arrival time</option>';for(var h=5;h<=22;h++){for(var m=0;m<60;m+=30){var hr12=h>12?h-12:(h===0?12:h);var ampm=h>=12?'PM':'AM';var mm=m===0?'00':'30';o+='<option value="'+((h<10?'0':'')+h)+':'+mm+'">'+hr12+':'+mm+' '+ampm+'</option>';}}return o;})() + '</select>',
+      '          <select id="brm-hs-arrival" class="brm-input"><option value="">Select arrival time</option></select>',
       '        </div>',
       '        <div class="brm-col">',
       '          <label class="brm-label">Departure Time *</label>',
-      '          <select id="brm-hs-departure" class="brm-input">' + (function(){var o='<option value="">Select departure time</option>';for(var h=5;h<=22;h++){for(var m=0;m<60;m+=30){var hr12=h>12?h-12:(h===0?12:h);var ampm=h>=12?'PM':'AM';var mm=m===0?'00':'30';o+='<option value="'+((h<10?'0':'')+h)+':'+mm+'">'+hr12+':'+mm+' '+ampm+'</option>';}}return o;})() + '</select>',
+      '          <select id="brm-hs-departure" class="brm-input"><option value="">Select departure time</option></select>',
       '        </div>',
       '      </div>',
       '      <div id="brm-hs-nights-row" style="text-align:center;padding:8px 0;font-size:0.9rem;font-weight:600;color:#6b5c4d"></div>',
@@ -738,10 +731,7 @@
       var petType = document.getElementById('brm-pettype').value;
       var isPuppy = document.getElementById('brm-puppy').value === 'true';
       var dateVal = document.getElementById('brm-date').value;
-      var endDateVal = document.getElementById('brm-enddate').value;
-      var isHSSvc = svcName && svcName.toLowerCase().indexOf('house sitting') !== -1;
-      // House Sitting: check entire date range for holidays; others: just the single date
-      var holidayFlag = isHSSvc ? hasHolidayInRange(dateVal, endDateVal) : isHoliday(dateVal);
+      var holidayFlag = isHoliday(dateVal);
 
       var estimateEl = document.getElementById('brm-price-estimate');
       var breakdownEl = document.getElementById('brm-price-breakdown');
@@ -766,8 +756,8 @@
       }
 
       var nights = 1;
-      if (isHSSvc) {
-        nights = calcNights(dateVal, endDateVal);
+      if (svcName.toLowerCase().indexOf('house sitting') !== -1) {
+        nights = calcNights(document.getElementById('brm-date').value, document.getElementById('brm-enddate').value);
       }
       var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights);
       if (estimateEl) estimateEl.style.display = 'block';
@@ -2161,14 +2151,12 @@
           // Trigger change to show duration / house sitting fields
           sel.dispatchEvent(new Event('change'));
           // Direct HS setup — avoids race condition when listeners are in setTimeout
-          try {
-            var _isHS = (sel.value || '').toLowerCase().indexOf('house sitting') !== -1;
-            var _multiSec = document.getElementById('brm-multidate-section');
-            var _hsRow = document.getElementById('brm-hs-date-row');
-            if (_multiSec) _multiSec.style.display = _isHS ? 'none' : '';
-            if (_hsRow) _hsRow.style.display = _isHS ? '' : 'none';
-            if (_isHS && typeof window._toggleHSFields === 'function') window._toggleHSFields();
-          } catch(hsErr) { console.warn('HS setup error:', hsErr); }
+          var _isHS = (sel.value || '').toLowerCase().indexOf('house sitting') !== -1;
+          var _multiSec = document.getElementById('brm-multidate-section');
+          var _hsRow = document.getElementById('brm-hs-date-row');
+          if (_multiSec) _multiSec.style.display = _isHS ? 'none' : '';
+          if (_hsRow) _hsRow.style.display = _isHS ? '' : 'none';
+          if (_isHS && typeof window._toggleHSFields === 'function') window._toggleHSFields();
         } else {
           // Restore full dropdown (modal is reused, may have been filtered by a previous open)
           var seen = {};
@@ -2204,18 +2192,14 @@
       if (hsArrReset) hsArrReset.selectedIndex = 0;
       if (hsDepReset) hsDepReset.selectedIndex = 0;
       // Rebuild HS calendar with fresh state
-      try {
-        if (typeof window._buildHsCalendar === 'function') window._buildHsCalendar();
-      } catch(calErr) { console.warn('HS calendar build error:', calErr); }
+      if (typeof window._buildHsCalendar === 'function') window._buildHsCalendar();
       // Show the helper message and rebuild calendar picker
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = '';
       // Reset calendar picker to current month and rebuild
       window._brmCalPickerYear = new Date().getFullYear();
       window._brmCalPickerMonth = new Date().getMonth();
-      try {
-        if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
-      } catch(calErr2) { console.warn('Cal picker build error:', calErr2); }
+      if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
 
       // Pre-fill and show greeting if logged in
       if (window.HHP_Auth && window.HHP_Auth.currentUser) {
@@ -2334,14 +2318,14 @@
 
       container.innerHTML = html;
 
+      // Filter pets based on selected service (hide cats for dog walks, etc.)
+      window._brmFilterPetsByService();
+
     } catch (err) {
       console.error('Failed to load pets for booking:', err);
       // Show error message (account required, no guest fallback)
       container.innerHTML = '<div style="color:#a66;font-size:0.82rem">Could not load pet profiles. Please try again.</div>';
     }
-
-    // Filter pets based on selected service (outside try/catch so pet load isn't blocked)
-    try { if (typeof window._brmFilterPetsByService === 'function') window._brmFilterPetsByService(); } catch(e) { console.warn('Pet filter error:', e); }
   };
 
   // ── FILTER PET CHECKBOXES BY SERVICE TYPE ──
@@ -2564,14 +2548,13 @@
     }
 
     // Calculate price (with nights for House Sitting)
+    var holidayFlag = isHoliday(date);
     var petCombo = document.getElementById('brm-petcombo') ? document.getElementById('brm-petcombo').value : '';
     var isHouseSitting = service.toLowerCase().indexOf('house sitting') !== -1;
     var nights = 1;
     if (isHouseSitting) {
       nights = calcNights(date, endDate);
     }
-    // House Sitting: check entire date range for holidays; others: just the single date
-    var holidayFlag = isHouseSitting ? hasHolidayInRange(date, endDate) : isHoliday(date);
     var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights);
 
     // For multi-date / recurring pricing — count total visits (time slots), not just unique dates
@@ -2899,7 +2882,7 @@
       }
       if (submitBtn) { submitBtn.textContent = 'Request Sent!'; }
 
-      // Reset form after brief delay (just enough to read success message)
+      // Reset form after delay
       setTimeout(function() {
         var form = document.getElementById('bookingRequestForm');
         if (form) form.reset();
@@ -2917,11 +2900,11 @@
         closeBookingModal();
         if (submitBtn) { submitBtn.disabled = false; submitBtn.classList.remove('btn-loading'); submitBtn.textContent = 'Send Request to Rachel'; }
         if (successEl) successEl.textContent = '';
-      }, 1500);
+      }, 4000);
 
     } catch (err) {
       console.error('Booking request error:', err);
-      if (errEl) errEl.textContent = 'Something went wrong. Please try again or contact us if the issue persists.';
+      if (errEl) errEl.textContent = 'Error: ' + (err.message || 'Something went wrong. Please try again.');
       if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Send Request to Rachel'; }
     }
   };
@@ -3241,15 +3224,15 @@
           '    <span class="arc-service">' + (r.service || 'Unknown Service') + '</span>',
           '    <span class="arc-status ' + r.status + '">' + r.status + '</span>',
           '  </div>',
-          '  <div class="arc-detail" style="display:flex;align-items:center;gap:10px">' + clientAvaHTML + '<div><strong>' + (r.contact_name || '') + '</strong><br><span style="font-size:0.78rem;color:#8c6b4a">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</span></div></div>',
+          '  <div class="arc-detail" style="display:flex;align-items:center;gap:10px">' + clientAvaHTML + '<div><strong>' + escHtml(r.contact_name || '') + '</strong><br><span style="font-size:0.78rem;color:#8c6b4a">' + escHtml(r.contact_email || '') + (r.contact_phone ? ' · ' + escHtml(r.contact_phone) : '') + '</span></div></div>',
           '  <div class="arc-detail"><strong>' + (isHS ? 'Dates:' : 'Preferred:') + '</strong> ' + dateStr + (isHS ? ' · Arrival ' + fmt12(r.preferred_time || '') + (r.preferred_end_time ? ' · Departure ' + fmt12(r.preferred_end_time) : '') : ' at ' + fmt12(r.preferred_time || '')) + '</div>',
           multiDateHTML,
           recurHTML,
-          '  <div class="arc-detail"><strong>Pets:</strong> ' + (r.pet_names || '') + ' (' + (r.pet_types || '') + ', ' + (r.number_of_pets || 1) + ')' + (r.is_puppy ? ' <span style="color:#c8963e;font-weight:600">🐶 Puppy</span>' : '') + '</div>',
-          '  <div class="arc-detail"><strong>Address:</strong> ' + (r.address || '') + '</div>',
+          '  <div class="arc-detail"><strong>Pets:</strong> ' + escHtml(r.pet_names || '') + ' (' + escHtml(r.pet_types || '') + ', ' + (r.number_of_pets || 1) + ')' + (r.is_puppy ? ' <span style="color:#c8963e;font-weight:600">🐶 Puppy</span>' : '') + '</div>',
+          '  <div class="arc-detail"><strong>Address:</strong> ' + escHtml(r.address || '') + '</div>',
           r.estimated_total ? '  <div class="arc-detail" style="background:#f9f6f0;padding:8px 10px;border-radius:6px;margin:6px 0;border:1px solid #e0d5c5"><strong>Total: $' + Number(r.estimated_total).toFixed(2) + '</strong>' + (r.price_breakdown ? '<div style="font-size:0.78rem;color:#6b5c4d;margin-top:2px">' + r.price_breakdown.replace(/\|/g, '<br>') + '</div>' : '') + (r.is_holiday ? '<div style="color:#c8963e;font-size:0.78rem;margin-top:2px">Holiday rate applied</div>' : '') + '</div>' : '',
-          r.special_notes ? '  <div class="arc-detail"><strong>Notes:</strong> ' + r.special_notes + '</div>' : '',
-          r.admin_notes ? '  <div class="arc-detail" style="color:var(--gold)"><strong>Your Note:</strong> ' + r.admin_notes + '</div>' : '',
+          r.special_notes ? '  <div class="arc-detail"><strong>Notes:</strong> ' + escHtml(r.special_notes) + '</div>' : '',
+          r.admin_notes ? '  <div class="arc-detail" style="color:var(--gold)"><strong>Your Note:</strong> ' + escHtml(r.admin_notes) + '</div>' : '',
           r.scheduled_date ? '  <div class="arc-detail" style="color:var(--forest)"><strong>Scheduled:</strong> ' + r.scheduled_date + ' at ' + fmt12(r.scheduled_time || r.preferred_time) + '</div>' : '',
           '  <div class="arc-detail" style="font-size:12px;color:#aaa;">Requested: ' + createdStr + '</div>',
           '  <div id="arc-modify-' + r.id + '"></div>',
@@ -4158,21 +4141,21 @@
         '<div class="card" data-request-id="' + r.id + '" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + ';position:relative">',
         (schedBtnHTML ? '<div style="position:absolute;top:12px;right:12px;z-index:2">' + schedBtnHTML + '</div>' : ''),
         '  <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;padding-right:' + (schedBtnHTML ? '44px' : '0') + '">',
-        '    <div><strong style="font-size:1rem">' + (r.service || 'Service') + '</strong><div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + (r.contact_email || '') + (r.contact_phone ? ' · ' + r.contact_phone : '') + '</div></div>',
+        '    <div><strong style="font-size:1rem">' + escHtml(r.service || 'Service') + '</strong><div style="font-size:0.78rem;color:var(--mid);margin-top:2px">' + escHtml(r.contact_email || '') + (r.contact_phone ? ' · ' + escHtml(r.contact_phone) : '') + '</div></div>',
         '    <span class="badge" style="background:' + (r.status === 'pending' ? 'var(--gold-light)' : r.status === 'accepted' ? 'var(--forest-light)' : r.status === 'completed' ? '#d4edda' : 'var(--rose-light)') + ';color:var(--ink);padding:4px 10px;border-radius:12px;font-size:0.75rem;font-weight:600">' + r.status + '</span>',
         '  </div>',
         '  <div class="sched-preview-content" id="sched-preview-' + r.id + '" style="display:none;margin-bottom:12px"></div>',
         '  <div style="display:flex;gap:12px;align-items:start;margin-bottom:12px">',
         '    ' + clientAvaHTML,
         '    <div style="flex:1;min-width:0">',
-        '      <div style="font-weight:600;margin-bottom:4px">' + (r.contact_name || 'Client') + '</div>',
+        '      <div style="font-weight:600;margin-bottom:4px">' + escHtml(r.contact_name || 'Client') + '</div>',
         '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:6px">\uD83D\uDCC5 ' + dateStr + (isHS ? ' · Arrival ' + fmt12(r.preferred_time || '') + (r.preferred_end_time ? ' · Departure ' + fmt12(r.preferred_end_time) : '') : ' at ' + fmt12(r.preferred_time || '')) + '</div>',
-        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">\uD83D\uDC3E ' + (r.pet_names || 'Pets') + '</div>',
-        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">\uD83D\uDCCD ' + (r.address || 'Address') + '</div>',
+        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">\uD83D\uDC3E ' + escHtml(r.pet_names || 'Pets') + '</div>',
+        '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">\uD83D\uDCCD ' + escHtml(r.address || 'Address') + '</div>',
         (r.estimated_total ? '      <div style="font-weight:600;color:var(--gold-deep);margin-top:6px">\uD83D\uDCB0 $' + Number(r.estimated_total).toFixed(2) + '</div>' : ''),
         '    </div>',
         '  </div>',
-        (r.special_notes ? '  <div style="background:var(--gold-pale);padding:8px 10px;border-radius:6px;font-size:0.82rem;margin-bottom:12px"><strong>Notes:</strong> ' + r.special_notes + '</div>' : ''),
+        (r.special_notes ? '  <div style="background:var(--gold-pale);padding:8px 10px;border-radius:6px;font-size:0.82rem;margin-bottom:12px"><strong>Notes:</strong> ' + escHtml(r.special_notes) + '</div>' : ''),
         panelMultiDateHTML,
         actionsHTML,
         '</div>',
@@ -5154,10 +5137,9 @@
     }
 
     try {
-      var _hsToken = window.HHP_Auth && window.HHP_Auth.supabase ? (await window.HHP_Auth.supabase.auth.getSession()).data.session?.access_token : '';
       var resp = await fetch('/api/complete-housesitting', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (_hsToken || '') },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingRequestId: rpt.bookingId,
           adjustedNights: rpt.currentNights !== rpt.originalNights ? rpt.currentNights : null,
