@@ -258,7 +258,7 @@ module.exports = async function handler(req, res) {
             client_name: group.clientName,
             stripe_invoice_id: chargeResult.invoiceId || null,
             stripe_invoice_url: chargeResult.invoiceUrl || null,
-            status: chargeResult.success ? 'sent' : 'failed',
+            status: chargeResult.success ? (chargeResult.method === 'auto_charge' ? 'paid' : 'sent') : 'failed',
             error_message: chargeResult.error || null,
           }, { onConflict: 'booking_request_id,service_date', ignoreDuplicates: true });
         }
