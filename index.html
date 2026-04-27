@@ -9449,6 +9449,33 @@ async function endServiceFromPanel() {
       }
     }
 
+    // ── Ensure arrival/departure are valid time values (not empty strings) ──
+    // PostgreSQL rejects '' for time columns; must be null or valid HH:MM format
+    function safeTime24(val) {
+      if (!val || val.indexOf(':') === -1) return null;
+      // If already 24h format (from input type=time), return as-is
+      if (/^\d{1,2}:\d{2}$/.test(val)) return val;
+      // If 12h format from fmt12, convert back to 24h for DB
+      var m = val.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (m) {
+        var h = parseInt(m[1]), min = m[2], ap = m[3].toUpperCase();
+        if (ap === 'PM' && h !== 12) h += 12;
+        if (ap === 'AM' && h === 12) h = 0;
+        return (h < 10 ? '0' : '') + h + ':' + min;
+      }
+      return null;
+    }
+    // Fallback: derive arrival from walk start_time if input was empty
+    if (!arrivalInput && d.startTime) {
+      try {
+        var st = new Date(d.startTime);
+        arrivalInput = (st.getHours() < 10 ? '0' : '') + st.getHours() + ':' + (st.getMinutes() < 10 ? '0' : '') + st.getMinutes();
+        arrivalStr = fmt12(arrivalInput);
+      } catch(e) {}
+    }
+    var safeArrival = safeTime24(arrivalInput) || safeTime24(arrivalStr);
+    var safeDeparture = safeTime24(departureInput) || safeTime24(departureStr);
+
     // Save the service report with all editable field values
     var reportData = {
       client_id: d.clientId || null,
@@ -9456,8 +9483,8 @@ async function endServiceFromPanel() {
       service: reportService,
       report_date: reportDate,
       duration: reportDuration,
-      arrival_time: arrivalStr,
-      departure_time: departureStr,
+      arrival_time: safeArrival,
+      departure_time: safeDeparture,
       distance: distanceVal || null,
       mood: mood || null,
       pet_name: reportPets || null,
@@ -9467,16 +9494,20 @@ async function endServiceFromPanel() {
     };
 
     var reportSaved = false;
+    console.log('Report insert payload:', JSON.stringify(reportData));
     try {
       var { error: rptErr } = await sb.from('service_reports').insert(reportData);
       if (rptErr) {
         console.error('Report save error:', JSON.stringify(rptErr));
+        console.error('Report payload was:', JSON.stringify(reportData));
         toast('⚠️ Report save issue: ' + (rptErr.message || JSON.stringify(rptErr)));
       } else {
         reportSaved = true;
+        console.log('Report saved successfully');
       }
     } catch (rptCatchErr) {
       console.error('Report save exception:', rptCatchErr);
+      console.error('Report payload was:', JSON.stringify(reportData));
       toast('⚠️ Report could not be saved — please try sending from Report History.');
     }
 
