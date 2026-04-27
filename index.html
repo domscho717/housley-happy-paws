@@ -6653,7 +6653,7 @@ async function loadCalendarBookings(year, month) {
         var { data: recurInvs } = await sb.from('recurring_invoices')
           .select('booking_request_id, service_date, status')
           .in('booking_request_id', recurBookingIds)
-          .in('status', ['paid', 'sent', 'captured']);
+          .in('status', ['sent', 'captured']);
         if (recurInvs) {
           recurInvs.forEach(function(ri) {
             _recurInvPaidDates[ri.booking_request_id + '|' + ri.service_date] = true;
@@ -7221,7 +7221,7 @@ async function loadClientAppts(filter, tabBtn) {
             // Per-date paid status from recurring_invoices
             var datePaidKey = b.id + '|' + nd.date;
             var datePaidStatus = _clientRecurPaidDates[datePaidKey] || '';
-            var isDatePaid = datePaidStatus === 'paid' || datePaidStatus === 'sent' || datePaidStatus === 'captured';
+            var isDatePaid = datePaidStatus === 'sent' || datePaidStatus === 'captured';
             var paidBadge = '';
             if (b.estimated_total > 0) {
               if (isDatePaid) {
@@ -8130,18 +8130,12 @@ async function showBookingDetail(bookingId, role, source) {
           h += '<div style="font-size:1.4rem">🔄</div>';
           h += '<div><div style="font-weight:700;color:#0d47a1;font-size:0.9rem">Payment Processing</div>';
           h += '<div style="font-size:0.78rem;color:#0d47a1">$' + Number(b.estimated_total || 0).toFixed(2) + ' is being processed</div></div></div>';
-        } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id && b.recurrence_pattern) {
-          // Recurring booking — future week not yet charged by Sunday cron
+        } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id) {
+          // Accepted but payment not yet processed (recurring future week)
           h += '<div style="background:#fff8e1;border:1.5px solid #e0a800;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">🕐</div>';
           h += '<div><div style="font-weight:700;color:#7a6200;font-size:0.9rem">Payment Pending</div>';
           h += '<div style="font-size:0.78rem;color:#7a6200">$' + Number(b.estimated_total || 0).toFixed(2) + ' — charges the Sunday before appointment week</div></div></div>';
-        } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id && !b.recurrence_pattern) {
-          // Non-recurring booking with no payment — needs payment method
-          h += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
-          h += '<div style="font-size:1.4rem">💳</div>';
-          h += '<div><div style="font-weight:700;color:#c62828;font-size:0.9rem">Payment Needed</div>';
-          h += '<div style="font-size:0.78rem;color:#c62828">$' + Number(b.estimated_total || 0).toFixed(2) + ' — please add a card to process payment</div></div></div>';
         } else {
           h += '<div style="background:#fde8e8;border:1.5px solid #c62828;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px">';
           h += '<div style="font-size:1.4rem">❌</div>';
@@ -8230,10 +8224,8 @@ async function showBookingDetail(bookingId, role, source) {
         h += '<div style="font-size:0.78rem;color:#155724;font-weight:600">✅ Paid' + (paymentInfo && paymentInfo.paid_at ? ' on ' + new Date(paymentInfo.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '') + '</div>';
       } else if (isHeld) {
         h += '<div style="font-size:0.78rem;color:#0d47a1;font-weight:600">🔄 Payment processing</div>';
-      } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id && b.recurrence_pattern) {
+      } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id) {
         h += '<div style="font-size:0.78rem;color:#7a6200;font-weight:600">🕐 Charges the Sunday before your appointment week</div>';
-      } else if ((st === 'accepted' || st === 'confirmed') && !b.payment_intent_id && !b.recurrence_pattern) {
-        h += '<div style="font-size:0.78rem;color:#c62828;font-weight:600">💳 Payment needed — please add a card on file</div>';
       } else {
         h += '<div style="font-size:0.78rem;color:var(--mid)">⏳ Payment pending</div>';
       }
@@ -8298,7 +8290,7 @@ async function showBookingDetail(bookingId, role, source) {
             var ddTime = (typeof getRecurringTime === 'function') ? getRecurringTime(b, dd) : '';
             var ddTimeStr = ddTime && (typeof fmt12h === 'function') ? fmt12h(ddTime) : ddTime;
             var ddInvStatus = _detailPaidMap[dd] || '';
-            var ddPaid = ddInvStatus === 'paid' || ddInvStatus === 'sent' || ddInvStatus === 'captured';
+            var ddPaid = ddInvStatus === 'sent' || ddInvStatus === 'captured';
 
             var ddBadge = '';
             if (b.estimated_total > 0) {
@@ -9326,6 +9318,9 @@ async function endServiceFromPanel() {
   if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '⏳ Saving & Sending...'; }
 
   try {
+    // ── Refresh auth session to prevent token expiration during long services ──
+    try { await sb.auth.refreshSession(); } catch(refreshErr) { console.warn('Session refresh error:', refreshErr); }
+
     // ── Check for existing report to prevent duplicates ──
     if (d.bookingId) {
       var { data: existingReport } = await sb.from('service_reports').select('id').eq('booking_id', d.bookingId).maybeSingle();
@@ -9471,10 +9466,52 @@ async function endServiceFromPanel() {
       media: uploadedMedia.length > 0 ? uploadedMedia : null
     };
 
-    var { error: rptErr } = await sb.from('service_reports').insert(reportData);
-    if (rptErr) {
-      console.warn('Report save error:', JSON.stringify(rptErr));
-      toast('⚠️ Report save issue: ' + (rptErr.message || JSON.stringify(rptErr)));
+    var reportSaved = false;
+    try {
+      var { error: rptErr } = await sb.from('service_reports').insert(reportData);
+      if (rptErr) {
+        console.error('Report save error:', JSON.stringify(rptErr));
+        toast('⚠️ Report save issue: ' + (rptErr.message || JSON.stringify(rptErr)));
+      } else {
+        reportSaved = true;
+      }
+    } catch (rptCatchErr) {
+      console.error('Report save exception:', rptCatchErr);
+      toast('⚠️ Report could not be saved — please try sending from Report History.');
+    }
+
+    // ── ALWAYS update booking status, even if report save failed ──
+    // This prevents bookings from getting stuck in 'in_progress'
+    if (d.bookingId) {
+      try {
+        var { data: bkCheck } = await sb.from('booking_requests').select('recurrence_pattern, canceled_dates').eq('id', d.bookingId).maybeSingle();
+        if (bkCheck && bkCheck.recurrence_pattern) {
+          var _hasMoreDates = false;
+          try {
+            var _todayChk = _localDateStr();
+            var _chkCursor = new Date();
+            _chkCursor.setHours(12,0,0,0);
+            _chkCursor.setDate(_chkCursor.getDate() + 1);
+            var _chkEnd = new Date(_chkCursor);
+            _chkEnd.setDate(_chkEnd.getDate() + 90);
+            while (_chkCursor <= _chkEnd) {
+              var _chkDk = _localDateStr(_chkCursor);
+              if (typeof isRecurringOnDate === 'function' && isRecurringOnDate(bkCheck, _chkDk)) {
+                _hasMoreDates = true;
+                break;
+              }
+              _chkCursor.setDate(_chkCursor.getDate() + 1);
+            }
+          } catch(rdErr) { _hasMoreDates = true; }
+          if (_hasMoreDates) {
+            await sb.from('booking_requests').update({ status: 'accepted' }).eq('id', d.bookingId);
+          } else {
+            await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
+          }
+        } else {
+          await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
+        }
+      } catch(e) { console.warn('Booking status update error:', JSON.stringify(e)); }
     }
 
     // ── Send "Service Complete" notification + report summary to client ──
@@ -9539,46 +9576,6 @@ async function endServiceFromPanel() {
       });
     } catch(e) { console.warn('Activity log end error:', e); }
 
-    // Update booking status to completed (but NOT for recurring — keep 'accepted' so the series continues)
-    if (d.bookingId) {
-      try {
-        var { data: bkCheck } = await sb.from('booking_requests').select('recurrence_pattern, canceled_dates').eq('id', d.bookingId).maybeSingle();
-        if (bkCheck && bkCheck.recurrence_pattern) {
-          // Recurring booking: check if there are future dates remaining
-          var _hasMoreDates = false;
-          try {
-            var _todayChk = _localDateStr();
-            var _chkCursor = new Date();
-            _chkCursor.setHours(12,0,0,0);
-            // Start from tomorrow to check future dates
-            _chkCursor.setDate(_chkCursor.getDate() + 1);
-            var _chkEnd = new Date(_chkCursor);
-            _chkEnd.setDate(_chkEnd.getDate() + 90);
-            while (_chkCursor <= _chkEnd) {
-              var _chkDk = _localDateStr(_chkCursor);
-              if (typeof isRecurringOnDate === 'function' && isRecurringOnDate(bkCheck, _chkDk)) {
-                _hasMoreDates = true;
-                break;
-              }
-              _chkCursor.setDate(_chkCursor.getDate() + 1);
-            }
-          } catch(rdErr) { _hasMoreDates = true; /* err on side of keeping active */ }
-
-          if (_hasMoreDates) {
-            // More dates ahead: restore to 'accepted' so cron + calendar + client view keep working
-            await sb.from('booking_requests').update({ status: 'accepted' }).eq('id', d.bookingId);
-          } else {
-            // No more future dates: mark as completed — the recurring service is done
-            await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
-          }
-        } else {
-          // One-time booking: mark completed as normal
-          var { error: bkErr } = await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
-          if (bkErr) console.warn('Booking status update error:', JSON.stringify(bkErr));
-        }
-      } catch(e) { console.warn('Booking status update error:', JSON.stringify(e)); }
-    }
-
     // ── Show success confirmation inside the panel ──
     var panel = document.getElementById('hhp-live-service-panel');
     if (panel) {
@@ -9587,7 +9584,7 @@ async function endServiceFromPanel() {
         inner.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;padding:40px 20px;text-align:center">' +
           '<div style="width:80px;height:80px;border-radius:50%;background:var(--forest,#3d5a47);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><span style="font-size:2.5rem">✅</span></div>' +
           '<div style="font-size:1.4rem;font-weight:700;color:var(--forest,#3d5a47);margin-bottom:10px">Service Completed!</div>' +
-          '<div style="font-size:0.95rem;color:var(--ink);margin-bottom:6px;font-weight:600">Report saved & sent to client</div>' +
+          '<div style="font-size:0.95rem;color:var(--ink);margin-bottom:6px;font-weight:600">' + (reportSaved ? 'Report saved & sent to client' : '⚠️ Report could not be saved — please resend from Report History') + '</div>' +
           '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:4px">' + reportService + (reportPets ? ' for ' + reportPets : '') + '</div>' +
           '<div style="font-size:0.85rem;color:var(--mid)">Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')</div>' +
           (distanceVal ? '<div style="font-size:0.85rem;color:var(--mid)">Distance: ' + distanceVal + '</div>' : '') +
@@ -9957,7 +9954,6 @@ async function confirmCancelBooking() {
     var cancelOption = document.querySelector('input[name="cancelOption"]:checked');
     var option = cancelOption ? cancelOption.value : 'this';
     var isSingleCancel = _cancelData.isRecurring && option === 'this';
-    var isStopRecurring = _cancelData.isRecurring && option === 'future';
 
     // Check refund selection (only present for owner/staff paid cancels)
     var refundOption = document.querySelector('input[name="refundOption"]:checked');
@@ -9975,7 +9971,6 @@ async function confirmCancelBooking() {
         canceledBy: _cancelData.canceledBy,
         cancelSingle: isSingleCancel,
         cancelDate: isSingleCancel ? _cancelData.date : undefined,
-        stopRecurring: isStopRecurring || undefined,
         issueRefund: issueRefund
       })
     });
@@ -11406,68 +11401,13 @@ async function removePaymentMethod() {
   if (params.get('card_saved') === 'success') {
     // Clean URL first
     window.history.replaceState({}, '', window.location.pathname);
-    setTimeout(async function() {
+    setTimeout(function() {
       loadSavedCard();
       // Check if there's a pending booking to restore
       if (typeof window._restorePendingBooking === 'function' && window._restorePendingBooking()) {
         // Booking form was restored — toast is shown inside _restorePendingBooking
       } else {
         toast('✅ Payment method saved! Your card is on file for future bookings.');
-      }
-
-      // ── Auto-charge unpaid bookings now that a card is on file ──
-      try {
-        var _sb = window.HHP_Auth && window.HHP_Auth.supabase;
-        var _user = window.HHP_Auth && window.HHP_Auth.currentUser;
-        if (_sb && _user) {
-          // Find unpaid accepted or payment_hold bookings for this client
-          var { data: unpaidBookings } = await _sb.from('booking_requests')
-            .select('id, service, estimated_total, status, payment_intent_id')
-            .eq('client_id', _user.id)
-            .in('status', ['accepted', 'confirmed', 'payment_hold'])
-            .is('payment_intent_id', null);
-
-          var chargeable = (unpaidBookings || []).filter(function(b) { return b.estimated_total > 0; });
-          if (chargeable.length > 0) {
-            var totalAmount = chargeable.reduce(function(s, b) { return s + parseFloat(b.estimated_total); }, 0);
-            var allIds = chargeable.map(function(b) { return b.id; });
-            var serviceLabel = chargeable.length > 1
-              ? chargeable[0].service + ' + ' + (chargeable.length - 1) + ' more'
-              : chargeable[0].service;
-
-            toast('💳 Processing $' + totalAmount.toFixed(2) + ' for ' + chargeable.length + ' unpaid booking' + (chargeable.length > 1 ? 's' : '') + '...');
-
-            var _sess = await _sb.auth.getSession();
-            var _token = _sess && _sess.data && _sess.data.session ? _sess.data.session.access_token : '';
-            var resp = await fetch('/api/charge-saved-card', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token },
-              body: JSON.stringify({
-                bookingRequestId: allIds[0],
-                amount: totalAmount,
-                service: serviceLabel,
-                clientProfileId: _user.id,
-                batchBookingIds: allIds.length > 1 ? allIds : undefined
-              })
-            });
-            var result = await resp.json();
-            if (result.success) {
-              // Restore any payment_hold bookings to accepted
-              var holdIds = chargeable.filter(function(b) { return b.status === 'payment_hold'; }).map(function(b) { return b.id; });
-              if (holdIds.length > 0) {
-                await _sb.from('booking_requests').update({ status: 'accepted' }).in('id', holdIds);
-              }
-              toast('✅ Payment of $' + totalAmount.toFixed(2) + ' processed for ' + chargeable.length + ' booking' + (chargeable.length > 1 ? 's' : '') + '!');
-              // Refresh the appointments view
-              if (typeof loadClientAppts === 'function') loadClientAppts('all');
-              if (typeof loadDashboardStats === 'function') loadDashboardStats();
-            } else {
-              toast('⚠️ Card saved but payment of $' + totalAmount.toFixed(2) + ' could not be processed: ' + (result.message || result.error || 'Please try again.'));
-            }
-          }
-        }
-      } catch (autoChargeErr) {
-        console.warn('Auto-charge after card save failed:', autoChargeErr);
       }
     }, 1000);
   } else if (params.get('card_saved') === 'cancelled') {
@@ -13071,7 +13011,7 @@ async function loadClientUpcomingCharges() {
         var { data: _upInvs } = await sb.from('recurring_invoices')
           .select('booking_request_id, service_date, status')
           .in('booking_request_id', _recurIds)
-          .in('status', ['paid', 'sent', 'captured']);
+          .in('status', ['sent', 'captured']);
         if (_upInvs) _upInvs.forEach(function(ri) {
           _upcomingPaidDates[ri.booking_request_id + '|' + ri.service_date] = true;
         });
