@@ -70,8 +70,9 @@
       toast('✅ Service started! Client has been notified.');
     }
 
-    // Send notification to client
-    if (clientId) {
+    // Send "Live tracking" notification to client — only for dog walks
+    // Drop-ins and other services already get the green "track progress" message from index.html
+    if (clientId && isDogWalk) {
       sendWalkNotification(clientId, 'started', petName, service);
     }
 
@@ -128,8 +129,9 @@
       return;
     }
 
-    // Send notification to client
-    if (walkData && walkData.client_id) {
+    // Send "walk finished" notification — only for dog walks (drop-ins get their own completion message from endServiceFromPanel)
+    var _isWalk = (walkData.service || '').toLowerCase().indexOf('dog walk') !== -1 || (walkData.service || '').toLowerCase().indexOf('walking') !== -1;
+    if (walkData && walkData.client_id && _isWalk) {
       sendWalkNotification(walkData.client_id, 'completed', walkData.pet_name, walkData.service);
     }
 

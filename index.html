@@ -6004,6 +6004,18 @@ async function submitContact() {
       _sendAutoReply('general', user.id, { name: cName });
     }
 
+    // ── Send email to Rachel so she never misses a contact form submission ──
+    try {
+      await fetch('/api/contact-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: cName, contact: cReach, question: cQuestion })
+      });
+    } catch (emailErr) {
+      console.warn('Contact email send error:', emailErr);
+      // Don't block success — the in-app message was already saved
+    }
+
     // Clear form and show success
     document.getElementById('contact-name').value = '';
     document.getElementById('contact-reach').value = '';
@@ -9730,13 +9742,14 @@ async function viewCompletedReport(bookingId) {
     h += fieldRow('Notes', report.personal_note);
 
     if (report.media && Array.isArray(report.media) && report.media.length > 0) {
+      window._galleryMedia = report.media;
       h += '<div style="margin-bottom:12px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:6px">Photos</div>';
       h += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
-      report.media.forEach(function(m) {
+      report.media.forEach(function(m, idx) {
         if (m.type === 'video') {
-          h += '<div onclick="window.open(\'' + m.url + '\',\'_blank\')" style="width:70px;height:70px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="color:white;font-size:1.5rem">🎬</span></div>';
+          h += '<div onclick="openMediaGallery(' + idx + ')" style="width:70px;height:70px;border-radius:8px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="color:white;font-size:1.5rem">🎬</span></div>';
         } else {
-          h += '<img loading="lazy" src="' + (m.url || m.thumbnail || '') + '" onclick="window.open(\'' + (m.url || '') + '\',\'_blank\')" style="width:70px;height:70px;object-fit:cover;border-radius:8px;cursor:pointer">';
+          h += '<img loading="lazy" src="' + (m.url || m.thumbnail || '') + '" onclick="openMediaGallery(' + idx + ')" style="width:70px;height:70px;object-fit:cover;border-radius:8px;cursor:pointer">';
         }
       });
       h += '</div></div>';
@@ -13574,15 +13587,17 @@ function openReportDetail(reportOrId) {
   var card = modal.querySelector('.report-card');
   if (!card) return;
 
-  // Build photos HTML
+  // Build photos HTML — thumbnail grid that opens a fullscreen gallery
   var photosHtml = '';
   if (report.media && report.media.length > 0) {
+    // Store media for gallery reference
+    window._galleryMedia = report.media;
     photosHtml = '<div class="report-photos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-bottom:16px">';
-    report.media.forEach(function(m) {
+    report.media.forEach(function(m, idx) {
       if (m.type === 'video') {
-        photosHtml += '<div style="border-radius:10px;overflow:hidden;aspect-ratio:1;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="window.open(\'' + m.url + '\',\'_blank\')"><div style="color:white;text-align:center"><div style="font-size:2rem">🎬</div><div style="font-size:0.7rem;margin-top:4px">Play Video</div></div></div>';
+        photosHtml += '<div style="border-radius:10px;overflow:hidden;aspect-ratio:1;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="openMediaGallery(' + idx + ')"><div style="color:white;text-align:center"><div style="font-size:2rem">🎬</div><div style="font-size:0.7rem;margin-top:4px">Play Video</div></div></div>';
       } else {
-        photosHtml += '<img loading="lazy" src="' + m.url + '" style="width:100%;border-radius:10px;aspect-ratio:1;object-fit:cover;cursor:pointer" onclick="window.open(\'' + m.url + '\',\'_blank\')" alt="">';
+        photosHtml += '<img loading="lazy" src="' + m.url + '" style="width:100%;border-radius:10px;aspect-ratio:1;object-fit:cover;cursor:pointer" onclick="openMediaGallery(' + idx + ')" alt="">';
       }
     });
     photosHtml += '</div>';
@@ -13640,6 +13655,117 @@ function openReportDetail(reportOrId) {
   // Load walk route map for dog walk reports
   if (report.service && report.service.toLowerCase().indexOf('walk') > -1) {
     _loadReportRouteMap(report);
+  }
+}
+
+// ── Fullscreen Media Gallery with swipe navigation ──
+window._galleryMedia = [];
+window._galleryIdx = 0;
+function openMediaGallery(startIdx) {
+  var media = window._galleryMedia;
+  if (!media || media.length === 0) return;
+  window._galleryIdx = startIdx || 0;
+
+  // Remove existing gallery overlay
+  var old = document.getElementById('hhp-media-gallery');
+  if (old) old.remove();
+
+  var overlay = document.createElement('div');
+  overlay.id = 'hhp-media-gallery';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:pan-y';
+
+  function renderGallery() {
+    var m = media[window._galleryIdx];
+    var isVideo = m.type === 'video';
+    var counter = media.length > 1 ? '<div style="color:rgba(255,255,255,0.7);font-size:0.82rem;margin-bottom:8px">' + (window._galleryIdx + 1) + ' / ' + media.length + '</div>' : '';
+
+    var mainContent = '';
+    if (isVideo) {
+      mainContent = '<video src="' + m.url + '" controls autoplay playsinline style="max-width:92vw;max-height:75vh;border-radius:10px;background:#000"></video>';
+    } else {
+      mainContent = '<img src="' + m.url + '" style="max-width:92vw;max-height:75vh;border-radius:10px;object-fit:contain" alt="">';
+    }
+
+    // Navigation arrows (left/right)
+    var leftArrow = window._galleryIdx > 0
+      ? '<button onclick="galleryNav(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;color:white;font-size:1.4rem;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">‹</button>'
+      : '';
+    var rightArrow = window._galleryIdx < media.length - 1
+      ? '<button onclick="galleryNav(1)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;color:white;font-size:1.4rem;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">›</button>'
+      : '';
+
+    // Download + close buttons
+    var toolbar = '<div style="display:flex;gap:12px;margin-top:12px">' +
+      '<a href="' + m.url + '" download style="padding:8px 18px;background:rgba(255,255,255,0.15);color:white;border-radius:8px;text-decoration:none;font-size:0.82rem;font-weight:600;backdrop-filter:blur(4px)">💾 Save</a>' +
+      '<button onclick="closeMediaGallery()" style="padding:8px 18px;background:rgba(255,255,255,0.15);color:white;border:none;border-radius:8px;font-size:0.82rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px)">✕ Close</button>' +
+      '</div>';
+
+    // Thumbnail strip
+    var thumbStrip = '';
+    if (media.length > 1) {
+      thumbStrip = '<div style="display:flex;gap:6px;margin-top:12px;overflow-x:auto;max-width:90vw;padding:4px">';
+      media.forEach(function(tm, ti) {
+        var active = ti === window._galleryIdx ? 'border:2px solid #c8963e;opacity:1' : 'border:2px solid transparent;opacity:0.5';
+        if (tm.type === 'video') {
+          thumbStrip += '<div onclick="window._galleryIdx=' + ti + ';renderGallery()" style="min-width:48px;width:48px;height:48px;border-radius:6px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;cursor:pointer;' + active + '"><span style="color:white;font-size:0.8rem">🎬</span></div>';
+        } else {
+          thumbStrip += '<img src="' + (tm.thumbnail || tm.url) + '" onclick="window._galleryIdx=' + ti + ';renderGallery()" style="min-width:48px;width:48px;height:48px;border-radius:6px;object-fit:cover;cursor:pointer;' + active + '">';
+        }
+      });
+      thumbStrip += '</div>';
+    }
+
+    overlay.innerHTML =
+      counter +
+      '<div style="position:relative;display:flex;align-items:center;justify-content:center">' +
+        leftArrow + mainContent + rightArrow +
+      '</div>' +
+      toolbar +
+      thumbStrip;
+  }
+
+  // Make renderGallery globally accessible for thumbnail clicks
+  window.renderGallery = renderGallery;
+  renderGallery();
+
+  // Close on background click (not on image/video/button)
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeMediaGallery();
+  });
+
+  // Keyboard navigation
+  function onKey(e) {
+    if (e.key === 'Escape') closeMediaGallery();
+    if (e.key === 'ArrowLeft') galleryNav(-1);
+    if (e.key === 'ArrowRight') galleryNav(1);
+  }
+  document.addEventListener('keydown', onKey);
+  overlay._onKey = onKey;
+
+  // Touch swipe support
+  var touchStartX = 0;
+  overlay.addEventListener('touchstart', function(e) { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+  overlay.addEventListener('touchend', function(e) {
+    var diff = e.changedTouches[0].screenX - touchStartX;
+    if (Math.abs(diff) > 50) galleryNav(diff < 0 ? 1 : -1);
+  }, { passive: true });
+
+  document.body.appendChild(overlay);
+}
+
+function galleryNav(dir) {
+  var media = window._galleryMedia;
+  var next = window._galleryIdx + dir;
+  if (next < 0 || next >= media.length) return;
+  window._galleryIdx = next;
+  window.renderGallery();
+}
+
+function closeMediaGallery() {
+  var el = document.getElementById('hhp-media-gallery');
+  if (el) {
+    if (el._onKey) document.removeEventListener('keydown', el._onKey);
+    el.remove();
   }
 }
 
