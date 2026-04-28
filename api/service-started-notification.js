@@ -6,11 +6,43 @@
  */
 
 const { sendEmail, fmt12, escHtml, SITE_URL } = require('./_email');
+const { createClient } = require('@supabase/supabase-js');
 
 module.exports = async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Auth: require valid Bearer token (owner/staff only)
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing auth token' });
+  }
+  const token = authHeader.replace('Bearer ', '');
+  try {
+    const supabaseAuth = createClient(
+      process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
+      process.env.SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
+    );
+    const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser(token);
+    if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
+
+    const supabaseSvc = createClient(
+      process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+    const { data: profile } = await supabaseSvc.from('profiles').select('role').eq('user_id', user.id).single();
+    if (!profile || !['owner', 'staff'].includes(profile.role)) {
+      return res.status(403).json({ error: 'Forbidden — owner/staff only' });
+    }
+  } catch (e) {
+    return res.status(401).json({ error: 'Auth failed' });
   }
 
   const {
