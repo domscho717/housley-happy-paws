@@ -8558,9 +8558,11 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
 
       // Send email notification
       if (contactEmail) {
+        var _svcToken = '';
+        try { var _s = await sb.auth.getSession(); _svcToken = _s.data.session.access_token; } catch(e) {}
         fetch('/api/service-started-notification', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _svcToken },
           body: JSON.stringify({
             clientEmail: contactEmail,
             clientName: clientName || '',
@@ -16367,12 +16369,12 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
   <script src="/js/booking-system.js?v=20260407c" defer></script>
   <script src="/js/messaging.js?v=20260402a" defer></script>
-  <script src="/js/gallery.js" defer></script>
-  <script src="/js/notifications.js" defer></script>
+  <script src="/js/gallery.js?v=20260428" defer></script>
+  <script src="/js/notifications.js?v=20260428" defer></script>
   <script src="/js/customizer.js?v=20260406b" defer></script>
   <script src="/js/avatar-system.js?v=20260402a" defer></script>
   <script src="/js/settings-panel.js?v=20260406b" defer></script>
-  <script src="/js/availability.js" defer></script>
+  <script src="/js/availability.js?v=20260428" defer></script>
   <!-- Leaflet + live tracking: lazy-loaded only when tracking panel is opened -->
   <script>
   (function(){
@@ -16389,7 +16391,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if live-tracking.js is already loaded to prevent double-load
         var existingScript=document.querySelector('script[src="/js/live-tracking.js"]');
         if(!existingScript){
-          var t=document.createElement('script');t.src='/js/live-tracking.js';
+          var t=document.createElement('script');t.src='/js/live-tracking.js?v=20260428';
           if(cb)t.onload=cb;document.body.appendChild(t);
         }else if(cb){cb();}
       };
