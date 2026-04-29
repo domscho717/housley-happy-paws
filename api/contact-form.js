@@ -53,11 +53,11 @@ module.exports = async function handler(req, res) {
       </div>
     `;
 
-    const result = await sendToRachel(
-      `📬 New Message from ${safeName} — Housley Happy Paws`,
-      'New Contact Form',
+    const result = await sendToRachel({
+      subject: `📬 New Message from ${safeName} — Housley Happy Paws`,
+      title: 'New Contact Form',
       bodyHTML
-    );
+    });
 
     return res.status(200).json({
       success: true,

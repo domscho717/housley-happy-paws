@@ -5971,14 +5971,18 @@ async function submitContact() {
   try {
     // Save the contact submission to booking_requests as a general inquiry
     if (sb) {
-      await sb.from('booking_requests').insert({
+      var { error: brErr } = await sb.from('booking_requests').insert({
         service: 'General Inquiry',
         contact_name: cName,
         contact_email: cReach,
         special_notes: cQuestion,
         client_id: user ? user.id : null,
-        status: 'pending'
+        status: 'pending',
+        preferred_date: new Date().toISOString().split('T')[0],
+        preferred_time: 'N/A',
+        pet_names: 'N/A'
       });
+      if (brErr) console.warn('Contact booking_requests insert error:', brErr.message);
     }
 
     // Send notification to Rachel (owner)
@@ -6006,13 +6010,17 @@ async function submitContact() {
 
     // ── Send email to Rachel so she never misses a contact form submission ──
     try {
-      await fetch('/api/contact-form', {
+      var emailRes = await fetch('/api/contact-form', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: cName, contact: cReach, question: cQuestion })
       });
+      var emailJson = await emailRes.json();
+      if (!emailRes.ok) console.error('Contact email API error:', emailRes.status, emailJson);
+      else if (!emailJson.emailSent) console.warn('Contact email not sent:', emailJson);
+      else console.log('Contact email sent successfully');
     } catch (emailErr) {
-      console.warn('Contact email send error:', emailErr);
+      console.error('Contact email fetch error:', emailErr);
       // Don't block success — the in-app message was already saved
     }
 
