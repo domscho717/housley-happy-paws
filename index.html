@@ -8021,9 +8021,11 @@ async function stopRecurringService(bookingId, serviceName) {
 
   try {
     toast('Stopping recurring service...');
+    var _cancelToken = '';
+    try { var _cs = await sb.auth.getSession(); _cancelToken = _cs.data.session.access_token; } catch(e) {}
     var resp = await fetch('/api/cancel-booking', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _cancelToken },
       body: JSON.stringify({ bookingRequestId: bookingId, canceledBy: 'client', stopRecurring: true })
     });
     var result = await resp.json();
@@ -10016,10 +10018,12 @@ async function confirmCancelBooking() {
       issueRefund = true;
     }
 
-    // Call the backend API
+    // Call the backend API — include auth token (required by cancel-booking)
+    var _cToken = '';
+    try { var _csess = await (window.HHP_Auth && window.HHP_Auth.supabase || window.HHP_supabase).auth.getSession(); _cToken = _csess.data.session.access_token; } catch(e) {}
     var response = await fetch('/api/cancel-booking', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _cToken },
       body: JSON.stringify({
         bookingRequestId: _cancelData.bookingRequestId,
         canceledBy: _cancelData.canceledBy,
