@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
     const { data: callerProfile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
     const callerRole = callerProfile ? callerProfile.role : 'client';
     const isOwnerOrStaff = callerRole === 'owner' || callerRole === 'staff';
