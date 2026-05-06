@@ -5,7 +5,7 @@
             "destination": "/links.html"
         },
         {
-            "source": "/((?!api/)(?!js/)(?!links).*)",
+            "source": "/((?!api/)(?!js/)(?!links)(?!icon-)(?!favicon)(?!manifest)(?!logo).*)",
             "destination": "/index.html"
         }
     ],
