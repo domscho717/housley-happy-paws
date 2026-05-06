@@ -1134,7 +1134,10 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 
 /* ── iOS safe-area support (notch / Dynamic Island) ── */
 @supports(padding:env(safe-area-inset-top)){
-  .navbar,.nav{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+  .navbar,.nav{padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);height:calc(72px + env(safe-area-inset-top))}
+  .hero{padding-top:calc(110px + env(safe-area-inset-top))}
+  .portal-wrap{padding-top:calc(72px + env(safe-area-inset-top))}
+  .portal-sidebar{top:calc(72px + env(safe-area-inset-top));height:calc(100vh - 72px - env(safe-area-inset-top));height:calc(100dvh - 72px - env(safe-area-inset-top))}
   .portal-main{padding-bottom:env(safe-area-inset-bottom)}
   #scrollTopBtn{top:calc(18px + env(safe-area-inset-top))}
   .portal-back-btn{top:calc(82px + env(safe-area-inset-top))}
