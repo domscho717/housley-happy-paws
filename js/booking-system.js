@@ -2850,7 +2850,13 @@
           } catch (msgErr) { console.warn('Client message failed:', msgErr); }
         } else {
           // Single booking or recurring — send one email
-          var dateDisplay = isHouseSitting ? date + ' to ' + endDate : date;
+          var dateDisplay = date;
+          if (isHouseSitting && date && endDate) {
+            var _hsStart = new Date(date + 'T12:00:00');
+            var _hsEnd = new Date(endDate + 'T12:00:00');
+            var _hsOpts = { weekday: 'short', month: 'short', day: 'numeric' };
+            dateDisplay = _hsStart.toLocaleDateString('en-US', _hsOpts) + ' → ' + _hsEnd.toLocaleDateString('en-US', _hsOpts);
+          }
           if (isRecurring && recurrencePattern && recurrencePattern.schedules) {
             var recurParts = recurrencePattern.schedules.map(function(s) {
               return s.start_date + ' ' + s.frequency + ' until ' + (s.ongoing ? 'ongoing' : s.end_date);
@@ -2860,6 +2866,8 @@
           await sendBookingNotification({
             service: service,
             date: dateDisplay,
+            startDate: date,
+            endDate: isHouseSitting ? endDate : null,
             time: time,
             name: name,
             email: email,
@@ -2869,6 +2877,7 @@
             notes: isHouseSitting ? (notes ? notes + ' | ' + nights + ' night(s)' : nights + ' night(s)') : notes,
             estimatedTotal: data && data[0] ? data[0].estimated_total : null,
             isRecurring: isRecurring,
+            isHouseSitting: isHouseSitting || false,
           });
           if (typeof toast === 'function') toast('✓ Booking request sent!');
         }

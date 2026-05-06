@@ -1457,7 +1457,7 @@ try {
         <p class="section-p" style="margin-bottom:28px">I'm based right here in Lancaster, PA, and I've had the privilege of caring for dogs and cats of all shapes, sizes, and personalities. Every single one has my full attention and a lot of love.</p>
         <p class="section-p" style="margin-bottom:32px;font-style:italic;font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--gold-deep)">"I treat your pets the way I'd want mine treated — like they're the most important thing in the room."</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <button class="btn btn-gold" onclick="openModal('mgModal')">Meet Rachel & Your Pet</button>
+          <button class="btn btn-gold" onclick="openModal('mgModal')">Meet Rachel</button>
           <button class="btn btn-outline" onclick="openModal('contactModal')">Send a Message</button>
         </div>
       </div>
@@ -1470,7 +1470,7 @@ try {
       <div class="fadeup">
         <div class="section-eyebrow">Services & Pricing</div>
         <h2 class="section-h">Transparent Pricing, <em>No Surprises</em></h2>
-        <p class="section-p">Every service includes GPS tracking, photo updates, and a personal walk report. What you see is what you pay.</p>
+        <p class="section-p">Every service includes photos and a personal report. What you see is what you pay.</p>
       </div>
       <div class="services-grid">
         <!-- Meet & Greet — free intro, first card -->
@@ -3259,12 +3259,19 @@ try {
 <!-- Contact -->
 <div class="overlay" id="contactModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">Send Rachel a Message 💬</div><button class="modal-close" onclick="closeModal('contactModal')">✕</button></div>
-  <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll get an instant confirmation reply, and Rachel personally responds within 24 hours.</div></div>
+  <div id="contactFormFields">
   <div class="form-group"><label class="form-lbl">Your Name *</label><input class="form-in" id="contact-name" placeholder="Your name"></div>
   <div class="form-group"><label class="form-lbl">Best Way to Reach You *</label><input class="form-in" id="contact-reach" placeholder="Email or phone number"></div>
   <div class="form-group"><label class="form-lbl">Your Question *</label><textarea class="form-ta" id="contact-question" placeholder="Hi Rachel! I was wondering..."></textarea></div>
   <div id="contact-error" style="display:none;color:#c44;font-size:0.82rem;margin-bottom:8px"></div>
-  <button class="submit-btn" onclick="submitContact()">Send Message</button></div>
+  <button class="submit-btn" onclick="submitContact()">Send Message</button>
+  </div>
+  <div id="contactSuccessBox" style="display:none;text-align:center;padding:40px 20px">
+    <div style="font-size:3.5rem;margin-bottom:14px">🐾</div>
+    <h3 style="color:var(--ink);margin-bottom:8px">Message Sent!</h3>
+    <p style="color:var(--mid);font-size:0.9rem;line-height:1.6">Thank you for reaching out! Rachel will personally respond within 24 hours.</p>
+    <button class="btn btn-gold" style="margin-top:22px" onclick="closeModal('contactModal');document.getElementById('contactFormFields').style.display='';document.getElementById('contactSuccessBox').style.display='none'">Sounds Good!</button>
+  </div></div>
 </div>
 
 <!-- Booking -->
@@ -6046,8 +6053,8 @@ async function submitContact() {
     document.getElementById('contact-name').value = '';
     document.getElementById('contact-reach').value = '';
     document.getElementById('contact-question').value = '';
-    closeModal('contactModal');
-    toast('✅ Message sent! Rachel will reply within 24 hours 🐾');
+    document.getElementById('contactFormFields').style.display = 'none';
+    document.getElementById('contactSuccessBox').style.display = '';
   } catch (err) {
     console.error('Contact submit error:', err);
     if (errEl) { errEl.textContent = 'Something went wrong. Please try again.'; errEl.style.display = 'block'; }
@@ -8199,18 +8206,23 @@ async function showBookingDetail(bookingId, role, source) {
     // Date & Time
     h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
     h += '<div style="font-size:1.1rem">📅</div>';
-    h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">Date & Time</div>';
+    h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">' + (isHouseSittingSvc ? 'Start Date' : 'Date & Time') + '</div>';
     h += '<div style="font-weight:600;color:var(--ink);font-size:0.9rem">' + dateDisplay + '</div>';
-    if (timeDisplay) h += '<div style="font-size:0.85rem;color:var(--mid)">' + timeDisplay + '</div>';
+    if (timeDisplay) h += '<div style="font-size:0.85rem;color:var(--mid)">' + (isHouseSittingSvc ? 'Arrival: ' : '') + timeDisplay + '</div>';
     h += '</div></div>';
 
-    // End date for house sitting
-    if (b.end_date) {
-      var endDisplay = new Date(b.end_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    // End date & time for house sitting
+    var _endDateVal = b.preferred_end_date || b.end_date;
+    if (isHouseSittingSvc && _endDateVal) {
+      var endDisplay = new Date(_endDateVal + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      var _hsNights = Math.round((new Date(_endDateVal + 'T12:00:00') - new Date(dateVal + 'T12:00:00')) / (1000*60*60*24));
+      var endTimeDisplay = b.preferred_end_time ? ((typeof fmt12h === 'function') ? fmt12h(b.preferred_end_time) : b.preferred_end_time) : '';
       h += '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--warm);border-radius:10px">';
       h += '<div style="font-size:1.1rem">🏁</div>';
-      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">End Date</div>';
-      h += '<div style="font-weight:600;color:var(--ink);font-size:0.9rem">' + endDisplay + '</div></div></div>';
+      h += '<div><div style="font-size:0.72rem;font-weight:700;color:var(--mid);text-transform:uppercase;letter-spacing:0.04em">End Date' + (_hsNights > 0 ? ' (' + _hsNights + ' night' + (_hsNights !== 1 ? 's' : '') + ')' : '') + '</div>';
+      h += '<div style="font-weight:600;color:var(--ink);font-size:0.9rem">' + endDisplay + '</div>';
+      if (endTimeDisplay) h += '<div style="font-size:0.85rem;color:var(--mid)">Departure: ' + endTimeDisplay + '</div>';
+      h += '</div></div>';
     }
 
     // Pets
