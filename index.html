@@ -23,7 +23,7 @@
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#3d5a47">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Happy Paws">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -1138,6 +1138,13 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   .hero{padding-top:calc(110px + env(safe-area-inset-top))}
   .portal-wrap{padding-top:calc(72px + env(safe-area-inset-top))}
   .portal-sidebar{top:calc(72px + env(safe-area-inset-top));height:calc(100vh - 72px - env(safe-area-inset-top));height:calc(100dvh - 72px - env(safe-area-inset-top))}
+}
+/* ── PWA standalone mode: extra space for status bar ── */
+@media(display-mode:standalone){
+  .nav{padding-top:max(env(safe-area-inset-top,0px),48px);height:auto;min-height:72px}
+  .hero{padding-top:max(calc(110px + env(safe-area-inset-top,0px)),158px)}
+  .portal-wrap{padding-top:max(calc(72px + env(safe-area-inset-top,0px)),120px)}
+  .portal-sidebar{top:max(calc(72px + env(safe-area-inset-top,0px)),120px)}
   .portal-main{padding-bottom:env(safe-area-inset-bottom)}
   #scrollTopBtn{top:calc(18px + env(safe-area-inset-top))}
   .portal-back-btn{top:calc(82px + env(safe-area-inset-top))}
