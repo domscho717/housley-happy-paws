@@ -6854,6 +6854,12 @@ function buildCalendar(containerId, year, month) {
   var monthHolidays = (typeof getMonthHolidays === 'function') ? getMonthHolidays(year, month) : {};
   var ownerBlocked = window._calOwnerBlocks || {};
 
+  // ── Context (used inside the day loop and the legend) ──
+  var isPublic = containerId === 'pubCalWrap';
+  var isClient = containerId === 'cCalWrap';
+  var isStaff = containerId === 'sCalWrap';
+  var isOwner = containerId === 'oCalWrap';
+
   var todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
   for(let d=1;d<=daysInMonth;d++){
     const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -6865,26 +6871,24 @@ function buildCalendar(containerId, year, month) {
     let cls = 'cal-day';
     if(isPast) cls += ' past';
     if(isToday) cls += ' today';
-    if(ev?.type==='event') cls += ' has-event';
+    // On the public calendar, don't reveal which days have other clients' bookings
+    if(ev?.type==='event' && !isPublic) cls += ' has-event';
     if(ev?.type==='off' || isOwnerBlocked) cls += ' off';
     if(ev?.bookings && ev.bookings.length > 0 && ev.bookings.every(b => b.status === 'canceled')) cls += ' cal-canceled';
     var dayClick = isPast ? '' : ` onclick="showCalDetail('${key}','${ev?.label||''}',this)"`;
     html += `<div class="${cls}"${dayClick}><div class="cal-day-num">${d}</div>`;
     if(holiday) html += `<div style="font-size:0.6rem;line-height:1.15;color:#7B1FA2;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎉 ${holiday}</div>`;
-    if(isOwnerBlocked && !(ev?.type==='off')) html += '<div style="font-size:0.58rem;color:var(--rose);font-weight:700">Unavailable</div>';
-    if(ev) html += `<div class="cal-event-dot">${ev.label}</div>`;
+    // "Unavailable" tag — wraps onto two lines on tight cells so the word never gets cut off
+    if(isOwnerBlocked && !(ev?.type==='off')) html += '<div style="font-size:0.58rem;color:var(--rose);font-weight:700;line-height:1.05;text-align:center;word-break:keep-all">Unavailable</div>';
+    // Hide booking labels on the public calendar (privacy)
+    if(ev && !isPublic) html += `<div class="cal-event-dot">${ev.label}</div>`;
     html += '</div>';
   }
   html += '</div>';
-  // ── Context-aware legend ──
-  var isPublic = containerId === 'pubCalWrap';
-  var isClient = containerId === 'cCalWrap';
-  var isStaff = containerId === 'sCalWrap';
-  var isOwner = containerId === 'oCalWrap';
 
   if (isPublic) {
-    // Public homepage: only availability, closures, today
-    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--cream,white);border:1px solid var(--border)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Some Times Booked</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">🎉 Holiday</span></div></div>`;
+    // Public homepage: only availability, closures, today (no "sometimes booked" — privacy + clutter)
+    html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--cream,white);border:1px solid var(--border)"></div>Available</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Closed / Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">🎉 Holiday</span></div></div>`;
   } else if (isClient) {
     // Client portal: their bookings + closures
     html += `<div class="cal-legend"><div class="legend-item"><div class="legend-dot" style="background:var(--forest-pale);border:1px solid var(--forest-light)"></div>Your Booking</div><div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Unavailable</div><div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div><div class="legend-item"><span style="font-size:0.72rem;color:#7B1FA2;font-weight:600">🎉 Holiday</span></div><div class="legend-item"><span style="font-size:0.8rem">✅</span> Paid</div><div class="legend-item"><span style="font-size:0.8rem">❌</span> Unpaid</div><div class="legend-item"><span style="font-size:0.8rem">✔️</span> Completed</div></div>`;
@@ -6984,11 +6988,8 @@ function showCalDetail(key, label, el) {
       html += '<div style="font-size:0.9rem;color:var(--gold-deep)">📢 ' + (ev.label || 'Announcement') + '</div>';
     } else if (ev && ev.type === 'discount') {
       html += '<div style="font-size:0.9rem;color:var(--forest)">🏷️ ' + (ev.label || 'Special offer') + '</div>';
-    } else if (ev && ev.bookings && ev.bookings.length > 0) {
-      // Has bookings — only show that some times are taken, no counts or details
-      html += '<div style="font-size:0.88rem;color:var(--brown)">⏰ Some times are already booked</div>';
-      html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px">Availability is limited — <a href="#" onclick="calBookNow();return false;" style="color:var(--gold);font-weight:600">book now</a> to reserve your spot!</div>';
     } else {
+      // Public visitors don't see other clients' bookings — every non-blocked day is "Available"
       html += '<div style="font-size:0.88rem;color:var(--forest)">✅ Available for booking!</div>';
       html += '<div style="font-size:0.78rem;color:var(--mid);margin-top:4px"><a href="#" onclick="calBookNow();return false;" style="color:var(--gold);font-weight:600">Book this day →</a></div>';
     }
