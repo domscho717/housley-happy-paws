@@ -294,8 +294,8 @@
     { name: 'Drop-In Visit - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Drop-In Visit (Cat) - 30 min', price: '$20', base: 20, type: 'cat', group: 'Drop-In Visit', extraPet: 10, puppy: 0, holiday: 10 },
     { name: 'Drop-In Visit (Cat) - 1 hour', price: '$35', base: 35, type: 'cat', group: 'Drop-In Visit', extraPet: 10, puppy: 0, holiday: 10 },
-    { name: 'House Sitting (Dog)', price: '$125/night', base: 125, type: 'dog', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 5, holiday: 10 },
-    { name: 'House Sitting (Cat)', price: '$80/night', base: 80, type: 'cat', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 35, puppy: 0, holiday: 10 },
+    { name: 'House Sitting (Dog)', price: '$125/night', base: 125, type: 'dog', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 20, puppy: 5, holiday: 10 },
+    { name: 'House Sitting (Cat)', price: '$80/night', base: 80, type: 'cat', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 20, puppy: 0, holiday: 10 },
     { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
   ];
 
@@ -417,10 +417,10 @@
           priceStr = '$' + row.base_price + (row.unit === 'night' ? '/night' : '');
         }
 
-        // For housesit_mixed, set extra3plus to 35 (all additional at $35/night)
+        // For housesit services, set extra3plus to 20 (all additional at $20/night for 3+ animals)
         var extra3plus = 0;
         if (row.service_key.indexOf('housesit') !== -1) {
-          extra3plus = 35;
+          extra3plus = 20;
         }
 
         return {
@@ -481,7 +481,7 @@
     var extraPetCost = 0;
     if (numPets > 1) {
       var extraCount = numPets - 1;
-      // House Sitting 3+ animals: all additional at flat $35 rate regardless of type
+      // House Sitting 3+ animals: all additional at flat $20 rate regardless of type
       if (isMultiNight && numPets >= 3 && svc.extra3plus) {
         var extraRate = svc.extra3plus;
         extraPetCost = extraCount * extraRate * nights;

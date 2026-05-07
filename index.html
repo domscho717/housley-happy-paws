@@ -1541,7 +1541,7 @@ try {
               <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Cat(s)</span><span style="font-weight:700" data-price-key="housesit_cat_detail">$80<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
               <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700" data-price-key="housesit_extra_dog_detail">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / dog / night</span></span></li>
               <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Cat</span><span style="font-weight:700" data-price-key="housesit_extra_cat_detail">+ $15<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / cat / night</span></span></li>
-              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">3+ Animals</span><span style="font-weight:700" data-price-key="housesit_3plus_detail">+ $35<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span></span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">3+ Animals</span><span style="font-weight:700" data-price-key="housesit_3plus_detail">+ $20<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span></span></li>
               <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700" data-price-key="housesit_puppy_detail">+ $5<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
               <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700" data-price-key="housesit_holiday_detail">+ $10<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span></span></li>
             </ul>
@@ -10483,7 +10483,7 @@ const AI_SYSTEM = `You are Paws AI, the dedicated business assistant for Housley
 
 BUSINESS: Housley Happy Paws — professional pet care (dogs & cats), Lancaster PA, Est. 2021
 OWNER: Rachel Housley — warm, personal, professional, solo operator
-SERVICES: Dog Walking ($25/30min, $45/1hr), Drop-In Visits ($25/30min, $45/1hr), Cat Care ($20/30min, $35/1hr), House Sitting (Dog $125/night, Cat $80/night), Dog Boarding (coming soon), Doggy Day Care (coming soon), Paw Bus (coming soon), Wedding Addition (coming soon — pet care, transport & photo support for weddings), Happy Paws Pet Shop (coming soon — curated toys, treats & gear for dogs and cats). SURCHARGES: House Sitting: +$35/extra dog/night, +$15/extra cat/night, 3+ animals $35/each/night. All services: +$5 puppy, +$10 holiday rate.
+SERVICES: Dog Walking ($25/30min, $45/1hr), Drop-In Visits ($25/30min, $45/1hr), Cat Care ($20/30min, $35/1hr), House Sitting (Dog $125/night, Cat $80/night), Dog Boarding (coming soon), Doggy Day Care (coming soon), Paw Bus (coming soon), Wedding Addition (coming soon — pet care, transport & photo support for weddings), Happy Paws Pet Shop (coming soon — curated toys, treats & gear for dogs and cats). SURCHARGES: House Sitting: +$35/extra dog/night, +$15/extra cat/night, 3+ animals $20/each/night. All services: +$5 puppy, +$10 holiday rate.
 FUTURE PLANS: Real hosted website → React Native iOS + Android mobile app
 TECH STACK: Supabase (database), Vercel (hosting), Stripe (payments), React Native (app)
 
@@ -10790,7 +10790,7 @@ function applyDynamicPricing() {
   if (hc) setPrice('housesit_cat_detail', '$' + parseFloat(hc.base_price) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
   if (hd) setPrice('housesit_extra_dog_detail', '+ $' + parseFloat(hd.extra_pet_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / dog / night</span>');
   if (hd) setPrice('housesit_extra_cat_detail', '+ $' + parseFloat(hd.extra_cat_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / cat / night</span>');
-  if (hd) setPrice('housesit_3plus_detail', '+ $' + parseFloat(hd.extra_pet_fee) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span>');
+  if (hd) setPrice('housesit_3plus_detail', '+ $20<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / each / night</span>');
   if (hd) setPrice('housesit_puppy_detail', '+ $' + parseFloat(hd.puppy_surcharge) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
   if (hd) setPrice('housesit_holiday_detail', '+ $' + parseFloat(hd.holiday_surcharge) + '<span style="font-weight:400;color:var(--mid);font-size:0.78rem"> / night</span>');
 }
