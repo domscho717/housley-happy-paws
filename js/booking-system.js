@@ -551,6 +551,21 @@
       '    <span style="font-size:1.1rem;font-weight:700;color:var(--ink,#2C2C2C)">Hi, <span id="brm-greeting-name"></span>!</span>',
       '    <span style="font-size:0.85rem;color:#6b5c4d;margin-left:6px">Your info is pre-filled below.</span>',
       '  </div>',
+      // Loud "no payment method" banner — shown at top of modal when client has no card on file.
+      '  <div id="brm-payment-banner" style="display:none;background:linear-gradient(135deg,#fff8e1,#fff3c4);border:2px solid #f5b800;border-radius:12px;padding:16px 18px;margin-bottom:16px">',
+      '    <div style="display:flex;align-items:flex-start;gap:12px">',
+      '      <div style="font-size:1.6rem;line-height:1;flex-shrink:0">💳</div>',
+      '      <div style="flex:1;min-width:0">',
+      '        <div style="font-weight:700;font-size:1.0rem;color:#7a5800;margin-bottom:4px">Add a card on file before booking</div>',
+      '        <div style="font-size:0.85rem;color:#6b5c4d;line-height:1.4;margin-bottom:10px">Rachel charges your saved card after each appointment, so a payment method on file is required to submit a booking. Your card isn\'t charged until your booking is accepted.</div>',
+      '        <button type="button" class="brm-submit"',
+      '          style="font-size:0.9rem;padding:10px 18px;background:#f5b800;border:none;color:#fff;font-weight:700"',
+      '          onclick="event.preventDefault();window._saveBookingAndAddCard()">',
+      '          + Add Card on File',
+      '        </button>',
+      '      </div>',
+      '    </div>',
+      '  </div>',
       '  <h2 class="brm-title">Request a Booking</h2>',
       '  <p class="brm-subtitle">Fill out the details below and Rachel will get back to you to confirm your booking!</p>',
       '  <form id="bookingRequestForm" onsubmit="submitBookingRequest(event)">',
@@ -2224,6 +2239,11 @@
         // Load pet checkboxes from saved pets
         window._loadBookingPets(u.id);
 
+        // Check whether the client has a card on file — show loud banner if not
+        if (typeof window._checkBookingPaymentBanner === 'function') {
+          window._checkBookingPaymentBanner();
+        }
+
         // Show greeting
         var greetingEl = document.getElementById('brm-greeting');
         var nameSpan = document.getElementById('brm-greeting-name');
@@ -2245,21 +2265,50 @@
   };
 
   // ── LOAD PET CHECKBOXES INTO BOOKING MODAL ──
+  // Renders a small error card with a retry button when something fails or stalls.
+  function _renderPetLoadError(container, message) {
+    if (!container) return;
+    container.innerHTML = [
+      '<div style="background:#fff5f5;border:1px solid #f0c8c8;border-radius:10px;padding:12px 14px">',
+      '  <div style="font-weight:600;font-size:0.88rem;color:#9b3a3a;margin-bottom:4px">Couldn\'t load your pets</div>',
+      '  <div style="font-size:0.82rem;color:#6b5c4d;margin-bottom:10px">' + (message || 'Please try again. If the problem persists, contact Rachel.') + '</div>',
+      '  <button type="button" class="brm-submit"',
+      '    style="font-size:0.82rem;padding:8px 16px"',
+      '    onclick="event.preventDefault();var u=window.HHP_Auth&&window.HHP_Auth.currentUser?window.HHP_Auth.currentUser:null;if(u){window._loadBookingPets(u.id)}else{toast(\'Please sign in again.\')}">',
+      '    🔄 Try Again',
+      '  </button>',
+      '</div>',
+    ].join('');
+  }
+
   window._loadBookingPets = async function(userId) {
     var container = document.getElementById('brm-pet-checkboxes');
     if (!container) return;
 
     container.innerHTML = '<div style="color:#8c6b4a;font-size:0.84rem">Loading your pets...</div>';
 
+    // Guard: bail out fast if we don't have a valid user id (prevents infinite "Loading...")
+    if (!userId) {
+      _renderPetLoadError(container, 'Your account session looks stale. Try refreshing the page or signing in again.');
+      return;
+    }
+
     try {
       var sb = getSB();
       if (!sb) throw new Error('No connection');
 
-      var { data: pets, error } = await sb
+      // Race the query against a 10-second timeout so a hung request can never leave the UI stuck.
+      var queryPromise = sb
         .from('pets')
         .select('id, name, species, breed, photo_url, weight, birthday')
         .eq('owner_id', userId)
         .order('name');
+      var timeoutPromise = new Promise(function(_, reject) {
+        setTimeout(function() { reject(new Error('Request timed out')); }, 10000);
+      });
+      var result = await Promise.race([queryPromise, timeoutPromise]);
+      var pets = result.data;
+      var error = result.error;
 
       if (error) throw error;
 
@@ -2330,8 +2379,45 @@
 
     } catch (err) {
       console.error('Failed to load pets for booking:', err);
-      // Show error message (account required, no guest fallback)
-      container.innerHTML = '<div style="color:#a66;font-size:0.82rem">Could not load pet profiles. Please try again.</div>';
+      var msg = err && err.message === 'Request timed out'
+        ? 'Connection timed out. Check your internet and tap Try Again.'
+        : 'Could not load pet profiles. Tap Try Again.';
+      _renderPetLoadError(container, msg);
+    }
+  };
+
+  // ── PAYMENT-METHOD BANNER (top of booking modal) ──
+  // Visible only when the logged-in client has no card on file. Lets new clients spot
+  // the requirement immediately instead of hitting the inline error after submitting.
+  window._checkBookingPaymentBanner = async function() {
+    var banner = document.getElementById('brm-payment-banner');
+    if (!banner) return;
+    if (!window.HHP_Auth || !window.HHP_Auth.currentUser) {
+      banner.style.display = 'none';
+      return;
+    }
+    try {
+      // Reuse cached payment-method data if it's recent (< 60s old)
+      var pmData = window._cachedPaymentMethods;
+      if (!pmData || Date.now() - (window._cachedPaymentMethodsAt || 0) > 60000) {
+        var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+        var sess = sb ? await sb.auth.getSession() : null;
+        var token = sess && sess.data && sess.data.session ? sess.data.session.access_token : '';
+        var resp = await fetch(
+          '/api/get-payment-methods?profileId=' + encodeURIComponent(window.HHP_Auth.currentUser.id) +
+          '&email=' + encodeURIComponent(window.HHP_Auth.currentUser.email),
+          { headers: { 'Authorization': 'Bearer ' + token } }
+        );
+        pmData = await resp.json();
+        window._cachedPaymentMethods = pmData;
+        window._cachedPaymentMethodsAt = Date.now();
+      }
+      var hasCard = pmData && pmData.hasCard && pmData.methods && pmData.methods.length > 0;
+      banner.style.display = hasCard ? 'none' : '';
+    } catch (e) {
+      // On error, hide the banner — don't false-alarm. Submit-time check still enforces the rule.
+      console.warn('Payment banner check failed:', e);
+      banner.style.display = 'none';
     }
   };
 
