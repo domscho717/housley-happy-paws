@@ -106,7 +106,9 @@ module.exports = async function handler(req, res) {
           };
           if (refundAmount) refundParams.amount = refundAmount;
 
-          const refund = await stripe.refunds.create(refundParams);
+          const refund = await stripe.refunds.create(refundParams, {
+            idempotencyKey: `cancel-refund-${bookingRequestId}-${refundAmount || 'full'}`,
+          });
           refunded = true;
           refundResult = { action: isBatchPayment ? 'partial_refund' : 'refunded', refundId: refund.id, amount: refund.amount / 100 };
           console.log('[cancel] ' + (isBatchPayment ? 'Partial' : 'Full') + ' refund issued:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
@@ -170,7 +172,9 @@ module.exports = async function handler(req, res) {
             refundParams.amount = Math.round((booking.estimated_total || 0) * 100);
           }
 
-          const refund = await stripe.refunds.create(refundParams);
+          const refund = await stripe.refunds.create(refundParams, {
+            idempotencyKey: `cancel-override-${bookingRequestId}`,
+          });
           refunded = true;
           refundResult = { action: 'owner_refunded', refundId: refund.id, amount: refund.amount / 100 };
           console.log('[cancel] Owner override ' + (isBatchPayment ? 'partial ' : '') + 'refund:', refund.id, 'Amount: $' + (refund.amount / 100).toFixed(2));
