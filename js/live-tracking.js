@@ -547,7 +547,7 @@
           'mapEl._leafletInit=true;' +
           'function initMap(){' +
             'if(typeof L==="undefined"){setTimeout(initMap,200);return;}' +
-            'var map=L.map("' + mapId + '",{zoomControl:true,attributionControl:false}).setView([' + centerLat + ',' + centerLng + '],' + zoom + ');' +
+            'var map=L.map("' + mapId + '",{zoomControl:true,attributionControl:false,minZoom:12}).setView([' + centerLat + ',' + centerLng + '],' + zoom + ');' +
             'L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);' +
             'var coords=[' + coordStr + '];' +
             'if(coords.length>1)L.polyline(coords,{color:"#3d5a47",weight:4,opacity:0.8}).addTo(map);' +

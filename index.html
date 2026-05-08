@@ -17284,7 +17284,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var lastPt = coords[coords.length - 1];
 
       if (!_wtMap) {
-        _wtMap = L.map('wt-map', { zoomControl: true, attributionControl: false }).setView(lastPt, 16);
+        _wtMap = L.map('wt-map', { zoomControl: true, attributionControl: false, minZoom: 12 }).setView(lastPt, 16);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_wtMap);
 
         // Start marker
