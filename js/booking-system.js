@@ -48,7 +48,7 @@
     'Drop-In Visit (Cat) - 40 min':  30.00,
     'Drop-In Visit (Cat) - 1 hour':  35.00,
     'House Sitting - Per Night':    125.00,
-    'House Sitting - Cat Care':      50.00,
+    'House Sitting - Cat Care':      80.00,
     'House Sitting - Puppy Rate':   140.00,
     'House Sitting - Holiday Rate': 150.00,
     'House Sitting':                125.00,
