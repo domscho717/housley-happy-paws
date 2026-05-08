@@ -165,8 +165,8 @@ async function showClientProfile(profileId) {
         '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Phone:</strong> ' + _escHtml(p.phone || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Customer #:</strong> ' + _escHtml(p.customer_number || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem;grid-column:1/-1"><strong>Address:</strong> ' + _escHtml(p.address || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Emergency Contact:</strong> ' + _escHtml(p.emergency_contact || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Emergency Phone:</strong> ' + _escHtml(p.emergency_phone || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Emergency Contact:</strong> ' + _escHtml(p.emergency_contact_name || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Emergency Phone:</strong> ' + _escHtml(p.emergency_contact_phone || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Stripe Payment:</strong> ' + (p.stripe_customer_id ? '\u2705 Card on file' : '\u274C No card on file') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px;font-size:0.88rem"><strong>Account Role:</strong> ' + (p.role || 'client') + '</div>' +
       '</div>' +

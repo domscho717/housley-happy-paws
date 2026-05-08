@@ -5318,8 +5318,8 @@ async function showActivityDetail(index) {
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Customer #:</strong> ' + _escH(prof.customer_number || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Address:</strong> ' + _escH(prof.address || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Role:</strong> ' + _escH(prof.role || 'client') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Emergency Contact:</strong> ' + _escH(prof.emergency_contact || '\u2014') + '</div>' +
-        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Emergency Phone:</strong> ' + _escH(prof.emergency_phone || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Emergency Contact:</strong> ' + _escH(prof.emergency_contact_name || '\u2014') + '</div>' +
+        '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Emergency Phone:</strong> ' + _escH(prof.emergency_contact_phone || '\u2014') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Stripe Customer:</strong> ' + (prof.stripe_customer_id ? '\u2705 Connected' : '\u274C Not connected') + '</div>' +
         '<div style="padding:12px;background:var(--cream);border-radius:8px"><strong>Signed Up:</strong> ' + joinedDate + (joinedTime ? ' at ' + joinedTime : '') + '</div>' +
         (prof.notes ? '<div style="padding:12px;background:var(--warm);border-radius:8px;grid-column:1/-1;border-left:3px solid var(--gold)"><strong>Notes:</strong> ' + _escH(prof.notes) + '</div>' : '') +
@@ -11633,8 +11633,8 @@ async function openPetForm(petData) {
   var hasPetsAlready = (_myPets && _myPets.length > 0);
   if (sb && user) {
     try {
-      var { data: prof } = await sb.from('profiles').select('emergency_contact,emergency_phone').eq('user_id', user.id).single();
-      if (prof) { profileEC = prof.emergency_contact; profileEP = prof.emergency_phone; }
+      var { data: prof } = await sb.from('profiles').select('emergency_contact_name,emergency_contact_phone').eq('user_id', user.id).single();
+      if (prof) { profileEC = prof.emergency_contact_name; profileEP = prof.emergency_contact_phone; }
     } catch(e) {}
   }
 
@@ -11811,8 +11811,8 @@ async function savePet() {
     var ecPhoneVal = document.getElementById('pet-ec-phone').value.trim();
     if (ecNameVal || ecPhoneVal) {
       await sb.from('profiles').update({
-        emergency_contact: ecNameVal,
-        emergency_phone: ecPhoneVal,
+        emergency_contact_name: ecNameVal,
+        emergency_contact_phone: ecPhoneVal,
         updated_at: new Date().toISOString()
       }).eq('user_id', user.id);
     }
@@ -12134,11 +12134,11 @@ async function showClientProfile(profileId) {
     h += '</div></div>';
 
     // Emergency contact
-    if (client.emergency_contact || client.emergency_phone) {
+    if (client.emergency_contact_name || client.emergency_contact_phone) {
       h += '<div style="background:#fef3c7;border-radius:8px;padding:10px 12px;margin-bottom:12px;border-left:3px solid #f59e0b">';
       h += '<div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;color:#92400e;margin-bottom:4px">Emergency Contact</div>';
-      if (client.emergency_contact) h += '<div style="font-size:0.84rem;font-weight:600;color:var(--ink)">' + client.emergency_contact + '</div>';
-      if (client.emergency_phone) h += '<div style="font-size:0.82rem;color:var(--mid)">' + client.emergency_phone + '</div>';
+      if (client.emergency_contact_name) h += '<div style="font-size:0.84rem;font-weight:600;color:var(--ink)">' + client.emergency_contact_name + '</div>';
+      if (client.emergency_contact_phone) h += '<div style="font-size:0.82rem;color:var(--mid)">' + client.emergency_contact_phone + '</div>';
       h += '</div>';
     }
 
@@ -16402,7 +16402,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
   <script src="/js/site-content-client.js" defer></script>
-  <script src="/js/profiles.js" defer></script>
+  <script src="/js/profiles.js?v=20260508a" defer></script>
   <script src="/js/employee-mgmt.js?v=20260508a" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
