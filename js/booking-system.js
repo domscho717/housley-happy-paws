@@ -3557,6 +3557,11 @@
       var sb = getSB();
       if (!sb) return;
 
+      // Decline is destructive: confirm before sending the rejection email + losing the request.
+      if (newStatus === 'declined' && typeof confirm === 'function') {
+        if (!confirm('Decline this booking? The client will be emailed that the request was rejected.')) return;
+      }
+
       try {
         var update = { status: newStatus };
         if (extraFields) Object.assign(update, extraFields);
