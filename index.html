@@ -6656,8 +6656,13 @@ async function loadCalendarBookings(year, month) {
     }
     // Owner and staff see all bookings
 
-    // Get bookings that overlap this month (by preferred_date or scheduled_date)
-    query = query.or('status.eq.accepted,status.eq.pending,status.eq.completed');
+    // Get bookings that overlap this month (by preferred_date or scheduled_date).
+    // We need every status that should appear on the calendar — leaving out
+    // in_progress / modified / confirmed previously hid active services
+    // mid-shift, and leaving out canceled hid the line-through entries the
+    // owner legend advertises. We deliberately don't include 'declined' since
+    // those bookings never happened.
+    query = query.in('status', ['pending', 'accepted', 'confirmed', 'modified', 'in_progress', 'completed', 'canceled']);
 
     var { data: bookings, error } = await query;
     if (error || !bookings) return;
