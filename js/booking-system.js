@@ -500,7 +500,7 @@
           parts[0] = 'House Sitting (Mixed): $140/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (140 * nights);
         } else {
           var extraRate = svc.extraPet || 15;
-          extraPetCost = extraRate;
+          extraPetCost = extraCount * extraRate;
           parts.push('Additional pet: +$' + extraRate);
         }
       } else {
