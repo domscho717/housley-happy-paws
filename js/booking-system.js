@@ -152,8 +152,8 @@
 
       if (at === 'all') matches = true;
       else if (at === 'dog_walking' && svc.indexOf('walk') !== -1) matches = true;
-      else if (at === 'drop_in' && svc.indexOf('Drop-In') !== -1) matches = true;
-      else if (at === 'cat_care' && svc.indexOf('Drop-In') !== -1 && svc.indexOf('Cat') !== -1) matches = true;
+      else if (at === 'drop_in' && svc.indexOf('drop-in') !== -1) matches = true;
+      else if (at === 'cat_care' && svc.indexOf('drop-in') !== -1 && svc.indexOf('cat') !== -1) matches = true;
       else if (at === 'house_sitting' && (svc.indexOf('house') !== -1 || svc.indexOf('sit') !== -1)) matches = true;
 
       if (matches) {
