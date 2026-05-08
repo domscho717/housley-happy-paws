@@ -9951,15 +9951,14 @@ var _cancelData = {
 };
 
 function getCancelType(bookingDate) {
-  // Returns 'free' or 'late' based on policy:
-  // Free cancel = before midnight, 2 days before booking (ET timezone)
-  // e.g., Wednesday booking → must cancel by Monday 11:59 PM ET
-  var booking = new Date(bookingDate + 'T00:00:00');
-  var cutoff = new Date(booking);
-  cutoff.setDate(cutoff.getDate() - 2); // 2 days before
-  cutoff.setHours(23, 59, 59, 999);
-  var now = new Date();
-  return now <= cutoff ? 'free' : 'late';
+  // Strict 48h rolling cutoff to match the "more than 48 hours before service"
+  // copy shown to clients. We only get a date here (no service time), so the
+  // cutoff is 48h before midnight of the service date — conservatively more
+  // generous than the server's 48h-before-actual-start, which is fine since
+  // the server is authoritative for the actual refund decision.
+  var serviceMidnight = new Date(bookingDate + 'T00:00:00');
+  var cutoff = new Date(serviceMidnight.getTime() - 48 * 3600 * 1000);
+  return new Date() <= cutoff ? 'free' : 'late';
 }
 
 async function openCancelModal(bookingRequestId, service, date, clientName, isRecurring, canceledBy) {
@@ -12743,7 +12742,7 @@ async function loadStaffEarnings() {
     var quarterBookings = allBookings.filter(function(b) { return b.date >= startOfQuarter; });
 
     // Simple earnings estimate based on service type
-    var svcRates = {'Dog Walking': 30, 'Drop-In Visit': 25, 'Drop-In Visit (Cat)': 20, 'Cat Care Visit': 20, 'House Sitting': 75, 'Dog Boarding': 55, 'Doggy Day Care': 45};
+    var svcRates = {'Dog Walking': 30, 'Drop-In Visit': 25, 'Drop-In Visit (Cat)': 20, 'Cat Care Visit': 20, 'House Sitting': 125, 'Dog Boarding': 55, 'Doggy Day Care': 45};
     function calcEarnings(bookingList) {
       return bookingList.reduce(function(sum, b) { return sum + (svcRates[b.service] || 30); }, 0);
     }
@@ -14858,13 +14857,13 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Stripe Client JS (loads when deployed to Vercel with /api routes) -->
-<script src="/js/stripe-client.js" defer></script>
+<script src="/js/stripe-client.js?v=20260508a" defer></script>
 
 <!-- Supabase Auth Client -->
 <script src="/js/auth-client.js?v=20260508a" defer></script>
 
 <!-- Cloudinary Photo Manager -->
-<script src="/js/cloudinary-client.js" defer></script>
+<script src="/js/cloudinary-client.js?v=20260508a" defer></script>
     <!-- Public site hamburger menu controller -->
     <script>
       (function() {
@@ -16401,7 +16400,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 </script>
 
-  <script src="/js/site-content-client.js" defer></script>
+  <script src="/js/site-content-client.js?v=20260508a" defer></script>
   <script src="/js/profiles.js?v=20260508a" defer></script>
   <script src="/js/employee-mgmt.js?v=20260508a" defer></script>
 
@@ -17113,7 +17112,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(eagerLoadTracking, 1000);
   })();
   </script>
-  <script src="/js/service-timer.js" defer></script>
+  <script src="/js/service-timer.js?v=20260508a" defer></script>
   <!-- ═══════════════════════════════════════════════════════════════
        PUBLIC WALK TRACKING PAGE — no auth required
        Activated when URL has ?track={walkId}

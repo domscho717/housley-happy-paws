@@ -440,26 +440,23 @@ module.exports = async function handler(req, res) {
 };
 
 /**
- * Calculate cancellation type based on booking date and current time
- * Policy: Free cancel = before midnight EST, 2 days before booking date
- * Late cancel = after that cutoff (within 48 hours of service)
+ * Strict 48h rolling cutoff before the actual service start time.
+ * Matches the "more than 48 hours before service" copy shown to clients.
+ * Old behavior (midnight, 2 days before) gave anywhere from 24-71h
+ * depending on what time of day the service was scheduled.
  */
 function calculateCancellationType(booking, specificDate) {
-  // Get current time in Eastern timezone
   const nowEastern = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
-  // Determine the service date to check
   const serviceDate = specificDate || booking.scheduled_date || booking.preferred_date;
-  if (!serviceDate) {
-    return 'late'; // Default to late if no date found
-  }
+  if (!serviceDate) return 'late';
 
-  // Parse service date as midnight in local Eastern timezone
-  const serviceDateObj = new Date(serviceDate + 'T00:00:00');
-  const cutoffTime = new Date(serviceDateObj);
-  cutoffTime.setDate(cutoffTime.getDate() - 2); // 2 days before
-  cutoffTime.setHours(23, 59, 59, 999); // 11:59 PM on cutoff date
+  // Use the booked service time when available; fall back to 09:00 (earliest
+  // realistic start) so a missing time can't flip a borderline cancel from late to free.
+  const rawTime = booking.scheduled_time || booking.preferred_time || '09:00';
+  const serviceTime = rawTime.length === 5 ? rawTime + ':00' : rawTime;
+  const serviceStart = new Date(serviceDate + 'T' + serviceTime);
+  const cutoffTime = new Date(serviceStart.getTime() - 48 * 60 * 60 * 1000);
 
-  // Compare current time with cutoff
   return nowEastern <= cutoffTime ? 'free' : 'late';
 }
