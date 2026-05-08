@@ -6662,7 +6662,7 @@ async function loadCalendarBookings(year, month) {
     // mid-shift, and leaving out canceled hid the line-through entries the
     // owner legend advertises. We deliberately don't include 'declined' since
     // those bookings never happened.
-    query = query.in('status', ['pending', 'accepted', 'confirmed', 'modified', 'in_progress', 'completed', 'canceled']);
+    query = query.in('status', ['pending', 'accepted', 'confirmed', 'modified', 'payment_hold', 'in_progress', 'completed', 'canceled']);
 
     var { data: bookings, error } = await query;
     if (error || !bookings) return;
