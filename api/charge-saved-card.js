@@ -58,6 +58,36 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'amount must be less than 10000' });
     }
 
+    // Self-charge validation — a client charging their own card must match a real booking total.
+    // (Owner/staff are trusted to set arbitrary amounts for manual charges.)
+    if (isSelfCharge) {
+      const isBatchSelfCharge = Array.isArray(batchBookingIds) && batchBookingIds.length > 0;
+      const idsToCheck = isBatchSelfCharge ? batchBookingIds : (bookingRequestId ? [bookingRequestId] : []);
+      if (idsToCheck.length === 0) {
+        return res.status(400).json({ error: 'bookingRequestId or batchBookingIds required for self-charge' });
+      }
+      const { data: bookings, error: bkErr } = await supabase
+        .from('booking_requests')
+        .select('id, client_id, estimated_total')
+        .in('id', idsToCheck);
+      if (bkErr || !bookings || bookings.length !== idsToCheck.length) {
+        return res.status(400).json({ error: 'booking_not_found' });
+      }
+      const allOwnedByCaller = bookings.every(b => b.client_id === user.id);
+      if (!allOwnedByCaller) {
+        return res.status(403).json({ error: 'Forbidden: cannot self-charge for another client.' });
+      }
+      const expectedTotal = bookings.reduce((sum, b) => sum + (parseFloat(b.estimated_total) || 0), 0);
+      if (Math.abs(expectedTotal - amount) > 0.01) {
+        return res.status(400).json({
+          error: 'amount_mismatch',
+          message: 'Self-charge amount must match the booking total.',
+          expected: expectedTotal,
+          provided: amount,
+        });
+      }
+    }
+
     // Get the client's Stripe customer ID
     // Note: clientProfileId is the auth user ID, profiles use user_id column
     const { data: profile } = await supabase
@@ -123,6 +153,8 @@ module.exports = async function handler(req, res) {
         client_name: profile.full_name || '',
         service: service || '',
       },
+    }, {
+      idempotencyKey: `charge-${bookingRequestId || (isBatch ? 'batch-' + batchBookingIds[0] : 'manual')}-${amountCents}-${paymentMethodId.slice(-8)}`,
     });
 
     console.log('[charge] PaymentIntent:', paymentIntent.id, 'status:', paymentIntent.status);
@@ -138,6 +170,8 @@ module.exports = async function handler(req, res) {
             destination: connectedAccountId,
             source_transaction: chargeId,
             description: `15% dev share — ${service || 'Pet Care'} (#${bookingRequestId ? bookingRequestId.slice(0, 8) : ''})`,
+          }, {
+            idempotencyKey: `transfer-${paymentIntent.id}`,
           });
           console.log('[charge] Transfer SUCCESS:', transfer.id, '$' + (devShareCents / 100).toFixed(2));
         } catch (transferErr) {
