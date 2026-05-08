@@ -54,6 +54,17 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
+  // Role check — only owner/staff can complete a service.
+  // Without this any logged-in client could trigger refunds or extra charges on their own bookings.
+  const { data: callerProfile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!callerProfile || (callerProfile.role !== 'owner' && callerProfile.role !== 'staff')) {
+    return res.status(403).json({ error: 'Forbidden: owner/staff access required' });
+  }
+
   const { bookingRequestId, adjustedNights, reportNotes, reportRating } = req.body || {};
 
   if (!bookingRequestId) {
@@ -102,6 +113,8 @@ module.exports = async function handler(req, res) {
         await stripe.refunds.create({
           payment_intent: booking.payment_intent_id,
           amount: refundAmount,
+        }, {
+          idempotencyKey: `hs-refund-${bookingRequestId}-${refundAmount}`,
         });
         console.log(`[hs-complete] Refunded $${(refundAmount / 100).toFixed(2)} for fewer nights (${originalNights} → ${finalNights})`);
 
@@ -146,6 +159,8 @@ module.exports = async function handler(req, res) {
                 booking_request_id: booking.id,
                 type: 'house_sitting_extra_nights',
               },
+            }, {
+              idempotencyKey: `hs-extra-${bookingRequestId}-${diffCents}`,
             });
             extraChargeId = extraCharge.id;
             console.log(`[hs-complete] Extra charge $${(diffCents / 100).toFixed(2)} for ${finalNights - originalNights} extra night(s)`);
@@ -164,6 +179,8 @@ module.exports = async function handler(req, res) {
                       destination: connectedAccountId,
                       source_transaction: extraChargeRef,
                       description: `15% dev share — ${booking.service} extra nights (#${booking.id.slice(0, 8)})`,
+                    }, {
+                      idempotencyKey: `hs-extra-transfer-${extraCharge.id}`,
                     });
                   }
                 } catch (transferErr) {
