@@ -3577,7 +3577,10 @@
         var cardDeclined = false;
         var declineMessage = '';
 
-        if (newStatus === 'accepted' && req && req.service && req.estimated_total > 0 && req.client_id) {
+        // Recurring bookings bill week-by-week (firstWeek now, then Sunday cron) — never charge
+        // the full series total up front. The per-appointment accept path already does this;
+        // mirror it here at the top-level accept.
+        if (newStatus === 'accepted' && req && req.service && req.estimated_total > 0 && req.client_id && !req.recurrence_pattern) {
           try {
             var _chgSess = sb ? await sb.auth.getSession() : null;
             var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
@@ -3689,12 +3692,32 @@
           } catch (e) { console.warn('Status notification failed:', e); }
         }
 
+        // Recurring bookings: trigger first-week billing now (Sunday cron handles ongoing weeks).
+        // Fire-and-forget — status is already 'accepted'; if billing fails the cron retry path will surface it.
+        if (newStatus === 'accepted' && req && req.recurrence_pattern && req.estimated_total > 0 && req.client_id) {
+          (async function() {
+            try {
+              var fwResp = await fetch('/api/recurring-invoices?firstWeek=true&bookingId=' + requestId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ firstWeek: true, bookingId: requestId }),
+              });
+              var fwData = await fwResp.json().catch(function() { return {}; });
+              if (typeof toast === 'function') {
+                if (fwData.charged > 0) toast('💳 Recurring: billed for this week!');
+                else if (fwData.errors && fwData.errors.length > 0) toast('⚠️ Recurring billing had errors — check logs');
+                else toast('✅ Recurring accepted — first billing starts next Sunday');
+              }
+            } catch (fwErr) { console.warn('First-week recurring billing failed:', fwErr); }
+          })();
+        }
+
         // Refresh the list
         await this.loadRequests();
 
         if (typeof toast === 'function') {
           var msg = 'Request ' + newStatus + '!';
-          if (newStatus === 'accepted' && !autoCharged && req && req.estimated_total > 0) {
+          if (newStatus === 'accepted' && !autoCharged && req && req.estimated_total > 0 && !req.recurrence_pattern) {
             msg += ' Payment link sent to client.';
           }
           toast(msg);
