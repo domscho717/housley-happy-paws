@@ -38,7 +38,16 @@ const HHP_Auth = window.HHP_Auth = {
 
         // Listen for auth state changes
         this.supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'PASSWORD_RECOVERY') {
+                // Reset link clicked. Don't drop into the portal — prompt for a new password first.
+                this._inPasswordRecovery = true;
+                showPasswordResetModal();
+                return;
+            }
             if (event === 'SIGNED_IN' && session) {
+                // If a recovery flow is in progress, ignore the implicit sign-in
+                // until the user has actually set a new password.
+                if (this._inPasswordRecovery) return;
                 // Skip if this is the same session we already handled from getSession()
                 // But allow through if it's a NEW user (actual fresh login)
                 if (this._handledSessionId === session.user.id) return;
@@ -448,6 +457,60 @@ async function handleSignup(e) {
         }
     } finally {
         if (btn && !btn.disabled) btn.textContent = 'Create Account';
+    }
+}
+
+// ── Password reset: shown when Supabase fires PASSWORD_RECOVERY after the user clicks the email link ──
+function showPasswordResetModal() {
+    const existing = document.getElementById('hhp-pw-reset-modal');
+    if (existing) existing.remove();
+    const modal = document.createElement('div');
+    modal.id = 'hhp-pw-reset-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = `
+      <div style="background:var(--cream,#fff8ec);border-radius:16px;max-width:420px;width:100%;padding:28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);">
+        <h2 style="font-family:'Cormorant Garamond',serif;color:var(--forest,#3d5a47);margin:0 0 8px;">Set a new password</h2>
+        <p style="color:#666;margin:0 0 18px;font-size:0.92rem;">You arrived here from a password reset email. Choose a new password to finish.</p>
+        <label style="font-weight:600;display:block;margin-bottom:6px;">New password</label>
+        <input id="hhp-pw-reset-new" type="password" autocomplete="new-password" minlength="8" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;" placeholder="At least 8 characters">
+        <label style="font-weight:600;display:block;margin-bottom:6px;">Confirm password</label>
+        <input id="hhp-pw-reset-confirm" type="password" autocomplete="new-password" minlength="8" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;" placeholder="Re-type your new password">
+        <div id="hhp-pw-reset-err" style="color:var(--rose,#c62828);font-size:0.88rem;min-height:1.2em;margin-bottom:8px;"></div>
+        <button id="hhp-pw-reset-submit" style="width:100%;padding:12px;background:var(--forest,#3d5a47);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;">Save new password</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const submit = document.getElementById('hhp-pw-reset-submit');
+    submit.onclick = handlePasswordResetSubmit;
+    document.getElementById('hhp-pw-reset-confirm').addEventListener('keydown', e => {
+        if (e.key === 'Enter') handlePasswordResetSubmit();
+    });
+}
+
+async function handlePasswordResetSubmit() {
+    const pw = document.getElementById('hhp-pw-reset-new')?.value || '';
+    const confirm = document.getElementById('hhp-pw-reset-confirm')?.value || '';
+    const errEl = document.getElementById('hhp-pw-reset-err');
+    const btn = document.getElementById('hhp-pw-reset-submit');
+    if (errEl) errEl.textContent = '';
+    if (pw.length < 8) { if (errEl) errEl.textContent = 'Password must be at least 8 characters.'; return; }
+    if (pw !== confirm) { if (errEl) errEl.textContent = 'Passwords don’t match.'; return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    try {
+        const { data, error } = await HHP_Auth.supabase.auth.updateUser({ password: pw });
+        if (error) throw error;
+        // Strip the recovery hash/query so a refresh doesn't re-trigger the modal.
+        try { history.replaceState(null, '', window.location.pathname); } catch(e) {}
+        HHP_Auth._inPasswordRecovery = false;
+        document.getElementById('hhp-pw-reset-modal')?.remove();
+        if (data?.user) {
+            const { data: { session } } = await HHP_Auth.supabase.auth.getSession();
+            if (session) await HHP_Auth.handleSession(session);
+        }
+        if (typeof toast === 'function') toast('✅ Password updated. You’re signed in.');
+    } catch (err) {
+        if (errEl) errEl.textContent = err.message || 'Could not update password. Try requesting a new reset email.';
+        if (btn) { btn.disabled = false; btn.textContent = 'Save new password'; }
     }
 }
 
