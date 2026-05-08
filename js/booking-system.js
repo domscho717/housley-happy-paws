@@ -71,9 +71,16 @@
       var clientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null);
 
       // Parallel fetch: deals + client usage in one round trip
+      // Only count deals from bookings that actually happened — exclude canceled/declined/rejected
+      // so a request that never went through doesn't burn the discount.
       var promises = [sb.from('deals').select('*').eq('is_active', true)];
       if (clientId) {
-        promises.push(sb.from('booking_requests').select('deal_id').eq('client_id', clientId).not('deal_id', 'is', null));
+        promises.push(
+          sb.from('booking_requests').select('deal_id')
+            .eq('client_id', clientId)
+            .not('deal_id', 'is', null)
+            .not('status', 'in', '(canceled,declined,rejected)')
+        );
       }
       var results = await Promise.all(promises);
 
@@ -2682,12 +2689,13 @@
       var clientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null);
 
       // Re-validate deal usage right before submission (prevents multi-tab bypass)
+      // Bookings that never went through (canceled / declined / rejected) don't count as a use.
       if (window._brmDealDiscount && clientId) {
         var dealToCheck = window._brmDealDiscount.deal;
         if (dealToCheck && dealToCheck.usage_limit === 'once_per_client') {
           var { data: priorUse } = await sb.from('booking_requests')
             .select('id').eq('client_id', clientId).eq('deal_id', dealToCheck.id)
-            .neq('status', 'canceled').limit(1);
+            .not('status', 'in', '(canceled,declined,rejected)').limit(1);
           if (priorUse && priorUse.length > 0) {
             window._brmDealDiscount = null;
             if (typeof toast === 'function') toast('Discount already used — booking will be submitted at full price.');
