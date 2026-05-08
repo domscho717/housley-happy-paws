@@ -171,30 +171,26 @@ async function createStaffMember() {
   }
 
   try {
-    // Sign up the staff member
-    const { data: signUpData, error: signUpError } = await sb.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { role: 'staff', full_name: name }
-      }
-    });
-
-    if (signUpError) {
-      toast('Error creating account: ' + signUpError.message);
+    // Server-side admin creation. A client-side sb.auth.signUp would
+    // hijack Rachel's session and log her out as the new staff user.
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) {
+      toast('Session expired \u2014 please refresh and log in again.');
       return;
     }
 
-    // Update profile with extra info
-    if (signUpData.user) {
-      // Wait a moment for the trigger to create the profile
-      await new Promise(r => setTimeout(r, 1000));
-
-      const { error: updateError } = await sb.from('profiles')
-        .update({ phone, hourly_rate: rate, email, hire_date: _localDateStr() })
-        .eq('user_id', signUpData.user.id);
-
-      if (updateError) console.warn('Profile update warning:', updateError);
+    const resp = await fetch('/api/create-staff', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify({ name, email, password, phone, hourlyRate: rate }),
+    });
+    const result = await resp.json().catch(() => ({}));
+    if (!resp.ok || !result.success) {
+      toast('Error creating account: ' + (result.error || 'Unknown error'));
+      return;
     }
 
     toast('\u2705 Staff account created for ' + name + '! They can log in with: ' + email);
