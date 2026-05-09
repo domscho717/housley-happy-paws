@@ -129,6 +129,24 @@
       return;
     }
 
+    // Safety net — mark the booking complete RIGHT NOW so it can't get stuck on 'in_progress'
+    // if the post-walk report submission later hangs or fails. The full report flow still runs
+    // (with notifications, payments, etc.); this just guarantees the booking status moves.
+    if (walkData && walkData.booking_id) {
+      try {
+        var { data: _bk } = await sb.from('booking_requests')
+          .select('recurrence_pattern')
+          .eq('id', walkData.booking_id)
+          .maybeSingle();
+        var _newStatus = (_bk && _bk.recurrence_pattern) ? 'accepted' : 'completed';
+        await sb.from('booking_requests')
+          .update({ status: _newStatus })
+          .eq('id', walkData.booking_id);
+      } catch (_bkErr) {
+        console.warn('Booking status fallback update failed:', _bkErr);
+      }
+    }
+
     // Send "walk finished" notification — only for dog walks (drop-ins get their own completion message from endServiceFromPanel)
     var _isWalk = (walkData.service || '').toLowerCase().indexOf('dog walk') !== -1 || (walkData.service || '').toLowerCase().indexOf('walking') !== -1;
     if (walkData && walkData.client_id && _isWalk) {
