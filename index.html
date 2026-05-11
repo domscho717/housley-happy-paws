@@ -9364,54 +9364,193 @@ async function endServiceFromPanel() {
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) return;
 
-  // Disable the button
+  // Disable the button immediately so a double-click can't double-submit.
   var endBtn = document.getElementById('lsp-end-btn');
-  if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '⏳ Saving & Sending...'; }
+  if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '⏳ Saving...'; }
 
-  try {
-    // ── Refresh auth session to prevent token expiration during long services ──
+  // ============================================================
+  //  STEP 1 — Read all form values & stop GPS/timers SYNCHRONOUSLY.
+  //  Nothing in this block hits the network. If the user closes the
+  //  browser the instant after clicking, we still have everything
+  //  we need to recover.
+  // ============================================================
+  var endTime = new Date().toISOString();
+  var reportDate = (document.getElementById('lsp-date') || {}).value || _localDateStr();
+  var reportService = (document.getElementById('lsp-service') || {}).value || d.service;
+  var reportPets = (document.getElementById('lsp-pets') || {}).value || d.petNames || '';
+  var reportDuration = (document.getElementById('lsp-duration') || {}).value || '30 min';
+  var mood = (document.getElementById('lsp-mood-val') || {}).value || '';
+  var notesEl = document.getElementById('lsp-notes');
+  var notes = notesEl ? notesEl.value.trim() : '';
+  var distanceEl = document.getElementById('lsp-distance');
+  var distanceVal = distanceEl ? distanceEl.value : '';
+  if (distanceVal === 'Tracking...') distanceVal = '';
+
+  // Stop GPS so no more points trickle in after we kick off the pipeline.
+  if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.getActiveWalkId && HHP_Tracking.getActiveWalkId() === d.walkId) {
+    try { if (typeof HHP_Tracking._stopGPS === 'function') HHP_Tracking._stopGPS(); } catch(e) {}
+  }
+  if (typeof HHP_ServiceTimer !== 'undefined') HHP_ServiceTimer.stopTimer();
+  if (_lspTimerInterval) { clearInterval(_lspTimerInterval); _lspTimerInterval = null; }
+  if (window._pillTimerInterval) { clearInterval(window._pillTimerInterval); window._pillTimerInterval = null; }
+  var pill = document.getElementById('hhp-live-service-pill');
+  if (pill) pill.remove();
+
+  // Arrival/departure normalization.
+  var arrivalInput = (document.getElementById('lsp-arrival') || {}).value || '';
+  var departureInput = (document.getElementById('lsp-departure') || {}).value || '';
+  if (!departureInput) {
+    var endNow = new Date(endTime);
+    departureInput = (endNow.getHours() < 10 ? '0' : '') + endNow.getHours() + ':' + (endNow.getMinutes() < 10 ? '0' : '') + endNow.getMinutes();
+  }
+  function fmt12(t24) {
+    if (!t24 || t24.indexOf(':') === -1) return t24;
+    var p = t24.split(':'), h = parseInt(p[0]), m = p[1];
+    var ap = h >= 12 ? 'PM' : 'AM';
+    h = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+    return h + ':' + m + ' ' + ap;
+  }
+  if (!arrivalInput && d.startTime) {
+    try {
+      var st = new Date(d.startTime);
+      arrivalInput = (st.getHours() < 10 ? '0' : '') + st.getHours() + ':' + (st.getMinutes() < 10 ? '0' : '') + st.getMinutes();
+    } catch(e) {}
+  }
+  var arrivalStr = fmt12(arrivalInput);
+  var departureStr = fmt12(departureInput);
+  function safeTime24(val) {
+    if (!val || val.indexOf(':') === -1) return null;
+    if (/^\d{1,2}:\d{2}$/.test(val)) return val;
+    var m = val.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (m) {
+      var h = parseInt(m[1]), min = m[2], ap = m[3].toUpperCase();
+      if (ap === 'PM' && h !== 12) h += 12;
+      if (ap === 'AM' && h === 12) h = 0;
+      return (h < 10 ? '0' : '') + h + ':' + min;
+    }
+    return null;
+  }
+  var safeArrival = safeTime24(arrivalInput) || safeTime24(arrivalStr);
+  var safeDeparture = safeTime24(departureInput) || safeTime24(departureStr);
+  var startMs = d.startTime ? new Date(d.startTime).getTime() : 0;
+  var endMs = new Date(endTime).getTime();
+  var durMin = startMs ? Math.round((endMs - startMs) / 60000) : 0;
+
+  // ============================================================
+  //  STEP 2 — Save the form to localStorage NOW, before any
+  //  network call. If anything below fails (or the browser dies),
+  //  the recovery banner on next portal load can resend.
+  // ============================================================
+  var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
+  var clientMessageBody = '✅ ' + staffName + ' has completed ' + (reportPets ? reportPets + '\'s ' : 'your ') + reportService + '!\n' +
+    '⏱ Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')' +
+    (distanceVal ? '\n📏 Distance: ' + distanceVal : '') +
+    (mood ? '\n😊 Mood: ' + mood : '') +
+    (notes ? '\n📝 Notes: ' + notes : '') +
+    '\n\nYou can view the full report in your portal under Walk Reports.';
+
+  var reportData = {
+    client_id: d.clientId || null,
+    author_id: user.id,
+    service: reportService,
+    report_date: reportDate,
+    duration: reportDuration,
+    arrival_time: safeArrival,
+    departure_time: safeDeparture,
+    distance: distanceVal || null,
+    mood: mood || null,
+    pet_name: reportPets || null,
+    personal_note: notes || null,
+    booking_id: d.bookingId || null
+    // media gets added by the pipeline once Cloudinary uploads land.
+  };
+
+  var pendingKey = d.bookingId || d.walkId;
+  var pendingPayload = {
+    pendingKey: pendingKey,
+    walkId: d.walkId,
+    bookingId: d.bookingId,
+    clientId: d.clientId,
+    walkEndTime: endTime,
+    reportData: reportData,
+    stagedMedia: d.mediaUrls || [],
+    summary: reportService + (reportPets ? ' for ' + reportPets : ''),
+    durMin: durMin,
+    arrivalStr: arrivalStr,
+    departureStr: departureStr,
+    distanceVal: distanceVal,
+    notes: notes,
+    reportPets: reportPets,
+    reportService: reportService,
+    reportDate: reportDate,
+    reportDuration: reportDuration,
+    mood: mood,
+    staffName: staffName,
+    clientName: d.clientName || '',
+    clientMessageBody: clientMessageBody
+  };
+  if (window.HHP_Report) window.HHP_Report.savePending(pendingKey, pendingPayload);
+
+  // ============================================================
+  //  STEP 3 — Optimistic confirmation. Modal closes in 2 seconds.
+  //  Pipeline runs in background.
+  // ============================================================
+  var panel = document.getElementById('hhp-live-service-panel');
+  var progressLineId = 'hhp-report-progress-line';
+  if (panel) {
+    var inner = panel.querySelector('div');
+    if (inner) {
+      inner.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;padding:40px 20px;text-align:center">' +
+        '<div style="width:80px;height:80px;border-radius:50%;background:var(--forest,#3d5a47);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><span style="font-size:2.5rem">✅</span></div>' +
+        '<div style="font-size:1.4rem;font-weight:700;color:var(--forest,#3d5a47);margin-bottom:10px">Report Sent!</div>' +
+        '<div style="font-size:0.95rem;color:var(--ink);margin-bottom:6px;font-weight:600">Closing in 2 seconds...</div>' +
+        '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:4px">' + reportService + (reportPets ? ' for ' + reportPets : '') + '</div>' +
+        '<div style="font-size:0.85rem;color:var(--mid)">Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')</div>' +
+        (distanceVal ? '<div style="font-size:0.85rem;color:var(--mid)">Distance: ' + distanceVal + '</div>' : '') +
+        '<div id="' + progressLineId + '" style="margin-top:18px;font-size:0.78rem;color:var(--mid);min-height:1.2em">⏳ Saving report...</div>' +
+        '</div>';
+    }
+    panel.onclick = function(e) { if (e.target === panel) panel.remove(); };
+    setTimeout(function() {
+      var p = document.getElementById('hhp-live-service-panel');
+      if (p) p.remove();
+    }, 2000);
+  }
+  window._liveServiceData = null;
+
+  // ============================================================
+  //  STEP 4 — Background pipeline. Nothing awaits anymore.
+  // ============================================================
+  (async function runBackgroundPipeline() {
+    // Refresh auth so a token that expired mid-walk doesn't kill the inserts.
     try { await sb.auth.refreshSession(); } catch(refreshErr) { console.warn('Session refresh error:', refreshErr); }
 
-    // ── Check for existing report to prevent duplicates ──
+    // Duplicate-prevention guard — if a report already exists for this booking
+    // (e.g. the user clicked Send twice from two devices), bail out cleanly.
     if (d.bookingId) {
-      var { data: existingReport } = await sb.from('service_reports').select('id').eq('booking_id', d.bookingId).maybeSingle();
-      if (existingReport) {
-        toast('⚠️ A report already exists for this booking.');
-        if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '✅ Report Already Submitted'; endBtn.style.background = '#999'; }
-        return;
-      }
-    }
-    var endTime = new Date().toISOString();
-
-    // ── Read values from editable report fields BEFORE any DOM changes ──
-    var reportDate = (document.getElementById('lsp-date') || {}).value || _localDateStr();
-    var reportService = (document.getElementById('lsp-service') || {}).value || d.service;
-    var reportPets = (document.getElementById('lsp-pets') || {}).value || d.petNames || '';
-    var reportDuration = (document.getElementById('lsp-duration') || {}).value || '30 min';
-    var mood = (document.getElementById('lsp-mood-val') || {}).value || '';
-    var notesEl = document.getElementById('lsp-notes');
-    var notes = notesEl ? notesEl.value.trim() : '';
-    var distanceEl = document.getElementById('lsp-distance');
-    var distanceVal = distanceEl ? distanceEl.value : '';
-    if (distanceVal === 'Tracking...') distanceVal = '';
-
-    // Stop GPS tracking first so no more points are recorded
-    if (typeof HHP_Tracking !== 'undefined' && HHP_Tracking.getActiveWalkId && HHP_Tracking.getActiveWalkId() === d.walkId) {
-      try { if (typeof HHP_Tracking._stopGPS === 'function') HHP_Tracking._stopGPS(); } catch(e) {}
+      try {
+        var dupRes = await sb.from('service_reports').select('id').eq('booking_id', d.bookingId).maybeSingle();
+        if (dupRes && dupRes.data) {
+          console.log('[report] duplicate detected — clearing pending payload');
+          if (window.HHP_Report) window.HHP_Report.clearPending(pendingKey);
+          if (typeof toast === 'function') toast('⚠️ A report already exists for this booking.');
+          return;
+        }
+      } catch(dupErr) { console.warn('Duplicate check failed (continuing):', dupErr); }
     }
 
-    // Fetch tracking points and build route_summary before completing the walk
+    // Fetch tracking points & compute distance now (cheap, one query). Done in
+    // background so the modal doesn't wait on it.
     var routeSummary = [];
     var isDogWalk = (reportService || '').toLowerCase().indexOf('walk') !== -1;
     if (isDogWalk && d.walkId) {
       try {
-        var { data: trkPts } = await sb.from('tracking_points')
-          .select('lat, lng, recorded_at')
-          .eq('walk_id', d.walkId)
+        var trkRes = await sb.from('tracking_points')
+          .select('lat, lng, recorded_at').eq('walk_id', d.walkId)
           .order('recorded_at', { ascending: true });
+        var trkPts = trkRes && trkRes.data;
         if (trkPts && trkPts.length > 0) {
           routeSummary = trkPts.map(function(p) { return { lat: p.lat, lng: p.lng, t: p.recorded_at }; });
-          // Calculate distance from actual route if not already set
           if (!distanceVal || distanceVal === '') {
             var totalM = 0;
             for (var ri = 1; ri < routeSummary.length; ri++) {
@@ -9422,155 +9561,26 @@ async function endServiceFromPanel() {
               totalM += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             }
             var miles = totalM / 1609.34;
-            if (miles >= 0.1) distanceVal = miles.toFixed(2) + ' mi';
+            if (miles >= 0.1) {
+              distanceVal = miles.toFixed(2) + ' mi';
+              reportData.distance = distanceVal;
+            }
           }
         }
       } catch(e) { console.warn('Tracking points fetch error:', e); }
     }
-
-    // End the walk in DB with route_summary
     var walkUpdate = { status: 'completed', end_time: endTime };
     if (routeSummary.length > 0) walkUpdate.route_summary = routeSummary;
-    var { error: walkErr } = await sb.from('walks').update(walkUpdate).eq('id', d.walkId);
-    if (walkErr) console.warn('Walk end error:', JSON.stringify(walkErr));
 
-    // Stop the timer + pill
-    if (typeof HHP_ServiceTimer !== 'undefined') HHP_ServiceTimer.stopTimer();
-    if (_lspTimerInterval) { clearInterval(_lspTimerInterval); _lspTimerInterval = null; }
-    if (window._pillTimerInterval) { clearInterval(window._pillTimerInterval); window._pillTimerInterval = null; }
-    var pill = document.getElementById('hhp-live-service-pill');
-    if (pill) pill.remove();
-
-    // Arrival/departure from time inputs
-    var arrivalInput = (document.getElementById('lsp-arrival') || {}).value || '';
-    var departureInput = (document.getElementById('lsp-departure') || {}).value || '';
-
-    // Auto-fill departure if empty
-    if (!departureInput) {
-      var endNow = new Date(endTime);
-      departureInput = (endNow.getHours() < 10 ? '0' : '') + endNow.getHours() + ':' + (endNow.getMinutes() < 10 ? '0' : '') + endNow.getMinutes();
-    }
-
-    // Format for display: "2:30 PM"
-    function fmt12(t24) {
-      if (!t24 || t24.indexOf(':') === -1) return t24;
-      var p = t24.split(':'), h = parseInt(p[0]), m = p[1];
-      var ap = h >= 12 ? 'PM' : 'AM';
-      h = h > 12 ? h - 12 : (h === 0 ? 12 : h);
-      return h + ':' + m + ' ' + ap;
-    }
-    var arrivalStr = fmt12(arrivalInput);
-    var departureStr = fmt12(departureInput);
-
-    // Calculate actual minutes
-    var startMs = new Date(d.startTime).getTime();
-    var endMs = new Date(endTime).getTime();
-    var durMin = Math.round((endMs - startMs) / 60000);
-
-    // ── Upload captured media (photos/videos) to Cloudinary ──
-    var uploadedMedia = [];
-    if (d.mediaUrls && d.mediaUrls.length > 0) {
-      for (var mi = 0; mi < d.mediaUrls.length; mi++) {
-        try {
-          var mItem = d.mediaUrls[mi];
-          var formData = new FormData();
-          // Convert dataUrl to blob
-          var byteString = atob(mItem.dataUrl.split(',')[1]);
-          var mimeString = mItem.dataUrl.split(',')[0].split(':')[1].split(';')[0];
-          var ab = new ArrayBuffer(byteString.length);
-          var ia = new Uint8Array(ab);
-          for (var bi = 0; bi < byteString.length; bi++) ia[bi] = byteString.charCodeAt(bi);
-          var blob = new Blob([ab], { type: mimeString });
-          formData.append('file', blob, mItem.name || ('media_' + mi));
-          formData.append('upload_preset', 'hhp_unsigned');
-          formData.append('folder', 'housley-happy-paws/reports');
-          var uploadType = mItem.type === 'video' ? 'video' : 'image';
-          var cloudResp = await fetch('https://api.cloudinary.com/v1_1/dg1p1zjgv/' + uploadType + '/upload', { method: 'POST', body: formData });
-          var cloudData = await cloudResp.json();
-          if (cloudData.secure_url) {
-            uploadedMedia.push({
-              public_id: cloudData.public_id,
-              url: cloudData.secure_url,
-              thumbnail: cloudData.thumbnail_url || cloudData.secure_url,
-              type: cloudData.resource_type || uploadType,
-              format: cloudData.format
-            });
-          }
-        } catch (upErr) { console.warn('Media upload error:', upErr); }
-      }
-    }
-
-    // ── Ensure arrival/departure are valid time values (not empty strings) ──
-    // PostgreSQL rejects '' for time columns; must be null or valid HH:MM format
-    function safeTime24(val) {
-      if (!val || val.indexOf(':') === -1) return null;
-      // If already 24h format (from input type=time), return as-is
-      if (/^\d{1,2}:\d{2}$/.test(val)) return val;
-      // If 12h format from fmt12, convert back to 24h for DB
-      var m = val.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-      if (m) {
-        var h = parseInt(m[1]), min = m[2], ap = m[3].toUpperCase();
-        if (ap === 'PM' && h !== 12) h += 12;
-        if (ap === 'AM' && h === 12) h = 0;
-        return (h < 10 ? '0' : '') + h + ':' + min;
-      }
-      return null;
-    }
-    // Fallback: derive arrival from walk start_time if input was empty
-    if (!arrivalInput && d.startTime) {
-      try {
-        var st = new Date(d.startTime);
-        arrivalInput = (st.getHours() < 10 ? '0' : '') + st.getHours() + ':' + (st.getMinutes() < 10 ? '0' : '') + st.getMinutes();
-        arrivalStr = fmt12(arrivalInput);
-      } catch(e) {}
-    }
-    var safeArrival = safeTime24(arrivalInput) || safeTime24(arrivalStr);
-    var safeDeparture = safeTime24(departureInput) || safeTime24(departureStr);
-
-    // Save the service report with all editable field values
-    var reportData = {
-      client_id: d.clientId || null,
-      author_id: user.id,
-      service: reportService,
-      report_date: reportDate,
-      duration: reportDuration,
-      arrival_time: safeArrival,
-      departure_time: safeDeparture,
-      distance: distanceVal || null,
-      mood: mood || null,
-      pet_name: reportPets || null,
-      personal_note: notes || null,
-      booking_id: d.bookingId || null,
-      media: uploadedMedia.length > 0 ? uploadedMedia : null
-    };
-
-    var reportSaved = false;
-    console.log('Report insert payload:', JSON.stringify(reportData));
-    try {
-      var { error: rptErr } = await sb.from('service_reports').insert(reportData);
-      if (rptErr) {
-        console.error('Report save error:', JSON.stringify(rptErr));
-        console.error('Report payload was:', JSON.stringify(reportData));
-        toast('⚠️ Report save issue: ' + (rptErr.message || JSON.stringify(rptErr)));
-      } else {
-        reportSaved = true;
-        console.log('Report saved successfully');
-      }
-    } catch (rptCatchErr) {
-      console.error('Report save exception:', rptCatchErr);
-      console.error('Report payload was:', JSON.stringify(reportData));
-      toast('⚠️ Report could not be saved — please try sending from Report History.');
-    }
-
-    // ── ALWAYS update booking status, even if report save failed ──
-    // This prevents bookings from getting stuck in 'in_progress'
+    // Recurring vs one-time booking status decision (mirrors the old logic).
+    var bookingUpdate = null;
     if (d.bookingId) {
       try {
-        var { data: bkCheck } = await sb.from('booking_requests').select('recurrence_pattern, canceled_dates').eq('id', d.bookingId).maybeSingle();
+        var bkRes = await sb.from('booking_requests').select('recurrence_pattern, canceled_dates').eq('id', d.bookingId).maybeSingle();
+        var bkCheck = bkRes && bkRes.data;
         if (bkCheck && bkCheck.recurrence_pattern) {
           var _hasMoreDates = false;
           try {
-            var _todayChk = _localDateStr();
             var _chkCursor = new Date();
             _chkCursor.setHours(12,0,0,0);
             _chkCursor.setDate(_chkCursor.getDate() + 1);
@@ -9578,123 +9588,109 @@ async function endServiceFromPanel() {
             _chkEnd.setDate(_chkEnd.getDate() + 90);
             while (_chkCursor <= _chkEnd) {
               var _chkDk = _localDateStr(_chkCursor);
-              if (typeof isRecurringOnDate === 'function' && isRecurringOnDate(bkCheck, _chkDk)) {
-                _hasMoreDates = true;
-                break;
-              }
+              if (typeof isRecurringOnDate === 'function' && isRecurringOnDate(bkCheck, _chkDk)) { _hasMoreDates = true; break; }
               _chkCursor.setDate(_chkCursor.getDate() + 1);
             }
           } catch(rdErr) { _hasMoreDates = true; }
-          if (_hasMoreDates) {
-            await sb.from('booking_requests').update({ status: 'accepted' }).eq('id', d.bookingId);
-          } else {
-            await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
-          }
+          bookingUpdate = { status: _hasMoreDates ? 'accepted' : 'completed' };
         } else {
-          await sb.from('booking_requests').update({ status: 'completed' }).eq('id', d.bookingId);
+          bookingUpdate = { status: 'completed' };
         }
-      } catch(e) { console.warn('Booking status update error:', JSON.stringify(e)); }
+      } catch(e) { bookingUpdate = { status: 'completed' }; }
     }
 
-    // ── Send "Service Complete" notification + report summary to client ──
-    var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
-    if (d.clientId) {
-      var endMsg = '✅ ' + staffName + ' has completed ' + (reportPets ? reportPets + '\'s ' : 'your ') + reportService + '!\n';
-      endMsg += '⏱ Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')';
-      if (distanceVal) endMsg += '\n📏 Distance: ' + distanceVal;
-      if (mood) endMsg += '\n😊 Mood: ' + mood;
-      if (notes) endMsg += '\n📝 Notes: ' + notes;
-      endMsg += '\n\nYou can view the full report in your portal under Walk Reports.';
-
-      try {
-        await sb.from('messages').insert({ sender_id: user.id, sender_name: d.staffName || 'Housley Happy Paws', recipient_id: d.clientId, body: endMsg });
-      } catch(e) { console.warn('End notification error:', e); }
-
-      // ── Send service completed email to client ──
-      try {
-        // Look up client email from booking
-        var _clientEmail = '';
-        if (d.bookingId) {
-          var { data: _bkEmail } = await sb.from('booking_requests').select('contact_email').eq('id', d.bookingId).maybeSingle();
-          if (_bkEmail) _clientEmail = _bkEmail.contact_email;
-        }
-        if (!_clientEmail && d.clientId) {
-          var { data: _profEmail } = await sb.from('profiles').select('email').eq('user_id', d.clientId).maybeSingle();
-          if (_profEmail) _clientEmail = _profEmail.email;
-        }
-        if (_clientEmail) {
-          var _bb = detectBathroomBreaks(notes, reportPets);
-          fetch('/api/service-completed-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              clientEmail: _clientEmail,
-              clientName: d.clientName || '',
-              service: reportService,
-              petNames: reportPets,
-              reportDate: reportDate,
-              duration: reportDuration,
-              arrivalTime: arrivalStr,
-              departureTime: departureStr,
-              distance: distanceVal || '',
-              mood: mood || '',
-              personalNote: notes || '',
-              staffName: staffName,
-              mediaCount: (d.mediaUrls || []).length,
-              bathroomBreaks: _bb ? _bb.summary : null
-            })
-          }).catch(function(e) { console.warn('Service completed email error:', e); });
-        }
-      } catch(e) { console.warn('Service email lookup error:', e); }
-    }
-
-    // ── Activity log: record service completion ──
+    // Look up client email so the notification email can be sent in parallel.
+    var clientEmail = '';
     try {
-      await sb.from('messages').insert({
-        sender_id: user.id,
-        sender_name: staffName || 'Housley Happy Paws',
-        recipient_id: user.id,
-        body: '✅ SERVICE COMPLETED: ' + staffName + ' completed ' + reportService + (reportPets ? ' for ' + reportPets : '') + ' (' + durMin + ' min)'
-      });
-    } catch(e) { console.warn('Activity log end error:', e); }
-
-    // ── Show success confirmation inside the panel ──
-    var panel = document.getElementById('hhp-live-service-panel');
-    if (panel) {
-      var inner = panel.querySelector('div');
-      if (inner) {
-        inner.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px;padding:40px 20px;text-align:center">' +
-          '<div style="width:80px;height:80px;border-radius:50%;background:var(--forest,#3d5a47);display:flex;align-items:center;justify-content:center;margin-bottom:20px"><span style="font-size:2.5rem">✅</span></div>' +
-          '<div style="font-size:1.4rem;font-weight:700;color:var(--forest,#3d5a47);margin-bottom:10px">Service Completed!</div>' +
-          '<div style="font-size:0.95rem;color:var(--ink);margin-bottom:6px;font-weight:600">' + (reportSaved ? 'Report saved & sent to client' : '⚠️ Report could not be saved — please resend from Report History') + '</div>' +
-          '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:4px">' + reportService + (reportPets ? ' for ' + reportPets : '') + '</div>' +
-          '<div style="font-size:0.85rem;color:var(--mid)">Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')</div>' +
-          (distanceVal ? '<div style="font-size:0.85rem;color:var(--mid)">Distance: ' + distanceVal + '</div>' : '') +
-          '<div style="margin-top:28px"><button onclick="var p=document.getElementById(\'hhp-live-service-panel\');if(p)p.remove();" style="padding:12px 32px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit">Done</button></div>' +
-          '</div>';
+      if (d.bookingId) {
+        var bkEmailRes = await sb.from('booking_requests').select('contact_email').eq('id', d.bookingId).maybeSingle();
+        if (bkEmailRes && bkEmailRes.data) clientEmail = bkEmailRes.data.contact_email;
       }
-      // Also allow click overlay to close
-      panel.onclick = function(e) { if (e.target === panel) panel.remove(); };
+      if (!clientEmail && d.clientId) {
+        var profEmailRes = await sb.from('profiles').select('email').eq('user_id', d.clientId).maybeSingle();
+        if (profEmailRes && profEmailRes.data) clientEmail = profEmailRes.data.email;
+      }
+    } catch(e) { console.warn('Client email lookup error:', e); }
+
+    var clientMessage = d.clientId ? {
+      sender_id: user.id, sender_name: staffName || 'Housley Happy Paws',
+      recipient_id: d.clientId, body: clientMessageBody
+    } : null;
+    var activityLog = {
+      sender_id: user.id, sender_name: staffName || 'Housley Happy Paws',
+      recipient_id: user.id,
+      body: '✅ SERVICE COMPLETED: ' + staffName + ' completed ' + reportService + (reportPets ? ' for ' + reportPets : '') + ' (' + durMin + ' min)'
+    };
+    var emailNotification = null;
+    if (clientEmail) {
+      var _bb = (typeof detectBathroomBreaks === 'function') ? detectBathroomBreaks(notes, reportPets) : null;
+      emailNotification = {
+        url: '/api/service-completed-notification',
+        body: {
+          clientEmail: clientEmail,
+          clientName: d.clientName || '',
+          service: reportService,
+          petNames: reportPets,
+          reportDate: reportDate,
+          duration: reportDuration,
+          arrivalTime: arrivalStr,
+          departureTime: departureStr,
+          distance: distanceVal || '',
+          mood: mood || '',
+          personalNote: notes || '',
+          staffName: staffName,
+          mediaCount: (d.mediaUrls || []).length,
+          bathroomBreaks: _bb ? _bb.summary : null
+        }
+      };
     }
-    window._liveServiceData = null;
 
-    toast('✅ Service completed & report sent!');
-
-    // Refresh schedules + calendar
-    if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
-    if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
-    if (typeof loadCalendarBookings === 'function') {
-      var _now = new Date();
-      loadCalendarBookings(_now.getFullYear(), _now.getMonth());
+    function setProgress(line) {
+      var el = document.getElementById(progressLineId);
+      if (el) el.textContent = line;
     }
-    // Refresh client reports if viewing
-    if (typeof loadClientReports === 'function') loadClientReports();
+    function onProgress(stage, detail) {
+      if (stage === 'reportSaved') setProgress('✓ Report saved · uploading photos...');
+      else if (stage === 'mediaUploaded') setProgress('✓ Report saved · ' + detail.count + '/' + detail.total + ' photos · notifying client...');
+      else if (stage === 'emailSent') setProgress('✓ Report saved · client notified');
+      else if (stage === 'done') setProgress('✓ All done');
+      else if (stage === 'reportFailed') setProgress('⚠️ Saved locally — will retry on next portal load');
+    }
 
-  } catch (e) {
-    console.error('End service error:', JSON.stringify(e));
-    toast('❌ Failed to end: ' + (e.message || JSON.stringify(e) || 'Unknown error'));
-    if (endBtn) { endBtn.disabled = false; endBtn.innerHTML = '⏹ End Service & Send Report'; }
-  }
+    if (!window.HHP_Report) {
+      console.error('[report] HHP_Report module missing — report not submitted');
+      return;
+    }
+    var result = await window.HHP_Report.runSubmissionPipeline({
+      pendingKey: pendingKey,
+      sb: sb, user: user,
+      reportData: reportData,
+      stagedMedia: d.mediaUrls || [],
+      walkId: d.walkId,
+      bookingId: d.bookingId,
+      clientId: d.clientId,
+      walkUpdate: walkUpdate,
+      bookingUpdate: bookingUpdate,
+      clientMessage: clientMessage,
+      activityLog: activityLog,
+      emailNotification: emailNotification,
+      onProgress: onProgress
+    });
+
+    if (result.success && typeof toast === 'function') toast('✅ Service completed & report sent!');
+
+    // Refresh whatever views are open. Done at the end so the user's optimistic UI
+    // doesn't flash with old data first.
+    try {
+      if (typeof initOwnerCalWidget === 'function') initOwnerCalWidget();
+      if (typeof loadStaffSchedule === 'function') loadStaffSchedule();
+      if (typeof loadCalendarBookings === 'function') {
+        var _now = new Date();
+        loadCalendarBookings(_now.getFullYear(), _now.getMonth());
+      }
+      if (typeof loadClientReports === 'function') loadClientReports();
+    } catch(refreshErr) { console.warn('View refresh error:', refreshErr); }
+  })();
 }
 
 // Stop service from the detail drawer
@@ -14860,7 +14856,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/js/stripe-client.js?v=20260508a" defer></script>
 
 <!-- Supabase Auth Client -->
-<script src="/js/auth-client.js?v=20260508a" defer></script>
+<script src="/js/auth-client.js?v=20260511a" defer></script>
+
+<!-- End-of-service Report Submission Pipeline (localStorage save + parallel side effects) -->
+<script src="/js/report-submission.js?v=20260511a" defer></script>
 
 <!-- Cloudinary Photo Manager -->
 <script src="/js/cloudinary-client.js?v=20260508a" defer></script>

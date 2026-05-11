@@ -209,6 +209,13 @@ const HHP_Auth = window.HHP_Auth = {
                     sTab(portalKey, dv);
                 }
             }
+            // Surface any unsent service reports left over from a previous session
+            // (offline submit, crashed browser, timed-out save). Owner/staff only —
+            // clients never submit reports.
+            if ((self.currentRole === 'owner' || self.currentRole === 'staff') &&
+                window.HHP_Report && typeof window.HHP_Report.renderRecoveryBanner === 'function') {
+                try { window.HHP_Report.renderRecoveryBanner(); } catch (e) { console.warn('Recovery banner error:', e); }
+            }
         }, 100);
     },
 
