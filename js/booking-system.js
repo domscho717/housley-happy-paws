@@ -1170,9 +1170,11 @@
     // Build a time slot HTML with its own recurring options
     function _brmBuildTimeSlotHTML(cardIdx, tsId, isFirst, dateVal) {
       var html = '<div class="brm-time-slot" data-tsid="' + tsId + '" style="margin-bottom:8px;padding:6px 0;' + (!isFirst ? 'border-top:1px dashed #e8dece;padding-top:8px;' : '') + '">';
-      // Time row
-      html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">';
-      html += '<select ' + (isFirst ? 'id="brm-dc-time-' + cardIdx + '"' : '') + ' class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" data-tsid="' + tsId + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="flex:1;min-width:0;margin:0;padding:8px;font-size:1rem;min-height:44px">';
+      // Time row — plain block, NOT flex. A single-child flex container with min-width
+      // rules on the child confuses iOS Safari's hit-box for native <select> dropdowns,
+      // which is why the dropdown wouldn't open on phones.
+      html += '<div style="margin-bottom:2px">';
+      html += '<select ' + (isFirst ? 'id="brm-dc-time-' + cardIdx + '"' : '') + ' class="brm-input brm-dc-time-sel" data-card="' + cardIdx + '" data-tsid="' + tsId + '" onchange="window._brmSyncPrimary();updatePriceEstimate()" style="width:100%;box-sizing:border-box;margin:0;padding:10px 12px;font-size:16px;min-height:44px;display:block">';
       html += _brmTimeOptionsHTML();
       html += '</select>';
       // No per-slot X button — remove the whole date card to redo times
@@ -1977,7 +1979,9 @@
       '  .brm-close { width: 32px; height: 32px; font-size: 0.95rem; top: 12px; right: 12px; }',
       '  .brm-input, .brm-dc-time-sel { font-size: 16px !important; min-height: 44px !important; }',
       '  select.brm-input, input[type="date"].brm-input, input[type="time"].brm-input { font-size: 16px !important; min-height: 44px !important; max-width: 100% !important; }',
-      '  .brm-dc-time-sel { min-width: 100% !important; max-width: 100% !important; }',
+      // iOS Safari note: do NOT add min-width: 100% to .brm-dc-time-sel — it breaks the
+      // native <select> hit-box and the dropdown won't open on phones. Width is already
+      // controlled inline by the rendering code in _brmBuildTimeSlotHTML.
       '  .brm-label { font-size: 13px; }',
       '}',
       '@media (max-width: 480px) {',
