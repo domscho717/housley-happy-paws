@@ -600,18 +600,17 @@
       '      <input type="hidden" id="brm-date" value="">',
       '      <input type="hidden" id="brm-enddate" value="">',
       '      <div id="brm-enddate-col" style="display:none"></div>',
-      // Note: each select has explicit inline width/sizing because iOS Safari computes
-      // its native <select> hit-box wrong when the select is inside a flex column and
-      // relies only on class-based width:100%. Inline display:block + width:100% +
-      // 16px font fixes the "tap does nothing" bug on iPhones.
+      // input[type=time] instead of <select> — iOS Safari has a documented WebKit bug
+      // where <select> won't open inside a position:fixed modal when body{overflow:hidden}.
+      // input[type=time] opens cleanly every time and gives the user a familiar wheel picker.
       '      <div class="brm-row" id="brm-hs-times-row">',
       '        <div class="brm-col">',
       '          <label class="brm-label">Arrival Time *</label>',
-      '          <select id="brm-hs-arrival" class="brm-input" style="display:block;width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:10px 12px;margin:0"><option value="">Select arrival time</option></select>',
+      '          <input id="brm-hs-arrival" class="brm-input" type="time" step="1800" style="display:block;width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:10px 12px;margin:0;-webkit-appearance:none;appearance:none">',
       '        </div>',
       '        <div class="brm-col">',
       '          <label class="brm-label">Departure Time *</label>',
-      '          <select id="brm-hs-departure" class="brm-input" style="display:block;width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:10px 12px;margin:0"><option value="">Select departure time</option></select>',
+      '          <input id="brm-hs-departure" class="brm-input" type="time" step="1800" style="display:block;width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:10px 12px;margin:0;-webkit-appearance:none;appearance:none">',
       '        </div>',
       '      </div>',
       '      <div id="brm-hs-nights-row" style="text-align:center;padding:8px 0;font-size:0.9rem;font-weight:600;color:#6b5c4d"></div>',
@@ -1040,24 +1039,11 @@
         window._buildHsCalendar();
       }
 
-      // Populate arrival/departure time selects for house sitting
+      // Arrival/departure are now <input type="time"> — native iOS picker handles
+      // the wheel UI, no JS population needed. (Previously these were <select> elements
+      // populated here, but iOS Safari refused to open <select> inside the fixed modal.)
       var arrivalSel = document.getElementById('brm-hs-arrival');
       var departureSel = document.getElementById('brm-hs-departure');
-      if (arrivalSel && arrivalSel.options.length <= 1) {
-        var timeOpts = '';
-        for (var h = 5; h <= 22; h++) {
-          for (var m = 0; m < 60; m += 30) {
-            var hr12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
-            var ampm = h >= 12 ? 'PM' : 'AM';
-            var mm = m === 0 ? '00' : '30';
-            var label = hr12 + ':' + mm + ' ' + ampm;
-            var val24 = (h < 10 ? '0' : '') + h + ':' + mm;
-            timeOpts += '<option value="' + val24 + '">' + label + '</option>';
-          }
-        }
-        arrivalSel.innerHTML = '<option value="">Select arrival time</option>' + timeOpts;
-        if (departureSel) departureSel.innerHTML = '<option value="">Select departure time</option>' + timeOpts;
-      }
       // Make arrival/departure required for house sitting
       if (arrivalSel) arrivalSel.required = isHS;
       if (departureSel) departureSel.required = isHS;
@@ -2216,11 +2202,11 @@
       var hsEndEl = document.getElementById('brm-enddate');
       if (hsDateEl) { hsDateEl.value = ''; hsDateEl.defaultValue = ''; }
       if (hsEndEl) { hsEndEl.value = ''; hsEndEl.defaultValue = ''; }
-      // Reset arrival/departure time selects
+      // Reset arrival/departure time inputs (now <input type="time">, not <select>)
       var hsArrReset = document.getElementById('brm-hs-arrival');
       var hsDepReset = document.getElementById('brm-hs-departure');
-      if (hsArrReset) hsArrReset.selectedIndex = 0;
-      if (hsDepReset) hsDepReset.selectedIndex = 0;
+      if (hsArrReset) hsArrReset.value = '';
+      if (hsDepReset) hsDepReset.value = '';
       // Rebuild HS calendar with fresh state
       if (typeof window._buildHsCalendar === 'function') window._buildHsCalendar();
       // Show the helper message and rebuild calendar picker
