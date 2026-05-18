@@ -57,11 +57,23 @@ module.exports = async function handler(req, res) {
         </div>
       </div>
 
-      ${arrivalTime || departureTime ? `
+      ${arrivalTime || departureTime ? (() => {
+        // Defensive: if caller passes a raw "HH:MM" 24h value, convert to 12h here so
+        // the client never sees military time. Already-formatted strings ("2:30 PM")
+        // pass through untouched.
+        const _fmt = v => {
+          if (!v) return '';
+          if (/^\d{1,2}:\d{2}$/.test(v)) { try { return fmt12(v); } catch (_) { return v; } }
+          return v;
+        };
+        const arr = _fmt(arrivalTime);
+        const dep = _fmt(departureTime);
+        return `
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-        ${arrivalTime ? `<div style="background:white;border-radius:8px;padding:8px 14px;flex:1;min-width:120px"><div style="font-size:0.72rem;color:#8c6b4a;text-transform:uppercase;font-weight:700">Arrival</div><div style="font-weight:600">${arrivalTime}</div></div>` : ''}
-        ${departureTime ? `<div style="background:white;border-radius:8px;padding:8px 14px;flex:1;min-width:120px"><div style="font-size:0.72rem;color:#8c6b4a;text-transform:uppercase;font-weight:700">Departure</div><div style="font-weight:600">${departureTime}</div></div>` : ''}
-      </div>` : ''}
+        ${arr ? `<div style="background:white;border-radius:8px;padding:8px 14px;flex:1;min-width:120px"><div style="font-size:0.72rem;color:#8c6b4a;text-transform:uppercase;font-weight:700">Arrival</div><div style="font-weight:600">${arr}</div></div>` : ''}
+        ${dep ? `<div style="background:white;border-radius:8px;padding:8px 14px;flex:1;min-width:120px"><div style="font-size:0.72rem;color:#8c6b4a;text-transform:uppercase;font-weight:700">Departure</div><div style="font-weight:600">${dep}</div></div>` : ''}
+      </div>`;
+      })() : ''}
 
       ${distance ? `<div style="margin-bottom:8px">📏 <strong>Distance:</strong> ${distance}</div>` : ''}
       ${moodDisplay ? `<div style="margin-bottom:8px">😊 <strong>Pet Mood:</strong> ${moodDisplay}</div>` : ''}

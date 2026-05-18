@@ -9763,8 +9763,9 @@ async function viewCompletedReport(bookingId) {
     h += fieldRow('Date', report.report_date);
     h += fieldRow('Pet', report.pet_name);
     h += fieldRow('Duration', report.duration);
-    h += fieldRow('Arrival', report.arrival_time);
-    h += fieldRow('Departure', report.departure_time);
+    // Times come from DB in 24h HH:MM — show clients/owner the friendly 12h format
+    h += fieldRow('Arrival', report.arrival_time ? (typeof formatReportTime === 'function' ? formatReportTime(report.arrival_time) : report.arrival_time) : '');
+    h += fieldRow('Departure', report.departure_time ? (typeof formatReportTime === 'function' ? formatReportTime(report.departure_time) : report.departure_time) : '');
     h += fieldRow('Distance', report.distance);
     h += fieldRow('Mood', report.mood);
 
@@ -16404,7 +16405,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260508a" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260517c" defer></script>
+  <script src="/js/booking-system.js?v=20260517d" defer></script>
   <script src="/js/messaging.js?v=20260402a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>
