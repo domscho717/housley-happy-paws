@@ -8552,7 +8552,8 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
         service: service,
         pet_name: petNames || null,
         status: 'in_progress',
-        start_time: startTime
+        start_time: startTime,
+        route_summary: []
       };
       // Debug log removed in audit
       var { data: walkData, error } = await sb.from('walks').insert(insertPayload).select().single();
@@ -9569,8 +9570,12 @@ async function endServiceFromPanel() {
         }
       } catch(e) { console.warn('Tracking points fetch error:', e); }
     }
-    var walkUpdate = { status: 'completed', end_time: endTime };
-    if (routeSummary.length > 0) walkUpdate.route_summary = routeSummary;
+    // Always include route_summary in the update — even an empty array. Old walks
+    // had nullable route_summary; writing [] when there are no points means the
+    // client-side map loader can distinguish "GPS off / no points" (length 0) from
+    // "we never saved anything" (NULL), and a future retry of the same submission
+    // can't accidentally blank a good route.
+    var walkUpdate = { status: 'completed', end_time: endTime, route_summary: routeSummary };
 
     // Recurring vs one-time booking status decision (mirrors the old logic).
     var bookingUpdate = null;
@@ -13815,40 +13820,79 @@ async function _loadReportRouteMap(report) {
   if (!sb) return;
 
   try {
-    // Try to find a completed walk matching this report
+    // Find the walk row for this report. For recurring bookings, ONE booking_id
+    // maps to many walks (one per occurrence), so we have to disambiguate by
+    // matching the walk's start_time against the report's report_date — not
+    // just take "the first row Postgres returns".
     var walkData = null;
-    if (report.booking_id) {
-      var { data: walkByBooking } = await sb.from('walks').select('id, route_summary, status')
-        .eq('booking_id', report.booking_id).eq('status', 'completed').limit(1);
-      if (walkByBooking && walkByBooking.length > 0) walkData = walkByBooking[0];
+    var reportDate = report.report_date || '';
+    // Next-day boundary: walks recorded near midnight should still match.
+    var nextDay = '';
+    if (reportDate) {
+      try {
+        var d = new Date(reportDate + 'T00:00:00');
+        d.setDate(d.getDate() + 1);
+        nextDay = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      } catch (e) { nextDay = ''; }
     }
 
-    // If not found by booking_id, try by client + date
-    if (!walkData && report.client_id && report.report_date) {
-      var { data: walkByDate } = await sb.from('walks').select('id, route_summary, status')
-        .eq('client_id', report.client_id).eq('status', 'completed')
-        .gte('start_time', report.report_date + 'T00:00:00')
-        .lt('start_time', report.report_date + 'T23:59:59')
+    // Attempt 1: booking_id + matching date (covers recurring bookings).
+    if (report.booking_id && reportDate && nextDay) {
+      var q1 = await sb.from('walks')
+        .select('id, route_summary, status, start_time')
+        .eq('booking_id', report.booking_id).eq('status', 'completed')
+        .gte('start_time', reportDate + 'T00:00:00')
+        .lt('start_time', nextDay + 'T00:00:00')
+        .order('start_time', { ascending: false })
         .limit(1);
-      if (walkByDate && walkByDate.length > 0) walkData = walkByDate[0];
+      if (q1.data && q1.data.length > 0) walkData = q1.data[0];
     }
 
-    if (walkData && walkData.route_summary && walkData.route_summary.length > 0) {
-      var pts = walkData.route_summary;
-      var mapDivId = 'report-route-map-' + walkData.id;
-      container.innerHTML = '<div style="margin-top:16px">' +
-        '<div style="font-weight:700;font-size:0.88rem;margin-bottom:8px">🗺️ Walk Route</div>' +
-        '<div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--border)">' +
-        '<div id="' + mapDivId + '" style="height:250px;background:#e8e0d0"></div>' +
-        '</div>' +
-        '<div style="font-size:0.75rem;color:var(--mid);margin-top:6px">' + pts.length + ' GPS points recorded during this walk</div>' +
-        '</div>';
-      // Ensure Leaflet is loaded then render
-      if (typeof _loadLeaflet === 'function') {
-        _loadLeaflet(function() { _renderRouteMap(mapDivId, pts); });
-      } else if (typeof L !== 'undefined') {
-        setTimeout(function() { _renderRouteMap(mapDivId, pts); }, 300);
-      }
+    // Attempt 2: booking_id only (one-time bookings), newest walk first.
+    if (!walkData && report.booking_id) {
+      var q2 = await sb.from('walks')
+        .select('id, route_summary, status, start_time')
+        .eq('booking_id', report.booking_id).eq('status', 'completed')
+        .order('start_time', { ascending: false })
+        .limit(1);
+      if (q2.data && q2.data.length > 0) walkData = q2.data[0];
+    }
+
+    // Attempt 3: client_id + report_date (no booking link), with corrected day boundary.
+    if (!walkData && report.client_id && reportDate && nextDay) {
+      var q3 = await sb.from('walks')
+        .select('id, route_summary, status, start_time')
+        .eq('client_id', report.client_id).eq('status', 'completed')
+        .gte('start_time', reportDate + 'T00:00:00')
+        .lt('start_time', nextDay + 'T00:00:00')
+        .order('start_time', { ascending: false })
+        .limit(1);
+      if (q3.data && q3.data.length > 0) walkData = q3.data[0];
+    }
+
+    if (!walkData) {
+      console.log('[route-map] no walk row found for report', report.id);
+      return;
+    }
+    if (!walkData.route_summary || walkData.route_summary.length === 0) {
+      console.log('[route-map] walk', walkData.id, 'has no route_summary (GPS may have been denied or no points recorded)');
+      return;
+    }
+
+    var pts = walkData.route_summary;
+    var mapDivId = 'report-route-map-' + walkData.id;
+    container.innerHTML = '<div style="margin-top:16px">' +
+      '<div style="font-weight:700;font-size:0.88rem;margin-bottom:8px">🗺️ Walk Route</div>' +
+      '<div style="position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--border)">' +
+      '<div id="' + mapDivId + '" style="height:250px;background:#e8e0d0"></div>' +
+      '</div>' +
+      '<div style="font-size:0.75rem;color:var(--mid);margin-top:6px">' + pts.length + ' GPS points recorded during this walk</div>' +
+      '</div>';
+    // Ensure Leaflet is loaded then render
+    if (typeof _loadLeaflet === 'function') {
+      _loadLeaflet(function() { _renderRouteMap(mapDivId, pts); });
+    } else if (typeof L !== 'undefined') {
+      setTimeout(function() { _renderRouteMap(mapDivId, pts); }, 300);
     }
   } catch (e) {
     console.warn('Route map load error:', e);
