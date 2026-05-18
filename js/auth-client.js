@@ -179,10 +179,47 @@ const HHP_Auth = window.HHP_Auth = {
         this._initialLoad = false;
         this._handledSessionId = session.user.id;
 
+        // Start the owner/staff portal-presence heartbeat. The server uses
+        // profiles.last_seen_at to decide whether to email Rachel on new
+        // client messages — within 5 min = "she's chatting live, don't spam".
+        if (this.currentRole === 'owner' || this.currentRole === 'staff') {
+            this._startPresenceHeartbeat();
+        }
+
         // Check if client needs to set up their first pet profile
         if (this.currentRole === 'client' && typeof checkNeedsPetSetup === 'function') {
             setTimeout(checkNeedsPetSetup, 800);
         }
+    },
+
+    // ── Presence heartbeat — fires on portal load, focus, and every 60s ──
+    _heartbeatInterval: null,
+    _heartbeatFocusBound: null,
+    _heartbeat() {
+        if (!this.currentUser) return;
+        if (this.currentRole !== 'owner' && this.currentRole !== 'staff') return;
+        var self = this;
+        // Fire-and-forget; a missed update isn't fatal — next tick will retry.
+        try {
+            this.supabase.from('profiles')
+                .update({ last_seen_at: new Date().toISOString() })
+                .eq('user_id', this.currentUser.id)
+                .then(function(res) {
+                    if (res && res.error) console.warn('[presence] heartbeat error:', res.error.message);
+                });
+        } catch (e) { console.warn('[presence] heartbeat exception:', e); }
+    },
+    _startPresenceHeartbeat() {
+        if (this._heartbeatInterval) return; // already running
+        var self = this;
+        this._heartbeat();
+        this._heartbeatFocusBound = function() { self._heartbeat(); };
+        window.addEventListener('focus', this._heartbeatFocusBound);
+        this._heartbeatInterval = setInterval(function() { self._heartbeat(); }, 60000);
+    },
+    _stopPresenceHeartbeat() {
+        if (this._heartbeatInterval) { clearInterval(this._heartbeatInterval); this._heartbeatInterval = null; }
+        if (this._heartbeatFocusBound) { window.removeEventListener('focus', this._heartbeatFocusBound); this._heartbeatFocusBound = null; }
     },
 
     // ── Route user to their portal based on role ──
@@ -301,6 +338,8 @@ const HHP_Auth = window.HHP_Auth = {
         try { if (window.HHP_Messaging && window.HHP_Messaging.cleanup) window.HHP_Messaging.cleanup(); } catch(e) { console.warn('Messaging cleanup:', e); }
         try { if (window.HHP_Notif && window.HHP_Notif.cleanup) window.HHP_Notif.cleanup(); } catch(e) { console.warn('Notif cleanup:', e); }
         try { if (window.HHP_ServiceTimer) window.HHP_ServiceTimer.stopTimer(); } catch(e) {}
+        // Stop the presence heartbeat so it doesn't keep stamping last_seen_at after sign-out.
+        try { this._stopPresenceHeartbeat(); } catch(e) {}
         // Clean up deals realtime subscription
         try { if (window._dealsRealtimeChannel) { window._dealsRealtimeChannel.unsubscribe(); window._dealsRealtimeChannel = null; window._dealsRealtimeSubscribed = false; } } catch(e) {}
         // Remove any orphaned modals

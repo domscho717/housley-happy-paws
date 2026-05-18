@@ -289,6 +289,24 @@
       if (typeof toast === 'function') toast('Failed to send message. Please try again.');
       return null;
     }
+
+    // Fire-and-forget: ask the server to email the recipient if they're an
+    // owner who hasn't been in the portal recently. The endpoint itself
+    // suppresses emails when the owner is active (last_seen_at within 5min),
+    // so this is safe to call on every send — even owner→client messages
+    // (the server will see "recipient is not owner" and skip).
+    try {
+      fetch('/api/message-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientId: recipientUserId,
+          senderId: user.id,
+          messagePreview: body.trim().substring(0, 140)
+        })
+      }).catch(function(e) { console.warn('message-notification failed:', e); });
+    } catch (e) { console.warn('message-notification dispatch error:', e); }
+
     return data;
   }
 
