@@ -600,14 +600,18 @@
       '      <input type="hidden" id="brm-date" value="">',
       '      <input type="hidden" id="brm-enddate" value="">',
       '      <div id="brm-enddate-col" style="display:none"></div>',
+      // Note: each select has explicit inline width/sizing because iOS Safari computes
+      // its native <select> hit-box wrong when the select is inside a flex column and
+      // relies only on class-based width:100%. Inline display:block + width:100% +
+      // 16px font fixes the "tap does nothing" bug on iPhones.
       '      <div class="brm-row" id="brm-hs-times-row">',
       '        <div class="brm-col">',
       '          <label class="brm-label">Arrival Time *</label>',
-      '          <select id="brm-hs-arrival" class="brm-input"><option value="">Select arrival time</option></select>',
+      '          <select id="brm-hs-arrival" class="brm-input" style="display:block;width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:10px 12px;margin:0"><option value="">Select arrival time</option></select>',
       '        </div>',
       '        <div class="brm-col">',
       '          <label class="brm-label">Departure Time *</label>',
-      '          <select id="brm-hs-departure" class="brm-input"><option value="">Select departure time</option></select>',
+      '          <select id="brm-hs-departure" class="brm-input" style="display:block;width:100%;box-sizing:border-box;font-size:16px;min-height:44px;padding:10px 12px;margin:0"><option value="">Select departure time</option></select>',
       '        </div>',
       '      </div>',
       '      <div id="brm-hs-nights-row" style="text-align:center;padding:8px 0;font-size:0.9rem;font-weight:600;color:#6b5c4d"></div>',
