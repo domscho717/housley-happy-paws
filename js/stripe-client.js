@@ -54,13 +54,37 @@ const HHP_Stripe = window.HHP_Stripe = {
   },
 
   /**
-   * Send a real Stripe invoice to a client
+   * Send a real Stripe invoice to a client.
+   * The /api/create-invoice-link endpoint requires an owner/staff bearer token —
+   * a missing/stale token silently 401'd and looked like "the button does nothing".
    */
   async sendInvoice({ clientName, clientEmail, service, amount, petNames, dueDate, serviceDate, endDate, notes }) {
+    const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    if (!sb) throw new Error('Not signed in — refresh and try again.');
+
+    // Grab the current token; if it's missing or about to expire, refresh once.
+    let token = '';
     try {
-      const resp = await fetch('/api/create-invoice-link', {
+      const { data: { session } } = await sb.auth.getSession();
+      token = session && session.access_token ? session.access_token : '';
+      if (!token) {
+        const refreshed = await sb.auth.refreshSession();
+        token = refreshed && refreshed.data && refreshed.data.session ? refreshed.data.session.access_token : '';
+      }
+    } catch (sessErr) {
+      console.error('Invoice auth session error:', sessErr);
+      throw new Error('Could not read your login session. Please refresh and sign in again.');
+    }
+    if (!token) throw new Error('Your session expired. Refresh the page and sign in again.');
+
+    let resp;
+    try {
+      resp = await fetch('/api/create-invoice-link', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
         body: JSON.stringify({
           clientName,
           clientEmail,
@@ -73,18 +97,24 @@ const HHP_Stripe = window.HHP_Stripe = {
           notes: notes || '',
         }),
       });
-
-      const data = await resp.json();
-
-      if (data.success) {
-        return data;
-      } else {
-        throw new Error(data.error || 'Failed to create invoice');
-      }
-    } catch (err) {
-      console.error('Invoice error:', err);
-      throw err;
+    } catch (netErr) {
+      console.error('Invoice network error:', netErr);
+      throw new Error('Network error — could not reach the invoice service.');
     }
+
+    let data = {};
+    try { data = await resp.json(); } catch (parseErr) { console.error('Invoice response parse error:', parseErr); }
+
+    if (!resp.ok) {
+      const msg = (data && data.error) ? data.error : ('Invoice service returned ' + resp.status);
+      console.error('Invoice API error:', resp.status, data);
+      throw new Error(msg);
+    }
+    if (!data.success) {
+      console.error('Invoice API non-success:', data);
+      throw new Error(data.error || 'Invoice creation failed — see console.');
+    }
+    return data;
   },
 
   /**
