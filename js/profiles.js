@@ -194,13 +194,20 @@ async function showClientProfile(profileId) {
       '<div style="margin-bottom:24px">' + petsHtml + '</div>' +
 
       // --- Booking History ---
+      // Completed rows are clickable \u2014 Rachel wanted one-tap access to the
+      // report card from the client's history. viewCompletedReport already
+      // exists; we just wire the click. Cursor hint via hover-row class.
       '<h3 style="color:var(--forest);border-bottom:2px solid var(--gold-light);padding-bottom:8px;margin-bottom:12px">\uD83D\uDCC5 Booking History (' + bookings.length + ')</h3>' +
       '<div style="margin-bottom:24px;max-height:250px;overflow-y:auto;">' +
         (bookings.length ? bookings.map(function(b) {
           var bkStatusColor = b.status === 'confirmed' ? '#166534' : b.status === 'cancelled' ? '#991b1b' : b.status === 'completed' ? '#166534' : '#92400e';
           var bkDate = b.date ? new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-          return '<div style="padding:10px 12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center">' +
-            '<div><div style="font-size:0.88rem;font-weight:600">' + (b.service || b.service_type || 'Appointment') + '</div>' +
+          var isCompleted = b.status === 'completed';
+          var clickAttr = isCompleted
+            ? ' onclick="viewCompletedReport(\'' + b.id + '\')" style="padding:10px 12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'#fdf7ee\'" onmouseout="this.style.background=\'\'"'
+            : ' style="padding:10px 12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center"';
+          return '<div' + clickAttr + '>' +
+            '<div><div style="font-size:0.88rem;font-weight:600">' + (b.service || b.service_type || 'Appointment') + (isCompleted ? ' <span style="font-size:0.7rem;color:var(--gold-deep);font-weight:600">\u00B7 View report \u2192</span>' : '') + '</div>' +
             '<div style="font-size:0.76rem;color:var(--mid)">' + bkDate + (b.time_slot ? ' \u00B7 ' + b.time_slot : '') + (b.pet_names ? ' \u00B7 ' + b.pet_names : '') + '</div></div>' +
             '<span style="color:' + bkStatusColor + ';font-weight:600;font-size:0.78rem;text-transform:uppercase;background:' + bkStatusColor + '15;padding:2px 8px;border-radius:6px">' + (b.status || 'pending') + '</span>' +
           '</div>';

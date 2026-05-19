@@ -5486,31 +5486,37 @@ async function showActivityDetail(index) {
 
 function _escH(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
-// ── Detect bathroom breaks (pee/poo) from report notes, optionally per-pet ──
-function detectBathroomBreaks(noteText, petNamesStr) {
-  if (!noteText) return null;
-  var lower = noteText.toLowerCase();
+// ── Detect bathroom breaks + food/water from report notes, optionally per-pet ──
+// Returns null if nothing detected, else { summary: [{ pet, pee, poo, food, water }, ...] }.
+// food_count / water_count columns on service_reports were added in migration
+// 002 — when explicit counts come from the report form, callers can pass them
+// in via the optional `manual` arg to override the text-based heuristic.
+function detectBathroomBreaks(noteText, petNamesStr, manual) {
   var peeWords = ['pee', 'peed', 'peeing', 'pees', 'potty', '#1', 'urinate', 'urinated', 'tinkle', 'tinkled', 'pee break', 'bathroom break'];
   var pooWords = ['poo', 'pooed', 'poop', 'pooped', 'pooping', 'poops', '#2', 'bowel', 'did her business', 'did his business', 'went potty', 'number two', 'number 2'];
-  var hasPee = peeWords.some(function(w) { return lower.indexOf(w) !== -1; });
-  var hasPoo = pooWords.some(function(w) { return lower.indexOf(w) !== -1; });
-  if (!hasPee && !hasPoo) return null;
+  var foodWords = ['ate', 'eaten', 'eating', 'eats', 'food', 'meal', 'fed', 'breakfast', 'dinner', 'snack', 'snacks', 'snacked', 'treat', 'treats', 'kibble'];
+  var waterWords = ['drank', 'drinking', 'drinks', 'drink', 'water break', 'water bowl', 'hydrated', 'sip', 'sipped', 'sipping'];
+  var manualPee = manual && typeof manual.pee === 'number' ? manual.pee : null;
+  var manualPoo = manual && typeof manual.poo === 'number' ? manual.poo : null;
+  var manualFood = manual && typeof manual.food === 'number' ? manual.food : null;
+  var manualWater = manual && typeof manual.water === 'number' ? manual.water : null;
 
-  // Count occurrences
-  var peeCount = 0, pooCount = 0;
-  peeWords.forEach(function(w) {
-    var idx = 0;
-    while ((idx = lower.indexOf(w, idx)) !== -1) { peeCount++; idx += w.length; }
-  });
-  pooWords.forEach(function(w) {
-    var idx = 0;
-    while ((idx = lower.indexOf(w, idx)) !== -1) { pooCount++; idx += w.length; }
-  });
-  // Cap at reasonable counts (some words overlap)
-  peeCount = Math.min(peeCount, 5);
-  pooCount = Math.min(pooCount, 5);
+  var lower = (noteText || '').toLowerCase();
+  function countAll(words) {
+    var n = 0;
+    words.forEach(function(w) {
+      var idx = 0;
+      while ((idx = lower.indexOf(w, idx)) !== -1) { n++; idx += w.length; }
+    });
+    return Math.min(n, 5);
+  }
+  var peeCount = manualPee !== null ? manualPee : countAll(peeWords);
+  var pooCount = manualPoo !== null ? manualPoo : countAll(pooWords);
+  var foodCount = manualFood !== null ? manualFood : countAll(foodWords);
+  var waterCount = manualWater !== null ? manualWater : countAll(waterWords);
 
-  // Try per-pet attribution if multiple pets
+  if (peeCount === 0 && pooCount === 0 && foodCount === 0 && waterCount === 0) return null;
+
   var pets = [];
   if (petNamesStr) {
     petNamesStr.split(/[,&]/).forEach(function(p) {
@@ -5520,40 +5526,58 @@ function detectBathroomBreaks(noteText, petNamesStr) {
   }
 
   if (pets.length <= 1) {
-    // Single pet or no pet names — generic badges
-    return { summary: [{ pet: pets[0] || null, pee: hasPee ? Math.max(peeCount, 1) : 0, poo: hasPoo ? Math.max(pooCount, 1) : 0 }] };
+    return { summary: [{
+      pet: pets[0] || null,
+      pee: peeCount, poo: pooCount, food: foodCount, water: waterCount
+    }] };
   }
 
-  // Multiple pets — try to attribute per sentence
-  var sentences = noteText.split(/[.!?\n]+/);
+  // Multiple pets — try to attribute per sentence (only meaningful when we
+  // don't have manual counts; with manual counts we just split evenly).
   var petBreaks = {};
-  pets.forEach(function(name) { petBreaks[name] = { pee: 0, poo: 0 }; });
+  pets.forEach(function(name) { petBreaks[name] = { pee: 0, poo: 0, food: 0, water: 0 }; });
 
-  sentences.forEach(function(sentence) {
-    var sl = sentence.toLowerCase();
-    var sentencePee = peeWords.some(function(w) { return sl.indexOf(w) !== -1; });
-    var sentencePoo = pooWords.some(function(w) { return sl.indexOf(w) !== -1; });
-    if (!sentencePee && !sentencePoo) return;
-
-    var mentionedPets = pets.filter(function(name) { return sl.indexOf(name.toLowerCase()) !== -1; });
-    if (mentionedPets.length === 0) mentionedPets = pets; // Can't tell — attribute to all
-
-    mentionedPets.forEach(function(name) {
-      if (sentencePee) petBreaks[name].pee++;
-      if (sentencePoo) petBreaks[name].poo++;
+  if (manualPee !== null || manualPoo !== null || manualFood !== null || manualWater !== null) {
+    // Distribute manual counts evenly across pets so the badges still render.
+    pets.forEach(function(name) {
+      petBreaks[name].pee = Math.round(peeCount / pets.length);
+      petBreaks[name].poo = Math.round(pooCount / pets.length);
+      petBreaks[name].food = Math.round(foodCount / pets.length);
+      petBreaks[name].water = Math.round(waterCount / pets.length);
     });
-  });
+  } else {
+    var sentences = (noteText || '').split(/[.!?\n]+/);
+    sentences.forEach(function(sentence) {
+      var sl = sentence.toLowerCase();
+      var s = {
+        pee: peeWords.some(function(w) { return sl.indexOf(w) !== -1; }),
+        poo: pooWords.some(function(w) { return sl.indexOf(w) !== -1; }),
+        food: foodWords.some(function(w) { return sl.indexOf(w) !== -1; }),
+        water: waterWords.some(function(w) { return sl.indexOf(w) !== -1; }),
+      };
+      if (!s.pee && !s.poo && !s.food && !s.water) return;
+      var mentioned = pets.filter(function(name) { return sl.indexOf(name.toLowerCase()) !== -1; });
+      if (mentioned.length === 0) mentioned = pets;
+      mentioned.forEach(function(name) {
+        if (s.pee) petBreaks[name].pee++;
+        if (s.poo) petBreaks[name].poo++;
+        if (s.food) petBreaks[name].food++;
+        if (s.water) petBreaks[name].water++;
+      });
+    });
+  }
 
   var summary = [];
   pets.forEach(function(name) {
     var b = petBreaks[name];
-    if (b.pee > 0 || b.poo > 0) summary.push({ pet: name, pee: b.pee, poo: b.poo });
+    if (b.pee > 0 || b.poo > 0 || b.food > 0 || b.water > 0) summary.push({
+      pet: name, pee: b.pee, poo: b.poo, food: b.food, water: b.water
+    });
   });
-
   return summary.length > 0 ? { summary: summary } : null;
 }
 
-// Render bathroom break badges as HTML
+// Render bathroom + food/water badges as HTML
 // forClient = true strips emojis for client-facing reports
 function renderBathroomBadges(breaks, compact, forClient) {
   if (!breaks || !breaks.summary || breaks.summary.length === 0) return '';
@@ -5568,6 +5592,12 @@ function renderBathroomBadges(breaks, compact, forClient) {
     }
     if (b.poo > 0) {
       html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '💩 ') + b.poo + ' poo break' + (b.poo > 1 ? 's' : '') + '</span>';
+    }
+    if (b.food > 0) {
+      html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '🍽 ') + b.food + ' meal' + (b.food > 1 ? 's' : '') + '</span>';
+    }
+    if (b.water > 0) {
+      html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '🥛 ') + b.water + ' water break' + (b.water > 1 ? 's' : '') + '</span>';
     }
   });
   html += '</div>';
@@ -6882,6 +6912,32 @@ function buildCalendar(containerId, year, month) {
     if(holiday) html += `<div style="font-size:0.6rem;line-height:1.15;color:#7B1FA2;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🎉 ${holiday}</div>`;
     // "Unavailable" tag — wraps onto two lines on tight cells so the word never gets cut off
     if(isOwnerBlocked && !(ev?.type==='off')) html += '<div style="font-size:0.58rem;color:var(--rose);font-weight:700;line-height:1.05;text-align:center;word-break:keep-all">Unavailable</div>';
+    // Owner/staff: small service-type count row ("🦮 2 · 🐾 1 · 🏡 1") so Rachel
+    // can glance at a day and see how many of each service-type she has.
+    // Skip canceled bookings from the count. Only render when ≥1 active.
+    if ((isOwner || isStaff) && ev && ev.bookings && ev.bookings.length > 0) {
+      var _cnt = { walks: 0, dropIns: 0, houseSit: 0, daycare: 0, boarding: 0, other: 0 };
+      ev.bookings.forEach(function(bk) {
+        if (bk.status === 'canceled') return;
+        var sv = (bk.service || '').toLowerCase();
+        if (sv.indexOf('walk') !== -1) _cnt.walks++;
+        else if (sv.indexOf('drop') !== -1 || sv.indexOf('cat care') !== -1) _cnt.dropIns++;
+        else if (sv.indexOf('house') !== -1 || sv.indexOf('sit') !== -1) _cnt.houseSit++;
+        else if (sv.indexOf('day care') !== -1 || sv.indexOf('daycare') !== -1) _cnt.daycare++;
+        else if (sv.indexOf('boarding') !== -1) _cnt.boarding++;
+        else _cnt.other++;
+      });
+      var _badgeParts = [];
+      if (_cnt.walks) _badgeParts.push('🦮 ' + _cnt.walks);
+      if (_cnt.dropIns) _badgeParts.push('🐾 ' + _cnt.dropIns);
+      if (_cnt.houseSit) _badgeParts.push('🏡 ' + _cnt.houseSit);
+      if (_cnt.daycare) _badgeParts.push('☀️ ' + _cnt.daycare);
+      if (_cnt.boarding) _badgeParts.push('🌙 ' + _cnt.boarding);
+      if (_cnt.other) _badgeParts.push('📅 ' + _cnt.other);
+      if (_badgeParts.length > 0) {
+        html += '<div class="cal-svc-counts" style="font-size:0.6rem;line-height:1.15;color:var(--forest,#3d5a47);font-weight:600;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _badgeParts.join(' · ') + '</div>';
+      }
+    }
     // Hide booking labels on the public calendar (privacy)
     if(ev && !isPublic) html += `<div class="cal-event-dot">${ev.label}</div>`;
     html += '</div>';
@@ -8878,9 +8934,11 @@ function addLspPetRow(petName, pronounKey) {
     '<div style="margin-bottom:8px"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Name</div><input class="lsp-petName" placeholder="e.g. Buddy" value="' + (petName || '') + '" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)"></div>' +
     '<div style="display:flex;gap:12px;align-items:flex-start">' +
       '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pronouns</div><select class="lsp-pronoun" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)"><option value="he"' + (pronounKey === 'he' ? ' selected' : '') + '>He / Him</option><option value="she"' + (!pronounKey || pronounKey === 'she' ? ' selected' : '') + '>She / Her</option><option value="they"' + (pronounKey === 'they' ? ' selected' : '') + '>They / Them</option></select></div>' +
-      '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Potty</div><div style="display:flex;gap:12px;padding-top:6px">' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-pee" checked> Pee</label>' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-poo"> Poo</label>' +
+      '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Activity</div><div style="display:flex;flex-wrap:wrap;gap:8px 12px;padding-top:6px">' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-pee" checked> 💧 Pee</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-poo"> 💩 Poo</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-food"> 🍽 Food</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-water"> 🥛 Water</label>' +
       '</div></div>' +
     '</div>';
   container.appendChild(div);
@@ -8895,8 +8953,10 @@ function _getLspPetData() {
     var pronounKey = row.querySelector('.lsp-pronoun')?.value || 'she';
     var pee = row.querySelector('.lsp-pee')?.checked;
     var poo = row.querySelector('.lsp-poo')?.checked;
+    var food = row.querySelector('.lsp-food')?.checked;
+    var water = row.querySelector('.lsp-water')?.checked;
     var potty = (pee && poo) ? 'both' : pee ? 'pee' : poo ? 'poo' : 'none';
-    pets.push({ name: name, pronounKey: pronounKey, potty: potty });
+    pets.push({ name: name, pronounKey: pronounKey, potty: potty, food: !!food, water: !!water });
   });
   return pets;
 }
@@ -9267,10 +9327,10 @@ async function submitHouseSittingReport(bookingId, clientId) {
     var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Rachel';
     var effectiveClientId = clientId || booking.client_id;
     if (effectiveClientId) {
-      var endMsg = '✅ ' + staffName + ' has completed ' + (petNames ? petNames + '\'s ' : 'your ') + service + '!\n';
+      var endMsg = '✅ ' + staffName + ' has completed ' + (petNames ? petNames + '\'s ' : 'your ') + service + '!\n\n';
       endMsg += '🏡 Stay: ' + duration + ' (' + stayStart + ' to ' + stayEnd + ')';
-      if (mood) endMsg += '\n😊 Mood: ' + mood;
-      if (notes) endMsg += '\n📝 Notes: ' + notes;
+      if (mood) endMsg += '\n\n😊 Mood: ' + mood;
+      if (notes) endMsg += '\n\n📝 Notes: ' + notes;
       endMsg += '\n\nYou can view the full report in your portal under Walk Reports.';
       try {
         await sb.from('messages').insert({
@@ -9449,12 +9509,48 @@ async function endServiceFromPanel() {
   //  the recovery banner on next portal load can resend.
   // ============================================================
   var staffName = (user.user_metadata && user.user_metadata.full_name) || user.email || 'Your care team';
-  var clientMessageBody = '✅ ' + staffName + ' has completed ' + (reportPets ? reportPets + '\'s ' : 'your ') + reportService + '!\n' +
+  // Double-newline between sections so the completion message reads as a
+  // bulleted list, not one wall of text (BUG 10).
+  var clientMessageBody = '✅ ' + staffName + ' has completed ' + (reportPets ? reportPets + '\'s ' : 'your ') + reportService + '!\n\n' +
     '⏱ Duration: ' + durMin + ' min (' + arrivalStr + ' – ' + departureStr + ')' +
-    (distanceVal ? '\n📏 Distance: ' + distanceVal : '') +
-    (mood ? '\n😊 Mood: ' + mood : '') +
-    (notes ? '\n📝 Notes: ' + notes : '') +
+    (distanceVal ? '\n\n📏 Distance: ' + distanceVal : '') +
+    (mood ? '\n\n😊 Mood: ' + mood : '') +
+    (notes ? '\n\n📝 Notes: ' + notes : '') +
     '\n\nYou can view the full report in your portal under Walk Reports.';
+
+  // Aggregate pee/poo/food/water from the per-pet rows in the live-service
+  // panel (boolean checkboxes per pet) AND from any keywords in the notes
+  // ('ate', 'water', etc). Manual checkboxes win when present.
+  var _lspPetCounts = (typeof _getLspPetData === 'function') ? _getLspPetData() : [];
+  function _sumLspCounts(field) {
+    if (!_lspPetCounts.length) return null;
+    return _lspPetCounts.reduce(function(s, p) { return s + (p[field] ? 1 : 0); }, 0);
+  }
+  function _sumPottyCounts() {
+    if (!_lspPetCounts.length) return { pee: null, poo: null };
+    var pee = 0, poo = 0;
+    _lspPetCounts.forEach(function(p) {
+      if (p.potty === 'pee' || p.potty === 'both') pee++;
+      if (p.potty === 'poo' || p.potty === 'both') poo++;
+    });
+    return { pee: pee, poo: poo };
+  }
+  var _potty = _sumPottyCounts();
+  var _foodCount = _sumLspCounts('food');
+  var _waterCount = _sumLspCounts('water');
+  // Run the heuristic against the notes too, allowing manual checkboxes to
+  // override. This drives the food_count / water_count column writes.
+  var _manualCounts = (_lspPetCounts.length > 0)
+    ? { pee: _potty.pee, poo: _potty.poo, food: _foodCount, water: _waterCount }
+    : null;
+  var _detected = (typeof detectBathroomBreaks === 'function') ? detectBathroomBreaks(notes, reportPets, _manualCounts) : null;
+  var _foodTotal = 0, _waterTotal = 0;
+  if (_detected && _detected.summary) {
+    _detected.summary.forEach(function(b) {
+      _foodTotal += (b.food || 0);
+      _waterTotal += (b.water || 0);
+    });
+  }
 
   var reportData = {
     client_id: d.clientId || null,
@@ -9468,7 +9564,9 @@ async function endServiceFromPanel() {
     mood: mood || null,
     pet_name: reportPets || null,
     personal_note: notes || null,
-    booking_id: d.bookingId || null
+    booking_id: d.bookingId || null,
+    food_count: _foodTotal,
+    water_count: _waterTotal,
     // media gets added by the pipeline once Cloudinary uploads land.
   };
 
@@ -9781,7 +9879,10 @@ async function viewCompletedReport(bookingId) {
     h += fieldRow('Mood', report.mood);
 
     // Bathroom break badges
-    var _bb = detectBathroomBreaks(report.personal_note, report.pet_name);
+    var _bb = detectBathroomBreaks(report.personal_note, report.pet_name, {
+      food: typeof report.food_count === 'number' ? report.food_count : undefined,
+      water: typeof report.water_count === 'number' ? report.water_count : undefined,
+    });
     if (_bb) {
       h += '<div style="margin-bottom:12px">' + renderBathroomBadges(_bb, false) + '</div>';
     }
@@ -12137,7 +12238,7 @@ async function showClientProfile(profileId) {
       : _cUid ? 'client_id.eq.' + _cUid : 'client_email.eq.' + _cEmail;
     var [petsRes, bookingsRes, paymentsRes] = await Promise.all([
       sb.from('pets').select('*').eq('owner_id', client.user_id).order('name'),
-      sb.from('booking_requests').select('service,preferred_date,preferred_time,status,estimated_total').eq('client_id', client.user_id).order('preferred_date', { ascending: false }).limit(10),
+      sb.from('booking_requests').select('id,service,preferred_date,preferred_time,status,estimated_total').eq('client_id', client.user_id).order('preferred_date', { ascending: false }).limit(10),
       sb.from('payments').select('service,amount,status,paid_at')
         .or(paymentsOrFilter)
         .order('paid_at', { ascending: false }),
@@ -12232,8 +12333,13 @@ async function showClientProfile(profileId) {
         var d = new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         var t = (typeof fmt12h === 'function') ? fmt12h(b.preferred_time || '') : (b.preferred_time || '');
         var sCol = b.status === 'completed' ? 'var(--forest)' : b.status === 'accepted' ? '#2563eb' : b.status === 'pending' ? '#c8963e' : b.status === 'canceled' ? '#dc2626' : 'var(--mid)';
-        h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem">';
-        h += '<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + b.service + '</div><div style="font-size:0.72rem;color:var(--mid)">' + d + (t ? ' at ' + t : '') + '</div></div>';
+        // Completed rows open the report card — viewCompletedReport handles
+        // the lookup. Other statuses stay non-clickable for now.
+        var rowOpen = (b.status === 'completed' && b.id)
+          ? '<div onclick="document.getElementById(\'client-profile-modal\').remove();viewCompletedReport(\'' + b.id + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem;cursor:pointer" onmouseover="this.style.background=\'#fdf7ee\'" onmouseout="this.style.background=\'\'">'
+          : '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.82rem">';
+        h += rowOpen;
+        h += '<div style="flex:1;min-width:0"><div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + b.service + (b.status === 'completed' ? ' <span style="font-size:0.66rem;color:var(--gold-deep);font-weight:600">· View →</span>' : '') + '</div><div style="font-size:0.72rem;color:var(--mid)">' + d + (t ? ' at ' + t : '') + '</div></div>';
         h += '<div style="text-align:right;flex-shrink:0;margin-left:8px"><span style="display:inline-block;font-size:0.68rem;font-weight:700;color:' + sCol + ';text-transform:uppercase;background:' + sCol + '15;padding:2px 6px;border-radius:4px">' + b.status + '</span>';
         if (b.estimated_total) h += '<div style="font-size:0.78rem;color:var(--forest);font-weight:600;margin-top:2px">$' + parseFloat(b.estimated_total).toFixed(2) + '</div>';
         h += '</div></div>';
@@ -12428,6 +12534,23 @@ async function submitBoardingInterest() {
     existing.entries.push({ name: name, contact: contact, pet: pet, type: type, notes: notes, date: new Date().toISOString() });
     await _saveSiteContent('interest_boarding', existing);
   }
+  // Fire-and-forget email to Rachel — same pattern as submitInterest().
+  // Without this, signups landed in site_content silently and Rachel
+  // missed them entirely.
+  try {
+    fetch('/api/interest-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service: 'boarding',
+        name: name,
+        contact: contact,
+        pet: pet,
+        type: type,
+        notes: notes,
+      })
+    }).catch(function(e) { console.error('Boarding interest email failed:', e); });
+  } catch (emailErr) { console.error('Boarding interest email error:', emailErr); }
   closeModal('boardingInterestModal');
   toast('🎉 Thank you! Rachel will reach out soon about boarding & day care.');
 }
@@ -13675,7 +13798,7 @@ async function loadClientReports() {
           '</div>' +
           '<div style="font-size:1.2rem">' + (moodEmoji[r.mood] || '😄') + '</div>' +
         '</div>' +
-        (function() { var bb = detectBathroomBreaks(r.personal_note, r.pet_name); return bb ? renderBathroomBadges(bb, true, true) : ''; })() +
+        (function() { var bb = detectBathroomBreaks(r.personal_note, r.pet_name, { food: typeof r.food_count === 'number' ? r.food_count : undefined, water: typeof r.water_count === 'number' ? r.water_count : undefined }); return bb ? renderBathroomBadges(bb, true, true) : ''; })() +
         (r.personal_note ? '<div style="font-size:0.84rem;color:var(--ink);line-height:1.6;margin-top:6px">' + r.personal_note.substring(0, 150) + (r.personal_note.length > 150 ? '...' : '') + '</div>' : '') +
         thumbsHtml +
         (mediaCount > 0 ? '<div style="font-size:0.72rem;color:var(--mid);margin-top:8px">📷 ' + mediaCount + ' photo' + (mediaCount !== 1 ? 's' : '') + '/video' + (mediaCount !== 1 ? 's' : '') + '</div>' : '') +
@@ -13736,7 +13859,7 @@ function openReportDetail(reportOrId) {
       '<div class="rstat"><div class="rstat-num">' + (moodEmoji[report.mood] || '😄') + '</div><div class="rstat-lbl">Mood</div></div>' +
     '</div>' +
     photosHtml +
-    (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false, true) + '</div>' : ''; })() +
+    (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name, { food: typeof report.food_count === 'number' ? report.food_count : undefined, water: typeof report.water_count === 'number' ? report.water_count : undefined }); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false, true) + '</div>' : ''; })() +
     '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
     '<div id="reportRouteMapContainer"></div>' +
     '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
@@ -16522,7 +16645,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
   <script src="/js/site-content-client.js?v=20260517e" defer></script>
-  <script src="/js/profiles.js?v=20260517g" defer></script>
+  <script src="/js/profiles.js?v=20260517j" defer></script>
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
