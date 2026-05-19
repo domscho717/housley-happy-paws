@@ -3084,6 +3084,198 @@
     return hr12 + ':' + m + ' ' + ampm;
   }
 
+  // ════════════════════════════════════════════════════════════
+  //  Centralized charge dispatcher
+  //  Every accept-time auto-charge AND every Retry Charge button goes through
+  //  this one function. It always:
+  //   - logs that the charge is firing (so a missing log === code path skipped)
+  //   - validates the HTTP response (not just network failure)
+  //   - on ANY failure marks the affected booking(s) status=payment_hold with
+  //     a visible admin_notes line, so Rachel can find what didn't pay
+  //   - returns { success, message, paymentIntentId, status } so callers can
+  //     toast appropriately. NEVER silently swallows.
+  // ════════════════════════════════════════════════════════════
+  async function _fireAcceptanceCharge(sb, opts) {
+    var bookingRequestId = opts.bookingRequestId;
+    var amount = opts.amount;
+    var service = opts.service;
+    var clientProfileId = opts.clientProfileId;
+    var batchBookingIds = opts.batchBookingIds || null;
+    var label = batchBookingIds ? ('batch[' + batchBookingIds.length + ']') : ('booking ' + (bookingRequestId || '').slice(0, 8));
+    console.log('[charge-on-accept] firing charge for ' + label + ' — $' + Number(amount).toFixed(2));
+
+    function _affectedIds() {
+      if (batchBookingIds && batchBookingIds.length) return batchBookingIds;
+      return bookingRequestId ? [bookingRequestId] : [];
+    }
+
+    async function _markHold(noteText) {
+      var ids = _affectedIds();
+      if (!sb || ids.length === 0) return;
+      try {
+        // Preserve any existing admin_notes — append rather than overwrite.
+        var { data: existing } = await sb.from('booking_requests').select('id, admin_notes').in('id', ids);
+        var updates = (existing || []).map(function(row) {
+          var prefix = row.admin_notes ? row.admin_notes + '\n' : '';
+          return sb.from('booking_requests').update({
+            status: 'payment_hold',
+            admin_notes: prefix + '⚠️ ' + noteText,
+            last_charge_attempt: new Date().toISOString(),
+          }).eq('id', row.id);
+        });
+        await Promise.all(updates);
+      } catch (markErr) {
+        console.error('[charge-on-accept] failed to mark payment_hold:', markErr);
+      }
+    }
+
+    var token = '';
+    try {
+      var sess = sb ? await sb.auth.getSession() : null;
+      token = sess && sess.data && sess.data.session ? sess.data.session.access_token : '';
+      // If the session looks expired, try refresh once before giving up.
+      if (!token && sb) {
+        var refreshed = await sb.auth.refreshSession();
+        token = refreshed && refreshed.data && refreshed.data.session ? refreshed.data.session.access_token : '';
+      }
+    } catch (sessErr) {
+      console.error('[charge-on-accept] session lookup error:', sessErr);
+    }
+    if (!token) {
+      console.error('[charge-on-accept] no auth token — aborting charge for ' + label);
+      await _markHold('Auto-charge aborted: not signed in / session expired.');
+      if (typeof toast === 'function') toast('⚠️ Card NOT charged — your session expired. Sign back in and use Retry Charge.', 'error');
+      return { success: false, error: 'no_session' };
+    }
+
+    var resp, data;
+    try {
+      resp = await fetch('/api/charge-saved-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({
+          bookingRequestId: bookingRequestId || null,
+          amount: amount,
+          service: service || 'Pet Care',
+          clientProfileId: clientProfileId,
+          batchBookingIds: batchBookingIds || undefined,
+        }),
+      });
+    } catch (netErr) {
+      console.error('[charge-on-accept] network error:', netErr);
+      await _markHold('Auto-charge network error: ' + (netErr.message || 'unknown'));
+      if (typeof toast === 'function') toast('⚠️ Card NOT charged — network error. Use Retry Charge.', 'error');
+      return { success: false, error: 'network', message: netErr.message };
+    }
+
+    try { data = await resp.json(); } catch (parseErr) { data = {}; console.error('[charge-on-accept] response parse error:', parseErr); }
+
+    if (!resp.ok) {
+      console.error('[charge-on-accept] API ' + resp.status + ':', data);
+      var apiMsg = (data && (data.message || data.error)) || ('HTTP ' + resp.status);
+      await _markHold('Auto-charge failed (' + resp.status + '): ' + apiMsg);
+      if (typeof toast === 'function') toast('⚠️ Card NOT charged — ' + apiMsg + '. Use Retry Charge.', 'error');
+      return { success: false, error: data && data.error || 'http_' + resp.status, message: apiMsg, status: resp.status };
+    }
+
+    if (!data.success) {
+      // 2xx but body says it didn't succeed (e.g. card decline that the API
+      // returns with 402 but somehow got mapped to 200 via Stripe quirks).
+      var msg = data.message || data.error || 'Card declined.';
+      console.error('[charge-on-accept] success=false:', data);
+      await _markHold('Auto-charge declined: ' + msg);
+      if (typeof toast === 'function') toast('⚠️ Card NOT charged — ' + msg + '. Use Retry Charge.', 'error');
+      return { success: false, error: data.error || 'declined', message: msg };
+    }
+
+    console.log('[charge-on-accept] OK for ' + label + ' — pi:', data.paymentIntentId);
+    if (typeof toast === 'function') toast('💳 Card charged $' + Number(amount).toFixed(2) + '!');
+    return { success: true, paymentIntentId: data.paymentIntentId, status: data.status, amount: amount };
+  }
+
+  // Public retry-charge helpers — used by the "💳 Retry Charge" and
+  // "Charge ALL pending" buttons on bookings that ended up stuck on
+  // status='accepted' with no payment_intent_id (i.e. the auto-charge
+  // failed silently at acceptance time on an older build).
+  async function _retryChargeForBooking(bookingId) {
+    var sb = getSB();
+    if (!sb) { if (typeof toast === 'function') toast('Not signed in.'); return { success: false }; }
+    var { data: bk, error } = await sb.from('booking_requests').select('*').eq('id', bookingId).maybeSingle();
+    if (error || !bk) { if (typeof toast === 'function') toast('Booking not found.'); return { success: false }; }
+    if (bk.payment_intent_id) { if (typeof toast === 'function') toast('Already charged.'); return { success: false }; }
+    if (bk.recurrence_pattern) {
+      if (typeof toast === 'function') toast('Recurring booking — bills via Sunday cron, not Retry Charge.');
+      return { success: false };
+    }
+    if (!bk.estimated_total || bk.estimated_total <= 0) {
+      if (typeof toast === 'function') toast('Nothing to charge (estimated_total = $0).');
+      return { success: false };
+    }
+    if (!bk.client_id) {
+      if (typeof toast === 'function') toast('No client linked — cannot charge.');
+      return { success: false };
+    }
+    return _fireAcceptanceCharge(sb, {
+      bookingRequestId: bk.id,
+      amount: bk.estimated_total,
+      service: bk.service,
+      clientProfileId: bk.client_id,
+    });
+  }
+
+  window.retryCharge = async function(bookingId) {
+    var btn = document.querySelector('[data-retry-charge="' + bookingId + '"]');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Charging...'; }
+    var result = await _retryChargeForBooking(bookingId);
+    if (result.success) {
+      if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
+    } else if (btn) {
+      btn.disabled = false;
+      btn.textContent = '💳 Retry Charge';
+    }
+  };
+
+  window.retryAllPendingCharges = async function() {
+    var btn = document.getElementById('hhp-charge-all-pending-btn');
+    if (btn) { btn.disabled = true; btn.dataset._origText = btn.textContent; btn.textContent = '⏳ Charging...'; }
+    var sb = getSB();
+    if (!sb) { if (typeof toast === 'function') toast('Not signed in.'); return; }
+    // Find every accepted booking that's still unpaid (the live regression case
+    // for Kyle Motell's 19 bookings). Exclude recurring — those bill weekly.
+    var { data: stuck, error } = await sb.from('booking_requests')
+      .select('id, estimated_total, contact_name, contact_email')
+      .eq('status', 'accepted')
+      .is('payment_intent_id', null)
+      .is('recurrence_pattern', null)
+      .gt('estimated_total', 0);
+    if (error) {
+      console.error('[charge-all] lookup failed:', error);
+      if (typeof toast === 'function') toast('⚠️ Could not list pending charges — ' + (error.message || 'unknown'), 'error');
+      if (btn) { btn.disabled = false; btn.textContent = btn.dataset._origText || '💳 Charge ALL pending'; }
+      return;
+    }
+    if (!stuck || stuck.length === 0) {
+      if (typeof toast === 'function') toast('No bookings need charging.');
+      if (btn) { btn.disabled = false; btn.textContent = btn.dataset._origText || '💳 Charge ALL pending'; }
+      return;
+    }
+    if (typeof toast === 'function') toast('💳 Charging ' + stuck.length + ' booking' + (stuck.length === 1 ? '' : 's') + '...');
+    var ok = 0, fail = 0;
+    for (var i = 0; i < stuck.length; i++) {
+      if (btn) btn.textContent = '⏳ ' + (i + 1) + '/' + stuck.length + ' ($' + Number(stuck[i].estimated_total).toFixed(2) + ')';
+      var r = await _retryChargeForBooking(stuck[i].id);
+      if (r.success) ok++; else fail++;
+      // Small delay so Stripe doesn't see a burst.
+      await new Promise(function(res) { setTimeout(res, 500); });
+    }
+    if (typeof toast === 'function') {
+      if (fail === 0) toast('✅ Charged all ' + ok + ' bookings');
+      else toast('⚠️ ' + ok + ' charged, ' + fail + ' failed — check payment_hold rows', 'error');
+    }
+    if (btn) { btn.disabled = false; btn.textContent = btn.dataset._origText || '💳 Charge ALL pending'; }
+    if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
+  };
+
   window.HHP_BookingAdmin = {
     currentFilter: 'pending',
     requests: [],
@@ -3580,9 +3772,23 @@
         // the full series total up front. The per-appointment accept path already does this;
         // mirror it here at the top-level accept.
         if (newStatus === 'accepted' && req && req.service && req.estimated_total > 0 && req.client_id && !req.recurrence_pattern) {
+          console.log('[charge-on-accept] HHP_BookingAdmin.updateStatus firing charge for', requestId);
+          // Direct fetch here so we can branch on chargeData.error and feed the
+          // 'cardDeclined' flag into the payment_hold/notify flow further below.
+          // _fireAcceptanceCharge would also toast/mark hold, but this path has
+          // its own retry-card UI + 24h grace-period logic right after.
+          var _chargeOk = false, _chargeErrMsg = '';
           try {
             var _chgSess = sb ? await sb.auth.getSession() : null;
             var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
+            if (!_chgToken) {
+              try {
+                var _refreshed = await sb.auth.refreshSession();
+                _chgToken = _refreshed && _refreshed.data && _refreshed.data.session ? _refreshed.data.session.access_token : '';
+              } catch (_) {}
+            }
+            if (!_chgToken) throw new Error('no_session');
+
             var chargeResp = await fetch('/api/charge-saved-card', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
@@ -3593,28 +3799,38 @@
                 clientProfileId: req.client_id,
               }),
             });
-            var chargeData = await chargeResp.json();
+            var chargeData = await chargeResp.json().catch(function() { return {}; });
 
-            if (chargeData.success) {
+            if (!chargeResp.ok) {
+              console.error('[charge-on-accept] updateStatus HTTP ' + chargeResp.status, chargeData);
+              _chargeErrMsg = (chargeData && (chargeData.message || chargeData.error)) || ('HTTP ' + chargeResp.status);
+            } else if (chargeData.success) {
               autoCharged = true;
+              _chargeOk = true;
               if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + ' automatically!');
-
             } else if (chargeData.error === 'no_card') {
               cardDeclined = true;
               declineMessage = 'No payment method on file. Please add a card to confirm your booking.';
-
             } else if (chargeData.error === 'card_declined') {
               cardDeclined = true;
               declineMessage = chargeData.message || 'Your card was declined. Please update your payment method.';
-
             } else {
               cardDeclined = true;
-              declineMessage = 'Payment could not be processed. Please update your payment method.';
+              declineMessage = chargeData.message || chargeData.error || 'Payment could not be processed. Please update your payment method.';
             }
           } catch (chargeErr) {
-            console.warn('Auto-charge failed:', chargeErr);
+            console.error('[charge-on-accept] updateStatus charge threw:', chargeErr);
             cardDeclined = true;
-            declineMessage = 'Payment could not be processed. Please update your payment method.';
+            declineMessage = chargeErr.message === 'no_session'
+              ? 'Auto-charge aborted: your session expired. Sign back in and use Retry Charge.'
+              : 'Payment could not be processed: ' + (chargeErr.message || 'network error');
+          }
+          // If we got an explicit HTTP error and didn't already classify it
+          // above, surface it as a generic decline so the payment_hold path
+          // below picks it up — never silently treat as success.
+          if (!_chargeOk && !cardDeclined && _chargeErrMsg) {
+            cardDeclined = true;
+            declineMessage = _chargeErrMsg;
           }
 
           // If card was declined, set to payment_hold INSTEAD of accepted — never flash accepted
@@ -4049,6 +4265,24 @@
 
       _bookingPanelState.requests = data || [];
 
+      // Independent lookup of stuck-accepted bookings (failed silent auto-charge
+      // from a previous build, e.g. Kyle's 19). The banner needs to show even
+      // when the user has the panel filter set to 'pending' — these would
+      // otherwise be invisible. We piggyback the lookup here so the render
+      // function has the data already.
+      try {
+        var stuckRes = await sb.from('booking_requests')
+          .select('id, estimated_total')
+          .eq('status', 'accepted')
+          .is('payment_intent_id', null)
+          .is('recurrence_pattern', null)
+          .gt('estimated_total', 0);
+        _bookingPanelState.stuckCharges = (stuckRes && stuckRes.data) || [];
+      } catch (stuckErr) {
+        console.warn('[bookings panel] stuck-charge lookup failed:', stuckErr);
+        _bookingPanelState.stuckCharges = [];
+      }
+
       // Batch-fetch avatars
       var clientIds = _bookingPanelState.requests.map(function(r) { return r.client_id; }).filter(Boolean);
       if (clientIds.length > 0) {
@@ -4142,15 +4376,32 @@
   function _renderBookingRequestsList(container, portal) {
     if (!container) return;
 
+    // ── "Charge ALL pending" banner ──
+    // Surfaces any accepted bookings whose auto-charge failed silently on an
+    // older build (Kyle Motell's 19 bookings). Uses the independent
+    // _bookingPanelState.stuckCharges lookup so it's visible regardless of
+    // the panel's current status filter.
+    var _stuckCharges = _bookingPanelState.stuckCharges || [];
+    var _stuckTotal = _stuckCharges.reduce(function(s, r) { return s + (r.estimated_total || 0); }, 0);
+    var chargeBannerHTML = '';
+    if (_stuckCharges.length > 0) {
+      chargeBannerHTML =
+        '<div style="background:#fff3cd;border:1px solid #ffc107;border-left:5px solid #c8963e;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+        '<div style="flex:1;min-width:180px"><strong style="color:#856404">⚠️ ' + _stuckCharges.length + ' accepted booking' + (_stuckCharges.length === 1 ? '' : 's') + ' never charged</strong>' +
+        '<div style="font-size:0.82rem;color:#856404;margin-top:2px">Total unpaid: $' + _stuckTotal.toFixed(2) + ' — auto-charge failed at acceptance time.</div></div>' +
+        '<button id="hhp-charge-all-pending-btn" onclick="retryAllPendingCharges()" style="padding:10px 16px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.86rem">💳 Charge ALL pending</button>' +
+        '</div>';
+    }
+
     if (_bookingPanelState.requests.length === 0) {
-      container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No ' + _bookingPanelState.currentFilter + ' requests</div>';
+      container.innerHTML = chargeBannerHTML + '<div style="padding:20px;text-align:center;color:var(--mid);font-size:0.88rem">No ' + _bookingPanelState.currentFilter + ' requests</div>';
       return;
     }
 
     // Group pending bookings by batch
     var displayRequests = _groupPendingBookingsByBatch(_bookingPanelState.requests);
 
-    container.innerHTML = displayRequests.map(function(r) {
+    container.innerHTML = chargeBannerHTML + displayRequests.map(function(r) {
       // ── Handle batch cards ──
       if (r._isBatch) {
         return _renderBatchCard(r);
@@ -4230,7 +4481,15 @@
             hsReportBtn = '<button class="btn btn-gold btn-sm" onclick="openHouseSittingReport(\'' + r.id + '\')" title="Stay is still in progress — you can complete early if needed">📋 Early Report</button>';
           }
         }
-        actionsHTML = '<div style="display:flex;gap:8px;margin-top:12px">' + hsReportBtn + '<button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="cancelBooking(\'' + r.id + '\',\'' + (r.service || '').replace(/'/g, "\\'") + '\')">✕ Cancel</button></div>';
+        // Retry Charge button: appears only when the booking is accepted but
+        // payment_intent_id is still NULL (auto-charge failed silently before
+        // the 1a fix landed). Recurring bookings have their own billing path
+        // via the Sunday cron, so we exclude them.
+        var retryChargeBtn = '';
+        if (!r.recurrence_pattern && !r.payment_intent_id && r.estimated_total > 0 && r.client_id) {
+          retryChargeBtn = '<button class="btn btn-gold btn-sm" data-retry-charge="' + r.id + '" onclick="retryCharge(\'' + r.id + '\')" title="Auto-charge never completed for this booking. Tap to charge the saved card now.">💳 Retry Charge ($' + Number(r.estimated_total).toFixed(2) + ')</button>';
+        }
+        actionsHTML = '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">' + hsReportBtn + retryChargeBtn + '<button class="btn btn-outline btn-sm" style="color:#c00;border-color:#c00" onclick="cancelBooking(\'' + r.id + '\',\'' + (r.service || '').replace(/'/g, "\\'") + '\')">✕ Cancel</button></div>';
       } else if (r.status === 'in_progress') {
         actionsHTML = '<div style="margin-top:12px;padding:8px 12px;background:var(--forest-pale);border-radius:6px;font-size:0.83rem;color:var(--forest)"><strong>⚙ In Progress</strong></div>';
       } else if (r.status === 'completed') {
@@ -4708,31 +4967,28 @@
 
       await _sendBatchNotification(batchBookings, actions);
 
-      // Charge ONE combined payment for the entire batch
+      // Charge ONE combined payment for the entire batch. This used to be a
+      // silent fire-and-forget — if the fetch returned a non-2xx the error
+      // was swallowed and Rachel never knew. Now everything routes through
+      // _fireAcceptanceCharge which marks payment_hold + toasts on failure
+      // and validates the HTTP response.
       var chargeableBatch = batchBookings.filter(function(bk) { return bk.estimated_total > 0 && bk.client_id; });
       if (chargeableBatch.length > 0) {
         (async function() {
-          try {
-            var _chgSb = window.HHP_Auth && window.HHP_Auth.supabase;
-            var _chgSess = _chgSb ? await _chgSb.auth.getSession() : null;
-            var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
-            var batchTotal = chargeableBatch.reduce(function(sum, bk) { return sum + (bk.estimated_total || 0); }, 0);
-            var batchIds = chargeableBatch.map(function(bk) { return bk.id; });
-            var serviceLabel = chargeableBatch.length > 1
-              ? chargeableBatch[0].service + ' + ' + (chargeableBatch.length - 1) + ' more'
-              : chargeableBatch[0].service;
-            await fetch('/api/charge-saved-card', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
-              body: JSON.stringify({
-                bookingRequestId: batchIds[0],
-                amount: batchTotal,
-                service: serviceLabel,
-                clientProfileId: chargeableBatch[0].client_id,
-                batchBookingIds: batchIds
-              }),
-            });
-          } catch (e) { console.warn('Batch charge error:', e); }
+          var batchTotal = chargeableBatch.reduce(function(sum, bk) { return sum + (bk.estimated_total || 0); }, 0);
+          var batchIds = chargeableBatch.map(function(bk) { return bk.id; });
+          var serviceLabel = chargeableBatch.length > 1
+            ? chargeableBatch[0].service + ' + ' + (chargeableBatch.length - 1) + ' more'
+            : chargeableBatch[0].service;
+          await _fireAcceptanceCharge(sb, {
+            bookingRequestId: batchIds[0],
+            amount: batchTotal,
+            service: serviceLabel,
+            clientProfileId: chargeableBatch[0].client_id,
+            batchBookingIds: batchIds,
+          });
+          // Refresh the panel so Rachel sees the final state (paid or payment_hold).
+          if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
         })();
       }
 
@@ -4909,43 +5165,19 @@
       if (typeof toast === 'function') toast('✓ Booking accepted! Processing payment...');
 
       // ── Charge saved card in background (non-blocking) ──
+      // _fireAcceptanceCharge handles all error paths uniformly: API non-2xx,
+      // network failure, session expired, card decline — every case marks
+      // payment_hold + emits a loud toast. No silent swallows.
       if (req.estimated_total > 0 && req.client_id) {
         (async function() {
-          try {
-            var _chgSb = window.HHP_Auth && window.HHP_Auth.supabase;
-            var _chgSess2 = _chgSb ? await _chgSb.auth.getSession() : null;
-            var _chgToken2 = _chgSess2 && _chgSess2.data && _chgSess2.data.session ? _chgSess2.data.session.access_token : '';
-            var chargeResp = await fetch('/api/charge-saved-card', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken2 },
-              body: JSON.stringify({ bookingRequestId: requestId, amount: req.estimated_total, service: req.service, clientProfileId: req.client_id }),
-            });
-            var chargeData = await chargeResp.json();
-            if (chargeData.success) {
-              if (typeof toast === 'function') toast('💳 Card charged $' + Number(req.estimated_total).toFixed(2) + '!');
-            } else {
-              await sb.from('booking_requests').update({
-                status: 'payment_hold',
-                charge_attempts: 1,
-                last_charge_attempt: new Date().toISOString(),
-                admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but payment failed: ' + (chargeData.message || chargeData.error || 'Card declined')
-              }).eq('id', requestId);
-              if (typeof toast === 'function') toast('⚠️ Card declined — booking on payment hold. Will retry automatically.');
-            }
-            // Refresh panel to show final payment status
-            _afterBookingAction();
-            window.loadBookingRequestsPanel(_bookingPanelState.portal);
-          } catch (chargeErr) {
-            console.warn('Auto-charge failed:', chargeErr);
-            await sb.from('booking_requests').update({
-              status: 'payment_hold',
-              charge_attempts: 1,
-              last_charge_attempt: new Date().toISOString(),
-              admin_notes: (req.admin_notes || '') + '\n⚠️ Accepted but charge request failed: ' + (chargeErr.message || 'Network error')
-            }).eq('id', requestId);
-            if (typeof toast === 'function') toast('⚠️ Charge failed — booking on payment hold.');
-            _afterBookingAction();
-          }
+          await _fireAcceptanceCharge(sb, {
+            bookingRequestId: requestId,
+            amount: req.estimated_total,
+            service: req.service,
+            clientProfileId: req.client_id,
+          });
+          _afterBookingAction();
+          window.loadBookingRequestsPanel(_bookingPanelState.portal);
         })();
       } else {
         if (typeof toast === 'function') toast('✓ Booking accepted! Client notified.');
@@ -5342,25 +5574,27 @@
                   if (typeof toast === 'function') toast('\u2705 Recurring accepted — first billing starts next Sunday');
                 }
               } else {
-                // One-time bookings: charge immediately
-                var _chgSb3 = window.HHP_Auth && window.HHP_Auth.supabase;
-                var _chgSess3 = _chgSb3 ? await _chgSb3.auth.getSession() : null;
-                var _chgToken3 = _chgSess3 && _chgSess3.data && _chgSess3.data.session ? _chgSess3.data.session.access_token : '';
-                var chargeResp = await fetch('/api/charge-saved-card', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken3 },
-                  body: JSON.stringify({ bookingRequestId: requestId, amount: booking.estimated_total, service: booking.service, clientProfileId: booking.client_id }),
+                // One-time bookings: charge immediately via the centralized
+                // dispatcher so failures land in payment_hold loudly.
+                var _chargeResult = await _fireAcceptanceCharge(sb, {
+                  bookingRequestId: requestId,
+                  amount: booking.estimated_total,
+                  service: booking.service,
+                  clientProfileId: booking.client_id,
                 });
-                var chargeData = await chargeResp.json();
-                if (chargeData.success) {
-                  if (typeof toast === 'function') toast('\uD83D\uDCB3 Card charged $' + Number(booking.estimated_total).toFixed(2) + '!');
-                } else {
-                  await sb.from('booking_requests').update({ status: 'payment_hold', admin_notes: '\u26A0\uFE0F Payment failed: ' + (chargeData.message || chargeData.error || 'Card declined') }).eq('id', requestId);
-                  if (typeof toast === 'function') toast('\u26A0\uFE0F Card declined \u2014 booking on payment hold.');
-                }
+                // _fireAcceptanceCharge has already toasted success or marked
+                // payment_hold + toasted failure \u2014 nothing else to do here.
               }
             } catch (chargeErr) {
-              console.warn('Auto-charge on accept failed:', chargeErr);
+              console.error('[charge-on-accept] per-appt charge threw:', chargeErr);
+              try {
+                await sb.from('booking_requests').update({
+                  status: 'payment_hold',
+                  admin_notes: (booking.admin_notes ? booking.admin_notes + '\n' : '') + '⚠️ Auto-charge on accept threw: ' + (chargeErr.message || 'unknown'),
+                  last_charge_attempt: new Date().toISOString(),
+                }).eq('id', requestId);
+              } catch (_) {}
+              if (typeof toast === 'function') toast('⚠️ Card NOT charged — see admin notes. Use Retry Charge.', 'error');
             }
             if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
           })();

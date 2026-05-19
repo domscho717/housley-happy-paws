@@ -135,6 +135,33 @@ module.exports = async function handler(req, res) {
 
     const isBatch = Array.isArray(batchBookingIds) && batchBookingIds.length > 1;
     const batchLabel = isBatch ? ` (${batchBookingIds.length} appointments)` : '';
+
+    // Record the attempt BEFORE we hit Stripe so we always know it tried —
+    // even if the Stripe call fails / hangs / throws. Uses an RPC-style
+    // increment so concurrent retries don't trample each other.
+    try {
+      const idsToBump = isBatch ? batchBookingIds : (bookingRequestId ? [bookingRequestId] : []);
+      if (idsToBump.length > 0) {
+        const { data: rows } = await supabase
+          .from('booking_requests')
+          .select('id, charge_attempts')
+          .in('id', idsToBump);
+        if (rows) {
+          await Promise.all(rows.map(row =>
+            supabase
+              .from('booking_requests')
+              .update({
+                charge_attempts: (row.charge_attempts || 0) + 1,
+                last_charge_attempt: new Date().toISOString(),
+              })
+              .eq('id', row.id)
+          ));
+        }
+      }
+    } catch (attemptsErr) {
+      console.error('[charge] failed to increment charge_attempts (continuing):', attemptsErr.message);
+    }
+
     console.log(`[charge] Charging $${amount} immediately for ${service || 'Pet Care'}${batchLabel}`);
 
     const paymentIntent = await stripe.paymentIntents.create({
