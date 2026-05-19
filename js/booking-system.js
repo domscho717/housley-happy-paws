@@ -1246,12 +1246,18 @@
     function _updateSelectedChips() {
       var container = document.getElementById('brm-selected-chips');
       if (!container) return;
-      var cardData = window._brmDateCards || [];
+      var cardData = (window._brmDateCards || []).slice();
       if (cardData.length === 0) {
         container.style.display = 'none';
         container.innerHTML = '';
         return;
       }
+      // Sort chips chronologically regardless of click order — the booking
+      // payload is also sorted via _brmGetDateCardsData, so the chip strip
+      // shouldn't be the one place that still shows click-order.
+      cardData.sort(function(a, b) {
+        return ((a && a.date) || '').localeCompare((b && b.date) || '');
+      });
       container.style.display = 'flex';
       var html = '';
       cardData.forEach(function(c) {
@@ -1703,8 +1709,10 @@
       window._buildHsCalendar();
     };
 
-    // Get all selected date cards data (used by submission)
-    // Returns one entry per time slot — so a day with 2 times = 2 entries
+    // Get all selected date cards data (used by submission).
+    // Returns one entry per time slot — so a day with 2 times = 2 entries.
+    // Output is sorted chronologically by date then time, regardless of the
+    // order the client clicked dates in the calendar.
     window._brmGetDateCardsData = function() {
       var results = [];
       var cards = document.querySelectorAll('#brm-dates-list > div[data-date]');
@@ -1722,6 +1730,11 @@
             results.push({ date: dateVal, time: sel.value || '', pets: [] });
           });
         }
+      });
+      results.sort(function(a, b) {
+        var dateCmp = (a.date || '').localeCompare(b.date || '');
+        if (dateCmp !== 0) return dateCmp;
+        return (a.time || '').localeCompare(b.time || '');
       });
       return results;
     };
@@ -3326,7 +3339,7 @@
       }
 
       try {
-        var query = sb.from('booking_requests').select('*').order('created_at', { ascending: false });
+        var query = sb.from('booking_requests').select('*');
 
         if (this.currentFilter !== 'all') {
           query = query.eq('status', this.currentFilter);
@@ -3335,7 +3348,18 @@
         var { data, error } = await query;
         if (error) throw error;
 
-        this.requests = data || [];
+        // Sort closest-upcoming first, then later future, then past most-recent first.
+        // Brief: ORDER BY (preferred_date >= CURRENT_DATE) DESC, preferred_date ASC.
+        var _today = _localDateStr();
+        this.requests = (data || []).slice().sort(function(a, b) {
+          var ad = a.preferred_date || '';
+          var bd = b.preferred_date || '';
+          var aFuture = ad >= _today;
+          var bFuture = bd >= _today;
+          if (aFuture !== bFuture) return aFuture ? -1 : 1;
+          if (aFuture) return ad.localeCompare(bd);       // future: ascending (closest first)
+          return bd.localeCompare(ad);                     // past: descending (most recent first)
+        });
 
         // Batch-fetch avatar URLs for all client_ids
         var clientIds = this.requests.map(function(r) { return r.client_id; }).filter(Boolean);
@@ -4236,7 +4260,10 @@
     }
 
     try {
-      var query = sb.from('booking_requests').select('*').order('created_at', { ascending: false });
+      // No server-side .order — we sort client-side below by (future-first,
+      // then date asc; past last, most-recent first) so the closest upcoming
+      // booking is always at the top of Rachel's list.
+      var query = sb.from('booking_requests').select('*');
 
       // For staff: only fetch requests assigned to them
       if (portal === 'staff') {
@@ -4263,7 +4290,17 @@
       var { data, error } = await query;
       if (error) throw error;
 
-      _bookingPanelState.requests = data || [];
+      // Sort by upcoming-first, then past most-recent first.
+      var _today2 = _localDateStr();
+      _bookingPanelState.requests = (data || []).slice().sort(function(a, b) {
+        var ad = a.preferred_date || '';
+        var bd = b.preferred_date || '';
+        var aFuture = ad >= _today2;
+        var bFuture = bd >= _today2;
+        if (aFuture !== bFuture) return aFuture ? -1 : 1;
+        if (aFuture) return ad.localeCompare(bd);
+        return bd.localeCompare(ad);
+      });
 
       // Independent lookup of stuck-accepted bookings (failed silent auto-charge
       // from a previous build, e.g. Kyle's 19). The banner needs to show even
