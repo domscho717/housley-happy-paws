@@ -29,16 +29,34 @@ async function showClientProfile(profileId) {
   // pets.owner_id and bookings.client_id store user_id (auth UUID), NOT profiles.id
   var uid = p.user_id || profileId;
 
-  // Now fetch pets, bookings, payments using the correct user_id
+  // Now fetch pets, bookings, payments using the correct user_id.
+  // Payments are matched on BOTH client_id and client_email — older rows
+  // (pre-2026) only carry client_email, newer ones carry both. The old
+  // .eq('client_id', uid).limit(20) was the bug behind the "Payment
+  // History (1)" complaint: Kyle's 17 April 16 charges had client_email
+  // only, so they were filtered out.
+  var emailLower = (p.email || '').toLowerCase();
   const [petsRes, bookingsRes, paymentsRes] = await Promise.all([
     sb.from('pets').select('*').eq('owner_id', uid),
     sb.from('booking_requests').select('*').eq('client_id', uid).order('created_at', { ascending: false }).limit(20),
-    sb.from('payments').select('*').eq('client_id', uid).order('created_at', { ascending: false }).limit(20)
+    sb.from('payments').select('*')
+      .or('client_id.eq.' + uid + (emailLower ? ',client_email.eq.' + emailLower : ''))
+      .order('paid_at', { ascending: false }),
   ]);
 
   const pets = petsRes.data || [];
   const bookings = bookingsRes.data || [];
   const payments = paymentsRes.data || [];
+
+  // Build a "(17 paid, $361.25 lifetime · 2 refunded)" summary for the header.
+  var _paidCount = 0, _paidTotal = 0, _refundCount = 0;
+  payments.forEach(function(_p) {
+    if (_p.status === 'refunded') { _refundCount++; }
+    else { _paidCount++; _paidTotal += parseFloat(_p.amount || 0); }
+  });
+  var paymentHeaderSummary = payments.length === 0
+    ? '(0)'
+    : '(' + _paidCount + ' paid, $' + _paidTotal.toFixed(2) + ' lifetime' + (_refundCount ? ' · ' + _refundCount + ' refunded' : '') + ')';
 
   // Check role for notes access
   var currentRole = (window.HHP_Auth && window.HHP_Auth.currentRole) || 'client';
@@ -190,12 +208,17 @@ async function showClientProfile(profileId) {
       '</div>' +
 
       // --- Payment History ---
-      '<h3 style="color:var(--forest);border-bottom:2px solid var(--gold-light);padding-bottom:8px;margin-bottom:12px">\uD83D\uDCB3 Payment History (' + payments.length + ')</h3>' +
-      '<div style="margin-bottom:24px;max-height:200px;overflow-y:auto;">' +
+      '<h3 style="color:var(--forest);border-bottom:2px solid var(--gold-light);padding-bottom:8px;margin-bottom:12px">\uD83D\uDCB3 Payment History ' + paymentHeaderSummary + '</h3>' +
+      '<div style="margin-bottom:24px;max-height:280px;overflow-y:auto;">' +
         (payments.length ? payments.map(function(pay) {
-          return '<div style="padding:8px 12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;">' +
-            '<span style="font-size:0.88rem">' + new Date(pay.created_at).toLocaleDateString() + ' \u2014 ' + (pay.description || pay.service || 'Payment') + '</span>' +
-            '<span style="color:var(--forest);font-weight:600;font-size:0.84rem">$' + ((pay.amount || 0)).toFixed(2) + '</span>' +
+          var when = pay.paid_at || pay.created_at;
+          var dateStr = when ? new Date(when).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+          var statusCol = pay.status === 'refunded' ? '#dc2626' : pay.status === 'paid' ? 'var(--forest)' : 'var(--mid)';
+          var amountSign = pay.status === 'refunded' ? '-' : '';
+          return '<div style="padding:8px 12px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;gap:8px">' +
+            '<div style="flex:1;min-width:0"><div style="font-size:0.86rem;font-weight:600">' + (pay.service || pay.description || 'Payment') + '</div>' +
+            '<div style="font-size:0.74rem;color:var(--mid)">' + dateStr + (pay.status ? ' \u00B7 ' + pay.status : '') + '</div></div>' +
+            '<span style="color:' + statusCol + ';font-weight:600;font-size:0.86rem;white-space:nowrap">' + amountSign + '$' + ((pay.amount || 0)).toFixed(2) + '</span>' +
           '</div>';
         }).join('') : '<p style="color:#888;font-size:0.88rem">No payments recorded.</p>') +
       '</div>' +

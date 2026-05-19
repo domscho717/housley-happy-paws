@@ -12094,15 +12094,36 @@ async function showClientProfile(profileId) {
     var { data: client } = await sb.from('profiles').select('*').eq('id', profileId).single();
     if (!client) { if (typeof toast === 'function') toast('Client not found'); return; }
 
-    // Fetch pets, bookings, and payments in parallel
+    // Fetch pets, bookings, and payments in parallel. Payments query no
+    // longer .limit(10) — Rachel reported "Payment History (1)" on Kyle's
+    // profile when he actually had 17 paid + 2 refunded rows. We also
+    // .or() across client_id + client_email so older rows (which only
+    // carried client_email) still match.
+    var _cEmail = (client.email || '').toLowerCase();
+    var _cUid = client.user_id || '';
+    var paymentsOrFilter = _cUid && _cEmail
+      ? 'client_id.eq.' + _cUid + ',client_email.eq.' + _cEmail
+      : _cUid ? 'client_id.eq.' + _cUid : 'client_email.eq.' + _cEmail;
     var [petsRes, bookingsRes, paymentsRes] = await Promise.all([
       sb.from('pets').select('*').eq('owner_id', client.user_id).order('name'),
       sb.from('booking_requests').select('service,preferred_date,preferred_time,status,estimated_total').eq('client_id', client.user_id).order('preferred_date', { ascending: false }).limit(10),
-      sb.from('payments').select('service,amount,status,paid_at').eq('client_email', client.email || '').order('paid_at', { ascending: false }).limit(10)
+      sb.from('payments').select('service,amount,status,paid_at')
+        .or(paymentsOrFilter)
+        .order('paid_at', { ascending: false }),
     ]);
     var pets = petsRes.data || [];
     var bookings = bookingsRes.data || [];
     var payments = paymentsRes.data || [];
+
+    // Build a summary line for the Payment History header.
+    var _paidCount2 = 0, _paidTotal2 = 0, _refundCount2 = 0;
+    payments.forEach(function(_pay) {
+      if (_pay.status === 'refunded') { _refundCount2++; }
+      else { _paidCount2++; _paidTotal2 += parseFloat(_pay.amount || 0); }
+    });
+    var paymentHeaderSummary2 = payments.length === 0
+      ? '(0)'
+      : '(' + _paidCount2 + ' paid, $' + _paidTotal2.toFixed(2) + ' lifetime' + (_refundCount2 ? ' · ' + _refundCount2 + ' refunded' : '') + ')';
 
     // Build modal
     var old = document.getElementById('client-profile-modal');
@@ -12192,7 +12213,7 @@ async function showClientProfile(profileId) {
     h += '</div>';
 
     // Payment history
-    h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Payment History</div>';
+    h += '<div style="margin-bottom:16px"><div style="font-weight:700;font-size:0.78rem;color:var(--mid);text-transform:uppercase;margin-bottom:8px">Payment History ' + paymentHeaderSummary2 + '</div>';
     if (payments.length) {
       payments.forEach(function(p) {
         var pDate = p.paid_at ? new Date(p.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -16470,7 +16491,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
   <script src="/js/site-content-client.js?v=20260517e" defer></script>
-  <script src="/js/profiles.js?v=20260517e" defer></script>
+  <script src="/js/profiles.js?v=20260517g" defer></script>
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
