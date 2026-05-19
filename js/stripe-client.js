@@ -54,9 +54,11 @@ const HHP_Stripe = window.HHP_Stripe = {
   },
 
   /**
-   * Send a real Stripe invoice to a client.
-   * The /api/create-invoice-link endpoint requires an owner/staff bearer token —
-   * a missing/stale token silently 401'd and looked like "the button does nothing".
+   * Send a real Stripe invoice to a client AND create a booking_requests row.
+   * Uses /api/create-invoice-booking (the new combined endpoint). Falls
+   * through to a 28-second AbortController so the UI never hangs forever —
+   * Stripe normally responds in <3s, and Vercel's 30s function timeout is
+   * the hard ceiling.
    */
   async sendInvoice({ clientName, clientEmail, service, amount, petNames, dueDate, serviceDate, endDate, notes }) {
     const sb = window.HHP_Auth && window.HHP_Auth.supabase;
@@ -77,9 +79,14 @@ const HHP_Stripe = window.HHP_Stripe = {
     }
     if (!token) throw new Error('Your session expired. Refresh the page and sign in again.');
 
+    // AbortController so the button never sits at "⏳ Sending..." forever.
+    const ctrl = new AbortController();
+    const timeoutMs = 28000;
+    const timeoutId = setTimeout(function() { ctrl.abort(); }, timeoutMs);
+
     let resp;
     try {
-      resp = await fetch('/api/create-invoice-link', {
+      resp = await fetch('/api/create-invoice-booking', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,19 +103,29 @@ const HHP_Stripe = window.HHP_Stripe = {
           endDate: endDate || '',
           notes: notes || '',
         }),
+        signal: ctrl.signal,
       });
     } catch (netErr) {
+      clearTimeout(timeoutId);
+      if (netErr.name === 'AbortError') {
+        console.error('Invoice request aborted after', timeoutMs, 'ms');
+        throw new Error('Invoice request timed out after ' + Math.round(timeoutMs / 1000) + 's. The Stripe call may still have succeeded — check Stripe dashboard before retrying.');
+      }
       console.error('Invoice network error:', netErr);
       throw new Error('Network error — could not reach the invoice service.');
     }
+    clearTimeout(timeoutId);
 
     let data = {};
     try { data = await resp.json(); } catch (parseErr) { console.error('Invoice response parse error:', parseErr); }
 
     if (!resp.ok) {
-      const msg = (data && data.error) ? data.error : ('Invoice service returned ' + resp.status);
+      const msg = (data && (data.error || data.message)) || ('Invoice service returned ' + resp.status);
       console.error('Invoice API error:', resp.status, data);
-      throw new Error(msg);
+      const e = new Error(msg);
+      e.bookingId = data && data.bookingId || null;
+      e.bookingCreated = data && data.bookingCreated || false;
+      throw e;
     }
     if (!data.success) {
       console.error('Invoice API non-success:', data);

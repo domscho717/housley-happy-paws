@@ -11197,10 +11197,30 @@ async function sendInvoice() {
       notes: note,
     });
     const amt = (result && typeof result.amountDue === 'number') ? '$' + result.amountDue.toFixed(2) : '$' + amount.toFixed(2);
-    toast('✅ Invoice sent to ' + email + '! Amount: ' + amt);
+    // New combined endpoint also creates a booking_requests row — surface it.
+    if (result && result.bookingId) {
+      toast('✅ Invoice sent — booking created. ' + amt + ' due.');
+    } else {
+      toast('✅ Invoice sent to ' + email + '! Amount: ' + amt);
+    }
+    // Clear the form so the next invoice doesn't accidentally reuse stale fields.
+    ['inv-name','inv-email','inv-amount','inv-pets','inv-note','inv-due','inv-date','inv-enddate'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    // Refresh the bookings panel if it's open so Rachel sees the new accepted row.
+    if (typeof window.loadBookingRequestsPanel === 'function') {
+      try { window.loadBookingRequestsPanel('owner'); } catch (_) {}
+    }
   } catch (err) {
     console.error('[sendInvoice] failed:', err);
-    toast('⚠️ Invoice error: ' + (err && err.message ? err.message : 'unknown error — see console'));
+    // If the booking row WAS created but Stripe blew up, tell Rachel so she
+    // knows the calendar entry exists even though the email didn't send.
+    if (err && err.bookingCreated) {
+      toast('⚠️ Booking created, but invoice email failed: ' + (err.message || 'unknown') + ' — resend manually from Stripe.', 'error');
+    } else {
+      toast('⚠️ Invoice error: ' + (err && err.message ? err.message : 'unknown error — see console'), 'error');
+    }
   } finally {
     btnEls.forEach(b => { b.disabled = false; if (b.dataset._origText) b.textContent = b.dataset._origText; });
   }
@@ -14944,7 +14964,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Stripe Client JS (loads when deployed to Vercel with /api routes) -->
-<script src="/js/stripe-client.js?v=20260518a" defer></script>
+<script src="/js/stripe-client.js?v=20260517h" defer></script>
 
 <!-- Supabase Auth Client -->
 <script src="/js/auth-client.js?v=20260518a" defer></script>
