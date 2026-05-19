@@ -3543,15 +3543,21 @@ try {
 
     <!-- Recurring Options -->
     <div id="cancelModal_recurringGroup" style="display:none;margin-bottom:16px">
-      <label style="font-size:0.88rem;font-weight:600;color:var(--ink);display:block;margin-bottom:10px">Cancel:</label>
+      <label style="font-size:0.88rem;font-weight:600;color:var(--ink);display:block;margin-bottom:10px">This is a recurring booking. Cancel:</label>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
-          <input type="radio" name="cancelOption" value="this" checked style="cursor:pointer">
-          <span style="font-size:0.85rem;color:var(--ink)">This booking only</span>
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
+          <input type="radio" name="cancelOption" value="this" checked style="cursor:pointer;margin-top:3px">
+          <div>
+            <div style="font-size:0.86rem;font-weight:600;color:var(--ink)">Just this one date</div>
+            <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Future weeks of this recurring service keep running.</div>
+          </div>
         </label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
-          <input type="radio" name="cancelOption" value="future" style="cursor:pointer">
-          <span style="font-size:0.85rem;color:var(--ink)">All future bookings</span>
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
+          <input type="radio" name="cancelOption" value="future" style="cursor:pointer;margin-top:3px">
+          <div>
+            <div style="font-size:0.86rem;font-weight:600;color:var(--ink)">Cancel ENTIRE series</div>
+            <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Stops every future occurrence. Any sent but unpaid invoices are voided; future weeks are not billed.</div>
+          </div>
         </label>
       </div>
     </div>
@@ -10038,6 +10044,10 @@ async function confirmCancelBooking() {
     var cancelOption = document.querySelector('input[name="cancelOption"]:checked');
     var option = cancelOption ? cancelOption.value : 'this';
     var isSingleCancel = _cancelData.isRecurring && option === 'this';
+    // option='future' on a recurring booking → stop the whole series. We
+    // forward stopRecurring: true so the server voids future sent-invoices
+    // and ends the recurrence_pattern, not just sets status='canceled'.
+    var isStopSeries = _cancelData.isRecurring && option === 'future';
 
     // Check refund selection (only present for owner/staff paid cancels)
     var refundOption = document.querySelector('input[name="refundOption"]:checked');
@@ -10057,6 +10067,7 @@ async function confirmCancelBooking() {
         canceledBy: _cancelData.canceledBy,
         cancelSingle: isSingleCancel,
         cancelDate: isSingleCancel ? _cancelData.date : undefined,
+        stopRecurring: isStopSeries,
         issueRefund: issueRefund
       })
     });

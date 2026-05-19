@@ -213,8 +213,14 @@ module.exports = async function handler(req, res) {
     const isStopRecurring = stopRecurring && isRecurring;
 
     if (isStopRecurring) {
-      updateData.status = 'completed';
-      updateData.cancellation_type = 'stop_recurring';
+      // When the OWNER/STAFF stops a recurring series, that's a cancellation —
+      // the brief explicitly asks for status='canceled' so the dashboard shows
+      // it as canceled, not as a completed/successful service. When a CLIENT
+      // clicks "Stop Recurring" from their portal it stays 'completed' (the
+      // satisfied-with-service finish semantic).
+      const ownerStopping = canceledBy === 'owner' || canceledBy === 'staff';
+      updateData.status = ownerStopping ? 'canceled' : 'completed';
+      updateData.cancellation_type = ownerStopping ? 'cancel_series' : 'stop_recurring';
       try {
         const pattern = typeof booking.recurrence_pattern === 'string'
           ? JSON.parse(booking.recurrence_pattern) : booking.recurrence_pattern;
