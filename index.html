@@ -4523,6 +4523,18 @@ function switchGeneralTab(tabName) {
           '<div class="card-title" style="margin-bottom:14px">Edit Profile</div>' +
           '<div id="cg-profile-form" style="display:flex;flex-direction:column;gap:12px"></div>' +
         '</div>' +
+        // Set Password — for users who logged in via magic link and want to
+        // create a password instead. Works for clients, owner, and staff.
+        '<div class="card" style="padding:20px;margin-bottom:14px">' +
+          '<div class="card-title" style="margin-bottom:14px">🔒 Security</div>' +
+          '<div style="font-size:0.82rem;color:var(--mid);margin-bottom:12px">Prefer signing in with email + password instead of a magic link every time? Set or change your password here.</div>' +
+          '<div style="display:flex;flex-direction:column;gap:10px">' +
+            '<input id="hhp-set-pw-new" type="password" autocomplete="new-password" minlength="8" placeholder="New password (at least 8 characters)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)">' +
+            '<input id="hhp-set-pw-confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Confirm new password" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)">' +
+            '<div id="hhp-set-pw-msg" style="font-size:0.82rem;min-height:1.1em"></div>' +
+            '<button onclick="setAccountPassword()" style="padding:12px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit">Set Password</button>' +
+          '</div>' +
+        '</div>' +
         '<div class="card" style="padding:20px">' +
           '<div class="card-title" style="margin-bottom:14px">Account</div>' +
           '<button onclick="if(typeof HHP_Auth!==\'undefined\')HHP_Auth.logout()" style="display:flex;align-items:center;gap:12px;width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--warm);cursor:pointer;text-align:left;font-size:0.85rem;color:var(--rose)"><span style="font-size:1.2rem">🚪</span><div style="flex:1"><div style="font-weight:600">Sign Out</div></div></button>' +
@@ -4535,6 +4547,47 @@ function switchGeneralTab(tabName) {
   // Populate profile form when settings tab is opened
   if (tabName === 'settings') {
     setTimeout(function() { loadClientProfileForm(); }, 100);
+  }
+}
+
+// ── Set or change account password (works for magic-link users) ──
+// Stevie Voss reported having to send herself a magic link every time
+// because there was no way to set a password from her account. This
+// updates the auth user's password via Supabase JS SDK.
+async function setAccountPassword() {
+  var newPw = (document.getElementById('hhp-set-pw-new') || {}).value || '';
+  var confirmPw = (document.getElementById('hhp-set-pw-confirm') || {}).value || '';
+  var msgEl = document.getElementById('hhp-set-pw-msg');
+  function showMsg(text, isError) {
+    if (!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.style.color = isError ? 'var(--rose,#c25656)' : 'var(--forest,#3d5a47)';
+  }
+  showMsg('', false);
+
+  if (!newPw || newPw.length < 8) { showMsg('Password must be at least 8 characters.', true); return; }
+  if (newPw !== confirmPw) { showMsg('Passwords don’t match.', true); return; }
+
+  var sb = (window.HHP_Auth && window.HHP_Auth.supabase) ? window.HHP_Auth.supabase : null;
+  if (!sb) { showMsg('Not signed in.', true); return; }
+
+  try {
+    var { error } = await sb.auth.updateUser({ password: newPw });
+    if (error) {
+      console.error('[set-password] update failed:', error);
+      showMsg('Could not set password: ' + (error.message || 'unknown error'), true);
+      return;
+    }
+    showMsg('✅ Password set — next time you can sign in with email + password instead of a magic link.', false);
+    // Clear the fields once it sticks.
+    var newEl = document.getElementById('hhp-set-pw-new');
+    var confirmEl = document.getElementById('hhp-set-pw-confirm');
+    if (newEl) newEl.value = '';
+    if (confirmEl) confirmEl.value = '';
+    if (typeof toast === 'function') toast('🔒 Password updated.');
+  } catch (e) {
+    console.error('[set-password] threw:', e);
+    showMsg('Could not set password: ' + (e.message || 'unknown error'), true);
   }
 }
 
@@ -4759,6 +4812,16 @@ function _renderOwnerSettings() {
         '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifReminder?'checked':'') + ' onchange="HHP_Settings.set(\'notifReminder\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Appointment reminders</label>' +
         '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifMessages?'checked':'') + ' onchange="HHP_Settings.set(\'notifMessages\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> New message alerts</label>' +
         '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.84rem"><input type="checkbox" ' + (s.notifReports?'checked':'') + ' onchange="HHP_Settings.set(\'notifReports\',this.checked)" style="accent-color:var(--gold);width:18px;height:18px"> Walk report notifications</label>' +
+      '</div>' +
+    '</div>' +
+    '<div class="card" style="padding:20px;margin-bottom:14px">' +
+      '<div class="card-title" style="margin-bottom:14px">🔒 Security</div>' +
+      '<div style="font-size:0.82rem;color:var(--mid);margin-bottom:12px">Set or change your account password. Useful if you usually sign in with a magic link.</div>' +
+      '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<input id="hhp-set-pw-new" type="password" autocomplete="new-password" minlength="8" placeholder="New password (at least 8 characters)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)">' +
+        '<input id="hhp-set-pw-confirm" type="password" autocomplete="new-password" minlength="8" placeholder="Confirm new password" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)">' +
+        '<div id="hhp-set-pw-msg" style="font-size:0.82rem;min-height:1.1em"></div>' +
+        '<button onclick="setAccountPassword()" style="padding:12px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:8px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit">Set Password</button>' +
       '</div>' +
     '</div>' +
     '<div class="card" style="padding:20px">' +
@@ -16649,7 +16712,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260517i" defer></script>
+  <script src="/js/booking-system.js?v=20260517k" defer></script>
   <script src="/js/messaging.js?v=20260518a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>

@@ -3248,15 +3248,28 @@
     }
   };
 
+  // Group bookings the same way acceptBatchBookings does — same client_id,
+  // same recurrence_pattern (or both NULL), created within a 2-second window.
+  // Joellen Aten's $106.25 / $125 batches in the payments table are the gold
+  // reference: 5 booking rows sharing ONE pi_* + ONE Stripe charge + ONE
+  // 15% transfer instead of 5 separate charges.
+  function _stuckBatchKey(b) {
+    var createdMs = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return [
+      b.client_id || 'none',
+      b.recurrence_pattern ? 'recurring' : 'none',
+      Math.floor(createdMs / 2000),
+    ].join('|');
+  }
+
   window.retryAllPendingCharges = async function() {
     var btn = document.getElementById('hhp-charge-all-pending-btn');
     if (btn) { btn.disabled = true; btn.dataset._origText = btn.textContent; btn.textContent = '⏳ Charging...'; }
     var sb = getSB();
     if (!sb) { if (typeof toast === 'function') toast('Not signed in.'); return; }
-    // Find every accepted booking that's still unpaid (the live regression case
-    // for Kyle Motell's 19 bookings). Exclude recurring — those bill weekly.
+    // Need created_at + service + client_id for batch grouping, not just id.
     var { data: stuck, error } = await sb.from('booking_requests')
-      .select('id, estimated_total, contact_name, contact_email')
+      .select('id, estimated_total, contact_name, contact_email, client_id, service, created_at, recurrence_pattern')
       .eq('status', 'accepted')
       .is('payment_intent_id', null)
       .is('recurrence_pattern', null)
@@ -3272,18 +3285,63 @@
       if (btn) { btn.disabled = false; btn.textContent = btn.dataset._origText || '💳 Charge ALL pending'; }
       return;
     }
-    if (typeof toast === 'function') toast('💳 Charging ' + stuck.length + ' booking' + (stuck.length === 1 ? '' : 's') + '...');
-    var ok = 0, fail = 0;
-    for (var i = 0; i < stuck.length; i++) {
-      if (btn) btn.textContent = '⏳ ' + (i + 1) + '/' + stuck.length + ' ($' + Number(stuck[i].estimated_total).toFixed(2) + ')';
-      var r = await _retryChargeForBooking(stuck[i].id);
-      if (r.success) ok++; else fail++;
+
+    // Group → ONE combined charge per group. Bookings without a client_id
+    // can't go through saved-card billing at all; skip them with a warning.
+    var groups = {};
+    var skippedNoClient = [];
+    stuck.forEach(function(b) {
+      if (!b.client_id) { skippedNoClient.push(b); return; }
+      var k = _stuckBatchKey(b);
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(b);
+    });
+    var groupKeys = Object.keys(groups);
+
+    // Sort groups by oldest-first so the recovery order is deterministic.
+    groupKeys.sort(function(a, b) {
+      var aFirst = groups[a][0].created_at || '';
+      var bFirst = groups[b][0].created_at || '';
+      return aFirst.localeCompare(bFirst);
+    });
+
+    var totalAmount = stuck.reduce(function(s, b) { return s + Number(b.estimated_total || 0); }, 0);
+    if (typeof toast === 'function') {
+      toast('💳 Charging $' + totalAmount.toFixed(2) + ' across ' + groupKeys.length + ' batch' + (groupKeys.length === 1 ? '' : 'es') + ' (' + stuck.length + ' bookings)...');
+    }
+
+    var groupsOk = 0, groupsFail = 0, bookingsOk = 0, bookingsFail = 0;
+    for (var gi = 0; gi < groupKeys.length; gi++) {
+      var group = groups[groupKeys[gi]];
+      var batchIds = group.map(function(b) { return b.id; });
+      var batchTotal = group.reduce(function(s, b) { return s + Number(b.estimated_total || 0); }, 0);
+      var first = group[0];
+      var serviceLabel = group.length > 1
+        ? first.service + ' + ' + (group.length - 1) + ' more'
+        : first.service;
+      if (btn) {
+        btn.textContent = '⏳ ' + (gi + 1) + '/' + groupKeys.length + ' ($' + batchTotal.toFixed(2) +
+          (group.length > 1 ? ' × ' + group.length : '') + ')';
+      }
+      var r = await _fireAcceptanceCharge(sb, {
+        bookingRequestId: first.id,
+        amount: batchTotal,
+        service: serviceLabel,
+        clientProfileId: first.client_id,
+        // Send batchBookingIds even for size-1 groups so the server consistently
+        // links payment_intent_id; the API treats len===1 as a single charge.
+        batchBookingIds: batchIds,
+      });
+      if (r.success) { groupsOk++; bookingsOk += group.length; }
+      else { groupsFail++; bookingsFail += group.length; }
       // Small delay so Stripe doesn't see a burst.
       await new Promise(function(res) { setTimeout(res, 500); });
     }
     if (typeof toast === 'function') {
-      if (fail === 0) toast('✅ Charged all ' + ok + ' bookings');
-      else toast('⚠️ ' + ok + ' charged, ' + fail + ' failed — check payment_hold rows', 'error');
+      var skippedNote = skippedNoClient.length > 0
+        ? ' (' + skippedNoClient.length + ' skipped — no client linked)' : '';
+      if (groupsFail === 0) toast('✅ Charged ' + bookingsOk + ' bookings in ' + groupsOk + ' batch' + (groupsOk === 1 ? '' : 'es') + skippedNote);
+      else toast('⚠️ ' + bookingsOk + ' charged, ' + bookingsFail + ' failed — see payment_hold rows' + skippedNote, 'error');
     }
     if (btn) { btn.disabled = false; btn.textContent = btn.dataset._origText || '💳 Charge ALL pending'; }
     if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
