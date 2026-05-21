@@ -1815,6 +1815,17 @@ try {
               </div>
             </div>
 
+            <!-- Section 2b: Social media consent -->
+            <div style="margin-bottom:20px">
+              <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;padding:12px 14px;background:var(--warm);border:1.5px solid var(--border);border-radius:10px">
+                <input type="checkbox" id="pet-social-ok" style="margin-top:3px">
+                <div>
+                  <div style="font-weight:600;font-size:0.86rem;color:var(--ink)">📸 OK to post photos of this pet on social media?</div>
+                  <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">If checked, Rachel may share photos / videos of your pet on the Housley Happy Paws Instagram / Facebook. Defaults to no.</div>
+                </div>
+              </label>
+            </div>
+
             <!-- Section 3: Temperament -->
             <div style="margin-bottom:20px">
               <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Temperament <span style="color:#c0392b;font-weight:400;font-size:0.78rem">* (check all that apply)</span></div>
@@ -6152,6 +6163,35 @@ async function submitContact() {
 }
 
 // ── Pet Profile: age calculator (dog years + cat years) ──
+// Global pet-age formatter (Brief #10): show natural English for any age.
+//   < 8 weeks → "N weeks"
+//   < 12 months → "N months"
+//   ≥ 1 year   → "X years" or "X years Y months"
+// Always recomputed; never stored on the pet row.
+window.formatPetAge = function(birthday) {
+  if (!birthday) return '';
+  var bd;
+  try { bd = (birthday instanceof Date) ? birthday : new Date(String(birthday) + 'T12:00:00'); }
+  catch (_) { return ''; }
+  if (!bd || isNaN(bd.getTime())) return '';
+  var now = new Date();
+  var msInDay = 24 * 3600 * 1000;
+  var totalDays = Math.max(0, Math.floor((now.getTime() - bd.getTime()) / msInDay));
+  if (totalDays < 56) { // under 8 weeks
+    var weeks = Math.max(0, Math.floor(totalDays / 7));
+    return weeks <= 1 ? (weeks + ' week') : (weeks + ' weeks');
+  }
+  var years = now.getFullYear() - bd.getFullYear();
+  var months = now.getMonth() - bd.getMonth();
+  if (now.getDate() < bd.getDate()) months--;
+  if (months < 0) { years--; months += 12; }
+  if (years < 1) {
+    return months <= 1 ? (months + ' month') : (months + ' months');
+  }
+  if (months === 0) return years === 1 ? '1 year' : (years + ' years');
+  return (years === 1 ? '1 year' : (years + ' years')) + ' ' + (months === 1 ? '1 month' : (months + ' months'));
+};
+
 function calcPetAge() {
   var bdayInput = document.getElementById('pet-birthday');
   var speciesEl = document.getElementById('pet-species');
@@ -6906,6 +6946,37 @@ async function loadCalendarBookings(year, month) {
       });
     });
 
+    // ── Pet birthdays (Brief #9): owner calendar only. Query every pet with
+    //  a birthday whose MM-DD falls inside the visible month range. We don't
+    //  filter on "active client" here because we don't have a status column
+    //  on profiles — Rachel can hide unwanted entries via the cancel/edit
+    //  pet flow if needed.
+    window._calBirthdays = {};
+    if (role === 'owner') {
+      try {
+        var { data: bdayPets } = await sb.from('pets').select('id, name, birthday, owner_id, photo_url, species');
+        var monthMM = String(month + 1).padStart(2, '0');
+        (bdayPets || []).forEach(function(p) {
+          if (!p.birthday) return;
+          // birthday format YYYY-MM-DD
+          var parts = String(p.birthday).split('-');
+          if (parts.length !== 3) return;
+          if (parts[1] !== monthMM) return;
+          var dateKey = year + '-' + monthMM + '-' + parts[2];
+          if (!window._calBirthdays[dateKey]) window._calBirthdays[dateKey] = [];
+          window._calBirthdays[dateKey].push({
+            id: p.id,
+            name: p.name,
+            birthday: p.birthday,
+            species: p.species,
+            owner_id: p.owner_id,
+          });
+        });
+      } catch (bdayErr) { console.warn('[calendar] pet birthday lookup failed:', bdayErr); }
+    } else {
+      window._calBirthdays = {}; // ensure stale data is cleared for non-owners
+    }
+
     // Rebuild calendars for this month
     if (role === 'client') {
       buildCalendar('cCalWrap', year, month);
@@ -7000,6 +7071,16 @@ function buildCalendar(containerId, year, month) {
       if (_badgeParts.length > 0) {
         html += '<div class="cal-svc-counts" style="font-size:0.6rem;line-height:1.15;color:var(--forest,#3d5a47);font-weight:600;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _badgeParts.join(' · ') + '</div>';
       }
+    }
+    // Pet birthdays (Brief #9): owner calendar only. window._calBirthdays is
+    // populated by loadCalendarBookings — key = same YYYY-MM-DD as the cell.
+    if (isOwner && window._calBirthdays && window._calBirthdays[key]) {
+      var bdayList = window._calBirthdays[key];
+      bdayList.forEach(function(bp) {
+        var ageStr = (typeof window.formatPetAge === 'function') ? window.formatPetAge(bp.birthday) : '';
+        var ageNote = ageStr ? ' · turns ' + ageStr : '';
+        html += '<div style="font-size:0.6rem;line-height:1.15;color:#bf5d00;font-weight:700;background:#fff3cd;border-radius:6px;padding:1px 5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (bp.name || '') + ageNote + '">🎂 ' + (bp.name || 'Pet') + '</div>';
+      });
     }
     // Hide booking labels on the public calendar (privacy)
     if(ev && !isPublic) html += `<div class="cal-event-dot">${ev.label}</div>`;
@@ -9003,6 +9084,31 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
 
   // ── Initialize custom Note Builder ──
   _lspPetCount = 0; // reset pet row counter
+  // Lookup pets-by-name → sex for this client so the per-pet rows can
+  // pre-select the right pronouns instead of always defaulting to "she".
+  window._lspPetSexByName = {};
+  if (clientId) {
+    (async function() {
+      try {
+        var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+        if (!sb) return;
+        var { data: petRows } = await sb.from('pets').select('name, sex').eq('owner_id', clientId);
+        if (petRows) {
+          petRows.forEach(function(p) {
+            if (p && p.name) window._lspPetSexByName[p.name.trim().toLowerCase()] = (p.sex || '').toLowerCase();
+          });
+        }
+        // Re-apply pronouns on any rows already rendered (catch the auto-added first row).
+        document.querySelectorAll('[id^="lspPetRow-"]').forEach(function(row) {
+          var nameInp = row.querySelector('.lsp-petName');
+          var pronounSel = row.querySelector('.lsp-pronoun');
+          if (!nameInp || !pronounSel) return;
+          var key = _lspPronounFromSex(window._lspPetSexByName[(nameInp.value || '').trim().toLowerCase()]);
+          if (key) pronounSel.value = key;
+        });
+      } catch (e) { console.warn('[lsp] pet sex lookup failed:', e); }
+    })();
+  }
   // Auto-add first pet row with pet name from booking
   addLspPetRow(petNames || '');
 
@@ -9058,9 +9164,25 @@ function handleLspMediaUpload(input) {
 // ── Custom Note Builder for live service panel (per-pet rows with pronouns & potty) ──
 var _lspPetCount = 0;
 
+// Map pets.sex column value → pronoun key for the dropdown.
+function _lspPronounFromSex(sex) {
+  if (!sex) return null;
+  var s = String(sex).toLowerCase();
+  if (s === 'male' || s === 'm' || s === 'boy') return 'he';
+  if (s === 'female' || s === 'f' || s === 'girl') return 'she';
+  return null; // unknown / non-binary → leave dropdown alone
+}
+
 function addLspPetRow(petName, pronounKey) {
   var container = document.getElementById('lsp-pet-rows');
   if (!container) return;
+  // If caller didn't pass a pronoun, try to infer from the pet-sex map
+  // that openLiveServicePanel populated from the pets table.
+  if (!pronounKey && petName && window._lspPetSexByName) {
+    var sexInferred = window._lspPetSexByName[petName.trim().toLowerCase()];
+    var inferred = _lspPronounFromSex(sexInferred);
+    if (inferred) pronounKey = inferred;
+  }
   var idx = _lspPetCount++;
   var div = document.createElement('div');
   div.id = 'lspPetRow-' + idx;
@@ -9112,36 +9234,60 @@ function buildLspNote() {
     she:  { sub: 'she',  obj: 'her',  pos: 'her',  pie: 'pie' },
     they: { sub: 'they', obj: 'them', pos: 'their', pie: 'pies' }
   };
-  var pottyText = { pee: 'pee', poo: 'poo', both: 'both pee and poo', none: '' };
+  // Brief #7: no more "both pee and poo" — read as natural English.
+  var pottyText = { pee: 'pee', poo: 'poo', both: 'pee and poo', none: '' };
+
+  // Pick a varied opener (Brief #7: drop "Everything went great").
+  function _pickSingleOpener(name, p) {
+    var picks = [
+      name + ' and I had a really nice visit today!',
+      'Hung out with ' + name + ' today — such a good ' + (p.sub === 'they' ? 'one' : (p.sub === 'he' ? 'boy' : 'girl')) + '.',
+      name + ' was so happy to see me today.',
+      'Had a great time with ' + name + ' this afternoon.',
+      name + ' did so well today.',
+    ];
+    return picks[Math.floor(Math.random() * picks.length)];
+  }
+  function _pickGroupOpener(nameList) {
+    var picks = [
+      nameList + ' and I had a really nice visit today!',
+      'Spent some good time with ' + nameList + ' — everyone was great.',
+      nameList + ' were so happy to see me.',
+      'Had a wonderful visit with ' + nameList + ' today.',
+    ];
+    return picks[Math.floor(Math.random() * picks.length)];
+  }
 
   if (scenario === 'great') {
     var note = '';
     if (pets.length === 1) {
       var pet = pets[0];
       var p = pronouns[pet.pronounKey] || pronouns.she;
-      var potty = pottyText[pet.potty] || 'pee';
-      note = 'Everything went great, ' + pet.name + ' and I had a great visit today! ' +
-        p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' enjoyed lots of fresh air and sniffs, ' +
-        p.sub + ' also went ' + potty + '. Once we got back inside, ' + pet.name +
-        ' enjoyed a snack along with a drink. I refreshed ' + p.pos + ' water and gave ' +
-        p.obj + ' tons of pets on my way out. Such a cutie ' + p.pie + '!!';
+      var potty = pottyText[pet.potty] || '';
+      var pottySentence = potty
+        ? ' ' + p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' went ' + potty + ' on our visit.'
+        : '';
+      note = _pickSingleOpener(pet.name, p) +
+        ' ' + p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' enjoyed lots of fresh air and sniffs.' +
+        pottySentence +
+        ' Once we got back inside, ' + pet.name + ' had a snack and a drink — I refreshed ' + p.pos + ' water before I left.';
     } else {
       var allNames = pets.map(function(pe) { return pe.name; });
       var nameList = allNames.length === 2 ? allNames.join(' and ') : allNames.slice(0, -1).join(', ') + ', and ' + allNames[allNames.length - 1];
-      note = 'Everything went great, ' + nameList + ' and I had a wonderful visit today! ';
+      note = _pickGroupOpener(nameList);
       var pottyParts = [];
       pets.forEach(function(pet) {
         if (pet.potty && pet.potty !== 'none') {
           pottyParts.push(pet.name + ' went ' + (pottyText[pet.potty] || 'pee'));
         }
       });
-      if (pottyParts.length > 0) { note += pottyParts.join(', and ') + '. '; }
-      note += 'Once we got back inside, everyone enjoyed a snack along with a drink. I refreshed their water and gave them all tons of pets on my way out. Such cutie pies!!';
+      if (pottyParts.length > 0) { note += ' ' + pottyParts.join(', ') + '.'; }
+      note += ' Once we got back inside, everyone had a snack and a drink. I refreshed their water before I left.';
     }
 
     var noteEl = document.getElementById('lsp-notes');
     if (noteEl) noteEl.value = note;
-    toast('📝 Note ready! Feel free to edit it.');
+    toast('📝 Note ready — feel free to edit.');
   }
 }
 
@@ -11899,6 +12045,7 @@ async function openPetForm(petData) {
   document.getElementById('pet-housetrained').checked = !!petData?.house_trained;
   document.getElementById('pet-vaccinated').checked = !!petData?.vaccinations_current;
   document.getElementById('pet-fleaprev').checked = !!petData?.flea_tick_prevention;
+  var _socialEl = document.getElementById('pet-social-ok'); if (_socialEl) _socialEl.checked = !!petData?.social_media_ok;
   document.getElementById('pet-fdogs').checked = petData?.friendly_dogs !== false;
   document.getElementById('pet-fcats').checked = petData?.friendly_cats !== false;
   document.getElementById('pet-fkids').checked = petData?.friendly_children !== false;
@@ -12077,6 +12224,7 @@ async function savePet() {
     house_trained: document.getElementById('pet-housetrained').checked,
     vaccinations_current: document.getElementById('pet-vaccinated').checked,
     flea_tick_prevention: document.getElementById('pet-fleaprev').checked,
+    social_media_ok: !!(document.getElementById('pet-social-ok') || {}).checked,
     friendly_dogs: document.getElementById('pet-fdogs').checked,
     friendly_cats: document.getElementById('pet-fcats').checked,
     friendly_children: document.getElementById('pet-fkids').checked,
@@ -16866,7 +17014,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/messaging.js?v=20260518a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>
-  <script src="/js/customizer.js?v=20260406b" defer></script>
+  <script src="/js/customizer.js?v=20260520a" defer></script>
   <script src="/js/avatar-system.js?v=20260402a" defer></script>
   <script src="/js/settings-panel.js?v=20260406b" defer></script>
   <script src="/js/availability.js?v=20260428" defer></script>

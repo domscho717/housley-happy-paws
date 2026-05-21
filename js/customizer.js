@@ -1533,8 +1533,19 @@
       var sh=document.createElement('div');
       sh.style.cssText='width:100%;max-width:500px;max-height:80vh;background:var(--cream,white);border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
       var avatar=pet.photo_url?'<img src="'+pet.photo_url+'" style="width:100%;height:100%;object-fit:cover">':'<span style="font-size:2.5rem">'+(pet.species==='cat'?'🐱':'🐶')+'</span>';
-      var age='';
-      if(pet.birthday){var bd=new Date(pet.birthday);var now=new Date();var years=now.getFullYear()-bd.getFullYear();var months=now.getMonth()-bd.getMonth();if(months<0){years--;months+=12;}age=years>0?years+' yr'+(years>1?'s':'')+(months>0?' '+months+' mo':''):months+' mo';}
+      // Pretty pet-age formatter (Brief #10): show weeks for very young
+      // pets (under 8 weeks), then months, then years + months. Re-computed
+      // every time the modal opens — never stored.
+      var age=(typeof window.formatPetAge==='function')?window.formatPetAge(pet.birthday):'';
+      // Social media badge (Brief #8): true = OK; false = no; null = unknown
+      var socialBadge='';
+      if(pet.social_media_ok===true){
+        socialBadge='<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#e8f5e9;border:1px solid #4caf50;color:#1b5e20;border-radius:14px;font-size:0.72rem;font-weight:700;margin-top:6px">📸 Social OK</div>';
+      } else if(pet.social_media_ok===false){
+        socialBadge='<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:#fde8e8;border:1px solid #c62828;color:#7a1d1d;border-radius:14px;font-size:0.72rem;font-weight:700;margin-top:6px">🚫 No social</div>';
+      } else {
+        socialBadge='<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:var(--warm,#fdf7ee);border:1px solid var(--border,#e8e0d4);color:var(--mid,#8c6b4a);border-radius:14px;font-size:0.72rem;font-weight:700;margin-top:6px">📷 Social: ask client</div>';
+      }
       sh.innerHTML=
         '<div style="padding:12px 0 4px;text-align:center;cursor:pointer" onclick="this.closest(\'#pet-profile-modal\').style.opacity=\'0\';this.closest(\'#pet-profile-modal\').querySelector(\'div:last-child\').style.transform=\'translateY(100%)\';setTimeout(function(){var m=document.getElementById(\'pet-profile-modal\');if(m)m.remove();},300)"><div style="width:40px;height:4px;background:#d0c8b8;border-radius:4px;margin:0 auto"></div></div>'+
         '<div style="padding:0 24px 24px">'+
@@ -1542,6 +1553,7 @@
             '<div style="width:70px;height:70px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">'+avatar+'</div>'+
             '<div><div style="font-family:\'Cormorant Garamond\',serif;font-size:1.5rem;font-weight:700">'+pet.name+'</div>'+
               (ownerName?'<div style="font-size:0.82rem;color:var(--mid)">Owner: <span style="font-weight:600;color:var(--ink)">'+ownerName+'</span></div>':'')+
+              socialBadge+
             '</div>'+
           '</div>'+
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'+
