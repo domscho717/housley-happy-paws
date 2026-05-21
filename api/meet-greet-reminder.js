@@ -34,11 +34,17 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth (only enforced when CRON_SECRET is set).
+  // ── Params (read before auth so we can allow dry-run without secret) ──
+  const qs = (req.query && Object.keys(req.query).length > 0) ? req.query : (req.body || {});
+  const dryRun = qs.dryRun === '1' || qs.dryRun === 'true' || qs.dryRun === true;
+
+  // Auth: enforced when CRON_SECRET is set EXCEPT for dryRun=1 hits, since
+  // those send no emails and write no rows — safe for ops to spot-check
+  // from a browser tab without holding the secret.
   const envSecret = process.env.CRON_SECRET;
   const cronSecret = req.headers['authorization'];
   const manualSecret = req.headers['x-cron-secret'];
-  if (envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret) {
+  if (!dryRun && envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -46,10 +52,6 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
-
-  // ── Params ──
-  const qs = (req.query && Object.keys(req.query).length > 0) ? req.query : (req.body || {});
-  const dryRun = qs.dryRun === '1' || qs.dryRun === 'true' || qs.dryRun === true;
   const forceResend = qs.force === '1' || qs.force === 'true' || qs.force === true;
   const overrideDate = (qs.date && /^\d{4}-\d{2}-\d{2}$/.test(qs.date)) ? qs.date : null;
   const onlyBookingId = qs.bookingId || null;
