@@ -465,7 +465,7 @@
     }
   }
 
-  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType, nights) {
+  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType, nights, numDogs, numCats) {
     var svc = null;
     for (var i = 0; i < SERVICES.length; i++) {
       if (SERVICES[i].name === serviceName) { svc = SERVICES[i]; break; }
@@ -488,11 +488,32 @@
     var extraPetCost = 0;
     if (numPets > 1) {
       var extraCount = numPets - 1;
-      // House Sitting 3+ animals: all additional at flat $20 rate regardless of type
+      // House Sitting 3+ animals: dogs at extra3plus ($20), cats at extraCat ($15).
+      // numDogs/numCats from the pet-chip selector lets us price species-aware. If the
+      // caller didn't pass them, fall back to the legacy lump-at-$20 behavior.
       if (isMultiNight && numPets >= 3 && svc.extra3plus) {
-        var extraRate = svc.extra3plus;
-        extraPetCost = extraCount * extraRate * nights;
-        parts.push(extraCount + ' extra pet(s) (3+): +$' + extraRate + '/night x ' + nights + ' = $' + extraPetCost);
+        var dogRate = svc.extra3plus;
+        var catRate = svc.extraCat || 15;
+        if (typeof numDogs === 'number' && typeof numCats === 'number' && (numDogs + numCats) === numPets) {
+          // First pet of the dominant species is included in the base
+          var extraDogs, extraCats;
+          if (numDogs > 0) {
+            extraDogs = numDogs - 1;  // 1st dog is base
+            extraCats = numCats;
+          } else {
+            extraDogs = 0;
+            extraCats = numCats - 1;  // all-cat: 1st cat is base
+          }
+          var dogExtraCost = extraDogs * dogRate * nights;
+          var catExtraCost = extraCats * catRate * nights;
+          extraPetCost = dogExtraCost + catExtraCost;
+          if (extraDogs > 0) parts.push(extraDogs + ' extra dog' + (extraDogs > 1 ? 's' : '') + ' @ $' + dogRate + '/night x ' + nights + ' = $' + dogExtraCost);
+          if (extraCats > 0) parts.push(extraCats + ' extra cat' + (extraCats > 1 ? 's' : '') + ' @ $' + catRate + '/night x ' + nights + ' = $' + catExtraCost);
+        } else {
+          // Legacy: lump all extras at $20 (used when species split isn't known)
+          extraPetCost = extraCount * dogRate * nights;
+          parts.push(extraCount + ' extra pet(s) (3+): +$' + dogRate + '/night x ' + nights + ' = $' + extraPetCost);
+        }
       } else if (petType === 'both') {
         // Mixed (1 dog + 1 cat): always $140/night for House Sitting
         if (isMultiNight) {
@@ -784,7 +805,7 @@
       if (svcName.toLowerCase().indexOf('house sitting') !== -1) {
         nights = calcNights(document.getElementById('brm-date').value, document.getElementById('brm-enddate').value);
       }
-      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights);
+      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights, window._brmDogCount, window._brmCatCount);
       if (estimateEl) estimateEl.style.display = 'block';
       if (breakdownEl) breakdownEl.innerHTML = result.breakdown.split(' | ').join('<br>');
 
@@ -2480,6 +2501,9 @@
     // Update hidden fields
     if (idsEl) idsEl.value = selectedIds.join(',');
     if (numPetsEl) numPetsEl.value = dogCount + catCount;
+    // Expose for species-aware pricing in calculatePrice (3+ HS scenario splits by species)
+    window._brmDogCount = dogCount;
+    window._brmCatCount = catCount;
 
     // Determine pet type for pricing
     if (petTypeEl) {
@@ -2655,7 +2679,7 @@
     if (isHouseSitting) {
       nights = calcNights(date, endDate);
     }
-    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights);
+    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights, window._brmDogCount, window._brmCatCount);
 
     // For multi-date / recurring pricing — count total visits (time slots), not just unique dates
     var totalDates = dateCardDetails.length > 0 ? dateCardDetails.length : allBookingDates.length;
