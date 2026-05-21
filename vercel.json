@@ -86,6 +86,10 @@
         {
             "path": "/api/retry-recurring",
             "schedule": "0 1 * * 1"
+        },
+        {
+            "path": "/api/meet-greet-reminder",
+            "schedule": "0 12 * * *"
         }
     ]
 }
