@@ -94,6 +94,10 @@ module.exports = async function handler(req, res) {
     } catch (e) { /* leave clientId null — the booking row still works */ }
 
     // ── Insert booking_requests FIRST so the booking exists even if Stripe is slow ──
+    // Status starts as 'invoice_sent' (Round 3 brief): the owner has proposed
+    // the booking but the client hasn't formally accepted yet. They'll see it
+    // in their portal with an "Accept invoice" button. Once they pay the
+    // Stripe invoice OR tap Accept, the status moves to 'accepted'.
     const isHouseSitting = service && service.toLowerCase().indexOf('house sitting') !== -1;
     const bookingPayload = {
       contact_name: clientName || null,
@@ -103,7 +107,7 @@ module.exports = async function handler(req, res) {
       preferred_date: serviceDate || null,
       preferred_end_date: isHouseSitting ? (endDate || null) : null,
       estimated_total: amount,
-      status: 'accepted',
+      status: 'invoice_sent',
       admin_notes: 'Created via owner-side invoice flow' + (notes ? ': ' + notes : ''),
       client_id: clientId,
       scheduled_date: serviceDate || null,

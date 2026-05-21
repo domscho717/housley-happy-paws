@@ -7523,8 +7523,8 @@ async function loadClientAppts(filter, tabBtn) {
           var isDeclined = b.status === 'rejected' || b.status === 'declined' || b.status === 'canceled';
           var cardOpacity = isDeclined ? 'opacity:0.5;' : '';
 
-          var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'payment_hold' ? '#fde8e8' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : b.status === 'in_progress' ? '#dbeafe' : '#e2e3e5';
-          var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'payment_hold' ? 'Payment Needed' : b.status === 'completed' ? 'Completed' : b.status === 'in_progress' ? '▶ In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
+          var statusColor = b.status === 'accepted' ? '#d4edda' : b.status === 'pending' ? '#fff3cd' : b.status === 'modified' ? '#fff3cd' : b.status === 'payment_hold' ? '#fde8e8' : b.status === 'invoice_sent' ? '#fff3cd' : b.status === 'rejected' ? '#f8d7da' : b.status === 'completed' ? '#d1ecf1' : b.status === 'in_progress' ? '#dbeafe' : '#e2e3e5';
+          var statusText = b.status === 'accepted' ? 'Confirmed' : b.status === 'pending' ? 'Pending' : b.status === 'modified' ? 'Time Change' : b.status === 'payment_hold' ? 'Payment Needed' : b.status === 'invoice_sent' ? 'Invoice Sent · awaiting your accept' : b.status === 'completed' ? 'Completed' : b.status === 'in_progress' ? '▶ In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1);
           // Payment badge: check paidSet for status (held vs paid)
           var listPayStatus = paidSet.has(shortId) ? (paidStatusMap && paidStatusMap[shortId] || 'paid') : (b.payment_intent_id ? 'paid' : '');
           var paidBadge = '';
@@ -7546,7 +7546,7 @@ async function loadClientAppts(filter, tabBtn) {
           var timeDisplay = fmt12h(b.preferred_time) || '';
           var dateDisplay = b.preferred_date ? new Date(b.preferred_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
 
-          var borderColor = b.status === 'in_progress' ? '#2196F3' : b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'payment_hold' ? '#c62828' : b.status === 'pending' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
+          var borderColor = b.status === 'in_progress' ? '#2196F3' : b.status === 'modified' ? '#e67e22' : b.status === 'accepted' ? 'var(--forest)' : b.status === 'payment_hold' ? '#c62828' : b.status === 'pending' ? 'var(--gold)' : b.status === 'invoice_sent' ? 'var(--gold)' : b.status === 'completed' ? '#17a2b8' : 'var(--mid)';
 
           // ── Time change banner (whole booking) ──
           if (isTimeChange) {
@@ -7609,6 +7609,20 @@ async function loadClientAppts(filter, tabBtn) {
             html += '<a href="/?track_booking=' + b.id + '" target="_blank" onclick="event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border-radius:10px;margin-top:4px;font-size:0.88rem;font-weight:700;text-decoration:none;cursor:pointer;animation:pulse 2s infinite">';
             html += '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite"></div>';
             html += '<span>📍 Track Live Walk</span></a>';
+          }
+
+          // Invoice sent: Rachel proposed a booking. Client confirms via
+          // "Accept Invoice" (status flips to accepted). Stripe payment
+          // happens via the email link they already received. payment_intent_id
+          // is the Stripe invoice id we stored at create time — if set, we
+          // also show a quick "Pay invoice" link out to the hosted invoice URL.
+          if (b.status === 'invoice_sent') {
+            html += '<div style="background:#fff8e1;border:1.5px solid #c8963e;border-radius:10px;padding:10px 12px;margin-top:4px;display:flex;flex-direction:column;gap:8px">';
+            html += '<div style="font-size:0.82rem;color:#5c3d1e">Rachel sent you an invoice for this booking. Tap <strong>Accept</strong> to confirm; pay via the Stripe email or the button below.</div>';
+            html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+            html += '<button onclick="event.stopPropagation();clientAcceptInvoice(\'' + b.id + '\')" style="flex:1;min-width:120px;padding:10px;border:none;border-radius:8px;background:var(--forest,#3d5a47);color:white;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit">✓ Accept Invoice</button>';
+            html += '<button onclick="event.stopPropagation();openStripeInvoice(\'' + b.id + '\')" style="flex:1;min-width:120px;padding:10px;border:1.5px solid #c8963e;border-radius:8px;background:#fff;color:#bf5d00;font-size:0.85rem;font-weight:700;cursor:pointer;font-family:inherit">💳 View / Pay Invoice</button>';
+            html += '</div></div>';
           }
 
           // Pay Now button moved to detail view (showBookingDetail)
@@ -7697,6 +7711,68 @@ async function payEarly(bookingId, amount, service, btn) {
     console.error('Pay early error:', err);
     if (typeof toast === 'function') toast('⚠️ Payment failed. Please try again.');
     if (btn) { btn.disabled = false; btn.innerHTML = '💳 Pay Now — $' + Number(amount).toFixed(2); }
+  }
+}
+
+// ── Client: Accept owner-sent invoice. Flips status from 'invoice_sent'
+//    to 'accepted'. Payment is handled by the Stripe invoice email the
+//    client already received — we don't double-charge from here.
+async function clientAcceptInvoice(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { if (typeof toast === 'function') toast('Please sign in first.'); return; }
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('id, status, service, estimated_total, payment_intent_id, client_id').eq('id', bookingId).maybeSingle();
+    if (!bk) { if (typeof toast === 'function') toast('Booking not found.'); return; }
+    if (bk.status !== 'invoice_sent') {
+      if (typeof toast === 'function') toast('This booking is no longer in "invoice sent" state.');
+      await loadClientAppts('all');
+      return;
+    }
+    // Safety: only the client this booking belongs to can accept.
+    if (bk.client_id && bk.client_id !== user.id) {
+      if (typeof toast === 'function') toast('Only the client this invoice was sent to can accept it.');
+      return;
+    }
+    var amtStr = bk.estimated_total ? ' for $' + Number(bk.estimated_total).toFixed(2) : '';
+    if (!confirm('Accept this invoice' + amtStr + '? Rachel will be notified.')) return;
+
+    var { error: updErr } = await sb.from('booking_requests')
+      .update({ status: 'accepted' })
+      .eq('id', bookingId);
+    if (updErr) {
+      console.error('[clientAcceptInvoice] update failed:', updErr);
+      if (typeof toast === 'function') toast('Could not accept: ' + (updErr.message || 'unknown'), 'error');
+      return;
+    }
+    if (typeof toast === 'function') toast('✅ Invoice accepted — Rachel has been notified.');
+    await loadClientAppts('all');
+  } catch (err) {
+    console.error('[clientAcceptInvoice] threw:', err);
+    if (typeof toast === 'function') toast('Could not accept invoice: ' + (err && err.message ? err.message : 'unknown'), 'error');
+  }
+}
+
+// ── Client: open the Stripe hosted-invoice URL in a new tab. We stored
+//    the invoice id (in_xxx) in booking_requests.payment_intent_id at
+//    creation time, but the hosted URL is owned by Stripe — easiest is
+//    to deep-link to the Stripe receipt URL pattern, falling back to a
+//    "check your email" toast if we don't have it on file.
+async function openStripeInvoice(bookingId) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { if (typeof toast === 'function') toast('Please sign in first.'); return; }
+  try {
+    var { data: bk } = await sb.from('booking_requests').select('payment_intent_id, contact_email').eq('id', bookingId).maybeSingle();
+    if (!bk || !bk.payment_intent_id) {
+      if (typeof toast === 'function') toast('Check your email for the Stripe invoice with the Pay button.');
+      return;
+    }
+    // Stripe hosted invoice URLs use the pattern https://invoice.stripe.com/i/<acct>/<id>
+    // but we don't store the hosted URL — best UX is to tell the client
+    // to use the email link they already got.
+    if (typeof toast === 'function') toast('Open your Stripe email — the Pay button is in there. (Invoice ID: ' + String(bk.payment_intent_id).slice(0, 14) + '…)');
+  } catch (err) {
+    console.error('[openStripeInvoice] threw:', err);
   }
 }
 
@@ -11335,26 +11411,44 @@ async function deactivateDeal(dealId) {
 
 // ── Send Invoice (Real Stripe) ──
 async function sendInvoice() {
-  const name = document.getElementById('inv-name')?.value?.trim();
-  const email = document.getElementById('inv-email')?.value?.trim();
-  const service = document.getElementById('inv-service')?.value;
-  const amount = parseFloat(document.getElementById('inv-amount')?.value);
-  const dueDate = document.getElementById('inv-due')?.value;
-  const serviceDate = document.getElementById('inv-date')?.value;
-  const endDate = document.getElementById('inv-enddate')?.value;
-  const petNames = document.getElementById('inv-pets')?.value?.trim();
-  const note = document.getElementById('inv-note')?.value?.trim();
+  // ── Aggressive diagnostics so we never again wonder "did the click handler
+  //    even fire?". Rachel reported in Round 3 that the button looked dead;
+  //    if it actually does nothing now, we'll see these lines in DevTools
+  //    console. If we DON'T see them, the click handler isn't wired (most
+  //    likely a JS error earlier in the page broke parsing).
+  console.log('[sendInvoice] handler entered at', new Date().toISOString());
+  const _toastFn = (typeof toast === 'function') ? toast : function(m) { try { alert(m); } catch(e) { console.warn('toast missing:', m); } };
+  try {
+    const name = document.getElementById('inv-name')?.value?.trim();
+    const email = document.getElementById('inv-email')?.value?.trim();
+    const service = document.getElementById('inv-service')?.value;
+    const amount = parseFloat(document.getElementById('inv-amount')?.value);
+    const dueDate = document.getElementById('inv-due')?.value;
+    const serviceDate = document.getElementById('inv-date')?.value;
+    const endDate = document.getElementById('inv-enddate')?.value;
+    const petNames = document.getElementById('inv-pets')?.value?.trim();
+    const note = document.getElementById('inv-note')?.value?.trim();
+    console.log('[sendInvoice] form values:', { name, email, service, amount, dueDate, serviceDate, endDate, petNames, hasNote: !!note });
+    if (!name || !email) { _toastFn('Please fill in client name and email'); return; }
+    if (!amount || amount <= 0) { _toastFn('Please enter a valid amount'); return; }
 
-  if (!name || !email) { toast('Please fill in client name and email'); return; }
-  if (!amount || amount <= 0) { toast('Please enter a valid amount'); return; }
-
-  // Stripe-client.js is loaded with defer — should always be present when the
-  // button is clickable. If not, surface it loudly instead of pretending it worked.
-  if (typeof HHP_Stripe === 'undefined') {
-    console.error('[sendInvoice] HHP_Stripe is undefined — stripe-client.js failed to load');
-    toast('⚠️ Invoice service not loaded. Refresh the page and try again.');
-    return;
+    // Stripe-client.js is loaded with defer — should always be present when the
+    // button is clickable. If not, surface it loudly instead of pretending it worked.
+    if (typeof HHP_Stripe === 'undefined') {
+      console.error('[sendInvoice] HHP_Stripe is undefined — stripe-client.js failed to load');
+      _toastFn('⚠️ Invoice service not loaded. Refresh the page and try again.');
+      return;
+    }
+    return await _sendInvoiceInner(name, email, service, amount, dueDate, serviceDate, endDate, petNames, note, _toastFn);
+  } catch (outerErr) {
+    // This catches anything that throws BEFORE we get into the real fetch
+    // path (parsing errors, missing DOM, etc.) — surface as a real toast.
+    console.error('[sendInvoice] OUTER threw:', outerErr);
+    _toastFn('⚠️ Invoice error: ' + (outerErr && outerErr.message ? outerErr.message : 'unknown — see console'), 'error');
   }
+}
+
+async function _sendInvoiceInner(name, email, service, amount, dueDate, serviceDate, endDate, petNames, note, _toastFn) {
 
   const btnEls = document.querySelectorAll('button[onclick="sendInvoice()"]');
   btnEls.forEach(b => { b.disabled = true; b.dataset._origText = b.textContent; b.textContent = '⏳ Sending...'; });
@@ -12558,29 +12652,85 @@ async function saveIdeas() {
 }
 
 function previewInvoice() {
-  // Field id is `inv-name`, not `inv-client` — the old code always showed "Client"
-  // and ran the alert with literal backslash-n instead of newlines.
-  var client = document.getElementById('inv-name')?.value?.trim() || 'Client';
-  var email = document.getElementById('inv-email')?.value?.trim() || '';
-  var service = document.getElementById('inv-service')?.value || 'Service';
-  var amount = document.getElementById('inv-amount')?.value || '0';
-  var dueDate = document.getElementById('inv-due')?.value || '';
-  var serviceDate = document.getElementById('inv-date')?.value || '';
-  var endDate = document.getElementById('inv-enddate')?.value || '';
-  var pets = document.getElementById('inv-pets')?.value?.trim() || '';
-  var note = document.getElementById('inv-note')?.value?.trim() || '';
+  // Aggressive diagnostics — same as sendInvoice. If Rachel reports the
+  // Preview button does nothing, the missing console.log here means the
+  // handler isn't even firing (likely a JS parse error elsewhere on the page).
+  console.log('[previewInvoice] handler entered at', new Date().toISOString());
+  try {
+    // Field id is `inv-name`, not `inv-client` — the old code always showed "Client"
+    // and ran the alert with literal backslash-n instead of newlines.
+    var client = document.getElementById('inv-name')?.value?.trim() || 'Client';
+    var email = document.getElementById('inv-email')?.value?.trim() || '';
+    var service = document.getElementById('inv-service')?.value || 'Service';
+    var amount = document.getElementById('inv-amount')?.value || '0';
+    var dueDate = document.getElementById('inv-due')?.value || '';
+    var serviceDate = document.getElementById('inv-date')?.value || '';
+    var endDate = document.getElementById('inv-enddate')?.value || '';
+    var pets = document.getElementById('inv-pets')?.value?.trim() || '';
+    var note = document.getElementById('inv-note')?.value?.trim() || '';
 
-  var lines = ['📄 Invoice Preview', ''];
-  lines.push('To: ' + client + (email ? ' <' + email + '>' : ''));
-  lines.push('Service: ' + service);
-  lines.push('Amount: $' + amount);
-  if (pets) lines.push('Pets: ' + pets);
-  if (serviceDate) lines.push('Service date: ' + serviceDate + (endDate ? ' → ' + endDate : ''));
-  if (dueDate) lines.push('Due: ' + dueDate);
-  if (note) lines.push('Note: ' + note);
-  lines.push('');
-  lines.push('Use "Send Invoice" to create and send via Stripe.');
-  alert(lines.join('\n'));
+    // Remove any existing preview modal.
+    var existing = document.getElementById('hhp-invoice-preview-modal');
+    if (existing) existing.remove();
+
+    function fmtDate(d) {
+      if (!d) return '';
+      try { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); }
+      catch(_) { return d; }
+    }
+    var dateLine = serviceDate
+      ? fmtDate(serviceDate) + (endDate ? ' → ' + fmtDate(endDate) : '')
+      : '—';
+    var amtNum = parseFloat(amount) || 0;
+
+    var modal = document.createElement('div');
+    modal.id = 'hhp-invoice-preview-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99000;display:flex;align-items:center;justify-content:center;padding:20px';
+    modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+
+    var body = ''
+      + '<div style="background:#fdfaf5;border-radius:14px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 12px 40px rgba(0,0,0,0.25);font-family:inherit">'
+      +   '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px">'
+      +     '<div>'
+      +       '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.4rem;font-weight:700;color:#1e1409">Invoice Preview</div>'
+      +       '<div style="font-size:0.78rem;color:#8c6b4a;margin-top:2px">This is what the client will see in their portal + email</div>'
+      +     '</div>'
+      +     '<button onclick="document.getElementById(\'hhp-invoice-preview-modal\').remove()" style="background:none;border:none;font-size:1.4rem;color:#8c6b4a;cursor:pointer;line-height:1">&times;</button>'
+      +   '</div>'
+      +   '<div style="background:#fff;border:1px solid #e8e0d4;border-radius:10px;padding:18px;margin-bottom:18px">'
+      +     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">'
+      +       '<div>'
+      +         '<div style="font-weight:700;font-size:1.05rem">Housley Happy Paws</div>'
+      +         '<div style="font-size:0.78rem;color:#8c6b4a">Lancaster, PA · Rachel Housley</div>'
+      +       '</div>'
+      +       '<div style="text-align:right">'
+      +         '<div style="font-size:0.72rem;font-weight:700;color:#8c6b4a;text-transform:uppercase">Amount due</div>'
+      +         '<div style="font-size:1.6rem;font-weight:700;color:#3d5a47">$' + amtNum.toFixed(2) + '</div>'
+      +       '</div>'
+      +     '</div>'
+      +     '<div style="border-top:1px solid #e8e0d4;padding-top:12px">'
+      +       '<div style="margin-bottom:6px"><strong>To:</strong> ' + _escH(client) + (email ? ' <span style="color:#8c6b4a">&lt;' + _escH(email) + '&gt;</span>' : '') + '</div>'
+      +       '<div style="margin-bottom:6px"><strong>Service:</strong> ' + _escH(service) + '</div>'
+      +       (pets ? '<div style="margin-bottom:6px"><strong>Pets:</strong> ' + _escH(pets) + '</div>' : '')
+      +       '<div style="margin-bottom:6px"><strong>Service date:</strong> ' + _escH(dateLine) + '</div>'
+      +       (dueDate ? '<div style="margin-bottom:6px"><strong>Due:</strong> ' + _escH(fmtDate(dueDate)) + '</div>' : '')
+      +       (note ? '<div style="margin-top:10px;padding:10px 12px;background:#fdf7ee;border-radius:8px;font-style:italic;color:#5c3d1e;font-size:0.86rem">' + _escH(note) + '</div>' : '')
+      +     '</div>'
+      +   '</div>'
+      +   '<div style="font-size:0.78rem;color:#8c6b4a;margin-bottom:14px;line-height:1.5">When you send: the client gets a Stripe invoice email with a Pay button, and a new booking shows up in their portal as <strong>Invoice sent</strong>. They can tap Accept to confirm the booking.</div>'
+      +   '<div style="display:flex;gap:10px">'
+      +     '<button onclick="document.getElementById(\'hhp-invoice-preview-modal\').remove()" style="flex:1;padding:12px;background:transparent;color:#8c6b4a;border:1.5px solid #e0d5c5;border-radius:10px;font-weight:600;cursor:pointer;font-family:inherit">Close</button>'
+      +     '<button onclick="document.getElementById(\'hhp-invoice-preview-modal\').remove();sendInvoice()" style="flex:1;padding:12px;background:#c8963e;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-family:inherit">📤 Send for Real</button>'
+      +   '</div>'
+      + '</div>';
+
+    modal.innerHTML = body;
+    document.body.appendChild(modal);
+  } catch (err) {
+    console.error('[previewInvoice] threw:', err);
+    if (typeof toast === 'function') toast('Preview error: ' + (err && err.message ? err.message : 'unknown — see console'), 'error');
+    else alert('Preview error: ' + (err && err.message ? err.message : 'unknown'));
+  }
 }
 
 // ── Interest Form Submissions (save to site_content) ──
