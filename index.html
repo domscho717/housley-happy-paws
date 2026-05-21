@@ -7685,11 +7685,19 @@ async function loadClientAppts(filter, tabBtn) {
           if (b.estimated_total > 0) html += '<div style="font-size:0.78rem;font-weight:600;color:var(--ink)">$' + Number(b.estimated_total).toFixed(2) + '</div>';
           html += '</div></div></div>';
 
-          // In-progress: show Track Live Walk banner below the card
+          // In-progress: show inline Live Tracking card (Brief #2). Polls
+          // tracking_points every 10s and pulses the last GPS point on a
+          // Leaflet map. Falls back to the full-screen tracking page
+          // when the client wants a bigger view.
           if (b.status === 'in_progress') {
-            html += '<a href="/?track_booking=' + b.id + '" target="_blank" onclick="event.stopPropagation()" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border-radius:10px;margin-top:4px;font-size:0.88rem;font-weight:700;text-decoration:none;cursor:pointer;animation:pulse 2s infinite">';
-            html += '<div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite"></div>';
-            html += '<span>📍 Track Live Walk</span></a>';
+            html += '<div data-live-track="' + b.id + '" style="background:linear-gradient(135deg,#3d5a47,#4a7c59);color:white;border-radius:12px;margin-top:4px;padding:10px 12px 12px">';
+            html += '  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">';
+            html += '    <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:#22c55e;animation:pulse 1.5s infinite"></div><span style="font-weight:700;font-size:0.86rem">📍 Live tracking — Rachel is with your pet</span></div>';
+            html += '    <a href="/?track_booking=' + b.id + '" target="_blank" onclick="event.stopPropagation()" style="font-size:0.74rem;color:rgba(255,255,255,0.85);text-decoration:underline">Fullscreen ↗</a>';
+            html += '  </div>';
+            html += '  <div id="livetrack-map-' + b.id + '" style="height:200px;background:#1e1409;border-radius:8px;overflow:hidden"></div>';
+            html += '  <div id="livetrack-meta-' + b.id + '" style="font-size:0.72rem;color:rgba(255,255,255,0.85);margin-top:6px">Waiting for first GPS ping…</div>';
+            html += '</div>';
           }
 
           // Invoice sent: Rachel proposed a booking. Client confirms via
@@ -7720,10 +7728,114 @@ async function loadClientAppts(filter, tabBtn) {
       return;
     }
     listEl.innerHTML = html;
+
+    // After the list mounts, find any in-progress live-track placeholders
+    // and start a poller that fetches tracking_points every 10s and draws
+    // them on a Leaflet map (Brief #2).
+    listEl.querySelectorAll('[data-live-track]').forEach(function(node) {
+      var bookingId = node.getAttribute('data-live-track');
+      if (typeof startClientLiveTrack === 'function') startClientLiveTrack(bookingId);
+    });
   } catch (err) {
     console.error('Load client appts error:', err);
     listEl.innerHTML = '<div style="padding:28px;text-align:center;color:#c44">Failed to load appointments.</div>';
   }
+}
+
+// ── Brief #2: Client-side live walk tracker ──
+// Mounts an inline Leaflet map under any in-progress booking row. Polls
+// tracking_points every 10s. Auto-collapses once the booking is no longer
+// 'in_progress'. Cleans up its interval when the user navigates away.
+window._clientLiveTrackers = window._clientLiveTrackers || {};
+function startClientLiveTrack(bookingId) {
+  if (!bookingId || window._clientLiveTrackers[bookingId]) return;
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) return;
+  var ctx = window._clientLiveTrackers[bookingId] = { map: null, marker: null, polyline: null, lastPointTs: 0, walkId: null, intervalId: null, lastStatus: 'in_progress' };
+
+  function ensureMap() {
+    if (ctx.map) return ctx.map;
+    var mapEl = document.getElementById('livetrack-map-' + bookingId);
+    if (!mapEl || typeof L === 'undefined') return null;
+    ctx.map = L.map(mapEl, { zoomControl: true, attributionControl: false }).setView([40.0379, -76.3055], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(ctx.map);
+    return ctx.map;
+  }
+
+  async function tick() {
+    try {
+      // 1. Re-check booking status. If no longer in_progress, stop the
+      //    poller and trigger a list refresh so the card collapses.
+      var bkRes = await sb.from('booking_requests').select('status').eq('id', bookingId).maybeSingle();
+      var status = bkRes && bkRes.data && bkRes.data.status;
+      if (!status) { stopClientLiveTrack(bookingId); return; }
+      if (status !== 'in_progress') {
+        stopClientLiveTrack(bookingId);
+        if (typeof loadClientAppts === 'function') loadClientAppts('all');
+        return;
+      }
+
+      // 2. Resolve walk_id once (in_progress walk for this booking).
+      if (!ctx.walkId) {
+        var wRes = await sb.from('walks').select('id').eq('booking_id', bookingId).eq('status', 'in_progress').order('start_time', { ascending: false }).limit(1);
+        var w = wRes && wRes.data && wRes.data[0];
+        if (!w) return;
+        ctx.walkId = w.id;
+      }
+
+      // 3. Fetch any tracking points newer than last seen.
+      var since = ctx.lastPointTs ? new Date(ctx.lastPointTs + 1).toISOString() : null;
+      var ptsQuery = sb.from('tracking_points').select('lat,lng,recorded_at').eq('walk_id', ctx.walkId).order('recorded_at', { ascending: true });
+      if (since) ptsQuery = ptsQuery.gt('recorded_at', since);
+      var ptsRes = await ptsQuery;
+      var newPoints = (ptsRes && ptsRes.data) || [];
+      if (newPoints.length === 0) return;
+
+      // 4. Mount the Leaflet map lazily once we have at least one point.
+      if (typeof _loadLeaflet === 'function' && typeof L === 'undefined') {
+        await new Promise(function(r) { _loadLeaflet(r); });
+      }
+      var map = ensureMap();
+      if (!map) return;
+
+      // 5. Update polyline + pulsing last-point marker.
+      if (!ctx._latlngs) ctx._latlngs = [];
+      newPoints.forEach(function(p) { ctx._latlngs.push([p.lat, p.lng]); });
+      ctx.lastPointTs = new Date(newPoints[newPoints.length - 1].recorded_at).getTime();
+      if (ctx._latlngs.length >= 2) {
+        if (ctx.polyline) { ctx.polyline.setLatLngs(ctx._latlngs); }
+        else { ctx.polyline = L.polyline(ctx._latlngs, { color: '#22c55e', weight: 4, opacity: 0.85 }).addTo(map); }
+      }
+      var last = ctx._latlngs[ctx._latlngs.length - 1];
+      if (ctx.marker) ctx.marker.setLatLng(last);
+      else {
+        var pulseIcon = L.divIcon({
+          className: 'hhp-pulse-marker',
+          html: '<div style="width:18px;height:18px;border-radius:50%;background:#22c55e;border:3px solid white;box-shadow:0 0 0 4px rgba(34,197,94,0.4);animation:pulse 1.5s infinite"></div>',
+          iconSize: [18, 18], iconAnchor: [9, 9],
+        });
+        ctx.marker = L.marker(last, { icon: pulseIcon }).addTo(map);
+      }
+      // Auto-pan to the latest point unless the user has zoomed/panned.
+      map.setView(last, map.getZoom(), { animate: true });
+      var meta = document.getElementById('livetrack-meta-' + bookingId);
+      if (meta) {
+        var lastTime = new Date(newPoints[newPoints.length - 1].recorded_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        meta.textContent = ctx._latlngs.length + ' GPS pings · last update ' + lastTime;
+      }
+    } catch (e) { console.warn('[livetrack] tick error:', e); }
+  }
+
+  // Kick first tick immediately, then poll every 10s.
+  tick();
+  ctx.intervalId = setInterval(tick, 10000);
+}
+function stopClientLiveTrack(bookingId) {
+  var ctx = window._clientLiveTrackers && window._clientLiveTrackers[bookingId];
+  if (!ctx) return;
+  if (ctx.intervalId) clearInterval(ctx.intervalId);
+  if (ctx.map) { try { ctx.map.remove(); } catch (_) {} }
+  delete window._clientLiveTrackers[bookingId];
 }
 
 // ── Client: Retry Payment (for payment_hold bookings where card was declined) ──
