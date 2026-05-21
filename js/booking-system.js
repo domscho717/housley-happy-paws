@@ -3347,6 +3347,41 @@
     if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
   };
 
+  // ── Owner: assign a booking to a staff member (Brief #11) ──
+  // Empty string staffUserId means "unassigned" (default to Rachel).
+  // Persists assigned_to, refreshes the panel, and fires a notification
+  // email to the assignee via /api/assign-booking. Fire-and-forget on
+  // the email so failures don't block the UI.
+  window.assignBookingToStaff = async function(bookingId, staffUserId) {
+    var sb = getSB();
+    if (!sb) { if (typeof toast === 'function') toast('Not signed in.'); return; }
+    try {
+      var newVal = staffUserId && staffUserId.length > 0 ? staffUserId : null;
+      var { error } = await sb.from('booking_requests').update({ assigned_to: newVal }).eq('id', bookingId);
+      if (error) {
+        console.error('[assign-booking] update failed:', error);
+        if (typeof toast === 'function') toast('Could not assign: ' + (error.message || 'unknown'), 'error');
+        return;
+      }
+      if (typeof toast === 'function') toast(newVal ? '✅ Assigned to staff' : '✅ Unassigned');
+      // Fire notification email (only when assigning, not unassigning).
+      if (newVal) {
+        try {
+          var sess = await sb.auth.getSession();
+          var token = sess && sess.data && sess.data.session ? sess.data.session.access_token : '';
+          fetch('/api/assign-booking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ bookingId: bookingId, staffUserId: newVal }),
+          }).catch(function(e) { console.warn('[assign-booking] notify failed:', e); });
+        } catch (notifyErr) { console.warn('[assign-booking] notify dispatch error:', notifyErr); }
+      }
+    } catch (e) {
+      console.error('[assign-booking] threw:', e);
+      if (typeof toast === 'function') toast('Could not assign — see console.', 'error');
+    }
+  };
+
   window.HHP_BookingAdmin = {
     currentFilter: 'pending',
     requests: [],
@@ -4323,19 +4358,27 @@
       // booking is always at the top of Rachel's list.
       var query = sb.from('booking_requests').select('*');
 
-      // For staff: only fetch requests assigned to them
+      // For staff: fetch bookings directly assigned to them (Brief #11
+      // booking_requests.assigned_to) OR bookings tied to their legacy
+      // staff_assignments rows. Union the two ID sets so neither
+      // mechanism is broken on its own.
       if (portal === 'staff') {
         var user = window.HHP_Auth && window.HHP_Auth.currentUser;
         if (user) {
-          var { data: staffAssignments } = await sb.from('staff_assignments').select('client_id').eq('staff_id', user.id);
-          var clientIds = (staffAssignments || []).map(function(a) { return a.client_id; });
-          if (clientIds.length > 0) {
-            query = query.in('client_id', clientIds);
+          var staffUid = user.id;
+          // Legacy: client-level assignment via staff_assignments table.
+          var legacyClientIds = [];
+          try {
+            var { data: staffAssignments } = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffUid);
+            legacyClientIds = (staffAssignments || []).map(function(a) { return a.client_id; });
+          } catch (laErr) { console.warn('[bookings panel] staff_assignments lookup:', laErr); }
+
+          // Combined filter: either assigned_to me OR client_id ∈ my legacy set.
+          if (legacyClientIds.length > 0) {
+            var inList = legacyClientIds.map(function(id) { return '"' + id + '"'; }).join(',');
+            query = query.or('assigned_to.eq.' + staffUid + ',client_id.in.(' + inList + ')');
           } else {
-            // No clients assigned
-            _bookingPanelState.requests = [];
-            _renderBookingRequestsList(container, portal);
-            return;
+            query = query.eq('assigned_to', staffUid);
           }
         }
       }
@@ -4376,6 +4419,23 @@
       } catch (stuckErr) {
         console.warn('[bookings panel] stuck-charge lookup failed:', stuckErr);
         _bookingPanelState.stuckCharges = [];
+      }
+
+      // Staff list (Brief #11): owner-only. Used to populate the
+      // "Assign to:" dropdown on each accepted booking card.
+      if (portal === 'owner') {
+        try {
+          var staffRes = await sb.from('profiles')
+            .select('user_id, full_name, email')
+            .eq('role', 'staff')
+            .order('full_name', { ascending: true });
+          _bookingPanelState.staffList = (staffRes && staffRes.data) || [];
+        } catch (sErr) {
+          console.warn('[bookings panel] staff list lookup failed:', sErr);
+          _bookingPanelState.staffList = [];
+        }
+      } else {
+        _bookingPanelState.staffList = [];
       }
 
       // Batch-fetch avatars
@@ -4616,6 +4676,25 @@
         schedBtnHTML = '<button class="sched-peek-btn" onclick="event.stopPropagation();HHP_BookingAdmin.toggleSchedulePreview(\'' + r.id + '\',\'' + _spDatesAttr + '\',this)" title="Check your schedule for this date">\uD83D\uDCC5</button>';
       }
 
+      // \u2500\u2500 Owner-only: "Assigned to" dropdown (Brief #11). Skipped for
+      //    canceled / declined / completed bookings.
+      var assignHTML = '';
+      var staffList = _bookingPanelState.staffList || [];
+      var assignableStatuses = { pending:1, accepted:1, confirmed:1, modified:1, in_progress:1, payment_hold:1, invoice_sent:1 };
+      if (portal === 'owner' && assignableStatuses[r.status]) {
+        var assignedNow = r.assigned_to || '';
+        var staffOpts = '<option value="">\u2014 Rachel (unassigned)</option>';
+        staffList.forEach(function(s) {
+          var sel = s.user_id === assignedNow ? ' selected' : '';
+          staffOpts += '<option value="' + s.user_id + '"' + sel + '>' + escHtml(s.full_name || s.email || 'Staff') + '</option>';
+        });
+        assignHTML =
+          '<div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--warm);border-radius:8px;padding:8px 10px">' +
+          '<span style="font-size:0.78rem;color:var(--mid);font-weight:600">Assigned to:</span>' +
+          '<select onchange="event.stopPropagation();assignBookingToStaff(\'' + r.id + '\',this.value)" style="flex:1;min-width:140px;padding:6px 10px;font-size:0.82rem;border:1px solid var(--border);border-radius:6px;background:var(--cream,white);font-family:inherit">' + staffOpts + '</select>' +
+          '</div>';
+      }
+
       return [
         '<div class="card" data-request-id="' + r.id + '" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + ';position:relative">',
         (schedBtnHTML ? '<div style="position:absolute;top:12px;right:12px;z-index:2">' + schedBtnHTML + '</div>' : ''),
@@ -4637,6 +4716,7 @@
         (r.special_notes ? '  <div style="background:var(--gold-pale);padding:8px 10px;border-radius:6px;font-size:0.82rem;margin-bottom:12px"><strong>Notes:</strong> ' + escHtml(r.special_notes) + '</div>' : ''),
         panelMultiDateHTML,
         actionsHTML,
+        assignHTML,
         '</div>',
       ].join('');
     }).join('');
