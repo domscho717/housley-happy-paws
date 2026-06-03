@@ -1533,10 +1533,12 @@
       var sh=document.createElement('div');
       sh.style.cssText='width:100%;max-width:500px;max-height:80vh;background:var(--cream,white);border-radius:20px 20px 0 0;box-shadow:0 -8px 40px rgba(0,0,0,0.18);overflow-y:auto;padding:0 0 env(safe-area-inset-bottom,20px);transform:translateY(100%);transition:transform 0.3s ease';
       var avatar=pet.photo_url?'<img src="'+pet.photo_url+'" style="width:100%;height:100%;object-fit:cover">':'<span style="font-size:2.5rem">'+(pet.species==='cat'?'🐱':'🐶')+'</span>';
-      // Pretty pet-age formatter (Brief #10): show weeks for very young
-      // pets (under 8 weeks), then months, then years + months. Re-computed
-      // every time the modal opens — never stored.
+      // Pretty pet-age formatter (Brief #10 + R4 #5): show "X years (~Y in
+      // dog years)" so Rachel sees both human + species age at a glance.
+      // Re-computed every time the modal opens — never stored.
       var age=(typeof window.formatPetAge==='function')?window.formatPetAge(pet.birthday):'';
+      var speciesAge=(typeof window.formatPetSpeciesYears==='function')?window.formatPetSpeciesYears(pet.birthday, pet.species):null;
+      if (age && speciesAge) age = age + ' <span style="font-size:0.78em;color:var(--mid);font-weight:500">(~' + speciesAge + ')</span>';
       // Social media badge (Brief #8): true = OK; false = no; null = unknown
       var socialBadge='';
       if(pet.social_media_ok===true){

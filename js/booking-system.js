@@ -309,7 +309,16 @@
   // Current services array — will be populated from DB or fallback to DEFAULT_SERVICES
   var SERVICES = DEFAULT_SERVICES.slice();
 
-  // Holiday dates (month-day format, add more as needed)
+  // Holiday-rate dates. Two sources, both supported:
+  //   1. holidays table  — recurring MM-DD entries (federal day-of holidays
+  //      like New Year's, July 4, Christmas). Kept for back-compat per
+  //      R4 #6 brief.
+  //   2. holiday_ranges  — year-specific date ranges Rachel actually charges
+  //      the holiday rate over (e.g. Memorial Day weekend May 22-25 2026).
+  //      Each range is expanded into every YYYY-MM-DD between start and end.
+  //
+  // HOLIDAYS is the MM-DD recurring set; HOLIDAY_EXACT is a Set of explicit
+  // YYYY-MM-DD strings from the ranges table. isHoliday() checks both.
   var HOLIDAYS = [
     '01-01', // New Year's Day
     '01-20', // MLK Day (approx)
@@ -325,30 +334,65 @@
     '12-25', // Christmas Day
     '12-31', // New Year's Eve
   ];
+  var HOLIDAY_EXACT = Object.create(null);  // { 'YYYY-MM-DD': 'label' }
 
   function isHoliday(dateStr) {
     if (!dateStr) return false;
-    var md = dateStr.slice(5); // "YYYY-MM-DD" -> "MM-DD"
+    if (HOLIDAY_EXACT[dateStr]) return true;          // year-specific range hit
+    var md = dateStr.slice(5);                        // "YYYY-MM-DD" -> "MM-DD"
     return HOLIDAYS.indexOf(md) !== -1;
   }
 
-  // Load holidays from Supabase table
+  // Expand a {start_date, end_date} range into individual YYYY-MM-DD keys.
+  function _expandHolidayRange(startStr, endStr, label) {
+    if (!startStr || !endStr) return;
+    var cur = new Date(startStr + 'T12:00:00');
+    var end = new Date(endStr + 'T12:00:00');
+    if (isNaN(cur.getTime()) || isNaN(end.getTime())) return;
+    var safety = 0;
+    while (cur <= end && safety++ < 400) {
+      var y = cur.getFullYear();
+      var m = String(cur.getMonth() + 1).padStart(2, '0');
+      var d = String(cur.getDate()).padStart(2, '0');
+      HOLIDAY_EXACT[y + '-' + m + '-' + d] = label || '';
+      cur.setDate(cur.getDate() + 1);
+    }
+  }
+
+  // Load holidays from Supabase. Reads BOTH the legacy holidays table
+  // (recurring MM-DD) AND the new holiday_ranges table (year-specific
+  // ranges). Either can be missing — we degrade gracefully.
   async function loadHolidaysFromDB(sb) {
+    // Recurring MM-DD entries.
     try {
-      var { data, error } = await sb.from('holidays')
+      var { data: mmddRows, error: mmddErr } = await sb.from('holidays')
         .select('date_mmdd')
         .order('sort_order', { ascending: true });
-      if (error) throw error;
-      if (data && data.length > 0) {
-        HOLIDAYS = data.map(function(r) { return r.date_mmdd; });
-        window._holidayData = data;
-        // Clear the availability.js holiday cache so calendars pick up DB holidays
-        if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
-        console.log('✓ Holidays loaded from DB (' + HOLIDAYS.length + ' dates)');
+      if (mmddErr) throw mmddErr;
+      if (mmddRows && mmddRows.length > 0) {
+        HOLIDAYS = mmddRows.map(function(r) { return r.date_mmdd; });
+        window._holidayData = mmddRows;
+        console.log('✓ Holidays MM-DD loaded from DB (' + HOLIDAYS.length + ' dates)');
       }
     } catch (e) {
-      console.warn('Failed to load holidays from DB; using defaults:', e);
+      console.warn('Failed to load MM-DD holidays from DB; using defaults:', e);
     }
+    // Year-specific date ranges (R4 #6).
+    try {
+      var { data: rangeRows, error: rangeErr } = await sb.from('holiday_ranges')
+        .select('start_date, end_date, label')
+        .order('sort_order', { ascending: true });
+      if (rangeErr) throw rangeErr;
+      HOLIDAY_EXACT = Object.create(null);
+      (rangeRows || []).forEach(function(r) { _expandHolidayRange(r.start_date, r.end_date, r.label); });
+      window._holidayRanges = rangeRows || [];
+      var exactCount = Object.keys(HOLIDAY_EXACT).length;
+      if (exactCount > 0) console.log('✓ Holiday ranges loaded (' + (rangeRows || []).length + ' ranges = ' + exactCount + ' dates)');
+    } catch (e) {
+      console.warn('Failed to load holiday_ranges from DB (likely table not yet migrated):', e);
+    }
+    // Clear the availability.js holiday cache so calendars pick up DB holidays.
+    if (typeof window.clearHolidayCache === 'function') window.clearHolidayCache();
   }
 
   // Load pricing from Supabase table service_pricing

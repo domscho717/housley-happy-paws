@@ -34,6 +34,20 @@
 #pg-client,#pg-staff,#pg-owner{display:none!important;visibility:hidden!important}
 </style>
 <script>
+// R4 #9: take manual control of scroll restoration. iOS Safari restores
+// the previous scroll position from a bookmark AFTER DOMContentLoaded fires,
+// which makes the website land halfway down the page on every reopen.
+// Setting scrollRestoration to 'manual' tells the browser not to do that,
+// and the pageshow handler covers bfcache restores (where DOMContentLoaded
+// doesn't fire at all). Skipped when the URL has a hash anchor so we still
+// honor explicit #section links.
+try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+window.addEventListener('pageshow', function() {
+  if (window.location.hash) return;
+  try { window.scrollTo(0, 0); } catch (_) {}
+});
+</script>
+<script>
 // Instant page restore: show the correct portal/panel immediately on reload (no flash)
 try{
   var _lv=sessionStorage.getItem('hhp_last_view');
@@ -1461,6 +1475,20 @@ try {
           <button class="btn btn-outline" onclick="openModal('contactModal')">Send a Message</button>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- MEET OUR TEAM (R4 #8). Populated by loadMeetOurTeam() — defaults to
+       just Rachel until staff profiles get added. Sits between hero and
+       services. Hidden until we have at least one team member loaded
+       (no flash of empty section). -->
+  <section class="meet-team-section" id="meetTeam" style="display:none;padding:60px 24px;background:var(--warm,#fdf7ee)">
+    <div style="max-width:1120px;margin:0 auto">
+      <div class="fadeup" style="text-align:center">
+        <div class="section-eyebrow">Meet Our Team</div>
+        <h2 class="section-h">The People Caring for <em>Your Pet</em></h2>
+      </div>
+      <div id="meetTeamGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:28px"></div>
     </div>
   </section>
 
@@ -6167,6 +6195,29 @@ async function submitContact() {
 }
 
 // ── Pet Profile: age calculator (dog years + cat years) ──
+// Dog/cat year conversion (R4 #5). Same model calcPetAge uses below:
+//   First 12 months = 15 "human" years
+//   Next 12 months  = +9 more (= 24 at age 2)
+//   Beyond:         +5/yr for dogs, +4/yr for cats
+// Returns null if birthday is missing/invalid.
+window.formatPetSpeciesYears = function(birthday, species) {
+  if (!birthday) return null;
+  var bd;
+  try { bd = (birthday instanceof Date) ? birthday : new Date(String(birthday) + 'T12:00:00'); }
+  catch (_) { return null; }
+  if (!bd || isNaN(bd.getTime())) return null;
+  var now = new Date();
+  var months = (now.getFullYear() - bd.getFullYear()) * 12 + (now.getMonth() - bd.getMonth());
+  if (now.getDate() < bd.getDate()) months--;
+  if (months < 0) return null;
+  var isCat = (species || '').toLowerCase() === 'cat';
+  var animal;
+  if (months <= 12) animal = Math.round(months * 15 / 12);
+  else if (months <= 24) animal = 15 + Math.round((months - 12) * 9 / 12);
+  else animal = 24 + Math.round((months - 24) * (isCat ? 4 : 5) / 12);
+  return animal + (isCat ? ' in cat years' : ' in dog years');
+};
+
 // Global pet-age formatter (Brief #10): show natural English for any age.
 //   < 8 weeks → "N weeks"
 //   < 12 months → "N months"
@@ -10576,8 +10627,22 @@ async function confirmCancelBooking() {
 
     var result = await response.json();
     if (result.success) {
-      var toastMsg = '✅ Booking canceled successfully 🐾';
-      if (result.refunded) toastMsg = '✅ Booking canceled & refund issued 🐾';
+      // Distinct toasts (R4 #3) so Rachel never wonders "did it cancel just
+      // this one or the whole series?".
+      var toastMsg;
+      if (isStopSeries) {
+        toastMsg = result.refunded
+          ? '✅ Entire recurring series stopped + refund issued 🐾'
+          : '✅ Entire recurring series stopped — future weeks will not bill 🐾';
+      } else if (isSingleCancel) {
+        toastMsg = result.refunded
+          ? '✅ This date canceled + refund issued (future weeks keep running) 🐾'
+          : '✅ This date canceled (future weeks keep running) 🐾';
+      } else {
+        toastMsg = result.refunded
+          ? '✅ Booking canceled + refund issued 🐾'
+          : '✅ Booking canceled successfully 🐾';
+      }
       toast(toastMsg);
       closeModal('cancelBookingModal');
 
@@ -15298,6 +15363,59 @@ async function _sendReviewRequest(clientProfileId, reportId, service, petName) {
 //  PUBLIC REVIEWS SECTION — visible on homepage
 // ═══════════════════════════════════════════════════════════
 
+// R4 #8: Meet Our Team — public homepage section that pulls Rachel +
+// active staff from profiles. Falls back to just Rachel if no other
+// rows match. Mobile-responsive grid (auto-fit minmax).
+async function loadMeetOurTeam() {
+  var section = document.getElementById('meetTeam');
+  var grid = document.getElementById('meetTeamGrid');
+  if (!section || !grid) return;
+  var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
+  if (!sb) return;
+  try {
+    var { data: members } = await sb.from('profiles')
+      .select('user_id, role, full_name, job_title, avatar_url, bio')
+      .in('role', ['owner','staff'])
+      .or('is_active.is.null,is_active.eq.true')
+      .order('role', { ascending: true })  // 'owner' < 'staff' alphabetically
+      .order('full_name', { ascending: true });
+    var rows = (members || []).filter(function(m) { return m && (m.full_name || '').trim().length > 0; });
+    if (rows.length === 0) { section.style.display = 'none'; return; }
+    function _initial(name) { return (name || '?').trim().charAt(0).toUpperCase(); }
+    function _roleLabel(m) {
+      if (m.job_title && m.job_title.trim()) return m.job_title.trim();
+      return m.role === 'owner' ? 'Owner' : 'Staff';
+    }
+    function _esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+    grid.innerHTML = rows.map(function(m) {
+      var avatar = m.avatar_url
+        ? '<img src="' + _esc(m.avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy">'
+        : '<span style="font-size:2.4rem;font-weight:700;color:var(--cream,#fdfaf5)">' + _esc(_initial(m.full_name)) + '</span>';
+      var bioLine = m.bio && m.bio.trim()
+        ? '<div style="font-size:0.82rem;color:var(--mid);margin-top:8px;line-height:1.5">' + _esc(m.bio) + '</div>'
+        : '';
+      var roleBg = m.role === 'owner' ? 'var(--gold,#c8963e)' : 'var(--forest,#3d5a47)';
+      return ''
+        + '<div class="fadeup" style="background:var(--cream,#fdfaf5);border:1px solid var(--border,#e8e0d4);border-radius:14px;padding:22px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04)">'
+        +   '<div style="width:96px;height:96px;border-radius:50%;background:' + roleBg + ';margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden">' + avatar + '</div>'
+        +   '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.25rem;font-weight:700;color:var(--ink)">' + _esc(m.full_name) + '</div>'
+        +   '<div style="font-size:0.78rem;color:var(--gold-deep,#8c6b4a);text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:4px">' + _esc(_roleLabel(m)) + '</div>'
+        +   bioLine
+        + '</div>';
+    }).join('');
+    section.style.display = '';
+    // Re-trigger fade-in observer on the new cards if it exists.
+    if (typeof obs !== 'undefined' && obs && typeof obs.observe === 'function') {
+      grid.querySelectorAll('.fadeup').forEach(function(el) { obs.observe(el); });
+    } else {
+      grid.querySelectorAll('.fadeup').forEach(function(el) { el.classList.add('vis'); });
+    }
+  } catch (e) {
+    console.warn('[meet-our-team] load failed:', e);
+    section.style.display = 'none';
+  }
+}
+
 async function loadPublicReviews() {
   var section = document.getElementById('reviews');
   var track = document.getElementById('reviewsTrack');
@@ -15495,6 +15613,9 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(async function() {
     if (typeof _loadExternalReviewStats === 'function') await _loadExternalReviewStats();
     if (typeof loadPublicReviews === 'function') loadPublicReviews();
+    // R4 #8: Meet Our Team section. Fires alongside reviews on the same
+    // 1s delay so we don't block first paint with auth-required queries.
+    if (typeof loadMeetOurTeam === 'function') loadMeetOurTeam();
   }, 1000);
 
   // Watch for panel switches to load data
@@ -17174,14 +17295,14 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260521a" defer></script>
+  <script src="/js/booking-system.js?v=20260603a" defer></script>
   <script src="/js/messaging.js?v=20260518a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>
-  <script src="/js/customizer.js?v=20260520a" defer></script>
+  <script src="/js/customizer.js?v=20260603a" defer></script>
   <script src="/js/avatar-system.js?v=20260402a" defer></script>
   <script src="/js/settings-panel.js?v=20260406b" defer></script>
-  <script src="/js/availability.js?v=20260428" defer></script>
+  <script src="/js/availability.js?v=20260603a" defer></script>
   <!-- Leaflet + live tracking: lazy-loaded only when tracking panel is opened -->
   <script>
   (function(){

@@ -90,13 +90,35 @@
   function getHolidaysForYear(y) {
     if (!_holidayCache[y]) {
       var computed = getHolidays(y);
-      // Merge in any custom holidays from the DB (loaded by booking-system.js)
+      // Merge in any custom recurring (MM-DD) holidays from the DB.
       if (window._holidayData && window._holidayData.length > 0) {
         window._holidayData.forEach(function(row) {
-          // row.date_mmdd is "MM-DD", convert to "YYYY-MM-DD"
           var fullDate = y + '-' + row.date_mmdd;
           if (!computed[fullDate]) {
             computed[fullDate] = row.label || 'Holiday';
+          }
+        });
+      }
+      // Merge in year-specific ranges (R4 #6). Each range gets expanded into
+      // every YYYY-MM-DD between start_date and end_date that falls in this
+      // year. Range label wins over any pre-existing label on the same date.
+      if (window._holidayRanges && window._holidayRanges.length > 0) {
+        var yearStart = new Date(y, 0, 1).getTime();
+        var yearEnd = new Date(y, 11, 31, 23, 59, 59).getTime();
+        window._holidayRanges.forEach(function(r) {
+          if (!r.start_date || !r.end_date) return;
+          var cur = new Date(r.start_date + 'T12:00:00');
+          var end = new Date(r.end_date + 'T12:00:00');
+          if (isNaN(cur.getTime()) || isNaN(end.getTime())) return;
+          var safety = 0;
+          while (cur <= end && safety++ < 400) {
+            if (cur.getTime() >= yearStart && cur.getTime() <= yearEnd) {
+              var dy = cur.getFullYear();
+              var dm = String(cur.getMonth() + 1).padStart(2, '0');
+              var dd = String(cur.getDate()).padStart(2, '0');
+              computed[dy + '-' + dm + '-' + dd] = r.label || 'Holiday';
+            }
+            cur.setDate(cur.getDate() + 1);
           }
         });
       }
