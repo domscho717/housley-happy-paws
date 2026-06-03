@@ -27,6 +27,7 @@
 
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { sendEmail, escHtml, fmt12, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://www.housleyhappypaws.com');
@@ -81,24 +82,44 @@ module.exports = async function handler(req, res) {
   let bookingId = null;
 
   try {
-    // ── Resolve client_id (best-effort; nullable if profile not found) ──
-    let clientId = null;
-    try {
-      const lowerEmail = String(clientEmail).toLowerCase();
-      const { data: existingProf } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .ilike('email', lowerEmail)
-        .maybeSingle();
-      if (existingProf && existingProf.user_id) clientId = existingProf.user_id;
-    } catch (e) { /* leave clientId null — the booking row still works */ }
-
-    // ── Insert booking_requests FIRST so the booking exists even if Stripe is slow ──
-    // Status starts as 'invoice_sent' (Round 3 brief): the owner has proposed
-    // the booking but the client hasn't formally accepted yet. They'll see it
-    // in their portal with an "Accept invoice" button. Once they pay the
-    // Stripe invoice OR tap Accept, the status moves to 'accepted'.
+    const t0 = Date.now();
     const isHouseSitting = service && service.toLowerCase().indexOf('house sitting') !== -1;
+    const lowerEmail = String(clientEmail).toLowerCase();
+    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    const invoiceMetadataBase = {
+      service,
+      petNames: petNames || '',
+      notes: notes || '',
+      clientName: clientName || '',
+      serviceDate: serviceDate || '',
+      endDate: endDate || '',
+      source: 'owner_invoice_booking',
+    };
+    if (connectedAccountId) {
+      invoiceMetadataBase.platform_fee_pct = '15';
+      invoiceMetadataBase.connected_account = connectedAccountId;
+    }
+
+    // ── PARALLEL phase 1 (R4 #2): client_id lookup + Stripe customer lookup
+    //   are independent — fire them together. Saves ~300-500ms vs sequential.
+    const profileLookup = supabase
+      .from('profiles')
+      .select('user_id')
+      .ilike('email', lowerEmail)
+      .maybeSingle()
+      .then(r => r.data && r.data.user_id || null)
+      .catch(() => null);
+
+    const customerLookup = stripe.customers.list({ email: clientEmail, limit: 1 })
+      .then(r => r.data && r.data[0] || null)
+      .catch(err => { console.warn('[create-invoice-booking] customer list failed:', err.message); return null; });
+
+    const [clientId, existingCustomer] = await Promise.all([profileLookup, customerLookup]);
+    console.log(`[create-invoice-booking] phase1 (${Date.now() - t0}ms)`);
+
+    // ── Insert booking_requests with status='invoice_sent' so the row
+    //   exists even if Stripe blows up. The client portal shows an
+    //   Accept Invoice button on this state.
     const bookingPayload = {
       contact_name: clientName || null,
       contact_email: clientEmail,
@@ -122,13 +143,11 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create booking row: ' + bookingErr.message });
     }
     bookingId = bookingRow.id;
+    console.log(`[create-invoice-booking] booking inserted (${Date.now() - t0}ms)`);
 
-    // ── Stripe customer (reuse by email) ──
-    let customer;
-    const existingStripe = await stripe.customers.list({ email: clientEmail, limit: 1 });
-    if (existingStripe.data.length > 0) {
-      customer = existingStripe.data[0];
-    } else {
+    // ── Stripe customer: reuse or create (now that we have bookingId for metadata).
+    let customer = existingCustomer;
+    if (!customer) {
       customer = await stripe.customers.create({
         email: clientEmail,
         name: clientName || undefined,
@@ -136,22 +155,15 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // ── Create invoice, line item, finalize, send ──
+    // ── Invoice create — connected-account metadata is included up front
+    //   (R4 #2), removing the previous extra stripe.invoices.update round-trip.
     const invoice = await stripe.invoices.create({
       customer: customer.id,
       collection_method: 'send_invoice',
       days_until_due: dueDate ? Math.max(1, Math.ceil((new Date(dueDate) - Date.now()) / 86400000)) : 7,
-      metadata: {
-        service,
-        petNames: petNames || '',
-        notes: notes || '',
-        clientName: clientName || '',
-        serviceDate: serviceDate || '',
-        endDate: endDate || '',
-        bookingRequestId: bookingId,
-        source: 'owner_invoice_booking',
-      },
+      metadata: Object.assign({}, invoiceMetadataBase, { bookingRequestId: bookingId }),
     });
+    console.log(`[create-invoice-booking] invoice created (${Date.now() - t0}ms)`);
 
     await stripe.invoiceItems.create({
       customer: customer.id,
@@ -161,33 +173,61 @@ module.exports = async function handler(req, res) {
       description: `Housley Happy Paws — ${service}${petNames ? ' (Pets: ' + petNames + ')' : ''}`,
     });
 
-    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-    if (connectedAccountId) {
-      await stripe.invoices.update(invoice.id, {
-        metadata: {
-          ...invoice.metadata,
-          platform_fee_pct: '15',
-          connected_account: connectedAccountId,
-        },
-      });
-    }
-
     const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
     await stripe.invoices.sendInvoice(invoice.id);
+    console.log(`[create-invoice-booking] invoice sent (${Date.now() - t0}ms)`);
 
-    // ── Link invoice back onto the booking (payment_intent_id column is the
-    // canonical "this booking has been billed" sentinel — invoice id works
-    // there too, same as the existing create-invoice-link flow upstream).
-    try {
-      await supabase
-        .from('booking_requests')
-        .update({ payment_intent_id: invoice.id })
-        .eq('id', bookingId);
-    } catch (linkErr) {
-      // Booking row already exists; payment_intent_id link failure is
-      // non-fatal but worth logging loudly.
-      console.error('[create-invoice-booking] could not link invoice to booking:', linkErr);
-    }
+    // ── PARALLEL phase 2: link payment_intent_id on the booking AND fire
+    //   the companion booking email (R4 #7). Both are independent of the
+    //   response we're about to send and of each other.
+    const linkPromise = supabase
+      .from('booking_requests')
+      .update({ payment_intent_id: invoice.id })
+      .eq('id', bookingId)
+      .then(() => null)
+      .catch(linkErr => { console.error('[create-invoice-booking] link failed:', linkErr); return linkErr; });
+
+    const companionEmailPromise = (async () => {
+      try {
+        const safeName = escHtml(clientName || 'there');
+        const safeService = escHtml(service || 'Pet Care');
+        const safePets = escHtml(petNames || '');
+        const safeNotes = escHtml(notes || '');
+        const fmtDate = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
+        const startFmt = fmtDate(serviceDate);
+        const endFmt = endDate && endDate !== serviceDate ? fmtDate(endDate) : '';
+        const dateLine = startFmt ? (endFmt ? startFmt + ' → ' + endFmt : startFmt) : 'TBD';
+        const invoiceUrl = finalizedInvoice.hosted_invoice_url || '';
+        const amountStr = '$' + Number(amount).toFixed(2);
+        const bodyHTML = `
+          <p>Hi ${safeName.split(' ')[0] || 'there'},</p>
+          <p>Rachel has sent you an invoice for the following booking. Tap <strong>Pay Invoice</strong> below to settle up — once paid, the booking is fully confirmed.</p>
+          <div style="background:#eef4ef;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #3d5a47">
+            <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService}</div>
+            <div style="margin-bottom:4px">📅 ${escHtml(dateLine)}</div>
+            ${(serviceDate && !endFmt) ? '<div style="margin-bottom:4px">⏰ Service time will be set with Rachel</div>' : ''}
+            ${safePets ? `<div style="margin-bottom:4px">🐾 Pets: ${safePets}</div>` : ''}
+            <div style="margin-bottom:4px">💰 <strong>${amountStr}</strong> due</div>
+          </div>
+          ${safeNotes ? `<div style="background:#fdf7ee;border-radius:10px;padding:14px;margin:16px 0;font-style:italic;color:#5c3d1e">${safeNotes}</div>` : ''}
+          ${invoiceUrl ? `<p style="margin:18px 0"><a href="${invoiceUrl}" style="display:inline-block;padding:14px 28px;background:#c8963e;color:#fff;border-radius:10px;text-decoration:none;font-weight:700">💳 Pay Invoice — ${amountStr}</a></p>` : ''}
+          <p>You can also view this booking in your <a href="${SITE_URL}/?tab=appointments" style="color:#3d5a47;font-weight:600">client portal</a>.</p>
+          <p style="font-size:0.82rem;color:#8c6b4a;margin-top:18px">Questions? Reply to this email or text Rachel at 717-715-7595.</p>
+        `;
+        return await sendEmail({
+          to: clientEmail,
+          subject: 'Your booking + invoice from Housley Happy Paws',
+          title: 'Booking confirmed — please pay',
+          bodyHTML,
+        });
+      } catch (mailErr) {
+        console.error('[create-invoice-booking] companion email failed:', mailErr.message);
+        return { success: false, error: mailErr.message };
+      }
+    })();
+
+    const [linkErr, mailResult] = await Promise.all([linkPromise, companionEmailPromise]);
+    console.log(`[create-invoice-booking] phase2 done (${Date.now() - t0}ms total) mail=${mailResult && mailResult.success ? 'sent' : 'failed'} link=${linkErr ? 'failed' : 'ok'}`);
 
     return res.status(200).json({
       success: true,
@@ -196,6 +236,9 @@ module.exports = async function handler(req, res) {
       invoiceUrl: finalizedInvoice.hosted_invoice_url,
       invoicePdf: finalizedInvoice.invoice_pdf,
       amountDue: finalizedInvoice.amount_due / 100,
+      companionEmailSent: !!(mailResult && mailResult.success),
+      companionEmailError: mailResult && !mailResult.success ? (mailResult.error || 'unknown') : null,
+      elapsedMs: Date.now() - t0,
     });
   } catch (err) {
     console.error('[create-invoice-booking] failed:', err.message, err.code || '');

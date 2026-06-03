@@ -3070,6 +3070,10 @@ try {
             <label class="form-lbl">Personal Note (optional)</label>
             <textarea class="form-ta" id="inv-note" placeholder="Thanks so much for trusting me with your fur baby! 🐾"></textarea>
           </div>
+          <!-- Visible error/success banner (R4 #2). Silent toast-only failures
+               kept biting Rachel; this inline banner makes errors impossible
+               to miss and surfaces the timestamped debug log on demand. -->
+          <div id="inv-banner" style="display:none;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:0.86rem;line-height:1.5"></div>
           <div style="display:flex;gap:10px">
             <button class="btn btn-gold" style="flex:1;justify-content:center" onclick="sendInvoice()">📤 Send Invoice</button>
             <button class="btn btn-outline" onclick="previewInvoice()">👁 Preview</button>
@@ -10721,58 +10725,78 @@ async function loadStaffTeam() {
 }
 
 async function createNewStaff() {
+  console.log('[createNewStaff] handler entered at', new Date().toISOString());
   var errEl = document.getElementById('ns-error');
   if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-
-  var name = document.getElementById('ns-name').value.trim();
-  var email = document.getElementById('ns-email').value.trim();
-  var phone = document.getElementById('ns-phone').value.trim();
-  var password = document.getElementById('ns-pass').value;
-  var rate = parseFloat(document.getElementById('ns-rate').value) || null;
-  var title = document.getElementById('ns-title').value.trim();
-
-  if (!name || !email || !password) {
-    if (errEl) { errEl.textContent = 'Please fill in name, email, and password.'; errEl.style.display = 'block'; }
-    return;
+  function showErr(msg) {
+    console.error('[createNewStaff]', msg);
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; errEl.style.color = 'var(--rose,#c25656)'; }
+    if (typeof toast === 'function') toast('⚠️ ' + msg, 'error');
   }
-  if (password.length < 6) {
-    if (errEl) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; }
-    return;
-  }
+
+  var name = (document.getElementById('ns-name') || {}).value;
+  name = name ? name.trim() : '';
+  var email = (document.getElementById('ns-email') || {}).value;
+  email = email ? email.trim() : '';
+  var phone = (document.getElementById('ns-phone') || {}).value;
+  phone = phone ? phone.trim() : '';
+  var password = (document.getElementById('ns-pass') || {}).value || '';
+  var rate = parseFloat((document.getElementById('ns-rate') || {}).value) || null;
+  var title = (document.getElementById('ns-title') || {}).value;
+  title = title ? title.trim() : '';
+
+  if (!name || !email || !password) { showErr('Please fill in name, email, and password.'); return; }
+  if (password.length < 8) { showErr('Password must be at least 8 characters.'); return; }
 
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
-  if (!sb) { toast('Database not connected'); return; }
+  if (!sb) { showErr('Database not connected — refresh and try again.'); return; }
 
-  toast('Creating staff account...');
+  // Disable the button so a double-click can't double-submit.
+  var btnEls = document.querySelectorAll('button[onclick="createNewStaff()"]');
+  btnEls.forEach(function(b) { b.disabled = true; b.dataset._origText = b.textContent; b.textContent = '⏳ Creating...'; });
+  if (typeof toast === 'function') toast('Creating staff account...');
 
   try {
-    // Sign up via Supabase Auth
-    var { data: signUpData, error: signUpError } = await sb.auth.signUp({
-      email: email,
-      password: password,
-      options: { data: { role: 'staff', full_name: name } }
+    // Use the server-side /api/create-staff endpoint (created in R1).
+    // Calling sb.auth.signUp() client-side would swap Rachel's session
+    // to the new user, kicking her out. The endpoint also did the right
+    // .eq('user_id', uid) profile upsert (the legacy code here used
+    // .eq('id', uid) which was the wrong column entirely).
+    var { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) {
+      showErr('Your session expired — refresh the page and sign back in.');
+      return;
+    }
+    var resp = await fetch('/api/create-staff', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+      body: JSON.stringify({ name: name, email: email, password: password, phone: phone, hourlyRate: rate }),
     });
-
-    if (signUpError) throw signUpError;
-
-    // Wait for profile trigger, then update with extra fields
-    if (signUpData.user) {
-      await new Promise(function(r) { setTimeout(r, 1500); });
-      await sb.from('profiles').update({
-        phone: phone || null,
-        hourly_rate: rate,
-        email: email,
-        full_name: name,
-        job_title: title || 'Staff',
-        hire_date: _localDateStr()
-      }).eq('id', signUpData.user.id);
+    var result = await resp.json().catch(function() { return {}; });
+    if (!resp.ok || !result.success) {
+      showErr(result.error || 'Server returned ' + resp.status + ' — see console.');
+      return;
     }
 
-    toast('Staff account created for ' + name + '!');
-    document.getElementById('addStaffFormWrap').style.display = 'none';
-    loadStaffTeam();
+    // Persist job_title separately — the /api/create-staff endpoint sets
+    // role + name + phone + rate + hire_date but doesn't carry job_title.
+    if (title && result.userId) {
+      try {
+        await sb.from('profiles').update({ job_title: title }).eq('user_id', result.userId);
+      } catch (titleErr) { console.warn('[createNewStaff] job_title update failed (non-fatal):', titleErr); }
+    }
+
+    if (typeof toast === 'function') toast('✅ Staff account created for ' + name + '!');
+    var wrap = document.getElementById('addStaffFormWrap');
+    if (wrap) wrap.style.display = 'none';
+    if (typeof loadStaffTeam === 'function') loadStaffTeam();
   } catch (err) {
-    if (errEl) { errEl.textContent = 'Error: ' + err.message; errEl.style.display = 'block'; }
+    showErr(err && err.message ? err.message : 'Unknown error — see console.');
+  } finally {
+    btnEls.forEach(function(b) { b.disabled = false; if (b.dataset._origText) b.textContent = b.dataset._origText; });
   }
 }
 
@@ -11706,10 +11730,26 @@ async function sendInvoice() {
   }
 }
 
-async function _sendInvoiceInner(name, email, service, amount, dueDate, serviceDate, endDate, petNames, note, _toastFn) {
+function _setInvBanner(kind, msg) {
+  var bn = document.getElementById('inv-banner');
+  if (!bn) return;
+  if (!kind) { bn.style.display = 'none'; bn.innerHTML = ''; return; }
+  // kind: 'info' | 'success' | 'error' | 'warning'
+  var styles = {
+    info:    { bg:'#e3f2fd', border:'#90caf9', color:'#0d47a1' },
+    success: { bg:'#e8f5e9', border:'#66bb6a', color:'#1b5e20' },
+    warning: { bg:'#fff3cd', border:'#c8963e', color:'#856404' },
+    error:   { bg:'#fde8e8', border:'#c62828', color:'#7a1d1d' },
+  };
+  var s = styles[kind] || styles.info;
+  bn.style.cssText = 'display:block;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:0.86rem;line-height:1.5;background:' + s.bg + ';border:1px solid ' + s.border + ';color:' + s.color;
+  bn.innerHTML = msg;
+}
 
+async function _sendInvoiceInner(name, email, service, amount, dueDate, serviceDate, endDate, petNames, note, _toastFn) {
   const btnEls = document.querySelectorAll('button[onclick="sendInvoice()"]');
   btnEls.forEach(b => { b.disabled = true; b.dataset._origText = b.textContent; b.textContent = '⏳ Sending...'; });
+  _setInvBanner('info', '📤 Sending invoice to <strong>' + (email || name) + '</strong>… The Stripe call usually takes 2–5 seconds.');
   toast('📤 Sending invoice to ' + name + '...');
   try {
     const result = await HHP_Stripe.sendInvoice({
@@ -11724,30 +11764,42 @@ async function _sendInvoiceInner(name, email, service, amount, dueDate, serviceD
       notes: note,
     });
     const amt = (result && typeof result.amountDue === 'number') ? '$' + result.amountDue.toFixed(2) : '$' + amount.toFixed(2);
-    // New combined endpoint also creates a booking_requests row — surface it.
     if (result && result.bookingId) {
+      _setInvBanner('success', '✅ <strong>Invoice sent — booking created.</strong> ' + amt + ' due. Booking ID: <code>' + result.bookingId.slice(0,8) + '…</code>');
       toast('✅ Invoice sent — booking created. ' + amt + ' due.');
     } else {
+      _setInvBanner('success', '✅ <strong>Invoice sent to ' + email + '.</strong> Amount: ' + amt);
       toast('✅ Invoice sent to ' + email + '! Amount: ' + amt);
     }
-    // Clear the form so the next invoice doesn't accidentally reuse stale fields.
     ['inv-name','inv-email','inv-amount','inv-pets','inv-note','inv-due','inv-date','inv-enddate'].forEach(function(id) {
       var el = document.getElementById(id);
       if (el) el.value = '';
     });
-    // Refresh the bookings panel if it's open so Rachel sees the new accepted row.
     if (typeof window.loadBookingRequestsPanel === 'function') {
       try { window.loadBookingRequestsPanel('owner'); } catch (_) {}
     }
+    // Auto-clear the success banner after 12s.
+    setTimeout(function() { _setInvBanner(null); }, 12000);
   } catch (err) {
     console.error('[sendInvoice] failed:', err);
-    // If the booking row WAS created but Stripe blew up, tell Rachel so she
-    // knows the calendar entry exists even though the email didn't send.
-    if (err && err.bookingCreated) {
-      toast('⚠️ Booking created, but invoice email failed: ' + (err.message || 'unknown') + ' — resend manually from Stripe.', 'error');
-    } else {
-      toast('⚠️ Invoice error: ' + (err && err.message ? err.message : 'unknown error — see console'), 'error');
+    var msg = (err && err.message) ? err.message : 'unknown error — see console';
+    // Build a debug-log summary the user can read out to Domenic if it persists.
+    var debugSnippet = '';
+    if (err && err.debugLog && err.debugLog.length) {
+      var tail = err.debugLog.slice(-5).map(function(e) { return e.step; }).join(' → ');
+      debugSnippet = '<div style="margin-top:8px;font-size:0.78rem;opacity:0.9">Debug trail: ' + tail + ' — open DevTools Console + read <code>window.__hhp_invoice_debug</code> to Domenic.</div>';
     }
+    if (err && err.timeout) {
+      _setInvBanner('warning',
+        '⏰ <strong>Request timed out.</strong> The Stripe call may have actually succeeded — <a href="https://dashboard.stripe.com/invoices" target="_blank" style="color:inherit;text-decoration:underline;font-weight:600">check the Stripe dashboard</a> before retrying. Refresh this page to see if the booking was created.' + debugSnippet);
+    } else if (err && err.bookingCreated) {
+      _setInvBanner('warning',
+        '⚠️ <strong>Booking created, but the invoice email failed.</strong> The booking_requests row exists; resend the Stripe invoice manually from the dashboard.<br>Error: ' + msg + debugSnippet);
+    } else {
+      _setInvBanner('error',
+        '⚠️ <strong>Invoice failed:</strong> ' + msg + debugSnippet);
+    }
+    toast('⚠️ ' + msg, 'error');
   } finally {
     btnEls.forEach(b => { b.disabled = false; if (b.dataset._origText) b.textContent = b.dataset._origText; });
   }
@@ -15571,7 +15623,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Stripe Client JS (loads when deployed to Vercel with /api routes) -->
-<script src="/js/stripe-client.js?v=20260517h" defer></script>
+<script src="/js/stripe-client.js?v=20260603a" defer></script>
 
 <!-- Supabase Auth Client -->
 <script src="/js/auth-client.js?v=20260518a" defer></script>
