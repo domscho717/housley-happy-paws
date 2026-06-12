@@ -213,26 +213,34 @@ module.exports = async function handler(req, res) {
     const isStopRecurring = stopRecurring && isRecurring;
 
     if (isStopRecurring) {
-      // When the OWNER/STAFF stops a recurring series, that's a cancellation —
-      // the brief explicitly asks for status='canceled' so the dashboard shows
-      // it as canceled, not as a completed/successful service. When a CLIENT
-      // clicks "Stop Recurring" from their portal it stays 'completed' (the
-      // satisfied-with-service finish semantic).
+      // R5 P2 #2: when the OWNER/STAFF cancels an entire recurring series,
+      // Rachel wants it to "completely disappear — nothing charged or marked
+      // on the calendar." So we go beyond just status='canceled':
+      //
+      //   1. Snapshot the recurrence_pattern into archived_recurrence_pattern
+      //      so we keep history of what the pattern was.
+      //   2. NULL OUT recurrence_pattern so isRecurringOnDate() returns false
+      //      instantly — no more expanded future occurrences on any calendar.
+      //   3. status='canceled' (owner) or 'completed' (client) as before.
+      //   4. Below this block we DELETE future unpaid recurring_invoices for
+      //      this booking_id so the Sunday billing cron has nothing to bill.
+      //
+      // CLIENT-initiated stops still flip status='completed' (satisfied-end
+      // semantic), but the pattern still gets wiped — clients also don't want
+      // their canceled series to keep appearing.
       const ownerStopping = canceledBy === 'owner' || canceledBy === 'staff';
       updateData.status = ownerStopping ? 'canceled' : 'completed';
       updateData.cancellation_type = ownerStopping ? 'cancel_series' : 'stop_recurring';
       try {
         const pattern = typeof booking.recurrence_pattern === 'string'
           ? JSON.parse(booking.recurrence_pattern) : booking.recurrence_pattern;
-        const todayEST = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-        const todayStr = todayEST.toLocaleDateString('en-CA');
-        if (pattern.type === 'per_card' && Array.isArray(pattern.schedules)) {
-          pattern.schedules.forEach(s => { s.ongoing = false; s.end_date = todayStr; });
-        } else {
-          pattern.end_date = todayStr;
-        }
-        updateData.recurrence_pattern = pattern;
-      } catch(pe) { console.warn('Pattern update error:', pe); }
+        // Archive the pattern in admin_notes (no dedicated column yet) so the
+        // audit trail isn't lost — append, don't overwrite.
+        const archived = JSON.stringify(pattern);
+        const noteLine = '\n[archived recurrence_pattern on ' + new Date().toISOString() + ']: ' + archived;
+        updateData.admin_notes = ((booking.admin_notes || '') + noteLine).slice(0, 8000);
+        updateData.recurrence_pattern = null;
+      } catch(pe) { console.warn('Pattern archive error:', pe); }
     } else if (isSingleCancel && cancelDate) {
       const currentCanceledDates = Array.isArray(booking.canceled_dates) ? booking.canceled_dates : [];
       if (!currentCanceledDates.includes(cancelDate)) {
@@ -284,6 +292,26 @@ module.exports = async function handler(req, res) {
               await supabase.from('recurring_invoices').update({ status: 'captured' }).eq('id', inv.id);
             }
           }
+        }
+
+        // R5 P2 #2: nuke ALL future unpaid recurring_invoices for this booking.
+        // The loop above only handled 'sent' invoices; this catches 'pending'
+        // and 'draft' rows that the Sunday cron would otherwise pick up. Paid
+        // rows (status='paid' or 'captured') are NOT touched — they're history.
+        try {
+          const { error: delErr, count: delCount } = await supabase
+            .from('recurring_invoices')
+            .delete({ count: 'exact' })
+            .eq('booking_request_id', bookingRequestId)
+            .gte('service_date', todayStr)
+            .not('status', 'in', '(paid,captured)');
+          if (delErr) {
+            console.warn('[cancel-series] Future invoice cleanup failed:', delErr.message);
+          } else {
+            console.log('[cancel-series] Deleted', delCount, 'future unpaid recurring_invoices for', bookingRequestId);
+          }
+        } catch (cleanupErr) {
+          console.warn('[cancel-series] cleanup exception:', cleanupErr.message);
         }
       } catch(stopErr) { console.error('Stop recurring invoice handling:', stopErr); }
     }

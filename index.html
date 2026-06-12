@@ -8904,8 +8904,12 @@ async function showBookingDetail(bookingId, role, source) {
       }
     }
 
-    // Cancel button (for active bookings that aren't completed)
-    if (isActive) {
+    // Cancel button (R5 P2 #3: clients can cancel from pending /
+    // payment_hold / modified / invoice_sent in addition to accepted /
+    // confirmed). Completed / declined / canceled / in_progress remain
+    // off-limits — those need owner/staff intervention.
+    var canCancel = (st === 'accepted' || st === 'confirmed' || st === 'pending' || st === 'payment_hold' || st === 'modified' || st === 'invoice_sent');
+    if (canCancel) {
       var cancelRole = role;
       var cancelName = (role === 'client') ? ((window.HHP_Auth && window.HHP_Auth.currentUser) ? (window.HHP_Auth.currentUser.full_name || window.HHP_Auth.currentUser.email) : 'Client') : (b.contact_name || 'Client');
 
@@ -8915,11 +8919,17 @@ async function showBookingDetail(bookingId, role, source) {
         h += '✏️ Request Reschedule</button>';
       }
 
-      h += '<button onclick="closeBookingDetail();openCancelModal(\'' + bookingId + '\',\'' + svc.replace(/'/g, "\\'") + '\',\'' + dateVal + '\',\'' + cancelName.replace(/'/g, "\\'") + '\',false,\'' + cancelRole + '\')" style="width:100%;padding:12px;background:transparent;color:var(--rose,#c25656);border:1.5px solid var(--rose,#c25656);border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit">';
-      h += 'Cancel Booking</button>';
+      // R5 P2 #3: pass the actual recurring flag so the modal shows the
+      // "Just this date / Cancel ENTIRE series" radios for clients on
+      // recurring bookings (not just owner/staff).
+      var _bkIsRecurring = !!b.recurrence_pattern;
+      h += '<button onclick="closeBookingDetail();openCancelModal(\'' + bookingId + '\',\'' + svc.replace(/'/g, "\\'") + '\',\'' + dateVal + '\',\'' + cancelName.replace(/'/g, "\\'") + '\',' + _bkIsRecurring + ',\'' + cancelRole + '\')" style="width:100%;padding:12px;background:transparent;color:var(--rose,#c25656);border:1.5px solid var(--rose,#c25656);border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer;font-family:inherit">';
+      h += _bkIsRecurring ? 'Cancel Booking…' : 'Cancel Booking';
+      h += '</button>';
 
-      // Cancellation policy notice (client only)
-      if (role === 'client' && isActive) {
+      // Cancellation policy notice (client only). Uses canCancel so it also
+      // shows for pending / payment_hold / modified / invoice_sent bookings.
+      if (role === 'client' && canCancel) {
         var svcDate = b.scheduled_date || b.preferred_date;
         var hoursUntil = svcDate ? Math.floor((new Date(svcDate + 'T00:00:00') - new Date()) / 3600000) : 999;
         var isFreeCancel = hoursUntil >= 48;
