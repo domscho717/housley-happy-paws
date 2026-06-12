@@ -10838,20 +10838,16 @@ async function createNewStaff() {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + session.access_token,
       },
-      body: JSON.stringify({ name: name, email: email, password: password, phone: phone, hourlyRate: rate }),
+      body: JSON.stringify({ name: name, email: email, password: password, phone: phone, hourlyRate: rate, jobTitle: title }),
     });
     var result = await resp.json().catch(function() { return {}; });
     if (!resp.ok || !result.success) {
+      // R5 P1 #1: server now returns structured {error, code, rawError}. Show
+      // the friendly message; log the raw GoTrue error to the console so we
+      // can read it back if the friendly mapping missed.
+      if (result.rawError) console.error('[createNewStaff] raw GoTrue error:', result.rawError, 'code:', result.code);
       showErr(result.error || 'Server returned ' + resp.status + ' — see console.');
       return;
-    }
-
-    // Persist job_title separately — the /api/create-staff endpoint sets
-    // role + name + phone + rate + hire_date but doesn't carry job_title.
-    if (title && result.userId) {
-      try {
-        await sb.from('profiles').update({ job_title: title }).eq('user_id', result.userId);
-      } catch (titleErr) { console.warn('[createNewStaff] job_title update failed (non-fatal):', titleErr); }
     }
 
     if (typeof toast === 'function') toast('✅ Staff account created for ' + name + '!');
