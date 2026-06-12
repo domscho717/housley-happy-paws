@@ -301,8 +301,8 @@
     { name: 'Drop-In Visit - 1 hour', price: '$45', base: 45, type: 'dog', group: 'Drop-In Visit', extraPet: 15, puppy: 5, holiday: 10 },
     { name: 'Drop-In Visit (Cat) - 30 min', price: '$20', base: 20, type: 'cat', group: 'Drop-In Visit', extraPet: 10, puppy: 0, holiday: 10 },
     { name: 'Drop-In Visit (Cat) - 1 hour', price: '$35', base: 35, type: 'cat', group: 'Drop-In Visit', extraPet: 10, puppy: 0, holiday: 10 },
-    { name: 'House Sitting (Dog)', price: '$125/night', base: 125, type: 'dog', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 20, puppy: 5, holiday: 10 },
-    { name: 'House Sitting (Cat)', price: '$80/night', base: 80, type: 'cat', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 20, puppy: 0, holiday: 10 },
+    { name: 'House Sitting (Dog)', price: '$125/day', base: 125, type: 'dog', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 20, puppy: 5, holiday: 10 },
+    { name: 'House Sitting (Cat)', price: '$80/day', base: 80, type: 'cat', group: 'House Sitting', extraPet: 35, extraCat: 15, extra3plus: 20, puppy: 0, holiday: 10 },
     { name: 'Meet & Greet', price: 'Free', base: 0, type: 'any', group: 'Meet & Greet', extraPet: 0, puppy: 0, holiday: 0 },
   ];
 
@@ -465,7 +465,7 @@
         // Format price display
         var priceStr = 'Free';
         if (row.base_price > 0) {
-          priceStr = '$' + row.base_price + (row.unit === 'night' ? '/night' : '');
+          priceStr = '$' + row.base_price + (row.unit === 'night' ? '/day' : '');
         }
 
         // For housesit services, set extra3plus to 20 (all additional at $20/night for 3+ animals)
@@ -523,12 +523,12 @@
     var parts = [];
 
     if (isMultiNight) {
-      parts.push(svc.name + ': $' + baseRate + '/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (baseRate * nights));
+      parts.push(svc.name + ': $' + baseRate + '/day x ' + nights + ' day' + (nights > 1 ? 's' : '') + ' = $' + (baseRate * nights));
     } else {
       parts.push(svc.name + ': $' + baseRate);
     }
 
-    // Additional pets — per night for house sitting, flat for others
+    // Additional pets — per day for house sitting, flat for others
     var extraPetCost = 0;
     if (numPets > 1) {
       var extraCount = numPets - 1;
@@ -551,18 +551,18 @@
           var dogExtraCost = extraDogs * dogRate * nights;
           var catExtraCost = extraCats * catRate * nights;
           extraPetCost = dogExtraCost + catExtraCost;
-          if (extraDogs > 0) parts.push(extraDogs + ' extra dog' + (extraDogs > 1 ? 's' : '') + ' @ $' + dogRate + '/night x ' + nights + ' = $' + dogExtraCost);
-          if (extraCats > 0) parts.push(extraCats + ' extra cat' + (extraCats > 1 ? 's' : '') + ' @ $' + catRate + '/night x ' + nights + ' = $' + catExtraCost);
+          if (extraDogs > 0) parts.push(extraDogs + ' extra dog' + (extraDogs > 1 ? 's' : '') + ' @ $' + dogRate + '/day x ' + nights + ' = $' + dogExtraCost);
+          if (extraCats > 0) parts.push(extraCats + ' extra cat' + (extraCats > 1 ? 's' : '') + ' @ $' + catRate + '/day x ' + nights + ' = $' + catExtraCost);
         } else {
           // Legacy: lump all extras at $20 (used when species split isn't known)
           extraPetCost = extraCount * dogRate * nights;
-          parts.push(extraCount + ' extra pet(s) (3+): +$' + dogRate + '/night x ' + nights + ' = $' + extraPetCost);
+          parts.push(extraCount + ' extra pet(s) (3+): +$' + dogRate + '/day x ' + nights + ' = $' + extraPetCost);
         }
       } else if (petType === 'both') {
-        // Mixed (1 dog + 1 cat): always $140/night for House Sitting
+        // Mixed (1 dog + 1 cat): always $140/day for House Sitting
         if (isMultiNight) {
           baseRate = 140;
-          parts[0] = 'House Sitting (Mixed): $140/night x ' + nights + ' night' + (nights > 1 ? 's' : '') + ' = $' + (140 * nights);
+          parts[0] = 'House Sitting (Mixed): $140/day x ' + nights + ' day' + (nights > 1 ? 's' : '') + ' = $' + (140 * nights);
         } else {
           var extraRate = svc.extraPet || 15;
           extraPetCost = extraCount * extraRate;
@@ -571,22 +571,22 @@
       } else {
         var extraRate = (petType === 'cat' && svc.extraCat) ? svc.extraCat : (svc.extraPet || 0);
         extraPetCost = extraCount * extraRate * (isMultiNight ? nights : 1);
-        if (extraPetCost > 0) parts.push(extraCount + ' extra ' + (petType === 'cat' ? 'cat(s)' : 'dog(s)') + ': +$' + extraRate + (isMultiNight ? '/night x ' + nights + ' = $' + extraPetCost : ''));
+        if (extraPetCost > 0) parts.push(extraCount + ' extra ' + (petType === 'cat' ? 'cat(s)' : 'dog(s)') + ': +$' + extraRate + (isMultiNight ? '/day x ' + nights + ' = $' + extraPetCost : ''));
       }
     }
 
-    // Puppy surcharge (dog services only) — per night for house sitting
+    // Puppy surcharge (dog services only) — per day for house sitting
     var puppyCost = 0;
     if (isPuppy && svc.puppy > 0 && petType !== 'cat') {
       puppyCost = svc.puppy * (isMultiNight ? nights : 1);
-      parts.push('Puppy surcharge: +$' + svc.puppy + (isMultiNight ? '/night x ' + nights + ' = $' + puppyCost : ''));
+      parts.push('Puppy surcharge: +$' + svc.puppy + (isMultiNight ? '/day x ' + nights + ' = $' + puppyCost : ''));
     }
 
-    // Holiday surcharge — per night for house sitting
+    // Holiday surcharge — per day for house sitting
     var holidayCost = 0;
     if (isHolidayDate && svc.holiday > 0) {
       holidayCost = svc.holiday * (isMultiNight ? nights : 1);
-      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/night x ' + nights + ' = $' + holidayCost : ''));
+      parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/day x ' + nights + ' = $' + holidayCost : ''));
     }
 
     var total = (isMultiNight ? baseRate * nights : baseRate) + extraPetCost + puppyCost + holidayCost;
@@ -679,6 +679,16 @@
       '        </div>',
       '      </div>',
       '      <div id="brm-hs-nights-row" style="text-align:center;padding:8px 0;font-size:0.9rem;font-weight:600;color:#6b5c4d"></div>',
+      // R5 P3 #5: surface the Extended Care rate breakdown inline so clients
+      // see it while picking arrival/departure times instead of buried in
+      // a tooltip. The day rate is the base $125 (dog) / $80 (cat).
+      '      <div style="background:#fff8e1;border:1px solid #f0c050;border-left:4px solid #c8963e;border-radius:10px;padding:10px 14px;margin:8px 0 0;font-size:0.84rem;line-height:1.5;color:#5c3d1e">',
+      '        <strong style="color:#bf5d00">⏰ Extended Care</strong> applies when pickup is &gt;2 hours later than drop-off on the final day:',
+      '        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px 16px;color:#5c3d1e">',
+      '          <span>• 2–8 extra hrs → <strong>+50%</strong> of the daily rate</span>',
+      '          <span>• 8+ extra hrs → <strong>+100%</strong></span>',
+      '        </div>',
+      '      </div>',
       '    </div>',
       '    <input type="hidden" id="brm-time" value="">',
       '    <div id="brm-endtime-display" style="display:none"></div>',
@@ -745,6 +755,10 @@
       '',
       '    <div id="brm-error" class="brm-error"></div>',
       '    <div id="brm-success" class="brm-success"></div>',
+      '',
+      // R5 P3 #6: surface Rachel's response hours so clients don't expect
+      // a reply in the middle of the night.
+      '    <div style="text-align:center;font-size:0.78rem;color:#8c6b4a;margin:6px 0 10px;line-height:1.4">Rachel typically responds <strong>8 AM – 5 PM ET</strong>. Requests outside those hours are answered the next morning.</div>',
       '',
       '    <button type="submit" id="brm-submit" class="brm-submit-btn">Send Request to Rachel</button>',
       '  </form>',
@@ -3450,6 +3464,43 @@
     }
   };
 
+  // ── R5 P3 #4: send a quick reply to the client about a booking request.
+  //  Calls /api/booking-reply (Resend). Empties the textarea + shows a
+  //  short success toast on success; surfaces the error inline on the
+  //  card on failure so the message never silently disappears.
+  window.sendBookingReply = async function(bookingId, textareaId, btn) {
+    var ta = document.getElementById(textareaId);
+    if (!ta) { if (typeof toast === 'function') toast('Reply box missing — refresh and try again.'); return; }
+    var msg = (ta.value || '').trim();
+    if (!msg) { ta.focus(); return; }
+    var origLabel = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Sending…'; }
+    try {
+      var sb = getSB();
+      if (!sb) { if (typeof toast === 'function') toast('Not signed in.', 'error'); return; }
+      var sess = await sb.auth.getSession();
+      var token = sess && sess.data && sess.data.session ? sess.data.session.access_token : '';
+      var resp = await fetch('/api/booking-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ bookingId: bookingId, message: msg }),
+      });
+      var data = await resp.json().catch(function() { return {}; });
+      if (!resp.ok || data.error) {
+        console.error('[booking-reply] failed:', resp.status, data);
+        if (typeof toast === 'function') toast('⚠️ ' + (data.error || ('HTTP ' + resp.status)), 'error');
+        return;
+      }
+      ta.value = '';
+      if (typeof toast === 'function') toast(data.sent ? '✅ Reply emailed.' : '⚠️ Reply logged but email did not send — see console.', data.sent ? '' : 'error');
+    } catch (e) {
+      console.error('[booking-reply] threw:', e);
+      if (typeof toast === 'function') toast('Reply failed — see console.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = origLabel || '📤 Send'; }
+    }
+  };
+
   window.HHP_BookingAdmin = {
     currentFilter: 'pending',
     requests: [],
@@ -4763,6 +4814,24 @@
           '</div>';
       }
 
+      // ── R5 P3 #4: owner reply text field. Lets Rachel respond to the
+      //    client directly from the booking card. Sends email via
+      //    /api/booking-reply (Resend) and appends to admin_notes for
+      //    audit history. Owner/staff only; shown on every active status.
+      var replyHTML = '';
+      var replyOk = portal === 'owner' || portal === 'staff';
+      var replyStatuses = { pending:1, accepted:1, confirmed:1, modified:1, payment_hold:1, invoice_sent:1, in_progress:1 };
+      if (replyOk && replyStatuses[r.status] && r.contact_email) {
+        var taId = 'booking-reply-ta-' + r.id;
+        replyHTML =
+          '<div style="margin-top:12px;background:var(--warm);border-radius:8px;padding:10px 12px">' +
+          '<div style="font-size:0.78rem;color:var(--mid);font-weight:600;margin-bottom:6px">💬 Reply to ' + escHtml((r.contact_name || 'client').split(/\s+/)[0]) + ' (emails ' + escHtml(r.contact_email) + ')</div>' +
+          '<textarea id="' + taId + '" rows="2" placeholder="Type a quick reply…" onclick="event.stopPropagation()" style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:0.82rem;border:1px solid var(--border);border-radius:6px;background:var(--cream,white);font-family:inherit;resize:vertical"></textarea>' +
+          '<div style="display:flex;justify-content:flex-end;margin-top:6px">' +
+          '<button onclick="event.stopPropagation();sendBookingReply(\'' + r.id + '\',\'' + taId + '\',this)" style="padding:6px 14px;font-size:0.82rem;font-weight:600;background:var(--forest,#3d5a47);color:white;border:none;border-radius:6px;cursor:pointer;font-family:inherit">📤 Send</button>' +
+          '</div></div>';
+      }
+
       return [
         '<div class="card" data-request-id="' + r.id + '" style="border-left:4px solid ' + (r.status === 'pending' ? 'var(--gold)' : r.status === 'accepted' ? 'var(--forest)' : r.status === 'completed' ? '#4caf50' : '#999') + ';position:relative">',
         (schedBtnHTML ? '<div style="position:absolute;top:12px;right:12px;z-index:2">' + schedBtnHTML + '</div>' : ''),
@@ -4785,6 +4854,7 @@
         panelMultiDateHTML,
         actionsHTML,
         assignHTML,
+        replyHTML,
         '</div>',
       ].join('');
     }).join('');
@@ -5623,7 +5693,7 @@
         '<div style="font-weight:700;font-size:0.88rem;color:#4a3d6b;margin-bottom:8px">Stay Summary</div>',
         '<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#5b4f7a;margin-bottom:4px"><span>📅 ' + fmtDate(booking.preferred_date) + ' → ' + fmtDate(booking.preferred_end_date) + '</span></div>',
         '<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#5b4f7a;margin-bottom:4px"><span>🕐 Arrival: ' + fmt12(booking.preferred_time) + '</span><span>🕐 Departure: ' + fmt12(booking.preferred_end_time) + '</span></div>',
-        '<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#5b4f7a"><span>🌙 ' + originalNights + ' night' + (originalNights !== 1 ? 's' : '') + '</span><span>💰 $' + perNight.toFixed(2) + '/night</span></div>',
+        '<div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#5b4f7a"><span>🌙 ' + originalNights + ' day' + (originalNights !== 1 ? 's' : '') + '</span><span>💰 $' + perNight.toFixed(2) + '/day</span></div>',
         '</div>',
 
         // Night Adjustment
@@ -5632,7 +5702,7 @@
         '<div style="font-size:0.78rem;color:#999;margin-bottom:10px">Did the stay end early or extend? Adjust the nights below.</div>',
         '<div style="display:flex;align-items:center;justify-content:center;gap:16px">',
         '<button onclick="adjustHSNights(-1)" style="width:40px;height:40px;border-radius:50%;border:2px solid #c8963e;background:transparent;color:#c8963e;font-size:1.3rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center">−</button>',
-        '<div style="text-align:center;min-width:80px"><div id="hs-report-nights" style="font-size:2rem;font-weight:800;color:#3d5a47">' + originalNights + '</div><div style="font-size:0.72rem;color:#999;text-transform:uppercase">nights</div></div>',
+        '<div style="text-align:center;min-width:80px"><div id="hs-report-nights" style="font-size:2rem;font-weight:800;color:#3d5a47">' + originalNights + '</div><div style="font-size:0.72rem;color:#999;text-transform:uppercase">days</div></div>',
         '<button onclick="adjustHSNights(1)" style="width:40px;height:40px;border-radius:50%;border:2px solid #c8963e;background:transparent;color:#c8963e;font-size:1.3rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center">+</button>',
         '</div>',
         '<div id="hs-report-total" style="text-align:center;margin-top:10px;font-size:1.1rem;font-weight:700;color:#c8963e">$' + booking.estimated_total + '</div>',
