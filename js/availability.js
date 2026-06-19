@@ -275,6 +275,10 @@
   window._availCalMonth = new Date().getMonth();
   window._availBlocks = {}; // blocks for current displayed month
 
+  // R6 P2 #8 — block-off-dates calendar restyled to match the House Sitting
+  // booking calendar's compact inline-styled grid. Behavior stays the same
+  // (click any future day to toggle blocked); the look is just brought in
+  // line so Rachel isn't switching between two visual languages.
   window.buildAvailCalendar = async function() {
     var container = document.getElementById('availCalWrap');
     if (!container) return;
@@ -282,37 +286,38 @@
     var year = window._availCalYear;
     var month = window._availCalMonth;
     var names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var dayLabels = ['Su','Mo','Tu','We','Th','Fr','Sa'];
     var firstDayOfWeek = new Date(year, month, 1).getDay();
     var daysInMonth = new Date(year, month + 1, 0).getDate();
     var today = new Date();
     var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
 
-    // Load blocks for this month
     var blocks = await window.loadAvailabilityBlocks(year, month);
     window._availBlocks = blocks;
 
-    // Get holidays
     var monthHolidays = window.getMonthHolidays(year, month);
-
-    // Get current user ID
     var myId = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser.id : '';
 
-    // Build calendar HTML
     var isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
-    var html = '<div class="cal-header">';
-    html += '<button class="cal-nav-btn" onclick="window._availCalMonth--;if(window._availCalMonth<0){window._availCalMonth=11;window._availCalYear--;}buildAvailCalendar()">←</button>';
-    html += '<span class="cal-month">' + names[month] + ' ' + year + '</span>';
-    html += '<button class="cal-nav-btn" onclick="window._availCalMonth++;if(window._availCalMonth>11){window._availCalMonth=0;window._availCalYear++;}buildAvailCalendar()">→</button>';
-    if (!isCurrentMonth) {
-      html += '<button class="cal-nav-btn" onclick="window._availCalMonth=new Date().getMonth();window._availCalYear=new Date().getFullYear();buildAvailCalendar()" style="margin-left:8px;font-size:0.72rem;padding:4px 10px;background:var(--gold-pale);border-color:var(--gold);color:var(--ink);font-weight:600" title="Back to today">Today</button>';
-    }
+
+    // Header — match HS calendar (centered month label, arrow buttons left/right).
+    var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+    html += '<button type="button" onclick="window._availCalMonth--;if(window._availCalMonth<0){window._availCalMonth=11;window._availCalYear--;}buildAvailCalendar()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409" aria-label="Previous month">&#8592;</button>';
+    html += '<span style="font-weight:700;font-size:0.95rem;color:#1e1409">' + names[month] + ' ' + year + '</span>';
+    html += '<button type="button" onclick="window._availCalMonth++;if(window._availCalMonth>11){window._availCalMonth=0;window._availCalYear++;}buildAvailCalendar()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409" aria-label="Next month">&#8594;</button>';
     html += '</div>';
 
-    html += '<div class="cal-grid">';
-    days.forEach(function(d) { html += '<div class="cal-dow">' + d + '</div>'; });
+    if (!isCurrentMonth) {
+      html += '<div style="text-align:center;margin-bottom:8px"><button type="button" onclick="window._availCalMonth=new Date().getMonth();window._availCalYear=new Date().getFullYear();buildAvailCalendar()" style="font-size:0.72rem;padding:4px 12px;background:#fff8ec;border:1px solid #c8963e;color:#1e1409;border-radius:6px;font-weight:600;cursor:pointer">Today</button></div>';
+    }
 
-    for (var i = 0; i < firstDayOfWeek; i++) html += '<div class="cal-day empty"></div>';
+    // Grid — 7 columns, compact cells, inline styles. Day labels in 2-letter form.
+    html += '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;text-align:center">';
+    dayLabels.forEach(function(dl) {
+      html += '<div style="font-size:0.7rem;font-weight:700;color:#8c6b4a;padding:4px 0">' + dl + '</div>';
+    });
+
+    for (var i = 0; i < firstDayOfWeek; i++) html += '<div></div>';
 
     for (var d = 1; d <= daysInMonth; d++) {
       var key = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
@@ -321,42 +326,36 @@
       var isBlocked = blocks[key] && blocks[key].some(function(b) { return b.user_id === myId; });
       var isPast = key < todayStr;
 
-      var cls = 'cal-day';
-      if (isToday) cls += ' today';
-      if (isBlocked) cls += ' off';
-      if (isPast) cls += ' past-day';
+      var bg = 'white', color = '#1e1409', border = '1px solid #e8dece', cursor = 'pointer', opacity = '1';
+      if (isPast) { bg = '#f5f2ed'; color = '#bbb'; cursor = 'default'; opacity = '0.5'; }
+      else if (isBlocked) { bg = '#fce8e6'; color = '#c4756a'; border = '1px solid #f3c5be'; }
+      else if (isToday) { bg = '#fff8ec'; border = '1px solid #c8963e'; }
 
       var onclick = isPast ? '' : ' onclick="toggleAvailDay(\'' + key + '\')"';
-      var tooltip = '';
-      if (isBlocked) tooltip = 'Blocked — click to unblock';
-      else if (!isPast) tooltip = 'Available — click to block';
+      var title = '';
+      if (holiday) title = holiday;
+      if (isBlocked) title = (title ? title + ' — ' : '') + 'Blocked (click to unblock)';
+      else if (!isPast) title = (title ? title + ' — ' : '') + 'Click to block off';
 
-      html += '<div class="' + cls + '"' + onclick + ' title="' + tooltip + '" style="' + (isPast ? 'opacity:0.4;cursor:default' : '') + '">';
-      html += '<div class="cal-day-num">' + d + '</div>';
-
-      if (holiday) {
-        html += '<div style="font-size:0.62rem;line-height:1.2;color:var(--gold-deep);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + holiday + '</div>';
-      }
-
-      if (isBlocked) {
-        var reason = '';
-        blocks[key].forEach(function(b) { if (b.user_id === myId && b.reason) reason = b.reason; });
-        html += '<div style="font-size:0.62rem;color:var(--rose);font-weight:700">BLOCKED</div>';
-        if (reason) html += '<div style="font-size:0.58rem;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + reason + '</div>';
-      } else if (!isPast) {
-        html += '<div style="font-size:0.62rem;color:var(--forest);font-weight:600">Available</div>';
-      }
-
+      html += '<div' + onclick + ' title="' + title + '" style="';
+      html += 'background:' + bg + ';color:' + color + ';border:' + border + ';';
+      html += 'border-radius:8px;padding:6px 2px;cursor:' + cursor + ';opacity:' + opacity + ';';
+      html += 'font-size:0.82rem;font-weight:600;position:relative;min-height:38px;';
+      html += 'display:flex;flex-direction:column;align-items:center;justify-content:center;';
+      html += 'transition:all 0.15s;user-select:none">';
+      html += d;
+      if (holiday) html += '<div style="font-size:0.5rem;line-height:1;color:#c8963e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%">' + holiday + '</div>';
+      if (isBlocked) html += '<div style="font-size:0.5rem;line-height:1;color:#c4756a;font-weight:700">blocked</div>';
       html += '</div>';
     }
     html += '</div>';
 
-    // Legend
-    html += '<div class="cal-legend" style="margin-top:14px">';
-    html += '<div class="legend-item"><div class="legend-dot" style="background:var(--cream,white);border:1px solid var(--forest)"></div>Available</div>';
-    html += '<div class="legend-item"><div class="legend-dot" style="background:var(--rose-pale);border:1px solid var(--rose-light)"></div>Blocked Off</div>';
-    html += '<div class="legend-item"><div class="legend-dot" style="background:var(--gold-pale);border:1px solid rgba(200,150,62,0.3)"></div>Today</div>';
-    html += '<div class="legend-item"><span style="font-size:0.72rem;color:var(--gold-deep);font-weight:600">Holiday</span></div>';
+    // Compact legend (matches HS calendar visual weight).
+    html += '<div style="display:flex;justify-content:center;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:0.72rem;color:#8c6b4a">';
+    html += '<span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:10px;height:10px;background:white;border:1px solid #e8dece;border-radius:3px"></span>Available</span>';
+    html += '<span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:10px;height:10px;background:#fce8e6;border:1px solid #f3c5be;border-radius:3px"></span>Blocked</span>';
+    html += '<span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:10px;height:10px;background:#fff8ec;border:1px solid #c8963e;border-radius:3px"></span>Today</span>';
+    html += '<span style="display:inline-flex;align-items:center;gap:5px;color:#c8963e;font-weight:600">Holiday</span>';
     html += '</div>';
 
     container.innerHTML = html;
@@ -398,9 +397,9 @@
 
     var isCurrentMonth = (month === today.getMonth() && year === today.getFullYear());
     var html = '<div class="cal-header">';
-    html += '<button class="cal-nav-btn" onclick="window._staffAvailCalYear+=(window._staffAvailCalMonth===0?-1:0);window._staffAvailCalMonth=(window._staffAvailCalMonth+11)%12;buildStaffAvailCalendar()">←</button>';
+    html += '<button class="cal-nav-btn" aria-label="Previous month" onclick="window._staffAvailCalYear+=(window._staffAvailCalMonth===0?-1:0);window._staffAvailCalMonth=(window._staffAvailCalMonth+11)%12;buildStaffAvailCalendar()">←</button>';
     html += '<span class="cal-month">' + names[month] + ' ' + year + '</span>';
-    html += '<button class="cal-nav-btn" onclick="window._staffAvailCalYear+=(window._staffAvailCalMonth===11?1:0);window._staffAvailCalMonth=(window._staffAvailCalMonth+1)%12;buildStaffAvailCalendar()">→</button>';
+    html += '<button class="cal-nav-btn" aria-label="Next month" onclick="window._staffAvailCalYear+=(window._staffAvailCalMonth===11?1:0);window._staffAvailCalMonth=(window._staffAvailCalMonth+1)%12;buildStaffAvailCalendar()">→</button>';
     if (!isCurrentMonth) {
       html += '<button class="cal-nav-btn" onclick="window._staffAvailCalMonth=new Date().getMonth();window._staffAvailCalYear=new Date().getFullYear();buildStaffAvailCalendar()" style="margin-left:8px;font-size:0.72rem;padding:4px 10px;background:var(--gold-pale);border-color:var(--gold);color:var(--ink);font-weight:600" title="Back to today">Today</button>';
     }

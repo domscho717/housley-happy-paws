@@ -8,7 +8,8 @@
   var STORAGE_KEY = 'hhp_settings';
   var defaults = {
     theme: 'light',          // 'light' | 'dark'
-    textSize: 'medium',      // 'small' | 'medium' | 'large'
+    textSize: 'medium',      // 'small' | 'medium' | 'large' | 'xlarge' (R8 P2 #9)
+    contrast: 'normal',      // 'normal' | 'high'  (R8 P2 #9 — a11y)
     timeFormat: '12h',       // '12h' | '24h'
     defaultView: 'auto',     // 'auto' | panel id like 'c-dash', 'o-overview', etc.
     notifBooking: true,      // booking confirmations / updates
@@ -100,9 +101,17 @@
     }
   }
 
+  // R8 P2 #9 — high-contrast mode for users who need stronger text/edges.
+  function applyContrast(level) {
+    var root = document.documentElement;
+    root.removeAttribute('data-contrast');
+    if (level === 'high') root.setAttribute('data-contrast', 'high');
+  }
+
   function applyAll(s) {
     applyTheme(s.theme);
     applyTextSize(s.textSize);
+    applyContrast(s.contrast);
     applyTimeFormat(s.timeFormat);
   }
 
@@ -206,6 +215,22 @@
       '[data-text-size="large"] .stat-num { font-size: 2.3rem; }',
       '[data-text-size="large"] .sb-item { font-size: 0.95rem; padding: 12px 14px; }',
       '[data-text-size="large"] .stat-lbl { font-size: 0.82rem; }',
+      // R8 P2 #9 — Extra Large text size for low-vision users.
+      '[data-text-size="xlarge"] { font-size: 21px; }',
+      '[data-text-size="xlarge"] .portal-main { font-size: 1.25rem; }',
+      '[data-text-size="xlarge"] .p-header h2 { font-size: 2.8rem; }',
+      '[data-text-size="xlarge"] .stat-num { font-size: 2.6rem; }',
+      '[data-text-size="xlarge"] .sb-item { font-size: 1.05rem; padding: 14px 16px; }',
+      '[data-text-size="xlarge"] .stat-lbl { font-size: 0.92rem; }',
+      // R8 P2 #9 — High-contrast mode. Darkens text, strengthens borders,
+      // removes alpha so colors are solid. Pairs with light OR dark theme.
+      '[data-contrast="high"] { --mid: #1E1409; --brown: #1E1409; --border: #1E1409; }',
+      '[data-contrast="high"] body, [data-contrast="high"] p, [data-contrast="high"] div, [data-contrast="high"] span, [data-contrast="high"] li { color: #000 !important; }',
+      '[data-contrast="high"][data-theme="dark"] body, [data-contrast="high"][data-theme="dark"] p, [data-contrast="high"][data-theme="dark"] div, [data-contrast="high"][data-theme="dark"] span, [data-contrast="high"][data-theme="dark"] li { color: #FFF !important; }',
+      '[data-contrast="high"] a { color: #003580 !important; text-decoration: underline !important; }',
+      '[data-contrast="high"][data-theme="dark"] a { color: #80B6FF !important; }',
+      '[data-contrast="high"] .card, [data-contrast="high"] .p-panel, [data-contrast="high"] .stat-box, [data-contrast="high"] input, [data-contrast="high"] textarea, [data-contrast="high"] select, [data-contrast="high"] button { border: 2px solid currentColor !important; }',
+      '[data-contrast="high"] *:focus-visible { outline: 3px solid #FF6A00 !important; outline-offset: 2px !important; }',
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -283,9 +308,21 @@
       '          <div class="settings-row-desc">Adjust text size for readability</div>',
       '        </div>',
       '        <div class="settings-toggle-group" id="settTextSize">',
-      '          <button class="stg-btn' + (s.textSize === 'small' ? ' active' : '') + '" data-val="small" onclick="HHP_Settings.set(\'textSize\',\'small\')" style="font-size:0.72rem">A</button>',
-      '          <button class="stg-btn' + (s.textSize === 'medium' ? ' active' : '') + '" data-val="medium" onclick="HHP_Settings.set(\'textSize\',\'medium\')">A</button>',
-      '          <button class="stg-btn' + (s.textSize === 'large' ? ' active' : '') + '" data-val="large" onclick="HHP_Settings.set(\'textSize\',\'large\')" style="font-size:1.1rem">A</button>',
+      '          <button class="stg-btn' + (s.textSize === 'small' ? ' active' : '') + '" aria-label="Small text" data-val="small" onclick="HHP_Settings.set(\'textSize\',\'small\')" style="font-size:0.72rem">A</button>',
+      '          <button class="stg-btn' + (s.textSize === 'medium' ? ' active' : '') + '" aria-label="Medium text" data-val="medium" onclick="HHP_Settings.set(\'textSize\',\'medium\')">A</button>',
+      '          <button class="stg-btn' + (s.textSize === 'large' ? ' active' : '') + '" aria-label="Large text" data-val="large" onclick="HHP_Settings.set(\'textSize\',\'large\')" style="font-size:1.1rem">A</button>',
+      '          <button class="stg-btn' + (s.textSize === 'xlarge' ? ' active' : '') + '" aria-label="Extra large text" data-val="xlarge" onclick="HHP_Settings.set(\'textSize\',\'xlarge\')" style="font-size:1.3rem">A</button>',
+      '        </div>',
+      '      </div>',
+      '',
+      '      <div class="settings-row">',
+      '        <div class="settings-row-info">',
+      '          <div class="settings-row-label">High Contrast</div>',
+      '          <div class="settings-row-desc">Stronger text + borders for low-vision readability (R8 P2 #9)</div>',
+      '        </div>',
+      '        <div class="settings-toggle-group" id="settContrast">',
+      '          <button class="stg-btn' + (s.contrast !== 'high' ? ' active' : '') + '" data-val="normal" onclick="HHP_Settings.set(\'contrast\',\'normal\')">Normal</button>',
+      '          <button class="stg-btn' + (s.contrast === 'high' ? ' active' : '') + '" data-val="high" onclick="HHP_Settings.set(\'contrast\',\'high\')">High</button>',
       '        </div>',
       '      </div>',
       '',
@@ -412,6 +449,9 @@
     } else if (key === 'textSize') {
       applyTextSize(value);
       updateToggleGroup('settTextSize', value);
+    } else if (key === 'contrast') {
+      applyContrast(value);
+      updateToggleGroup('settContrast', value);
     } else if (key === 'timeFormat') {
       applyTimeFormat(value);
       updateToggleGroup('settTimeFormat', value);

@@ -980,7 +980,15 @@
       '<div id="ownerConvoName" style="font-weight:700;font-size:0.95rem"></div>' +
       '</div>' +
       '<div class="msg-thread" id="ownerMsgs" style="max-height:400px"></div>' +
-      '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="ownerMsgIn" placeholder="Type a reply..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.sendFromOwner()"><button class="msg-send" onclick="HHP_Messaging.sendFromOwner()">➤</button></div>' +
+      // R6 P2 #7 — owner reply composer is a textarea that auto-grows up to
+      // ~140px tall. Plain Enter sends (keeps muscle-memory from <input>),
+      // Shift+Enter inserts a newline.
+      '<div class="msg-input-row" style="margin-top:8px;align-items:flex-end">' +
+      '<textarea class="msg-input" id="ownerMsgIn" placeholder="Type a reply..." rows="1" ' +
+      'style="resize:none;overflow-y:auto;max-height:140px;line-height:1.4;font-family:inherit" ' +
+      'onkeydown="if(event.key===\'Enter\' && !event.shiftKey){event.preventDefault();HHP_Messaging.sendFromOwner()}" ' +
+      'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,140)+\'px\'"></textarea>' +
+      '<button class="msg-send" onclick="HHP_Messaging.sendFromOwner()">➤</button></div>' +
       '</div>';
     html += '</div>';
 
@@ -1038,6 +1046,8 @@
     if (!inp || !inp.value.trim()) return;
     var body = inp.value.trim();
     inp.value = '';
+    // R6 P2 #7 — collapse the auto-grown textarea back to one row after send.
+    if (inp.tagName === 'TEXTAREA') inp.style.height = '';
     await sendMessage(_currentConvoPartnerId, body);
     var user = getCurrentUser();
     if (user) {

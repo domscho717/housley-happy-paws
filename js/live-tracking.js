@@ -70,11 +70,11 @@
       toast('✅ Service started! Client has been notified.');
     }
 
-    // Send "Live tracking" notification to client — only for dog walks
-    // Drop-ins and other services already get the green "track progress" message from index.html
-    if (clientId && isDogWalk) {
-      sendWalkNotification(clientId, 'started', petName, service);
-    }
+    // R7 P1 #1 — start notification removed. The canonical 🟢 message
+    // (and email) is sent from index.html's startService flow which writes
+    // to `messages` AND fires /api/service-started-notification. The 🚶
+    // message that used to live here fired in parallel for dog walks,
+    // producing two near-simultaneous client notifications per walk start.
 
     // Refresh whatever schedule panel is visible
     refreshScheduleView();
@@ -147,11 +147,10 @@
       }
     }
 
-    // Send "walk finished" notification — only for dog walks (drop-ins get their own completion message from endServiceFromPanel)
-    var _isWalk = (walkData.service || '').toLowerCase().indexOf('dog walk') !== -1 || (walkData.service || '').toLowerCase().indexOf('walking') !== -1;
-    if (walkData && walkData.client_id && _isWalk) {
-      sendWalkNotification(walkData.client_id, 'completed', walkData.pet_name, walkData.service);
-    }
+    // R7 P1 #1 — completion notification removed. The ✅ "has completed"
+    // message + email is fired by the report-submission pipeline in
+    // index.html (endServiceFromPanel → runBackgroundPipeline). The
+    // "has finished" line that used to live here duplicated that send.
 
     _activeWalkId = null;
     _trackingPoints = [];
@@ -286,33 +285,9 @@
     }
   }
 
-  // ============================================================
-  //  WALK NOTIFICATIONS — notify client when walk starts/ends
-  // ============================================================
-  async function sendWalkNotification(clientId, action, petName, service) {
-    var sb = getSB();
-    var user = getUser();
-    if (!sb || !user) return;
-
-    var walkerProfile = user.profile || {};
-    var walkerName = walkerProfile.full_name || 'Your walker';
-    var pet = petName || 'your pet';
-
-    var body = action === 'started'
-      ? '🚶 ' + walkerName + ' has started ' + pet + '\'s ' + (service || 'walk') + '! Live tracking is now active.'
-      : '✅ ' + walkerName + ' has finished ' + pet + '\'s ' + (service || 'walk') + '. Check your reports for the walk summary!';
-
-    try {
-      await sb.from('messages').insert({
-        sender_id: user.id,
-        recipient_id: clientId,
-        body: body,
-        created_at: new Date().toISOString()
-      });
-    } catch (e) {
-      console.warn('Walk notification error:', e);
-    }
-  }
+  // R7 P1 #1 — sendWalkNotification removed. Its callers were duplicating
+  // the canonical message+email senders in index.html. Kept the surrounding
+  // function structure intact to minimize diff noise; no replacement needed.
 
   // ============================================================
   //  CHECK ACTIVE WALK — on page load, resume tracking if needed
@@ -399,6 +374,33 @@
   // ============================================================
   //  CLIENT LIVE TRACKING VIEW — real-time walk display
   // ============================================================
+  // R7 P3 #3 — geocode the client's address once and cache forever in
+  // localStorage. Nominatim's terms ask for a User-Agent / Referer (browser
+  // provides those) and a low request rate; one fetch per address per
+  // browser is well under the limit. Returns { lat, lng } or null.
+  async function _geocodeAddress(addr) {
+    if (!addr) return null;
+    var key = 'hhp_geo_' + String(addr).trim().toLowerCase().replace(/\s+/g, '_').slice(0, 120);
+    try {
+      var cached = localStorage.getItem(key);
+      if (cached) {
+        var c = JSON.parse(cached);
+        if (c && typeof c.lat === 'number' && typeof c.lng === 'number') return c;
+      }
+    } catch (e) {}
+    try {
+      var url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(addr);
+      var resp = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      if (!resp.ok) return null;
+      var data = await resp.json();
+      if (!data || !data.length) return null;
+      var hit = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      if (isNaN(hit.lat) || isNaN(hit.lng)) return null;
+      try { localStorage.setItem(key, JSON.stringify(hit)); } catch (e) {}
+      return hit;
+    } catch (e) { return null; }
+  }
+
   async function loadClientLiveTracking() {
     var sb = getSB();
     var user = getUser();
@@ -412,6 +414,15 @@
     try {
       // Find active walks for this client (supports View As mode)
       var _trackClientId = (typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) || user.id;
+
+      // R7 P3 #3 — fetch + geocode the client's address so the map can
+      // drop a 🏠 pin at their house. Non-blocking — if it fails, the map
+      // just renders without the pin.
+      var _houseCoord = null;
+      try {
+        var { data: prof } = await sb.from('profiles').select('address').eq('user_id', _trackClientId).maybeSingle();
+        if (prof && prof.address) _houseCoord = await _geocodeAddress(prof.address);
+      } catch (geoErr) { console.warn('House pin geocode failed (non-fatal):', geoErr); }
       var { data: activeWalks } = await sb.from('walks')
         .select('*')
         .eq('client_id', _trackClientId)
@@ -460,8 +471,9 @@
 
         var mapHtml;
         if (lastPt) {
-          // Show OpenStreetMap with route
-          mapHtml = buildTrackingMap(trackPts, w.id, true);
+          // Show OpenStreetMap with route. Pass house coord so the map
+          // drops a 🏠 pin at the client's address (R7 P3 #3).
+          mapHtml = buildTrackingMap(trackPts, w.id, true, _houseCoord);
         } else {
           mapHtml = '<div style="margin-top:16px;height:200px;border-radius:10px;background:var(--warm);display:flex;align-items:center;justify-content:center;border:1px solid var(--border)">' +
             '<div style="text-align:center;color:var(--mid)"><div style="font-size:2rem">📍</div><div style="font-size:0.8rem;margin-top:6px">Waiting for GPS signal...</div></div></div>';
@@ -521,13 +533,14 @@
   // ============================================================
   //  BUILD MAP — OpenStreetMap iframe showing walk route
   // ============================================================
-  function buildTrackingMap(points, walkId, isLive) {
+  function buildTrackingMap(points, walkId, isLive, houseCoord) {
     if (!points || points.length === 0) return '';
 
     var lastPt = points[points.length - 1];
     var firstPt = points[0];
 
-    // Calculate bounds
+    // Calculate bounds — include the house coord so the map auto-zooms
+    // to fit both the walker AND the house (R7 P3 #3).
     var minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
     points.forEach(function(p) {
       if (p.lat < minLat) minLat = p.lat;
@@ -535,6 +548,12 @@
       if (p.lng < minLng) minLng = p.lng;
       if (p.lng > maxLng) maxLng = p.lng;
     });
+    if (houseCoord && typeof houseCoord.lat === 'number' && typeof houseCoord.lng === 'number') {
+      if (houseCoord.lat < minLat) minLat = houseCoord.lat;
+      if (houseCoord.lat > maxLat) maxLat = houseCoord.lat;
+      if (houseCoord.lng < minLng) minLng = houseCoord.lng;
+      if (houseCoord.lng > maxLng) maxLng = houseCoord.lng;
+    }
     var centerLat = (minLat + maxLat) / 2;
     var centerLng = (minLng + maxLng) / 2;
 
@@ -571,6 +590,11 @@
             'if(coords.length>1)L.polyline(coords,{color:"#3d5a47",weight:4,opacity:0.8}).addTo(map);' +
             'L.circleMarker([' + firstPt.lat + ',' + firstPt.lng + '],{radius:6,color:"#3d5a47",fillColor:"#c8963e",fillOpacity:1,weight:2}).addTo(map).bindPopup("Start");' +
             'L.circleMarker([' + lastPt.lat + ',' + lastPt.lng + '],{radius:8,color:"#22c55e",fillColor:"#22c55e",fillOpacity:1,weight:2}).addTo(map).bindPopup("' + (isLive ? 'Current Location' : 'End') + '");' +
+            // R7 P3 #3 — drop a 🏠 pin at the client's house if coords given.
+            (houseCoord && typeof houseCoord.lat === 'number' && typeof houseCoord.lng === 'number'
+              ? 'var houseIcon=L.divIcon({html:"<div style=\\"font-size:26px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))\\">🏠</div>",className:"hhp-house-pin",iconSize:[30,30],iconAnchor:[15,28]});' +
+                'L.marker([' + houseCoord.lat + ',' + houseCoord.lng + '],{icon:houseIcon,zIndexOffset:500}).addTo(map).bindPopup("Home");'
+              : '') +
             'if(coords.length>1)map.fitBounds(coords,{padding:[30,30]});' +
           '}' +
           'initMap();' +

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Accessibility Statement — Housley Happy Paws</title>
+<meta name="description" content="Housley Happy Paws is committed to making our pet-care website accessible to everyone. Learn how we approach accessibility and how to report any barriers you encounter.">
+<meta name="robots" content="index,follow">
+<style>
+:root{
+  --gold:#C8963E;--gold-deep:#A07428;--forest:#3D5A47;
+  --cream:#FDFAF5;--warm:#FAF6EE;--ink:#1E1409;--mid:#6B5C4D;--border:#E0D5C5;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Jost',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--cream);color:var(--ink);line-height:1.6}
+.skip-link{position:absolute;top:-50px;left:0;background:var(--forest);color:white;padding:10px 16px;z-index:99999;text-decoration:none;font-weight:700;border-radius:0 0 8px 0}
+.skip-link:focus{top:0;outline:3px solid var(--gold);outline-offset:0}
+header{background:var(--warm);border-bottom:1px solid var(--border);padding:20px 24px}
+header .nav{max-width:840px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header a.brand{color:var(--ink);text-decoration:none;font-weight:700;font-size:1.15rem}
+header a.brand:hover{color:var(--gold-deep)}
+header nav a{color:var(--ink);text-decoration:none;margin-left:18px;font-weight:600;font-size:0.92rem}
+header nav a:hover{color:var(--gold-deep);text-decoration:underline}
+main{max-width:780px;margin:0 auto;padding:36px 24px 80px}
+h1{font-size:2.1rem;margin:0 0 8px;color:var(--forest);line-height:1.25}
+.tagline{color:var(--mid);font-size:0.95rem;margin-bottom:32px}
+h2{font-size:1.35rem;margin:36px 0 12px;color:var(--forest)}
+p{margin:0 0 14px}
+ul{padding-left:22px;margin:0 0 14px}
+li{margin-bottom:6px}
+a{color:var(--gold-deep);text-decoration:underline}
+a:hover{color:var(--ink)}
+.contact-box{background:var(--warm);border:1px solid var(--border);border-radius:10px;padding:20px 22px;margin:24px 0}
+.contact-box p{margin:6px 0}
+.contact-box strong{color:var(--forest)}
+footer{max-width:780px;margin:0 auto;padding:24px;text-align:center;color:var(--mid);font-size:0.85rem;border-top:1px solid var(--border)}
+*:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+</style>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to main content</a>
+<header>
+  <div class="nav">
+    <a class="brand" href="/">🐾 Housley Happy Paws</a>
+    <nav aria-label="Site">
+      <a href="/">Home</a>
+      <a href="/#services">Services</a>
+      <a href="/#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+  <h1>Accessibility Statement</h1>
+  <p class="tagline">Last reviewed: June 19, 2026</p>
+
+  <h2>Our commitment</h2>
+  <p>Housley Happy Paws is committed to making our website usable for everyone, including people who use screen readers, keyboards instead of mice, or who have low vision, hearing loss, or other disabilities. Our pet-care services are for every family in Lancaster County, and our website should be too.</p>
+
+  <h2>Conformance target</h2>
+  <p>We strive to conform to the <a href="https://www.w3.org/WAI/WCAG21/quickref/" rel="noopener">Web Content Accessibility Guidelines (WCAG) 2.1 Level AA</a>. These guidelines explain how to make web content more accessible to people with a wide range of disabilities.</p>
+
+  <h2>What we've built in</h2>
+  <ul>
+    <li>Skip-to-content link at the top of every page for keyboard users.</li>
+    <li>Visible keyboard focus indicators on all interactive elements.</li>
+    <li>A "High Contrast" mode and four text-size options (Small through Extra Large), available in your account Settings panel.</li>
+    <li>Screen-reader-friendly announcements for toast messages and live status updates.</li>
+    <li>Modal dialogs that close on the Escape key and return focus to where you were before you opened them.</li>
+    <li>ARIA labels on icon-only buttons (close, calendar navigation, etc.) so screen readers describe their purpose.</li>
+    <li>Semantic headings and landmarks so assistive technology can navigate the page structure.</li>
+  </ul>
+
+  <h2>Known limitations</h2>
+  <p>We're a small business and we're improving continuously. We know about, and are working on:</p>
+  <ul>
+    <li>The Stripe-hosted card-entry page and Stripe Customer Portal are operated by Stripe, Inc.; their accessibility is governed by Stripe's own standards.</li>
+    <li>Some dynamically generated content in the owner and staff portals has not yet been audited line-by-line for label associations and color contrast.</li>
+    <li>The Leaflet map used for live walk tracking offers limited screen-reader support; we provide the same start/end information in text form on the booking page.</li>
+  </ul>
+  <p>If you hit a barrier we haven't listed here, please tell us — we'll fix it.</p>
+
+  <h2>How to report a problem</h2>
+  <div class="contact-box">
+    <p><strong>Email:</strong> <a href="mailto:housleyhappypaws@gmail.com">housleyhappypaws@gmail.com</a></p>
+    <p><strong>Phone:</strong> <a href="tel:+17177157595">(717) 715-7595</a></p>
+    <p>When you write, please tell us the page you were on, what you were trying to do, and what device + screen reader (if any) you were using. We aim to respond within 2 business days.</p>
+  </div>
+
+  <h2>Compatibility</h2>
+  <p>Our site is tested with the current and immediately previous major versions of Chrome, Safari, Firefox, and Edge, with VoiceOver on macOS/iOS and NVDA on Windows. If you use a less common assistive technology, please let us know what works and what doesn't.</p>
+
+  <h2>Formal complaints</h2>
+  <p>If you've contacted us about an accessibility issue and aren't satisfied with our response, you can also file a complaint with the <a href="https://www.ada.gov/file-a-complaint/" rel="noopener">U.S. Department of Justice</a> under Title III of the Americans with Disabilities Act.</p>
+</main>
+<footer>
+  © 2026 Housley Happy Paws · Lancaster, PA · <a href="/">Back to home</a>
+</footer>
+</body>
+</html>

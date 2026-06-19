@@ -179,12 +179,11 @@ const HHP_Auth = window.HHP_Auth = {
         this._initialLoad = false;
         this._handledSessionId = session.user.id;
 
-        // Start the owner/staff portal-presence heartbeat. The server uses
-        // profiles.last_seen_at to decide whether to email Rachel on new
-        // client messages — within 5 min = "she's chatting live, don't spam".
-        if (this.currentRole === 'owner' || this.currentRole === 'staff') {
-            this._startPresenceHeartbeat();
-        }
+        // R8 P1 #1 — start presence heartbeat for ALL signed-in users.
+        // The server still only consults Rachel's last_seen_at when deciding
+        // whether to email her on new client messages, but writing client
+        // rows too costs nothing and enables future "last seen" UX.
+        this._startPresenceHeartbeat();
 
         // Check if client needs to set up their first pet profile
         if (this.currentRole === 'client' && typeof checkNeedsPetSetup === 'function') {
@@ -192,12 +191,18 @@ const HHP_Auth = window.HHP_Auth = {
         }
     },
 
-    // ── Presence heartbeat — fires on portal load, focus, and every 60s ──
+    // ── Presence heartbeat — fires on portal load, focus, visibility, and every 60s ──
+    // R8 P1 #1: heartbeat runs for ANY signed-in user (not just owner/staff)
+    // and adds a visibilitychange listener so it fires the instant a hidden
+    // tab becomes visible. The interval check guards against burning DB
+    // updates while the tab is in the background.
     _heartbeatInterval: null,
     _heartbeatFocusBound: null,
+    _heartbeatVisBound: null,
     _heartbeat() {
         if (!this.currentUser) return;
-        if (this.currentRole !== 'owner' && this.currentRole !== 'staff') return;
+        // Skip if tab isn't visible — saves a write per minute per background tab.
+        if (typeof document !== 'undefined' && document.visibilityState && document.visibilityState !== 'visible') return;
         var self = this;
         // Fire-and-forget; a missed update isn't fatal — next tick will retry.
         try {
@@ -215,11 +220,16 @@ const HHP_Auth = window.HHP_Auth = {
         this._heartbeat();
         this._heartbeatFocusBound = function() { self._heartbeat(); };
         window.addEventListener('focus', this._heartbeatFocusBound);
+        this._heartbeatVisBound = function() {
+            if (document.visibilityState === 'visible') self._heartbeat();
+        };
+        document.addEventListener('visibilitychange', this._heartbeatVisBound);
         this._heartbeatInterval = setInterval(function() { self._heartbeat(); }, 60000);
     },
     _stopPresenceHeartbeat() {
         if (this._heartbeatInterval) { clearInterval(this._heartbeatInterval); this._heartbeatInterval = null; }
         if (this._heartbeatFocusBound) { window.removeEventListener('focus', this._heartbeatFocusBound); this._heartbeatFocusBound = null; }
+        if (this._heartbeatVisBound) { document.removeEventListener('visibilitychange', this._heartbeatVisBound); this._heartbeatVisBound = null; }
     },
 
     // ── Route user to their portal based on role ──

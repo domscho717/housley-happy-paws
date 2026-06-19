@@ -310,29 +310,27 @@
   var SERVICES = DEFAULT_SERVICES.slice();
 
   // Holiday-rate dates. Two sources, both supported:
-  //   1. holidays table  — recurring MM-DD entries (federal day-of holidays
-  //      like New Year's, July 4, Christmas). Kept for back-compat per
-  //      R4 #6 brief.
-  //   2. holiday_ranges  — year-specific date ranges Rachel actually charges
-  //      the holiday rate over (e.g. Memorial Day weekend May 22-25 2026).
+  //   1. holidays table  — recurring MM-DD entries for TRULY fixed-date
+  //      holidays (New Year's, July 4, Veterans Day, Christmas, NYE).
+  //   2. holiday_ranges  — year-specific date ranges Rachel charges the
+  //      holiday rate over (e.g. Memorial Day weekend May 22-25 2026).
   //      Each range is expanded into every YYYY-MM-DD between start and end.
   //
-  // HOLIDAYS is the MM-DD recurring set; HOLIDAY_EXACT is a Set of explicit
-  // YYYY-MM-DD strings from the ranges table. isHoliday() checks both.
+  // R6 P1 #5 — the weekday-shifting holidays (MLK, Presidents, Memorial,
+  // Labor, Columbus, Thanksgiving) used to live in the MM-DD array with
+  // "approx" comments. That produced false positives (e.g. 05-26 marked
+  // May 26 2026 as Memorial Day, but Memorial Day 2026 is May 25). These
+  // are now Rachel's job to add per year via holiday_ranges.
+  // R7 P3 #4 — trimmed to fixed-date federal holidays NOT covered by
+  // Rachel's per-year holiday_ranges. Christmas/NYE/NYD live in the
+  // 2026-12-24→2027-01-03 range, July 4 lives in the 2026-07-03→07-05
+  // range, so they don't need MM-DD fallbacks for the current year.
+  // 01-01 + 07-04 kept as a recurring safety net for years when Rachel
+  // hasn't added the next year's ranges yet. Veterans Day (11-11) removed
+  // per Rachel — she doesn't charge holiday rate on Veterans Day.
   var HOLIDAYS = [
     '01-01', // New Year's Day
-    '01-20', // MLK Day (approx)
-    '02-17', // Presidents Day (approx)
-    '05-26', // Memorial Day (approx)
     '07-04', // Independence Day
-    '09-01', // Labor Day (approx)
-    '10-13', // Columbus Day (approx)
-    '11-11', // Veterans Day
-    '11-27', // Thanksgiving (approx)
-    '11-28', // Day after Thanksgiving
-    '12-24', // Christmas Eve
-    '12-25', // Christmas Day
-    '12-31', // New Year's Eve
   ];
   var HOLIDAY_EXACT = Object.create(null);  // { 'YYYY-MM-DD': 'label' }
 
@@ -509,7 +507,35 @@
     }
   }
 
-  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType, nights, numDogs, numCats) {
+  // R7 P2 #2 — Extended Care surcharge math. House Sitting only.
+  // Compares the final-day departure time against the first-day arrival
+  // time to count "extra hours". Per Rachel (R7): per-pet multiplier.
+  //   ≤ 2 hrs:    no surcharge
+  //   2–8 hrs:    +50% of nightly base × numPets (one-night equivalent)
+  //   8+ hrs:     +100% of nightly base × numPets
+  // Returns { hours, surcharge, label }.
+  function _extendedCareSurcharge(baseNightlyRate, numPets, arrivalTime, departureTime) {
+    if (!arrivalTime || !departureTime) return { hours: 0, surcharge: 0, label: '' };
+    function toMin(t) {
+      var m = /^(\d{1,2}):(\d{2})/.exec(String(t));
+      if (!m) return null;
+      return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    }
+    var arrM = toMin(arrivalTime);
+    var depM = toMin(departureTime);
+    if (arrM == null || depM == null) return { hours: 0, surcharge: 0, label: '' };
+    var extraHrs = (depM - arrM) / 60;
+    if (extraHrs <= 2) return { hours: extraHrs, surcharge: 0, label: '' };
+    var pets = Math.max(1, numPets || 1);
+    var pct = extraHrs > 8 ? 1.0 : 0.5;
+    var surcharge = baseNightlyRate * pct * pets;
+    var pctLabel = (pct * 100).toFixed(0) + '%';
+    var hrsRound = (Math.round(extraHrs * 10) / 10).toString().replace(/\.0$/, '');
+    var label = 'Extended Care (' + hrsRound + ' hrs late) × ' + pets + ' pet' + (pets > 1 ? 's' : '') + ' × ' + pctLabel + ': $' + surcharge.toFixed(2);
+    return { hours: extraHrs, surcharge: surcharge, label: label };
+  }
+
+  function calculatePrice(serviceName, numPets, isPuppy, isHolidayDate, petType, nights, numDogs, numCats, arrivalTime, departureTime) {
     var svc = null;
     for (var i = 0; i < SERVICES.length; i++) {
       if (SERVICES[i].name === serviceName) { svc = SERVICES[i]; break; }
@@ -589,9 +615,19 @@
       parts.push('Holiday rate: +$' + svc.holiday + (isMultiNight ? '/day x ' + nights + ' = $' + holidayCost : ''));
     }
 
-    var total = (isMultiNight ? baseRate * nights : baseRate) + extraPetCost + puppyCost + holidayCost;
+    // R7 P2 #2 — Extended Care surcharge. House Sitting only, requires
+    // both arrival and departure times. baseRate here is per-night (the
+    // service's nightly rate, possibly $140 for Mixed).
+    var extendedCareCost = 0;
+    if (isMultiNight && arrivalTime && departureTime) {
+      var ec = _extendedCareSurcharge(baseRate, numPets, arrivalTime, departureTime);
+      extendedCareCost = ec.surcharge;
+      if (ec.label) parts.push(ec.label);
+    }
 
-    return { total: total, breakdown: parts.join(' | '), base: baseRate, nights: nights };
+    var total = (isMultiNight ? baseRate * nights : baseRate) + extraPetCost + puppyCost + holidayCost + extendedCareCost;
+
+    return { total: total, breakdown: parts.join(' | '), base: baseRate, nights: nights, extendedCareCost: extendedCareCost };
   }
 
   // Calculate number of nights between two dates (used by price estimator and submit)
@@ -860,10 +896,14 @@
       }
 
       var nights = 1;
+      var hsArrivalVal = '', hsDepartureVal = '';
       if (svcName.toLowerCase().indexOf('house sitting') !== -1) {
         nights = calcNights(document.getElementById('brm-date').value, document.getElementById('brm-enddate').value);
+        // R7 P2 #2 — read arrival + departure for Extended Care surcharge.
+        hsArrivalVal = (document.getElementById('brm-hs-arrival') || {}).value || '';
+        hsDepartureVal = (document.getElementById('brm-hs-departure') || {}).value || '';
       }
-      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights, window._brmDogCount, window._brmCatCount);
+      var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights, window._brmDogCount, window._brmCatCount, hsArrivalVal, hsDepartureVal);
       if (estimateEl) estimateEl.style.display = 'block';
       if (breakdownEl) breakdownEl.innerHTML = result.breakdown.split(' | ').join('<br>');
 
@@ -1554,9 +1594,9 @@
       var ownerBlocked = window._calOwnerBlocks || {};
 
       var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
-      html += '<button type="button" onclick="window._brmCalPickerMonth--;if(window._brmCalPickerMonth<0){window._brmCalPickerMonth=11;window._brmCalPickerYear--;}window._buildBrmCalPicker()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409">&#8592;</button>';
+      html += '<button type="button" onclick="window._brmCalPickerMonth--;if(window._brmCalPickerMonth<0){window._brmCalPickerMonth=11;window._brmCalPickerYear--;}window._buildBrmCalPicker()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409" aria-label="Previous month">&#8592;</button>';
       html += '<span style="font-weight:700;font-size:0.9rem;color:#1e1409">' + names[month] + ' ' + year + '</span>';
-      html += '<button type="button" onclick="window._brmCalPickerMonth++;if(window._brmCalPickerMonth>11){window._brmCalPickerMonth=0;window._brmCalPickerYear++;}window._buildBrmCalPicker()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409">&#8594;</button>';
+      html += '<button type="button" onclick="window._brmCalPickerMonth++;if(window._brmCalPickerMonth>11){window._brmCalPickerMonth=0;window._brmCalPickerYear++;}window._buildBrmCalPicker()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409" aria-label="Next month">&#8594;</button>';
       html += '</div>';
 
       if (!isCurrentMonth) {
@@ -1676,9 +1716,9 @@
       var monthHolidays = (typeof getMonthHolidays === 'function') ? getMonthHolidays(year, month) : {};
 
       var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
-      html += '<button type="button" onclick="window._hsCalMonth--;if(window._hsCalMonth<0){window._hsCalMonth=11;window._hsCalYear--;}window._buildHsCalendar()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409">&#8592;</button>';
+      html += '<button type="button" onclick="window._hsCalMonth--;if(window._hsCalMonth<0){window._hsCalMonth=11;window._hsCalYear--;}window._buildHsCalendar()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409" aria-label="Previous month">&#8592;</button>';
       html += '<span style="font-weight:700;font-size:0.9rem;color:#1e1409">' + names[month] + ' ' + year + '</span>';
-      html += '<button type="button" onclick="window._hsCalMonth++;if(window._hsCalMonth>11){window._hsCalMonth=0;window._hsCalYear++;}window._buildHsCalendar()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409">&#8594;</button>';
+      html += '<button type="button" onclick="window._hsCalMonth++;if(window._hsCalMonth>11){window._hsCalMonth=0;window._hsCalYear++;}window._buildHsCalendar()" style="background:none;border:1px solid #e0d5c5;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:1rem;color:#1e1409" aria-label="Next month">&#8594;</button>';
       html += '</div>';
 
       html += '<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;text-align:center">';
@@ -2734,10 +2774,15 @@
     var petCombo = document.getElementById('brm-petcombo') ? document.getElementById('brm-petcombo').value : '';
     var isHouseSitting = service.toLowerCase().indexOf('house sitting') !== -1;
     var nights = 1;
+    var hsArrivalSubmit = '', hsDepartureSubmit = '';
     if (isHouseSitting) {
       nights = calcNights(date, endDate);
+      // R7 P2 #2 — pass times through so the persisted estimated_total
+      // already includes Extended Care; matches the live preview math.
+      hsArrivalSubmit = (document.getElementById('brm-hs-arrival') || {}).value || '';
+      hsDepartureSubmit = (document.getElementById('brm-hs-departure') || {}).value || '';
     }
-    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights, window._brmDogCount, window._brmCatCount);
+    var priceResult = calculatePrice(service, numPets, isPuppy, holidayFlag, petType, nights, window._brmDogCount, window._brmCatCount, hsArrivalSubmit, hsDepartureSubmit);
 
     // For multi-date / recurring pricing — count total visits (time slots), not just unique dates
     var totalDates = dateCardDetails.length > 0 ? dateCardDetails.length : allBookingDates.length;
@@ -3224,18 +3269,45 @@
       }
     }
 
-    var token = '';
-    try {
-      var sess = sb ? await sb.auth.getSession() : null;
-      token = sess && sess.data && sess.data.session ? sess.data.session.access_token : '';
-      // If the session looks expired, try refresh once before giving up.
-      if (!token && sb) {
-        var refreshed = await sb.auth.refreshSession();
-        token = refreshed && refreshed.data && refreshed.data.session ? refreshed.data.session.access_token : '';
+    // R6 P1 #1 — Kelsey 401 fix. Owner's JWT can expire silently while a
+    // dashboard tab sits idle. Two layers of defense:
+    //  1. Proactive: get the current session, and if expires_at is within
+    //     90 seconds OR there's no token, refresh BEFORE the fetch.
+    //  2. Reactive: if the server still returns 401, refresh once and retry.
+    async function _getValidToken() {
+      if (!sb) return '';
+      try {
+        var sess = await sb.auth.getSession();
+        var s = sess && sess.data && sess.data.session;
+        var nowSec = Math.floor(Date.now() / 1000);
+        var expSoon = s && s.expires_at && (s.expires_at - nowSec) < 90;
+        if (!s || !s.access_token || expSoon) {
+          if (expSoon) console.log('[charge-on-accept] token expires in ' + (s.expires_at - nowSec) + 's — refreshing');
+          var refreshed = await sb.auth.refreshSession();
+          var rs = refreshed && refreshed.data && refreshed.data.session;
+          return rs && rs.access_token ? rs.access_token : '';
+        }
+        return s.access_token;
+      } catch (sessErr) {
+        console.error('[charge-on-accept] session lookup error:', sessErr);
+        return '';
       }
-    } catch (sessErr) {
-      console.error('[charge-on-accept] session lookup error:', sessErr);
     }
+    async function _doFetch(tok) {
+      return fetch('/api/charge-saved-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+        body: JSON.stringify({
+          bookingRequestId: bookingRequestId || null,
+          amount: amount,
+          service: service || 'Pet Care',
+          clientProfileId: clientProfileId,
+          batchBookingIds: batchBookingIds || undefined,
+        }),
+      });
+    }
+
+    var token = await _getValidToken();
     if (!token) {
       console.error('[charge-on-accept] no auth token — aborting charge for ' + label);
       await _markHold('Auto-charge aborted: not signed in / session expired.');
@@ -3245,17 +3317,18 @@
 
     var resp, data;
     try {
-      resp = await fetch('/api/charge-saved-card', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({
-          bookingRequestId: bookingRequestId || null,
-          amount: amount,
-          service: service || 'Pet Care',
-          clientProfileId: clientProfileId,
-          batchBookingIds: batchBookingIds || undefined,
-        }),
-      });
+      resp = await _doFetch(token);
+      // Reactive 401 retry: if the server says the token's no good, refresh
+      // once and try the fetch one more time. This catches the edge case
+      // where the token was valid at the proactive check but expired in the
+      // milliseconds between then and reaching the server.
+      if (resp.status === 401) {
+        console.warn('[charge-on-accept] server returned 401 — refreshing session and retrying once');
+        token = await _getValidToken();
+        if (token) {
+          resp = await _doFetch(token);
+        }
+      }
     } catch (netErr) {
       console.error('[charge-on-accept] network error:', netErr);
       await _markHold('Auto-charge network error: ' + (netErr.message || 'unknown'));
@@ -3514,6 +3587,10 @@
       if (dashboard.closest('.cust-widget')) return;
 
       dashboard.innerHTML = [
+        // R6 P1 #2 — Payment Hold banner. Counts payment_hold rows independently
+        // of the active filter so Rachel sees stuck charges from any tab.
+        // Hidden by default; loadRequests() populates + shows when count > 0.
+        '<div id="hhpPaymentHoldBanner" style="display:none;margin-bottom:14px;padding:14px 16px;background:#fff4e5;border:2px solid #f5a623;border-radius:10px;color:#7a4a00;font-weight:600;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"></div>',
         '<div class="card-title" style="margin-bottom:14px">📋 Booking Requests</div>',
         '<div class="admin-filter-bar" id="adminFilterBar" style="margin-bottom:12px">',
         '  <button class="admin-filter-btn active" data-filter="pending" onclick="HHP_BookingAdmin.filter(\'pending\',this)">Pending</button>',
@@ -3590,10 +3667,44 @@
         }
 
         this.render();
+
+        // R6 P1 #2 — refresh Payment Hold banner. Always count payment_hold
+        // rows independent of the active filter so Rachel sees the warning
+        // even from the Pending tab.
+        this.refreshPaymentHoldBanner();
       } catch (err) {
         console.error('Failed to load booking requests:', err);
         var container = document.getElementById('adminRequestsList');
         if (container) container.innerHTML = '<div style="padding:12px;color:#c00;font-size:0.85rem">Failed to load requests. Pull down to refresh.</div>';
+      }
+    },
+
+    async refreshPaymentHoldBanner() {
+      var banner = document.getElementById('hhpPaymentHoldBanner');
+      if (!banner) return;
+      var sb = getSB();
+      if (!sb) return;
+      try {
+        var { count, error } = await sb
+          .from('booking_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'payment_hold');
+        if (error) throw error;
+        var n = count || 0;
+        if (n <= 0) { banner.style.display = 'none'; return; }
+        var label = n === 1 ? '1 booking is' : n + ' bookings are';
+        banner.innerHTML = [
+          '<div style="flex:1;min-width:240px;line-height:1.4">',
+          '  <div style="font-size:1.02rem">⚠️ ' + label + ' on Payment Hold</div>',
+          '  <div style="font-weight:500;font-size:0.85rem;color:#8a5800;margin-top:2px">Card couldn\'t be charged. Click View to retry or resolve.</div>',
+          '</div>',
+          '<button onclick="HHP_BookingAdmin.filter(\'payment_hold\', document.querySelector(\'.admin-filter-btn[data-filter=payment_hold]\'))" ',
+          '        style="padding:9px 18px;background:#f5a623;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.92rem">View →</button>',
+        ].join('');
+        banner.style.display = 'flex';
+      } catch (e) {
+        console.warn('[payment-hold-banner] count failed:', e && e.message);
+        banner.style.display = 'none';
       }
     },
 
@@ -4014,20 +4125,27 @@
           // _fireAcceptanceCharge would also toast/mark hold, but this path has
           // its own retry-card UI + 24h grace-period logic right after.
           var _chargeOk = false, _chargeErrMsg = '';
-          try {
-            var _chgSess = sb ? await sb.auth.getSession() : null;
-            var _chgToken = _chgSess && _chgSess.data && _chgSess.data.session ? _chgSess.data.session.access_token : '';
-            if (!_chgToken) {
-              try {
-                var _refreshed = await sb.auth.refreshSession();
-                _chgToken = _refreshed && _refreshed.data && _refreshed.data.session ? _refreshed.data.session.access_token : '';
-              } catch (_) {}
-            }
-            if (!_chgToken) throw new Error('no_session');
-
-            var chargeResp = await fetch('/api/charge-saved-card', {
+          // R6 P1 #1 — proactive + reactive JWT refresh (Kelsey 401 fix).
+          async function _getValidTokenUS() {
+            if (!sb) return '';
+            try {
+              var s0 = await sb.auth.getSession();
+              var s = s0 && s0.data && s0.data.session;
+              var nowSec = Math.floor(Date.now() / 1000);
+              var expSoon = s && s.expires_at && (s.expires_at - nowSec) < 90;
+              if (!s || !s.access_token || expSoon) {
+                if (expSoon) console.log('[charge-on-accept] updateStatus token expires in ' + (s.expires_at - nowSec) + 's — refreshing');
+                var rr = await sb.auth.refreshSession();
+                var rs = rr && rr.data && rr.data.session;
+                return rs && rs.access_token ? rs.access_token : '';
+              }
+              return s.access_token;
+            } catch (_) { return ''; }
+          }
+          function _postCharge(tok) {
+            return fetch('/api/charge-saved-card', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _chgToken },
+              headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
               body: JSON.stringify({
                 bookingRequestId: requestId,
                 amount: req.estimated_total,
@@ -4035,6 +4153,17 @@
                 clientProfileId: req.client_id,
               }),
             });
+          }
+          try {
+            var _chgToken = await _getValidTokenUS();
+            if (!_chgToken) throw new Error('no_session');
+
+            var chargeResp = await _postCharge(_chgToken);
+            if (chargeResp.status === 401) {
+              console.warn('[charge-on-accept] updateStatus 401 — refreshing and retrying once');
+              _chgToken = await _getValidTokenUS();
+              if (_chgToken) chargeResp = await _postCharge(_chgToken);
+            }
             var chargeData = await chargeResp.json().catch(function() { return {}; });
 
             if (!chargeResp.ok) {
@@ -4847,7 +4976,19 @@
         '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:6px">\uD83D\uDCC5 ' + dateStr + (isHS ? ' · Arrival ' + fmt12(r.preferred_time || '') + (r.preferred_end_time ? ' · Departure ' + fmt12(r.preferred_end_time) : '') : ' at ' + fmt12(r.preferred_time || '')) + '</div>',
         '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">\uD83D\uDC3E ' + escHtml(r.pet_names || 'Pets') + '</div>',
         '      <div style="font-size:0.82rem;color:var(--mid);margin-bottom:4px">\uD83D\uDCCD ' + escHtml(r.address || 'Address') + '</div>',
-        (r.estimated_total ? '      <div style="font-weight:600;color:var(--gold-deep);margin-top:6px">\uD83D\uDCB0 $' + Number(r.estimated_total).toFixed(2) + '</div>' : ''),
+        // R6 P2 #10 \u2014 show the pipe-separated price_breakdown as individual
+        // lines instead of just the total. Falls back to the simple total if
+        // the booking pre-dates the breakdown column being populated.
+        (r.estimated_total ? (function() {
+          var totalLine = '<div style="font-weight:700;color:var(--gold-deep);margin-top:6px;font-size:0.95rem">\uD83D\uDCB0 $' + Number(r.estimated_total).toFixed(2) + '</div>';
+          if (!r.price_breakdown) return totalLine;
+          var parts = String(r.price_breakdown).split('|').map(function(s) { return s.trim(); }).filter(Boolean);
+          if (parts.length === 0) return totalLine;
+          var lines = parts.map(function(p) {
+            return '<div style="font-size:0.74rem;color:var(--mid);padding-left:2px">\u2022 ' + escHtml(p) + '</div>';
+          }).join('');
+          return totalLine + '<div style="margin-top:4px;line-height:1.4">' + lines + '</div>';
+        })() : ''),
         '    </div>',
         '  </div>',
         (r.special_notes ? '  <div style="background:var(--gold-pale);padding:8px 10px;border-radius:6px;font-size:0.82rem;margin-bottom:12px"><strong>Notes:</strong> ' + escHtml(r.special_notes) + '</div>' : ''),

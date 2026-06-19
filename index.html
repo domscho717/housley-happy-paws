@@ -7,6 +7,59 @@
 <meta name="description" content="Professional pet care in Lancaster, PA — dog walking, drop-in visits, boarding, cat care & more. Insured, background-checked, CPR & First Aid certified. Book online with Housley Happy Paws.">
 <meta name="keywords" content="pet care Lancaster PA, dog walking Lancaster, pet sitting, dog boarding, cat care, drop-in visits, Housley Happy Paws, Rachel Housley">
 <link rel="canonical" href="https://www.housleyhappypaws.com/">
+<!-- R8 P3 #11 — LocalBusiness JSON-LD. Helps Google understand we're a pet
+     care business serving specific Lancaster-area towns. The reviews/rating
+     schema is appended dynamically later from Supabase data. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "PetCareService",
+  "name": "Housley Happy Paws",
+  "image": "https://res.cloudinary.com/dg1p1zjgv/image/upload/c_fill,w_1200,h_630,q_auto,f_auto/housley-happy-paws/xyjtyotxknzaerw47fhi",
+  "url": "https://www.housleyhappypaws.com",
+  "telephone": "+1-717-715-7595",
+  "email": "housleyhappypaws@gmail.com",
+  "priceRange": "$$",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "Lancaster",
+    "addressRegion": "PA",
+    "addressCountry": "US"
+  },
+  "areaServed": [
+    {"@type":"City","name":"Lancaster","containedInPlace":{"@type":"State","name":"PA"}},
+    {"@type":"City","name":"Lititz","containedInPlace":{"@type":"State","name":"PA"}},
+    {"@type":"City","name":"Manheim","containedInPlace":{"@type":"State","name":"PA"}},
+    {"@type":"City","name":"Mountville","containedInPlace":{"@type":"State","name":"PA"}},
+    {"@type":"City","name":"Willow Street","containedInPlace":{"@type":"State","name":"PA"}}
+  ],
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    "opens": "08:00",
+    "closes": "17:00"
+  },
+  "founder": {"@type":"Person","name":"Rachel Housley"},
+  "description": "Professional pet care in Lancaster, PA — dog walking, drop-in visits, house sitting, and cat care. Insured, background-checked, CPR & First Aid certified.",
+  "sameAs": [
+    "https://www.facebook.com/profile.php?id=61583673462229",
+    "https://www.instagram.com/housleyhappypaws"
+  ],
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "Pet Care Services",
+    "itemListElement": [
+      {"@type":"Offer","itemOffered":{"@type":"Service","name":"Dog Walking (30 min)","description":"30-minute leashed walk with GPS tracking."},"price":"25","priceCurrency":"USD"},
+      {"@type":"Offer","itemOffered":{"@type":"Service","name":"Dog Walking (1 hour)","description":"1-hour leashed walk with GPS tracking."},"price":"45","priceCurrency":"USD"},
+      {"@type":"Offer","itemOffered":{"@type":"Service","name":"Drop-In Visit (Dog, 30 min)","description":"30-minute home visit for feeding, potty, and play."},"price":"25","priceCurrency":"USD"},
+      {"@type":"Offer","itemOffered":{"@type":"Service","name":"Drop-In Visit (Cat, 30 min)","description":"30-minute home visit for feeding, litter, and companionship."},"price":"20","priceCurrency":"USD"},
+      {"@type":"Offer","itemOffered":{"@type":"Service","name":"House Sitting (Dog)","description":"Overnight in-home care for dogs."},"price":"125","priceCurrency":"USD","priceSpecification":{"@type":"UnitPriceSpecification","price":"125","priceCurrency":"USD","unitText":"NIGHT"}},
+      {"@type":"Offer","itemOffered":{"@type":"Service","name":"House Sitting (Cat)","description":"Overnight in-home care for cats."},"price":"80","priceCurrency":"USD","priceSpecification":{"@type":"UnitPriceSpecification","price":"80","priceCurrency":"USD","unitText":"NIGHT"}},
+      {"@type":"Offer","itemOffered":{"@type":"Service","name":"Meet & Greet","description":"Free introductory visit to meet you and your pets."},"price":"0","priceCurrency":"USD"}
+    ]
+  }
+}
+</script>
 <!-- Open Graph / Social Sharing -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://www.housleyhappypaws.com/">
@@ -88,7 +141,7 @@ try{
 </script>
 <script>
 // Instant dark mode: apply theme from localStorage before any paint to prevent flash
-try{var _st=JSON.parse(localStorage.getItem('hhp_settings')||'{}');if(_st.theme==='dark')document.documentElement.setAttribute('data-theme','dark');if(_st.textSize&&_st.textSize!=='medium')document.documentElement.setAttribute('data-text-size',_st.textSize);}catch(e){}
+try{var _st=JSON.parse(localStorage.getItem('hhp_settings')||'{}');if(_st.theme==='dark')document.documentElement.setAttribute('data-theme','dark');if(_st.textSize&&_st.textSize!=='medium')document.documentElement.setAttribute('data-text-size',_st.textSize);if(_st.contrast==='high')document.documentElement.setAttribute('data-contrast','high');}catch(e){}
 </script>
 <script>
 // Instant avatar: apply cached owner profile picture to owner sidebar only
@@ -106,6 +159,13 @@ try{var _ca=sessionStorage.getItem('hhp_avatar_url');if(_ca){var st=document.cre
 <!-- Cloudinary Upload Widget — loaded async, only needed for uploads -->
 <script src="https://upload-widget.cloudinary.com/latest/global/all.js" type="text/javascript" async></script>
 <style>
+/* R8 P2 #2 — Skip-to-content link. Lives off-screen until focused. */
+.skip-link{position:absolute;top:-50px;left:0;background:#3D5A47;color:white;padding:10px 16px;z-index:99999;text-decoration:none;font-weight:700;border-radius:0 0 8px 0;font-family:'Jost',sans-serif}
+.skip-link:focus{top:0;outline:3px solid #C8963E;outline-offset:0}
+/* R8 P2 #5 — visible keyboard focus everywhere. Override any outline:none
+   that crept in via component styles by using :focus-visible (only triggers
+   for keyboard nav, not mouse clicks, so mouse UX is unchanged). */
+*:focus-visible{outline:2px solid #C8963E;outline-offset:2px;border-radius:4px}
 :root {
   --gold: #C8963E;
   --gold-light: #F5E6CC;
@@ -1231,6 +1291,15 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 </style>
 </head>
 <body class="loading-auth">
+<!-- R8 P2 #2 — Skip-to-content link. Hidden until focused; lets keyboard
+     users jump past the header into the page body without tabbing through
+     every nav link first. Targets #main-content which lives on pg-public. -->
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<!-- R8 P2 #7 — Toast container. role/aria-live make screen readers announce
+     toasts as they appear (polite = wait for current speech to finish).
+     This element was MISSING from the live HTML even though toast() refers
+     to it — that's a real pre-existing bug discovered during the a11y sweep. -->
+<div id="toastEl" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 <!-- Instant loading screen — removed once content is ready -->
 <div id="hhpLoadingScreen">
   <div class="hhp-loader"></div>
@@ -1414,7 +1483,7 @@ try {
 </div>
 
 <!-- ========= PUBLIC PAGE ========= -->
-<div class="page active" id="pg-public">
+<div class="page active" id="pg-public" role="main"><a id="main-content" tabindex="-1" style="position:absolute;left:-9999px"></a>
 
   <!-- HERO -->
   <section class="hero">
@@ -1496,15 +1565,15 @@ try {
   <section class="services-section" id="services">
     <div style="max-width:1120px;margin:0 auto">
       <div class="fadeup">
-        <div class="section-eyebrow">Services & Pricing</div>
+        <div class="section-eyebrow">Pet Care Services in Lancaster, PA</div>
         <h2 class="section-h">Transparent Pricing, <em>No Surprises</em></h2>
-        <p class="section-p">Every service includes photos and a personal report. What you see is what you pay.</p>
+        <p class="section-p">Dog walking, drop-in visits, house sitting, and more — every service includes photos and a personal report. What you see is what you pay.</p>
       </div>
       <div class="services-grid">
         <!-- Meet & Greet — free intro, first card -->
         <div class="service-card mg-card fadeup">
           <div class="sc-icon">🤝</div>
-          <div class="sc-name">Meet &amp; Greet</div>
+          <h3 class="sc-name">Meet &amp; Greet</h3>
           <div class="sc-price" style="color:var(--forest)" data-price-key="meet_greet">Free</div>
           <div class="sc-desc">An introductory visit so your pet can get comfortable with their new sitter. We'll go over your pet's routine, preferences, and any special needs.</div>
           <ul class="sc-features">
@@ -1518,7 +1587,7 @@ try {
         <!-- Active Services -->
         <div class="service-card fadeup">
           <div class="sc-icon">🦮</div>
-          <div class="sc-name">Dog Walking</div>
+          <h3 class="sc-name">Dog Walking</h3>
           <div class="sc-price" data-price-key="dog_walk_30">$25 <span>/ 30 min</span></div>
           <div class="sc-price" style="font-size:1.15rem;margin-top:-2px" data-price-key="dog_walk_60">$45 <span>/ 1 hour</span></div>
           <div class="sc-desc">I come to your home and get your pup ready for a nice, long walk! Every walk is GPS tracked with a detailed report card sent to you afterward. Water bowls will also be refreshed upon returning!</div>
@@ -1531,7 +1600,7 @@ try {
         </div>
         <div class="service-card fadeup">
           <div class="sc-icon">🚪</div>
-          <div class="sc-name">Drop-In Visit</div>
+          <h3 class="sc-name">Drop-In Visit</h3>
           <div class="sc-price" data-price-key="dropin_min">From $20 <span>/ 30 min</span></div>
           <div class="sc-desc">I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! Cats too — feeding, litter box cleaning, and playtime. I also can address any special needs or requests, such as medication, etc.!</div>
           <details style="margin-top:10px;cursor:pointer">
@@ -1557,7 +1626,7 @@ try {
         </div>
         <div class="service-card fadeup">
           <div class="sc-icon">🏡</div>
-          <div class="sc-name">House Sitting</div>
+          <h3 class="sc-name">House Sitting</h3>
           <div class="sc-price" data-price-key="housesit_dog_main">$125 <span>/ night</span></div>
           <div class="sc-desc">Going away? I stay at your home and care for your pets in their own environment — keeping their routine, giving medication if needed, and sending regular updates and photos so you have complete peace of mind while you're gone!</div>
           <details style="margin-top:10px;cursor:pointer">
@@ -1584,7 +1653,7 @@ try {
         <div class="service-card coming fadeup">
           <div class="coming-tag">Coming Soon</div>
           <div class="sc-icon">🌙</div>
-          <div class="sc-name">Dog Boarding</div>
+          <h3 class="sc-name">Dog Boarding</h3>
           <div class="sc-price">TBD</div>
           <div class="sc-desc">Your dog stays with Rachel in a warm, loving home environment. Included walks, play sessions, and daily photo updates so you always know how they're doing.</div>
           <button class="btn btn-outline btn-sm" style="margin-top:auto;padding-top:12px" onclick="openModal('boardingModal')">I'm Interested — Reach Out</button>
@@ -1592,7 +1661,7 @@ try {
         <div class="service-card coming fadeup">
           <div class="coming-tag">Coming Soon</div>
           <div class="sc-icon">☀️</div>
-          <div class="sc-name">Doggy Day Care</div>
+          <h3 class="sc-name">Doggy Day Care</h3>
           <div class="sc-price">TBD</div>
           <div class="sc-desc">A dedicated full-day care experience with enrichment activities, social play, multiple walks, and lots of love. Your pup's home away from home!</div>
           <button class="btn btn-outline btn-sm" style="margin-top:auto;padding-top:12px" onclick="openModal('daycareModal')">I'm Interested — Reach Out</button>
@@ -1600,7 +1669,7 @@ try {
         <div class="service-card coming fadeup">
           <div class="coming-tag">Coming Soon</div>
           <div class="sc-icon">🚌</div>
-          <div class="sc-name">The Paw Bus</div>
+          <h3 class="sc-name">The Paw Bus</h3>
           <div class="sc-price">TBD</div>
           <div class="sc-desc">A fun group adventure — I pick up your dog, join a small crew of friendly pups, and head out on a real outing together. Think field trip, but for dogs. Stay tuned!</div>
           <button class="btn btn-outline btn-sm" style="margin-top:auto;padding-top:12px" onclick="openModal('pawbusModal')">I'm Interested — Reach Out</button>
@@ -1608,7 +1677,7 @@ try {
         <div class="service-card coming fadeup">
           <div class="coming-tag">Coming Soon</div>
           <div class="sc-icon">💍</div>
-          <div class="sc-name">Wedding Addition</div>
+          <h3 class="sc-name">Wedding Addition</h3>
           <div class="sc-price">TBD</div>
           <div class="sc-desc">Let your best friend be part of your big day. Rachel handles pet care, transport, and photo support so your pup can join the celebration stress-free.</div>
           <button class="btn btn-outline btn-sm" style="margin-top:auto;padding-top:12px" onclick="openModal('weddingModal')">I'm Interested — Reach Out</button>
@@ -1616,7 +1685,7 @@ try {
         <div class="service-card coming fadeup">
           <div class="coming-tag">Coming Soon</div>
           <div class="sc-icon">🐾</div>
-          <div class="sc-name">Happy Paws Pet Shop</div>
+          <h3 class="sc-name">Happy Paws Pet Shop</h3>
           <div class="sc-price">TBD</div>
           <div class="sc-desc">A curated online shop with Rachel-approved toys, treats, accessories, and gear for dogs and cats. Personalized recommendations based on your pet's breed and personality.</div>
           <button class="btn btn-outline btn-sm" style="margin-top:auto;padding-top:12px" onclick="openModal('contactModal')">I'm Interested — Reach Out</button>
@@ -1717,7 +1786,7 @@ try {
       <div><div class="footer-col-head">Clients</div><ul class="footer-links"><li><a href="#" onclick="switchView('client')">Client Portal</a></li><li><a href="#" onclick="openModal('mgModal')">Book Meet & Greet</a></li><li><a href="#" onclick="openModal('contactModal')">Ask a Question</a></li><li><a href="#calendar-pub">View Calendar</a></li><li><a href="#reviews">Reviews</a></li></ul></div>
       <div><div class="footer-col-head">Lancaster, PA</div><ul class="footer-links"><li><a href="https://maps.google.com/?q=Lancaster+PA" target="_blank">📍 Lancaster City Area</a></li><li><a href="tel:+17177157595">📞 Call: 717-715-7595</a></li><li><a href="sms:+17177157595">💬 Text: 717-715-7595</a></li><li><a href="mailto:housleyhappypaws@gmail.com">📧 housleyhappypaws@gmail.com</a></li></ul></div>
     </div>
-    <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA</div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
+    <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA · <a href="/accessibility.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Accessibility</a></div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
   </footer>
 </div>
 
@@ -3275,7 +3344,7 @@ try {
 <!-- Meet & Greet -->
 <div class="overlay" id="mgModal">
   <div class="modal" id="mgForm">
-    <div class="modal-head"><div><div class="modal-title">Schedule a Meet & Greet 🐾</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Free, no obligation — let's get to know your pet first.</p></div><button class="modal-close" onclick="closeModal('mgModal')">✕</button></div>
+    <div class="modal-head"><div><div class="modal-title">Schedule a Meet & Greet 🐾</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Free, no obligation — let's get to know your pet first.</p></div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('mgModal')">✕</button></div>
     <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll receive an instant confirmation and Rachel will personally follow up within a few hours with available times.</div></div>
     <!-- Auto-filled from account -->
     <div id="mg-user-info" style="background:var(--warm);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
@@ -3301,7 +3370,7 @@ try {
 
 <!-- Contact -->
 <div class="overlay" id="contactModal">
-  <div class="modal"><div class="modal-head"><div class="modal-title">Send Rachel a Message 💬</div><button class="modal-close" onclick="closeModal('contactModal')">✕</button></div>
+  <div class="modal"><div class="modal-head"><div class="modal-title">Send Rachel a Message 💬</div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('contactModal')">✕</button></div>
   <div id="contactFormFields">
   <div class="form-group"><label class="form-lbl">Your Name *</label><input class="form-in" id="contact-name" placeholder="Your name"></div>
   <div class="form-group"><label class="form-lbl">Best Way to Reach You *</label><input class="form-in" id="contact-reach" placeholder="Email or phone number"></div>
@@ -3324,7 +3393,7 @@ try {
 <!-- Walk Report View -->
 <div class="overlay" id="reportModal">
   <div class="modal modal-wide">
-    <div class="modal-head"><div class="modal-title">Walk Report Card 📋</div><button class="modal-close" onclick="closeModal('reportModal')">✕</button></div>
+    <div class="modal-head"><div class="modal-title">Walk Report Card 📋</div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('reportModal')">✕</button></div>
     <div class="report-card" style="max-width:100%;box-shadow:none;border:none;padding:0">
       <div class="report-header">
         <div class="report-brand"><div class="report-logo">Housley <span>Happy</span> Paws</div><span class="badge badge-green">Completed</span></div>
@@ -3358,7 +3427,7 @@ try {
         <div class="modal-title">⭐ How was your experience?</div>
         <p style="font-size:0.82rem;color:var(--mid);margin-top:3px" id="rv-modal-subtitle">We'd love your feedback!</p>
       </div>
-      <button class="modal-close" onclick="closeModal('reviewModal')">✕</button>
+      <button class="modal-close" aria-label="Close dialog" onclick="closeModal('reviewModal')">✕</button>
     </div>
     <div style="text-align:center;margin-bottom:16px">
       <div id="rv-stars" style="display:flex;justify-content:center;gap:8px;margin-bottom:8px">
@@ -3392,7 +3461,7 @@ try {
         <div class="modal-title">Leave a Tip</div>
         <p style="font-size:0.82rem;color:var(--mid);margin-top:3px" id="tip-modal-subtitle">Show your appreciation!</p>
       </div>
-      <button class="modal-close" onclick="closeModal('tipModal')">✕</button>
+      <button class="modal-close" aria-label="Close dialog" onclick="closeModal('tipModal')">✕</button>
     </div>
     <div id="tip-loading" style="display:none;text-align:center;padding:20px;font-size:0.9rem;color:var(--mid)">Loading service details...</div>
     <div id="tip-content">
@@ -3432,7 +3501,7 @@ try {
   <div class="modal" style="max-width:440px">
     <div class="modal-head">
       <div class="modal-title">💬 Respond to Review</div>
-      <button class="modal-close" onclick="closeModal('reviewResponseModal')">✕</button>
+      <button class="modal-close" aria-label="Close dialog" onclick="closeModal('reviewResponseModal')">✕</button>
     </div>
     <div id="rvr-preview" style="background:var(--warm);border-radius:10px;padding:14px;margin-bottom:16px;font-size:0.84rem"></div>
     <div class="form-group" style="margin-bottom:16px">
@@ -3449,7 +3518,7 @@ try {
   <div class="modal" style="max-width:480px">
     <div class="modal-head">
       <div class="modal-title">+ Add Past Review</div>
-      <button class="modal-close" onclick="closeModal('addPastReviewModal')">✕</button>
+      <button class="modal-close" aria-label="Close dialog" onclick="closeModal('addPastReviewModal')">✕</button>
     </div>
     <div style="background:var(--gold-pale);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:var(--brown)">Add a review from Rover, Google, or any other source. These will appear in your review management and can be published to your website.</div>
     <div class="form-group" style="margin-bottom:12px">
@@ -3491,7 +3560,7 @@ try {
 
 <!-- Dog Boarding Interest -->
 <div class="overlay" id="boardingModal">
-  <div class="modal"><div class="modal-head"><div><div class="modal-title">Dog Boarding Interest 🌙</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — join the waitlist and be first to know!</p></div><button class="modal-close" onclick="closeModal('boardingModal')">✕</button></div>
+  <div class="modal"><div class="modal-head"><div><div class="modal-title">Dog Boarding Interest 🌙</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — join the waitlist and be first to know!</p></div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('boardingModal')">✕</button></div>
   <div style="background:var(--gold-pale);border-radius:8px;padding:14px 16px;margin-bottom:20px;border:1px solid rgba(200,150,62,0.2);font-size:0.85rem;color:var(--brown)">🌙 Dog Boarding at Housley Happy Paws — your dog stays in Rachel's warm home, not a kennel. Building the interest list now so we can plan around the right pups!</div>
   <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" id="b-name" placeholder="Your name"></div>
   <div class="form-group"><label class="form-lbl">Email</label><input class="form-in" id="b-contact" type="email" placeholder="your@email.com"></div>
@@ -3502,7 +3571,7 @@ try {
 
 <!-- Paw Bus Interest -->
 <div class="overlay" id="pawbusModal">
-  <div class="modal"><div class="modal-head"><div><div class="modal-title">Paw Bus Interest 🚌</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — but let Rachel know you're interested!</p></div><button class="modal-close" onclick="closeModal('pawbusModal')">✕</button></div>
+  <div class="modal"><div class="modal-head"><div><div class="modal-title">Paw Bus Interest 🚌</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — but let Rachel know you're interested!</p></div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('pawbusModal')">✕</button></div>
   <div style="background:var(--gold-pale);border-radius:8px;padding:14px 16px;margin-bottom:20px;border:1px solid rgba(200,150,62,0.2);font-size:0.85rem;color:var(--brown)">🚌 The Paw Bus is a group pick-up adventure where Rachel drives a small crew of friendly, temperament-matched dogs to a park for a real outing. We're building the interest list now — be one of the first to know when it launches!</div>
   <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" id="pb-name" placeholder="Your name"></div>
   <div class="form-group"><label class="form-lbl">Phone / Email</label><input class="form-in" id="pb-contact" placeholder="Best way to reach you"></div>
@@ -3513,7 +3582,7 @@ try {
 
 <!-- Announce Modal (Owner) -->
 <div class="overlay" id="announceModal">
-  <div class="modal" style="max-width:520px"><div class="modal-head"><div class="modal-title">Post Announcement 📢</div><button class="modal-close" onclick="closeModal('announceModal')">✕</button></div>
+  <div class="modal" style="max-width:520px"><div class="modal-head"><div class="modal-title">Post Announcement 📢</div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('announceModal')">✕</button></div>
   <div class="form-group"><label class="form-lbl">Message</label><textarea class="form-ta" id="announce-text" style="min-height:100px" placeholder="e.g. I'll be closed Dec 24–26..."></textarea></div>
   <div class="form-row" style="margin-bottom:10px"><div><label class="form-lbl">Send To</label><select class="form-sel" id="announce-sendto"><option value="everyone">Everyone</option><option value="all_clients">All Clients</option><option value="active_clients">Active Clients Only</option><option value="staff">Staff Only</option></select></div><div><label class="form-lbl">Via</label><select class="form-sel" id="announce-via"><option value="in_app_email">In-App + Email</option><option value="in_app">In-App Only</option></select></div></div>
   <div class="form-group" style="margin-bottom:14px"><label class="form-lbl">Attach a Deal? (optional)</label>
@@ -3532,7 +3601,7 @@ try {
 
 <!-- Doggy Day Care Interest -->
 <div class="overlay" id="daycareModal">
-  <div class="modal"><div class="modal-head"><div><div class="modal-title">Doggy Day Care Interest ☀️</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — join the list and be first to know!</p></div><button class="modal-close" onclick="closeModal('daycareModal')">✕</button></div>
+  <div class="modal"><div class="modal-head"><div><div class="modal-title">Doggy Day Care Interest ☀️</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — join the list and be first to know!</p></div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('daycareModal')">✕</button></div>
   <div style="background:var(--gold-pale);border-radius:8px;padding:14px 16px;margin-bottom:20px;border:1px solid rgba(200,150,62,0.2);font-size:0.85rem;color:var(--brown)">☀️ Doggy Day Care is coming to Housley Happy Paws — a full-day enrichment experience with walks, play, and socialization. We're taking interest now so we can plan the right space for your pup!</div>
   <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" id="dc-name" placeholder="Your name"></div>
   <div class="form-group"><label class="form-lbl">Phone / Email</label><input class="form-in" id="dc-contact" placeholder="Best way to reach you"></div>
@@ -3544,7 +3613,7 @@ try {
 
 <!-- Wedding Addition Interest -->
 <div class="overlay" id="weddingModal">
-  <div class="modal"><div class="modal-head"><div><div class="modal-title">Wedding Addition Interest 💍</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — let Rachel know you're interested!</p></div><button class="modal-close" onclick="closeModal('weddingModal')">✕</button></div>
+  <div class="modal"><div class="modal-head"><div><div class="modal-title">Wedding Addition Interest 💍</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Not live yet — let Rachel know you're interested!</p></div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('weddingModal')">✕</button></div>
   <div style="background:var(--gold-pale);border-radius:8px;padding:14px 16px;margin-bottom:20px;border:1px solid rgba(200,150,62,0.2);font-size:0.85rem;color:var(--brown)">💍 Let your best friend be part of your big day! Rachel can help with pet care on the wedding day, bringing your dog to the venue, helping with photos, and making sure your pup is happy and comfortable throughout the celebration.</div>
   <div class="form-group"><label class="form-lbl">Your Name</label><input class="form-in" id="wed-name" placeholder="Your name"></div>
   <div class="form-group"><label class="form-lbl">Phone / Email</label><input class="form-in" id="wed-contact" placeholder="Best way to reach you"></div>
@@ -3563,7 +3632,7 @@ try {
   <div class="modal" style="max-width:520px">
     <div class="modal-head">
       <div class="modal-title">Cancel Booking 🔴</div>
-      <button class="modal-close" onclick="closeModal('cancelBookingModal')">✕</button>
+      <button class="modal-close" aria-label="Close dialog" onclick="closeModal('cancelBookingModal')">✕</button>
     </div>
 
     <!-- Booking Details -->
@@ -3667,7 +3736,7 @@ const aboutSS = {
     // Build slides
     let html = '';
     photos.forEach((p, i) => {
-      html += '<div class="slide' + (i === 0 ? ' active' : '') + '"><img src="' + p + '" alt="About photo ' + (i+1) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '"></div>';
+      html += '<div class="slide' + (i === 0 ? ' active' : '') + '"><img src="' + p + '" alt="Rachel Housley caring for pets in Lancaster, PA — photo ' + (i+1) + '" loading="' + (i === 0 ? 'eager' : 'lazy') + '"></div>';
     });
     html += '<button class="ss-arrow ss-prev" onclick="aboutSS.prev()" aria-label="Previous">\u2039</button>';
     html += '<button class="ss-arrow ss-next" onclick="aboutSS.next()" aria-label="Next">\u203A</button>';
@@ -4783,6 +4852,14 @@ function switchOwnerGeneralTab(tabName) {
       sourcePanel.classList.remove('active');
       _ogMoved[tabName] = true;
     }
+  }
+
+  // R6 P1 #3 — when the Auto-Reply tab opens, re-populate the textareas
+  // from site_content. The initial DOMContentLoaded load may have raced
+  // with auth, or this may be the user's first visit to this tab in the
+  // session. Either way, ensure the saved values show up.
+  if (tabName === 'auto' && typeof loadOwnerSettings === 'function') {
+    loadOwnerSettings();
   }
 
   // Settings tab — render inline (like client settings)
@@ -5901,7 +5978,52 @@ function closeModal(id) {
   if(id==='mgModal'){ const f=document.getElementById('mgForm'); const s=document.getElementById('mgSuccess'); if(f)f.style.display=''; if(s)s.style.display='none'; }
   // Always ensure body scroll is restored when closing any modal
   document.body.style.overflow = '';
+  // R8 P2 #8 — return focus to whatever opened the modal (if we tracked it).
+  try {
+    if (window._modalOpenerStack && window._modalOpenerStack.length) {
+      var opener = window._modalOpenerStack.pop();
+      if (opener && typeof opener.focus === 'function') setTimeout(function(){ opener.focus(); }, 0);
+    }
+  } catch (e) {}
 }
+
+// R8 P2 #8 — global Escape closes the topmost open modal. Tracks the
+// element that had focus when a modal opened, so closeModal can return
+// focus there. Best-effort: components that manage their own dismissal
+// (e.g. booking modal's brm-close button) continue to work; this just
+// adds a keyboard escape hatch site-wide.
+(function() {
+  window._modalOpenerStack = window._modalOpenerStack || [];
+  // Patch openModal to remember who triggered it
+  var _origOpen = window.openModal;
+  if (typeof _origOpen === 'function') {
+    window.openModal = function(id) {
+      try {
+        var active = document.activeElement;
+        if (active && active !== document.body) window._modalOpenerStack.push(active);
+      } catch (e) {}
+      return _origOpen.apply(this, arguments);
+    };
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    // Find topmost open modal — class="open" on .overlay/.modal-overlay,
+    // or display:flex on booking modal (#bookingRequestModal).
+    var candidates = [
+      document.querySelector('.overlay.open'),
+      document.querySelector('.modal-overlay.open'),
+      document.getElementById('bookingRequestModal')
+    ].filter(function(el) {
+      if (!el) return false;
+      var disp = window.getComputedStyle(el).display;
+      return el.classList.contains('open') || (disp && disp !== 'none');
+    });
+    if (!candidates.length) return;
+    var top = candidates[candidates.length - 1];
+    if (top.id === 'bookingRequestModal' && typeof closeBookingModal === 'function') closeBookingModal();
+    else if (top.id) closeModal(top.id);
+  });
+})();
 document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) { o.classList.remove('open'); document.body.style.overflow = ''; } }));
 
 // ── Guest Service Prompt — shown when non-logged-in visitors click service buttons ──
@@ -9099,6 +9221,83 @@ async function startServiceFromDrawer(bookingId, clientId, service, petNames) {
   }
 }
 
+// ── R6 P1 #4 — Report card draft auto-save ──
+// While Rachel is filling in the live-service panel, autosave the typed
+// fields to localStorage every couple of seconds. If her phone dies, the
+// app crashes, or she accidentally swipes the modal away, the draft is
+// restored next time the panel opens for the same booking. Cleared once
+// the report submission pipeline reports success.
+var _LSP_DRAFT_PREFIX = 'hhp_report_draft_';
+var _LSP_DRAFT_FIELDS = ['lsp-date','lsp-service','lsp-client','lsp-pets','lsp-arrival','lsp-departure','lsp-duration','lsp-address','lsp-mood-val','lsp-notes','lsp-scenario','lsp-distance'];
+var _lspDraftSaveTimer = null;
+
+function _lspDraftKey(bookingId) {
+  return _LSP_DRAFT_PREFIX + (bookingId || 'unknown');
+}
+
+function _lspSaveDraftNow(bookingId) {
+  if (!bookingId) return;
+  try {
+    var payload = { _savedAt: new Date().toISOString(), fields: {} };
+    _LSP_DRAFT_FIELDS.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) payload.fields[id] = el.value;
+    });
+    // Snapshot per-pet rows from the note builder too — these carry pronoun
+    // + potty selections Rachel has built up.
+    var petRows = document.querySelectorAll('[id^="lspPetRow-"]');
+    if (petRows.length) {
+      payload.petRows = Array.prototype.map.call(petRows, function(row) {
+        var name = row.querySelector('.lsp-petName');
+        var pronoun = row.querySelector('.lsp-pronoun');
+        return {
+          name: name ? name.value : '',
+          pronoun: pronoun ? pronoun.value : '',
+        };
+      });
+    }
+    localStorage.setItem(_lspDraftKey(bookingId), JSON.stringify(payload));
+  } catch (e) { /* quota or storage disabled — silent fail */ }
+}
+
+function _lspScheduleDraftSave(bookingId) {
+  if (_lspDraftSaveTimer) clearTimeout(_lspDraftSaveTimer);
+  _lspDraftSaveTimer = setTimeout(function() { _lspSaveDraftNow(bookingId); }, 800);
+}
+
+function _lspRestoreDraft(bookingId) {
+  if (!bookingId) return false;
+  try {
+    var raw = localStorage.getItem(_lspDraftKey(bookingId));
+    if (!raw) return false;
+    var payload = JSON.parse(raw);
+    if (!payload || !payload.fields) return false;
+    Object.keys(payload.fields).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      // Don't clobber non-empty defaults with empty draft values.
+      if (payload.fields[id] || el.value === '') el.value = payload.fields[id];
+    });
+    // Restore mood button highlight from the hidden lsp-mood-val.
+    var moodVal = payload.fields['lsp-mood-val'];
+    if (moodVal) {
+      document.querySelectorAll('#lsp-mood-btns button').forEach(function(b) {
+        var bVal = (b.textContent || '').split(' ')[1];
+        if (bVal === moodVal) {
+          b.style.background = 'var(--forest,#3d5a47)';
+          b.style.color = 'white';
+        }
+      });
+    }
+    return true;
+  } catch (e) { return false; }
+}
+
+function _lspClearDraft(bookingId) {
+  if (!bookingId) return;
+  try { localStorage.removeItem(_lspDraftKey(bookingId)); } catch (e) {}
+}
+
 // ── LIVE SERVICE PANEL — ongoing report shown during active service ──
 function openLiveServicePanel(walk, service, petNames, clientName, bookingId, address, clientId) {
   // Remove existing panel if any
@@ -9243,6 +9442,17 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   panel.addEventListener('click', function(e) { if (e.target === panel) minimizeLiveServicePanel(); });
 
   document.body.appendChild(panel);
+
+  // R6 P1 #4 — restore any saved draft for this booking, then attach an
+  // input listener to autosave on every change (debounced 800ms).
+  setTimeout(function() {
+    var restored = _lspRestoreDraft(bookingId);
+    if (restored && typeof toast === 'function') {
+      toast('📝 Restored your in-progress report draft');
+    }
+    panel.addEventListener('input', function() { _lspScheduleDraftSave(bookingId); });
+    panel.addEventListener('change', function() { _lspScheduleDraftSave(bookingId); });
+  }, 0);
 
   // Store walk data for end handler
   window._liveServiceData = {
@@ -10059,6 +10269,11 @@ async function endServiceFromPanel() {
     clientMessageBody: clientMessageBody
   };
   if (window.HHP_Report) window.HHP_Report.savePending(pendingKey, pendingPayload);
+
+  // R6 P1 #4 — the typed draft is now safely captured in pendingPayload,
+  // which has its own recovery flow. Clear the in-progress draft so we
+  // don't show "Restored your draft" on the next open of this booking.
+  _lspClearDraft(pendingKey);
 
   // ============================================================
   //  STEP 3 — Optimistic confirmation. Modal closes in 2 seconds.
@@ -11083,11 +11298,38 @@ applySavedData();
 // ============================================================
 // PAWS AI — Claude-powered business assistant
 // ============================================================
+// R6 P2 #11 — pricing block synced with the public.service_pricing table
+// (2026-06-17). When Rachel adjusts prices in the owner Pricing Editor,
+// this prompt needs a follow-up edit. If Rachel asks for current numbers
+// in chat, Paws AI is told below to defer to the live booking widget for
+// the exact quote on the client's specific date (handles holiday surcharge,
+// extra-pet fees, etc.).
 const AI_SYSTEM = `You are Paws AI, the dedicated business assistant for Housley Happy Paws, owned by Rachel Housley in Lancaster, PA. You know her entire business inside out.
 
 BUSINESS: Housley Happy Paws — professional pet care (dogs & cats), Lancaster PA, Est. 2023
 OWNER: Rachel Housley — warm, personal, professional, solo operator
-SERVICES: Dog Walking ($25/30min, $45/1hr), Drop-In Visits — dog ($25/30min, $45/1hr) or cat ($20/30min, $35/1hr), House Sitting (Dog $125/day, Cat $80/day; Extended Care: +50% for 2–8 extra hrs on final day, +100% for 8+ extra hrs), Dog Boarding (coming soon), Doggy Day Care (coming soon), Paw Bus (coming soon), Wedding Addition (coming soon — pet care, transport & photo support for weddings), Happy Paws Pet Shop (coming soon — curated toys, treats & gear for dogs and cats). SURCHARGES: House Sitting: +$35/extra dog/day, +$15/extra cat/day, 3+ animals $20/each/day. All services: +$5 puppy, +$10 holiday rate.
+
+CURRENT PRICING (canonical — synced with the live pricing table on 2026-06-17):
+• Dog Walking — $25 / 30 min, $45 / 1 hr (flat per visit)
+• Drop-In Visit (Dog) — $25 / 30 min, $45 / 1 hr (flat per visit)
+• Drop-In Visit (Cat) — $20 / 30 min, $35 / 1 hr (flat per visit)
+• House Sitting (Dog only) — $125 / night
+• House Sitting (Cat only) — $80 / night
+• House Sitting (Mixed — dogs + cats) — $140 / night
+• Meet & Greet — Free
+• Extended Care on House Sitting final day: +50% of nightly rate for 2–8 extra hours, +100% for 8+ extra hours.
+
+SURCHARGES (added per visit / per night as applicable):
+• Extra dog: +$10/visit for walks & drop-ins; +$35/night for House Sitting.
+• Extra cat: +$15/night for House Sitting (drop-in cat already covers up to 2).
+• 3rd+ pet on House Sitting: +$20 each per night on top of the extras above.
+• Puppy under 6 months: +$5 per visit (dog services only; no puppy fee on cat services).
+• Holiday rate (Rachel's posted holiday dates): +$10 per visit / per night.
+
+COMING SOON: Dog Boarding, Doggy Day Care, Paw Bus (pet transport), Wedding Addition (pet care + transport + photo support for weddings), Happy Paws Pet Shop (curated toys, treats, gear).
+
+When someone asks for a price, give the base rate and remind them the booking widget will show their exact total once they pick the date and pets (so holiday & extra-pet fees land correctly). If you don't know a number, say so — never invent one.
+
 FUTURE PLANS: Real hosted website → React Native iOS + Android mobile app
 TECH STACK: Supabase (database), Vercel (hosting), Stripe (payments), React Native (app)
 
@@ -13758,14 +14000,24 @@ async function loadOwnerSettings() {
   if (ideas && ideas.text) { var el3 = document.getElementById('dealIdeas'); if (el3) el3.value = ideas.text; }
 }
 
-// Load owner settings when switching to owner portal
+// Load owner settings when switching to owner portal.
+// R6 P1 #3 — the old 1.5s setTimeout was a race with HHP_Auth init. On a
+// slow connection auth wouldn't be ready yet and loadOwnerSettings was
+// silently skipped, so the auto-reply textareas kept showing default text
+// even though saves WERE persisting in the DB. Retry up to 10 times.
 document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(function() {
-    if (window.HHP_Auth && window.HHP_Auth.currentUser) {
-      var p = window.HHP_Auth.currentUser.profile;
-      if (p && p.role === 'owner') loadOwnerSettings();
+  var attempts = 0;
+  var iv = setInterval(function() {
+    attempts++;
+    var ready = window.HHP_Auth && window.HHP_Auth.currentUser
+      && window.HHP_Auth.currentUser.profile;
+    if (ready) {
+      clearInterval(iv);
+      if (window.HHP_Auth.currentUser.profile.role === 'owner') loadOwnerSettings();
+    } else if (attempts >= 10) {
+      clearInterval(iv);
     }
-  }, 1500);
+  }, 800);
 });
 
 // ── Load Client Payment History (from Supabase payments table) ──
@@ -15722,7 +15974,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="modal-title">🌙 Boarding &amp; Day Care Interest</div>
         <p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Help us decide to launch this — you'll be first to know!</p>
       </div>
-      <button class="modal-close" onclick="closeModal('boardingInterestModal')">✕</button>
+      <button class="modal-close" aria-label="Close dialog" onclick="closeModal('boardingInterestModal')">✕</button>
     </div>
     <div style="background:linear-gradient(135deg,var(--gold-pale),#fff);border-radius:10px;padding:14px 16px;margin-bottom:18px;border:1px solid rgba(200,150,62,0.25);font-size:0.84rem;color:var(--brown)">
       🌙 We're exploring overnight boarding and doggy day care. Your interest helps us decide! Sign up and you'll be the first call when it launches.
@@ -15755,7 +16007,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/js/stripe-client.js?v=20260603a" defer></script>
 
 <!-- Supabase Auth Client -->
-<script src="/js/auth-client.js?v=20260518a" defer></script>
+<script src="/js/auth-client.js?v=20260620a" defer></script>
 
 <!-- End-of-service Report Submission Pipeline (localStorage save + parallel side effects) -->
 <script src="/js/report-submission.js?v=20260511a" defer></script>
@@ -17303,14 +17555,49 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260612a" defer></script>
-  <script src="/js/messaging.js?v=20260518a" defer></script>
+  <script src="/js/booking-system.js?v=20260620a" defer></script>
+  <script src="/js/messaging.js?v=20260618a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>
-  <script src="/js/customizer.js?v=20260603a" defer></script>
+  <!-- R8 P5 #18 — customizer.js (~138KB) is owner-only. Defer loading to
+       sessions where the last view was 'owner'. Saves bytes for every
+       client and staff user. Falls back to loading later if the user
+       switches into the owner view via switchView('owner'). -->
+  <script>
+    (function() {
+      function loadCustomizer() {
+        if (document.getElementById('hhp-customizer-script')) return;
+        var s = document.createElement('script');
+        s.id = 'hhp-customizer-script';
+        s.src = '/js/customizer.js?v=20260620a';
+        s.defer = true;
+        document.head.appendChild(s);
+      }
+      var lastView = null;
+      try { lastView = sessionStorage.getItem('hhp_last_view'); } catch (e) {}
+      if (lastView === 'owner') {
+        loadCustomizer();
+      } else {
+        // Lazy load if the user signs in as owner mid-session.
+        var _origSwitchView = window.switchView;
+        var _checkAndLoad = function(viewName) {
+          if (viewName === 'owner') loadCustomizer();
+        };
+        window.addEventListener('hhp:view-change', function(e) { _checkAndLoad(e.detail && e.detail.view); });
+        // Patch switchView after it's defined (it lives in index.html below).
+        document.addEventListener('DOMContentLoaded', function() {
+          if (typeof window.switchView === 'function' && !window.switchView.__hhpCustWrapped) {
+            var orig = window.switchView;
+            window.switchView = function(v) { _checkAndLoad(v); return orig.apply(this, arguments); };
+            window.switchView.__hhpCustWrapped = true;
+          }
+        });
+      }
+    })();
+  </script>
   <script src="/js/avatar-system.js?v=20260402a" defer></script>
-  <script src="/js/settings-panel.js?v=20260406b" defer></script>
-  <script src="/js/availability.js?v=20260603a" defer></script>
+  <script src="/js/settings-panel.js?v=20260620a" defer></script>
+  <script src="/js/availability.js?v=20260618a" defer></script>
   <!-- Leaflet + live tracking: lazy-loaded only when tracking panel is opened -->
   <script>
   (function(){
@@ -17327,7 +17614,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Check if live-tracking.js is already loaded to prevent double-load
         var existingScript=document.querySelector('script[src="/js/live-tracking.js"]');
         if(!existingScript){
-          var t=document.createElement('script');t.src='/js/live-tracking.js?v=20260428';
+          var t=document.createElement('script');t.src='/js/live-tracking.js?v=20260620a';
           if(cb)t.onload=cb;document.body.appendChild(t);
         }else if(cb){cb();}
       };
@@ -17679,7 +17966,23 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
 
-      container.innerHTML = '<div style="font-size:0.85rem;color:var(--mid);margin-bottom:16px">' + totalPhotos + ' photo' + (totalPhotos !== 1 ? 's' : '') + ' from your visits</div>';
+      // R6 P2 #9 — flat list (newest first) for the slideshow.
+      var allPhotosFlat = [];
+      sortedDates.forEach(function(dk) {
+        dateGroups[dk].photos.forEach(function(p) {
+          allPhotosFlat.push({
+            url: p.url, thumbnail: p.thumbnail, caption: p.caption,
+            dateKey: dk, service: dateGroups[dk].service || ''
+          });
+        });
+      });
+      window._clientAllPhotos = allPhotosFlat;
+
+      container.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;flex-wrap:wrap">' +
+          '<div style="font-size:0.85rem;color:var(--mid)">' + totalPhotos + ' photo' + (totalPhotos !== 1 ? 's' : '') + ' from your visits</div>' +
+          '<button onclick="_clientStartSlideshow()" style="padding:8px 16px;background:var(--gold);color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;font-family:inherit">▶ Play Slideshow</button>' +
+        '</div>';
 
       sortedDates.forEach(function(dateKey) {
         var group = dateGroups[dateKey];
@@ -17726,6 +18029,91 @@ document.addEventListener('DOMContentLoaded', function() {
       container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--mid)">Error loading photos.</div>';
     }
   }
+
+  // R6 P2 #9 — fullscreen photo slideshow for the client portal. Cycles
+  // through every photo Rachel has posted for this client, newest first.
+  // Auto-advances every 4s; prev/next/close buttons; tap photo to pause.
+  window._clientStartSlideshow = function() {
+    var photos = window._clientAllPhotos || [];
+    if (!photos.length) return;
+    var idx = 0, paused = false, timer = null;
+
+    var overlay = document.createElement('div');
+    overlay.id = 'hhp-photo-slideshow';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.94);z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:default';
+
+    var img = document.createElement('img');
+    img.style.cssText = 'max-width:92vw;max-height:78vh;object-fit:contain;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,0.5);transition:opacity 0.4s';
+    overlay.appendChild(img);
+
+    var caption = document.createElement('div');
+    caption.style.cssText = 'color:white;font-size:0.92rem;text-align:center;margin-top:18px;max-width:90vw;line-height:1.4;opacity:0.92';
+    overlay.appendChild(caption);
+
+    var counter = document.createElement('div');
+    counter.style.cssText = 'position:absolute;top:18px;left:22px;color:rgba(255,255,255,0.8);font-size:0.82rem;font-weight:600;background:rgba(0,0,0,0.4);padding:4px 12px;border-radius:14px';
+    overlay.appendChild(counter);
+
+    function mkBtn(label, x, onClick) {
+      var b = document.createElement('button');
+      b.innerHTML = label;
+      b.style.cssText = 'position:absolute;top:50%;' + x + ':24px;transform:translateY(-50%);background:rgba(0,0,0,0.55);color:white;border:none;width:48px;height:48px;border-radius:50%;cursor:pointer;font-size:1.3rem;display:flex;align-items:center;justify-content:center;transition:background 0.2s';
+      b.onmouseenter = function() { b.style.background = 'rgba(200,150,62,0.85)'; };
+      b.onmouseleave = function() { b.style.background = 'rgba(0,0,0,0.55)'; };
+      b.onclick = function(e) { e.stopPropagation(); onClick(); };
+      return b;
+    }
+    var prevBtn = mkBtn('&#8592;', 'left', function() { idx = (idx - 1 + photos.length) % photos.length; render(); });
+    var nextBtn = mkBtn('&#8594;', 'right', function() { idx = (idx + 1) % photos.length; render(); });
+    overlay.appendChild(prevBtn);
+    overlay.appendChild(nextBtn);
+
+    var closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = 'position:absolute;top:18px;right:22px;background:rgba(0,0,0,0.4);border:none;color:white;font-size:2rem;cursor:pointer;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;line-height:1';
+    closeBtn.onclick = function() { close(); };
+    overlay.appendChild(closeBtn);
+
+    var pauseHint = document.createElement('div');
+    pauseHint.style.cssText = 'position:absolute;bottom:18px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.55);font-size:0.7rem';
+    pauseHint.textContent = 'Tap photo to pause · ESC to close';
+    overlay.appendChild(pauseHint);
+
+    function render() {
+      var p = photos[idx];
+      img.style.opacity = '0.2';
+      setTimeout(function() {
+        img.src = p.url || p.thumbnail;
+        img.style.opacity = '1';
+      }, 120);
+      var d = new Date(p.dateKey + 'T12:00:00');
+      var dateStr = isNaN(d.getTime()) ? p.dateKey : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      caption.textContent = dateStr + (p.service ? ' · ' + p.service : '') + (p.caption ? ' — ' + p.caption : '');
+      counter.textContent = (idx + 1) + ' / ' + photos.length + (paused ? ' · paused' : '');
+    }
+    function tick() {
+      if (paused) return;
+      idx = (idx + 1) % photos.length;
+      render();
+    }
+    function close() {
+      if (timer) clearInterval(timer);
+      document.removeEventListener('keydown', onKey);
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowLeft') { idx = (idx - 1 + photos.length) % photos.length; render(); }
+      else if (e.key === 'ArrowRight') { idx = (idx + 1) % photos.length; render(); }
+      else if (e.key === ' ') { paused = !paused; render(); }
+    }
+    img.onclick = function(e) { e.stopPropagation(); paused = !paused; render(); };
+
+    document.body.appendChild(overlay);
+    document.addEventListener('keydown', onKey);
+    render();
+    timer = setInterval(tick, 4000);
+  };
 
   // ═══════════════════════════════════════════════════════════════
   // COMBINED SCHEDULES PANEL — Calendar + Services + Availability
