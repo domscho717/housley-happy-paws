@@ -164,6 +164,27 @@ module.exports = async function handler(req, res) {
 
     console.log(`[charge] Charging $${amount} immediately for ${service || 'Pet Care'}${batchLabel}`);
 
+    // R9 P0 — Stripe metadata values cap at 500 chars per key. A batch of
+    // 14 UUIDs joined with commas is 518 chars and Stripe rejects the whole
+    // PaymentIntent (Kyle Motell, June 28 2026, $360 batch). Chunk the IDs
+    // across multiple keys instead. 12 UUIDs × 37 chars = 444 chars per
+    // chunk, safely under the 500-char limit. Stripe allows up to 50 keys,
+    // so this supports 50 × 12 = 600 bookings per PI — far beyond any
+    // realistic batch size.
+    const PI_METADATA_CHUNK_SIZE = 12;
+    const piMetadata = {
+      booking_request_id: bookingRequestId || (isBatch ? batchBookingIds[0] : ''),
+      batch_size: isBatch ? String(batchBookingIds.length) : '1',
+      client_name: profile.full_name || '',
+      service: service || '',
+    };
+    if (isBatch) {
+      for (let _i = 0; _i < batchBookingIds.length; _i += PI_METADATA_CHUNK_SIZE) {
+        const _idx = Math.floor(_i / PI_METADATA_CHUNK_SIZE) + 1;
+        piMetadata[`batch_booking_ids_${_idx}`] = batchBookingIds.slice(_i, _i + PI_METADATA_CHUNK_SIZE).join(',');
+      }
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: 'usd',
@@ -173,13 +194,7 @@ module.exports = async function handler(req, res) {
       confirm: true,
       capture_method: 'automatic',
       description: `Housley Happy Paws — ${service || 'Pet Care Service'}${batchLabel}`,
-      metadata: {
-        booking_request_id: bookingRequestId || (isBatch ? batchBookingIds[0] : ''),
-        batch_booking_ids: isBatch ? batchBookingIds.join(',') : '',
-        batch_size: isBatch ? String(batchBookingIds.length) : '1',
-        client_name: profile.full_name || '',
-        service: service || '',
-      },
+      metadata: piMetadata,
     }, {
       idempotencyKey: `charge-${bookingRequestId || (isBatch ? 'batch-' + batchBookingIds[0] : 'manual')}-${amountCents}-${paymentMethodId.slice(-8)}`,
     });
