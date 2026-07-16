@@ -38,7 +38,10 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
 
-  const isRetry = req.query?.retry === 'true';
+  // R12 P2 — use WHATWG URL instead of triggering Vercel's internal
+  // url.parse() (deprecated). Base URL is a stub since req.url is path-only.
+  const _q = new URL(req.url || '', 'http://x').searchParams;
+  const isRetry = _q.get('retry') === 'true';
 
   // Helper: YYYY-MM-DD in Eastern Time
   function estDateStr(d) { return (d || new Date()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); }

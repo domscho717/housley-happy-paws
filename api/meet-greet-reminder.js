@@ -35,7 +35,11 @@ module.exports = async function handler(req, res) {
   }
 
   // ── Params (read before auth so we can allow dry-run without secret) ──
-  const qs = (req.query && Object.keys(req.query).length > 0) ? req.query : (req.body || {});
+  // R12 P2 — parse via WHATWG URL to avoid deprecated url.parse().
+  const _sp = new URL(req.url || '', 'http://x').searchParams;
+  const _qFromUrl = {};
+  _sp.forEach((v, k) => { _qFromUrl[k] = v; });
+  const qs = (Object.keys(_qFromUrl).length > 0) ? _qFromUrl : (req.body || {});
   const dryRun = qs.dryRun === '1' || qs.dryRun === 'true' || qs.dryRun === true;
 
   // Auth: enforced when CRON_SECRET is set EXCEPT for dryRun=1 hits, since

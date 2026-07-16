@@ -28,7 +28,9 @@ module.exports = async function handler(req, res) {
   const authHeader = req.headers['authorization'] || '';
   const manualSecret = req.headers['x-cron-secret'];
   const envSecret = process.env.CRON_SECRET;
-  const isFirstWeekTrigger = (req.query.firstWeek === 'true' || (req.body && req.body.firstWeek));
+  // R12 P2 — WHATWG URL avoids deprecated url.parse() via req.query.
+  const _q = new URL(req.url || '', 'http://x').searchParams;
+  const isFirstWeekTrigger = (_q.get('firstWeek') === 'true' || (req.body && req.body.firstWeek));
   const isCronAuth = envSecret && (authHeader === `Bearer ${envSecret}` || manualSecret === envSecret);
 
   if (!isCronAuth) {
@@ -95,8 +97,8 @@ module.exports = async function handler(req, res) {
   const todayEST = estDateStr(); // e.g. "2026-04-07"
 
   // ── Determine billing window ──
-  const firstWeekBookingId = req.query.bookingId || (req.body && req.body.bookingId);
-  const isFirstWeek = req.query.firstWeek === 'true' || (req.body && req.body.firstWeek);
+  const firstWeekBookingId = _q.get('bookingId') || (req.body && req.body.bookingId);
+  const isFirstWeek = _q.get('firstWeek') === 'true' || (req.body && req.body.firstWeek);
 
   let weekStartStr, weekEndStr;
 

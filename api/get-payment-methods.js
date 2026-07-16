@@ -26,8 +26,10 @@ module.exports = async function handler(req, res) {
   );
 
   try {
-    const profileId = req.query?.profileId || req.body?.profileId;
-    const email = req.query?.email || req.body?.email;
+    // R12 P2 — WHATWG URL avoids deprecated url.parse() via req.query.
+    const _q = new URL(req.url || '', 'http://x').searchParams;
+    const profileId = _q.get('profileId') || req.body?.profileId;
+    const email = _q.get('email') || req.body?.email;
 
     if (!profileId && !email) return res.status(400).json({ error: 'profileId or email required' });
 

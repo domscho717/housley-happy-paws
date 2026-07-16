@@ -33,7 +33,8 @@ module.exports = async (req, res) => {
   // GET - Read site content (public)
   if (req.method === 'GET') {
     try {
-      const section = req.query.section;
+      // R12 P2 — WHATWG URL avoids deprecated url.parse() via req.query.
+      const section = new URL(req.url || '', 'http://x').searchParams.get('section');
       let query = supabase.from('site_content').select('section_key, content, updated_at');
 
       if (section) {
