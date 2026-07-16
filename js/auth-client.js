@@ -27,6 +27,21 @@ const HHP_Auth = window.HHP_Auth = {
         // Signal that auth client is ready (other modules listen for this)
         window.dispatchEvent(new Event('hhp-auth-ready'));
 
+        // R11 P0 #1 — When a Supabase password-reset link expires (default
+        // 1hr), the redirect back to the site includes an error in the URL
+        // hash: #error=access_denied&error_code=otp_expired. The Supabase
+        // JS SDK doesn't fire PASSWORD_RECOVERY for it, so the user lands
+        // on a blank home page with no idea what happened. Detect + explain.
+        try {
+            var _hash = window.location.hash || '';
+            if (_hash && (_hash.indexOf('error_code=otp_expired') !== -1 ||
+                          _hash.indexOf('error=access_denied') !== -1)) {
+                // Clean the hash so a reload doesn't loop the message.
+                try { history.replaceState(null, '', window.location.pathname + window.location.search); } catch(e) {}
+                setTimeout(function() { showExpiredResetLinkPrompt(); }, 300);
+            }
+        } catch (e) {}
+
         // Check for existing session
         const { data: { session } } = await this.supabase.auth.getSession();
         if (session) {
@@ -481,22 +496,38 @@ async function handleSignup(e) {
 
         const result = await HHP_Auth.signup(email, password, name);
 
-        // Supabase returns user but session is null when email confirmation is required
-        if (errEl) {
-            errEl.style.color = 'var(--forest)';
-            if (result?.user && !result?.session) {
-                errEl.innerHTML = '✅ Account created! Check <strong>' + email + '</strong> for a confirmation link, then come back and sign in.';
-            } else {
-                errEl.textContent = '✅ Account created! You can now sign in.';
+        // R11 P0 #2 — When Supabase returns a session, the user IS logged in.
+        // The old flow told them "you can now sign in" and flipped BACK to
+        // the login form, which confused new signups into thinking they had
+        // to type their credentials again. Devin Harner (July 13 2026)
+        // signed up, saw this, closed the tab, then hit the reset flow the
+        // next day. Now: if session exists, stay signed in and let
+        // onAuthStateChange('SIGNED_IN') route into the portal. If no
+        // session (email confirmation required), keep the old copy.
+        if (result?.session) {
+            if (errEl) {
+                errEl.style.color = 'var(--forest)';
+                errEl.innerHTML = '✅ Welcome, ' + (name ? name.split(/\s+/)[0].replace(/</g,'&lt;') : 'friend') + '! Loading your portal…';
             }
+            if (btn) { btn.textContent = '✓ Signed in'; btn.disabled = true; }
+            // Remember the email so a later forgot-password flow can pre-fill.
+            try { localStorage.setItem('hhp_reset_email', email.trim().toLowerCase()); } catch(e) {}
+            // handleSession fires via onAuthStateChange and routes to portal.
+            // The client-role branch there also fires checkNeedsPetSetup(),
+            // so the "Add your first pet" prompt lands automatically.
+        } else if (result?.user) {
+            // Email confirmation required (Supabase project has that turned on).
+            if (errEl) {
+                errEl.style.color = 'var(--forest)';
+                errEl.innerHTML = '✅ Account created! Check <strong>' + email.replace(/</g,'&lt;') + '</strong> for a confirmation link, then come back and sign in.';
+            }
+            if (btn) btn.textContent = '✓ Check Your Email';
+            btn.disabled = true;
+            setTimeout(function() {
+                if (typeof toggleAuthMode === 'function') toggleAuthMode('login');
+                if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
+            }, 5000);
         }
-        // Switch back to login view after a moment
-        if (btn) btn.textContent = '✓ Check Your Email';
-        btn.disabled = true;
-        setTimeout(function() {
-            if (typeof toggleAuthMode === 'function') toggleAuthMode('login');
-            if (btn) { btn.disabled = false; btn.textContent = 'Create Account'; }
-        }, 5000);
     } catch (err) {
         console.error('Signup error:', err);
         if (errEl) {
@@ -581,9 +612,14 @@ async function handleForgotPassword() {
 
     try {
         await HHP_Auth.resetPassword(email);
+        // R11 P0 #1 — Remember the email so the expired-link prompt can
+        // one-click resend without asking the user to retype it.
+        try { localStorage.setItem('hhp_reset_email', email.trim().toLowerCase()); } catch(e) {}
         if (errEl) {
             errEl.style.color = 'var(--forest)';
-            errEl.textContent = 'Password reset email sent! Check your inbox.';
+            errEl.innerHTML = '✅ Reset email sent to <strong>' + email.replace(/</g,'&lt;') + '</strong>.<br><br>' +
+                '<span style="font-weight:600;color:var(--ink,#1e1409)">The link expires in about 1 hour — click it as soon as you get it.</span><br>' +
+                'Not seeing it? Check spam, or wait a minute and check again.';
         }
     } catch (err) {
         if (errEl) {
@@ -591,6 +627,61 @@ async function handleForgotPassword() {
             errEl.textContent = 'Could not send reset email. Please check your email address.';
         }
     }
+}
+
+// R11 P0 #1 — Shown when the user returns from an expired reset email link.
+// Supabase redirects them back with #error_code=otp_expired in the hash;
+// without this handler they'd see a blank landing page and give up (this
+// is exactly what caused Devin Harner to abandon on July 14 2026).
+function showExpiredResetLinkPrompt() {
+    var existing = document.getElementById('hhp-expired-reset-modal');
+    if (existing) existing.remove();
+    var cachedEmail = '';
+    try { cachedEmail = localStorage.getItem('hhp_reset_email') || ''; } catch(e) {}
+    var modal = document.createElement('div');
+    modal.id = 'hhp-expired-reset-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;';
+    modal.innerHTML = ''+
+      '<div style="background:var(--cream,#fff8ec);border-radius:16px;max-width:440px;width:100%;padding:28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);">' +
+        '<div style="font-size:2rem;text-align:center;margin-bottom:10px">⏰</div>' +
+        '<h2 style="font-family:\'Cormorant Garamond\',serif;color:var(--forest,#3d5a47);margin:0 0 8px;text-align:center;">That reset link has expired</h2>' +
+        '<p style="color:#5c3d1e;margin:0 0 18px;font-size:0.92rem;line-height:1.5;text-align:center;">Reset links expire after about an hour. No worries — I can send you a fresh one right now.</p>' +
+        '<label style="font-weight:600;display:block;margin-bottom:6px;font-size:0.88rem;">Your email</label>' +
+        '<input id="hhp-expired-reset-email" type="email" autocomplete="email" value="' + cachedEmail.replace(/"/g,'&quot;') + '" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;box-sizing:border-box;" placeholder="you@example.com">' +
+        '<div id="hhp-expired-reset-err" style="color:var(--rose,#c62828);font-size:0.88rem;min-height:1.2em;margin-bottom:8px;"></div>' +
+        '<button id="hhp-expired-reset-submit" style="width:100%;padding:12px;background:var(--forest,#3d5a47);color:#fff;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;margin-bottom:8px;">Send me a new reset link</button>' +
+        '<button id="hhp-expired-reset-cancel" style="width:100%;padding:10px;background:none;color:var(--mid,#6b5c4d);border:none;border-radius:8px;font-size:0.88rem;cursor:pointer;">Cancel</button>' +
+      '</div>';
+    document.body.appendChild(modal);
+    var emailInp = document.getElementById('hhp-expired-reset-email');
+    var errEl = document.getElementById('hhp-expired-reset-err');
+    var btn = document.getElementById('hhp-expired-reset-submit');
+    var cancelBtn = document.getElementById('hhp-expired-reset-cancel');
+    cancelBtn.onclick = function() { modal.remove(); };
+    btn.onclick = async function() {
+        var em = (emailInp.value || '').trim();
+        if (!em || em.indexOf('@') === -1) { errEl.textContent = 'Please enter your email address.'; return; }
+        errEl.textContent = '';
+        btn.disabled = true; btn.textContent = 'Sending...';
+        try {
+            await HHP_Auth.resetPassword(em);
+            try { localStorage.setItem('hhp_reset_email', em.toLowerCase()); } catch(e) {}
+            modal.innerHTML = ''+
+              '<div style="background:var(--cream,#fff8ec);border-radius:16px;max-width:440px;width:100%;padding:28px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.25);">' +
+                '<div style="font-size:2.4rem;margin-bottom:10px">📧</div>' +
+                '<h2 style="font-family:\'Cormorant Garamond\',serif;color:var(--forest,#3d5a47);margin:0 0 8px;">Check your email</h2>' +
+                '<p style="color:#5c3d1e;margin:0 0 6px;font-size:0.92rem;">A fresh reset link is on the way to <strong>' + em.replace(/</g,'&lt;') + '</strong>.</p>' +
+                '<p style="color:var(--rose,#c25656);margin:0 0 18px;font-size:0.88rem;font-weight:600">Click it within the hour — that\'s how long the link stays valid.</p>' +
+                '<button onclick="document.getElementById(\'hhp-expired-reset-modal\').remove()" style="padding:10px 24px;background:var(--forest,#3d5a47);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">Got it</button>' +
+              '</div>';
+        } catch (err) {
+            errEl.textContent = err.message || 'Could not send. Try again in a minute.';
+            btn.disabled = false; btn.textContent = 'Send me a new reset link';
+        }
+    };
+    emailInp.addEventListener('keydown', function(e) { if (e.key === 'Enter') btn.click(); });
+    // Autofocus the email if we didn't have it cached; otherwise focus submit.
+    setTimeout(function() { (cachedEmail ? btn : emailInp).focus(); }, 50);
 }
 
 function toggleAuthMode(mode) {

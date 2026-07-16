@@ -2243,6 +2243,23 @@
       }
       return;
     }
+    // R11 P0 #3 — Signed-in clients without an address/phone couldn't
+    // book (form silently refused to submit — Devin Harner July 2026).
+    // Prompt for those first, then re-enter this function on save.
+    if (typeof _hhpEnsureProfileCompleteThen === 'function'
+        && window.HHP_Auth.currentRole === 'client'
+        && !window._hhpProfileGateSkipBooking) {
+      var _p = window.HHP_Auth.currentUser.profile;
+      if (!_p || !_p.address || !_p.phone) {
+        window._hhpProfileGateSkipBooking = true;
+        _hhpEnsureProfileCompleteThen(function() {
+          window._hhpProfileGateSkipBooking = false;
+          window.openBookingModal(preselectedService);
+        }, { serviceName: preselectedService || 'booking' });
+        return;
+      }
+    }
+    window._hhpProfileGateSkipBooking = false;
     // Refresh deals + used-deal list right when modal opens (catches stale cache)
     _fetchActiveDeals();
     createBookingModal();
@@ -3591,6 +3608,11 @@
         // of the active filter so Rachel sees stuck charges from any tab.
         // Hidden by default; loadRequests() populates + shows when count > 0.
         '<div id="hhpPaymentHoldBanner" style="display:none;margin-bottom:14px;padding:14px 16px;background:#fff4e5;border:2px solid #f5a623;border-radius:10px;color:#7a4a00;font-weight:600;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"></div>',
+        // R11 P2 #6 — Stuck new-client banner. Any client-role account
+        // created >48h ago with 0 bookings AND (missing address/phone or
+        // no pets). Makes the loss-of-funnel visible — Gwyneth Harner
+        // sat idle for 3+ weeks and Rachel never saw it. Hidden by default.
+        '<div id="hhpStuckClientsBanner" style="display:none;margin-bottom:14px"></div>',
         '<div class="card-title" style="margin-bottom:14px">📋 Booking Requests</div>',
         '<div class="admin-filter-bar" id="adminFilterBar" style="margin-bottom:12px">',
         '  <button class="admin-filter-btn active" data-filter="pending" onclick="HHP_BookingAdmin.filter(\'pending\',this)">Pending</button>',
@@ -3672,6 +3694,8 @@
         // rows independent of the active filter so Rachel sees the warning
         // even from the Pending tab.
         this.refreshPaymentHoldBanner();
+        // R11 P2 #6 — refresh Stuck New Clients banner alongside.
+        this.refreshStuckClientsBanner();
       } catch (err) {
         console.error('Failed to load booking requests:', err);
         var container = document.getElementById('adminRequestsList');
@@ -3705,6 +3729,110 @@
       } catch (e) {
         console.warn('[payment-hold-banner] count failed:', e && e.message);
         banner.style.display = 'none';
+      }
+    },
+
+    // R11 P2 #6 — Any client-role profile created >48h ago that has 0
+    // bookings AND is missing address/phone or has no pets. These are the
+    // Devins and Gwyns of the world — accounts that stalled at some step
+    // Rachel would never have known about otherwise.
+    async refreshStuckClientsBanner() {
+      var banner = document.getElementById('hhpStuckClientsBanner');
+      if (!banner) return;
+      var sb = getSB();
+      if (!sb) return;
+      try {
+        var cutoffISO = new Date(Date.now() - 48*60*60*1000).toISOString();
+        var { data: profs } = await sb.from('profiles')
+          .select('user_id, full_name, email, address, phone, created_at')
+          .eq('role', 'client')
+          .lt('created_at', cutoffISO)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (!profs || profs.length === 0) { banner.style.display = 'none'; return; }
+        var ids = profs.map(function(p) { return p.user_id; }).filter(Boolean);
+        if (!ids.length) { banner.style.display = 'none'; return; }
+        var [bkRes, petsRes] = await Promise.all([
+          sb.from('booking_requests').select('client_id').in('client_id', ids),
+          sb.from('pets').select('owner_id').in('owner_id', ids),
+        ]);
+        var bookedSet = new Set((bkRes.data || []).map(function(r) { return r.client_id; }));
+        var petCount = {};
+        (petsRes.data || []).forEach(function(p) { petCount[p.owner_id] = (petCount[p.owner_id] || 0) + 1; });
+        var stuck = profs.filter(function(p) {
+          if (bookedSet.has(p.user_id)) return false;
+          var missingAddr  = !p.address || String(p.address).trim().length < 4;
+          var missingPhone = !p.phone   || String(p.phone).replace(/\D/g,'').length < 7;
+          var noPets = !petCount[p.user_id];
+          return missingAddr || missingPhone || noPets;
+        });
+        if (stuck.length === 0) { banner.style.display = 'none'; return; }
+        // Stash so the nudge template + view can render synchronously.
+        window._hhpStuckClients = stuck;
+        var rowsHTML = stuck.slice(0, 8).map(function(p) {
+          var since = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86400000);
+          var missing = [];
+          if (!p.address || String(p.address).trim().length < 4) missing.push('address');
+          if (!p.phone   || String(p.phone).replace(/\D/g,'').length < 7) missing.push('phone');
+          if (!petCount[p.user_id]) missing.push('pet info');
+          var nameEsc  = escHtml(p.full_name || p.email || 'Client');
+          var emailEsc = escHtml(p.email || '');
+          return ''+
+            '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#fff;border-radius:8px;margin-bottom:6px;border:1px solid #f2d6b0">' +
+              '<div style="flex:1;min-width:0">' +
+                '<div style="font-weight:700;color:#5c3d1e;font-size:0.9rem">' + nameEsc + ' <span style="font-weight:500;color:#8a5800;font-size:0.78rem">· ' + since + 'd ago</span></div>' +
+                '<div style="font-size:0.78rem;color:#8a5800">' + emailEsc + ' — missing: ' + missing.join(', ') + '</div>' +
+              '</div>' +
+              '<button onclick="HHP_BookingAdmin.copyStuckNudge(\'' + p.user_id + '\')" style="padding:7px 12px;background:var(--forest,#3d5a47);color:#fff;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:0.78rem;white-space:nowrap">📋 Copy nudge</button>' +
+            '</div>';
+        }).join('');
+        var moreLine = stuck.length > 8 ? '<div style="font-size:0.78rem;color:#8a5800;margin-top:6px">+' + (stuck.length - 8) + ' more not shown</div>' : '';
+        banner.innerHTML = ''+
+          '<div style="padding:14px 16px;background:#fff9ec;border:2px solid #e8c07d;border-radius:10px;color:#5c3d1e">' +
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+              '<div style="font-weight:700;font-size:1.02rem">🐣 ' + stuck.length + ' new signup' + (stuck.length === 1 ? '' : 's') + ' haven\'t booked yet</div>' +
+              '<div style="font-size:0.8rem;color:#8a5800;font-weight:500">Accounts created 48h+ ago, no bookings</div>' +
+            '</div>' +
+            rowsHTML +
+            moreLine +
+          '</div>';
+        banner.style.display = 'block';
+      } catch (e) {
+        console.warn('[stuck-clients-banner] load failed:', e && e.message);
+        banner.style.display = 'none';
+      }
+    },
+
+    // R11 P2 #6 — Copies a friendly nudge template Rachel can paste into
+    // a text or email. Uses the stashed stuck-clients data so we don't
+    // need another round-trip.
+    copyStuckNudge: function(userId) {
+      var stuck = window._hhpStuckClients || [];
+      var p = stuck.find(function(x) { return x.user_id === userId; });
+      if (!p) { if (typeof toast === 'function') toast('Client not found — refresh?'); return; }
+      var firstName = (p.full_name || 'there').split(/\s+/)[0];
+      var missing = [];
+      if (!p.address) missing.push('your address');
+      if (!p.phone)   missing.push('phone number');
+      var missingText = missing.length ? (' — I just need ' + missing.join(' and ') + ' to lock in a time') : '';
+      var msg = 'Hi ' + firstName + '! 🐾 This is Rachel from Housley Happy Paws. I saw you created an account a few days ago and I wanted to reach out personally — would love to help you get your first booking set up' + missingText + '. Any questions I can answer? Just text me back here or reply.\n\n— Rachel';
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(msg).then(function() {
+            if (typeof toast === 'function') toast('📋 Nudge copied — paste into text/email for ' + firstName);
+          });
+        } else {
+          // Fallback for older browsers
+          var ta = document.createElement('textarea');
+          ta.value = msg;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          if (typeof toast === 'function') toast('📋 Nudge copied for ' + firstName);
+        }
+      } catch (e) {
+        if (typeof toast === 'function') toast('Copy failed — message: ' + msg.slice(0, 60) + '…');
       }
     },
 

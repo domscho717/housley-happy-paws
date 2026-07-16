@@ -1815,6 +1815,10 @@ try {
 
       <!-- DASH -->
       <div class="p-panel active" id="c-dash">
+        <!-- R11 P0 #4 — Onboarding checklist. Rendered by
+             renderOnboardingChecklist() when the client has 0 bookings.
+             Populated at load time; auto-hides once all steps complete. -->
+        <div id="onboardingChecklistBanner" style="display:none"></div>
         <div id="paymentFailedBanner" style="display:none;background:linear-gradient(135deg,#fff3e0,#ffe0b2);border:1px solid #ff9800;border-radius:12px;padding:16px;margin:0 0 16px;animation:panelIn 0.3s ease">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:1.3rem">⚠️</span><strong style="color:#e65100;font-size:0.95rem">Payment Failed</strong></div>
           <p id="paymentFailedMsg" style="font-size:0.85rem;color:#4e342e;margin:0 0 12px;line-height:1.5">A recent charge was declined. Please update your payment method to avoid service interruption.</p>
@@ -3372,9 +3376,13 @@ try {
 <div class="overlay" id="contactModal">
   <div class="modal"><div class="modal-head"><div class="modal-title">Send Rachel a Message 💬</div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('contactModal')">✕</button></div>
   <div id="contactFormFields">
-  <div class="form-group"><label class="form-lbl">Your Name *</label><input class="form-in" id="contact-name" placeholder="Your name"></div>
-  <div class="form-group"><label class="form-lbl">Best Way to Reach You *</label><input class="form-in" id="contact-reach" placeholder="Email or phone number"></div>
-  <div class="form-group"><label class="form-lbl">Your Question *</label><textarea class="form-ta" id="contact-question" placeholder="Hi Rachel! I was wondering..."></textarea></div>
+  <div class="form-group"><label class="form-lbl" for="contact-name">Your Name *</label><input class="form-in" id="contact-name" autocomplete="name" placeholder="Your name"></div>
+  <!-- R11 P1 #5 — Email + Phone separated. Previously a single "reach"
+       field let people cram a phone number into what got stored as email,
+       leaving Rachel unable to reply (Devin Harner: contact_email='6467251964'). -->
+  <div class="form-group"><label class="form-lbl" for="contact-email">Email *</label><input class="form-in" id="contact-email" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com"></div>
+  <div class="form-group"><label class="form-lbl" for="contact-phone">Phone (optional)</label><input class="form-in" id="contact-phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="(717) 555-1234"></div>
+  <div class="form-group"><label class="form-lbl" for="contact-question">Your Question *</label><textarea class="form-ta" id="contact-question" placeholder="Hi Rachel! I was wondering..."></textarea></div>
   <div id="contact-error" style="display:none;color:#c44;font-size:0.82rem;margin-bottom:8px"></div>
   <!-- R5 P3 #6: response hours -->
   <div style="text-align:center;font-size:0.78rem;color:#8c6b4a;margin:0 0 12px;line-height:1.4">Rachel typically responds <strong>8 AM – 5 PM ET</strong>. Messages outside those hours are answered the next morning.</div>
@@ -5966,6 +5974,23 @@ function openModal(id) {
     guestServicePrompt('Meet & Greet');
     return;
   }
+  // R11 P0 #3 — Signed-in client without an address/phone would silently
+  // fail at M&G submit. Prompt for those FIRST, then re-enter openModal.
+  if (id === 'mgModal' && typeof _hhpEnsureProfileCompleteThen === 'function') {
+    var _needsPrompt = window.HHP_Auth && window.HHP_Auth.currentUser
+      && (!window.HHP_Auth.currentUser.profile
+          || !window.HHP_Auth.currentUser.profile.address
+          || !window.HHP_Auth.currentUser.profile.phone);
+    if (_needsPrompt && !window._hhpProfileGateSkip) {
+      window._hhpProfileGateSkip = true;
+      _hhpEnsureProfileCompleteThen(function() {
+        window._hhpProfileGateSkip = false;
+        openModal(id);
+      }, { serviceName: 'Meet & Greet' });
+      return;
+    }
+    window._hhpProfileGateSkip = false;
+  }
   const el=document.getElementById(id); if(!el) return; if(el.classList.contains('modal-overlay')||el.classList.contains('overlay')){el.style.display='flex';el.classList.add('open');}else{el.classList.add('open');}
   // Load M&G data when modal opens
   if (id === 'mgModal' && typeof loadMGData === 'function') loadMGData();
@@ -6084,6 +6109,95 @@ function guestServicePrompt(serviceName) {
   requestAnimationFrame(function() { modal.style.opacity = '1'; modal.querySelector('div').style.transform = 'translateY(0)'; });
   // Close on backdrop click
   modal.addEventListener('click', function(e) { if (e.target === modal) { modal.remove(); document.body.style.overflow = ''; } });
+}
+
+// R11 P0 #3 — Profile-completeness gate. Before opening M&G or a booking
+// modal, make sure the client has an address (Rachel needs to know where
+// to go) and a phone (Rachel texts clients). If either is missing, show a
+// friendly prompt that saves both fields, then continues to the booking.
+// This is what Devin Harner hit: he had an account + a pet but no
+// address/phone, so the booking form silently refused to submit and he
+// concluded "the site won't let me book".
+async function _hhpEnsureProfileCompleteThen(callback, opts) {
+  opts = opts || {};
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  if (!sb || !user) { callback(); return; }  // fall through — auth gate happens elsewhere
+  // Owner/staff bookings on a client's behalf don't need the owner's own
+  // address; skip the prompt in that case.
+  var role = window.HHP_Auth.currentRole;
+  if (role === 'owner' || role === 'staff') { callback(); return; }
+  try {
+    var { data: prof } = await sb.from('profiles')
+      .select('address, phone, full_name')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    var addressOk = !!(prof && prof.address && String(prof.address).trim().length > 3);
+    var phoneOk   = !!(prof && prof.phone   && String(prof.phone).replace(/\D/g,'').length >= 7);
+    if (addressOk && phoneOk) { callback(); return; }
+    _hhpShowCompleteProfilePrompt(prof || {}, callback, opts.serviceName || '');
+  } catch (e) {
+    // Non-fatal: if the pre-check itself fails, don't block the booking.
+    console.warn('Profile completeness check failed (continuing):', e);
+    callback();
+  }
+}
+
+function _hhpShowCompleteProfilePrompt(prof, callback, serviceName) {
+  var existing = document.getElementById('hhp-complete-profile-modal');
+  if (existing) existing.remove();
+  var svcLabel = serviceName ? (' for your ' + serviceName) : '';
+  var modal = document.createElement('div');
+  modal.id = 'hhp-complete-profile-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(30,20,9,0.65);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = ''+
+    '<div style="background:var(--cream,#fff8ec);border-radius:16px;max-width:460px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">' +
+      '<div style="font-size:2.2rem;text-align:center;margin-bottom:8px">🏠</div>' +
+      '<h2 style="font-family:\'Cormorant Garamond\',serif;color:var(--forest,#3d5a47);margin:0 0 6px;text-align:center;font-size:1.4rem">Almost ready!</h2>' +
+      '<p style="color:var(--brown,#5c3d1e);margin:0 0 18px;font-size:0.9rem;text-align:center;line-height:1.5">I just need your address and phone so Rachel knows where to come' + svcLabel + ' and how to reach you.</p>' +
+      '<label style="font-weight:600;display:block;margin-bottom:6px;font-size:0.86rem;">Address <span style="color:var(--rose,#c62828)">*</span></label>' +
+      '<input id="hhp-cp-address" type="text" autocomplete="street-address" value="' + (prof.address || '').replace(/"/g,'&quot;') + '" placeholder="123 Main St, Lancaster, PA 17601" style="width:100%;padding:11px;border:1.5px solid #ddd;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-family:inherit;font-size:0.92rem;">' +
+      '<label style="font-weight:600;display:block;margin-bottom:6px;font-size:0.86rem;">Phone <span style="color:var(--rose,#c62828)">*</span></label>' +
+      '<input id="hhp-cp-phone" type="tel" autocomplete="tel" value="' + (prof.phone || '').replace(/"/g,'&quot;') + '" placeholder="(717) 555-1234" style="width:100%;padding:11px;border:1.5px solid #ddd;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font-family:inherit;font-size:0.92rem;">' +
+      '<div id="hhp-cp-err" style="color:var(--rose,#c62828);font-size:0.86rem;min-height:1.2em;margin-bottom:8px;"></div>' +
+      '<button id="hhp-cp-submit" style="width:100%;padding:13px;background:var(--forest,#3d5a47);color:#fff;border:none;border-radius:8px;font-size:0.98rem;font-weight:700;cursor:pointer;margin-bottom:8px;">Save & Continue →</button>' +
+      '<button id="hhp-cp-cancel" style="width:100%;padding:10px;background:none;color:var(--mid,#6b5c4d);border:none;border-radius:8px;font-size:0.86rem;cursor:pointer;">Cancel</button>' +
+    '</div>';
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+  var addrEl = document.getElementById('hhp-cp-address');
+  var phoneEl = document.getElementById('hhp-cp-phone');
+  var errEl = document.getElementById('hhp-cp-err');
+  var submitBtn = document.getElementById('hhp-cp-submit');
+  var cancelBtn = document.getElementById('hhp-cp-cancel');
+  function close() { modal.remove(); document.body.style.overflow = ''; }
+  cancelBtn.onclick = close;
+  submitBtn.onclick = async function() {
+    var addr = (addrEl.value || '').trim();
+    var phone = (phoneEl.value || '').trim();
+    var digits = phone.replace(/\D/g, '');
+    if (addr.length < 4) { errEl.textContent = 'Please enter your full address.'; addrEl.focus(); return; }
+    if (digits.length < 7) { errEl.textContent = 'Please enter your phone number.'; phoneEl.focus(); return; }
+    errEl.textContent = '';
+    submitBtn.disabled = true; submitBtn.textContent = 'Saving…';
+    var sb = window.HHP_Auth.supabase;
+    var user = window.HHP_Auth.currentUser;
+    try {
+      var { error } = await sb.from('profiles')
+        .update({ address: addr, phone: phone })
+        .eq('user_id', user.id);
+      if (error) throw error;
+      // Cache locally so the immediately-following booking form pre-fills.
+      if (user.profile) { user.profile.address = addr; user.profile.phone = phone; }
+      close();
+      if (typeof toast === 'function') toast('✅ Saved. Opening booking…');
+      setTimeout(function() { callback(); }, 100);
+    } catch (e) {
+      submitBtn.disabled = false; submitBtn.textContent = 'Save & Continue →';
+      errEl.textContent = (e && e.message) || 'Could not save. Try again.';
+    }
+  };
+  setTimeout(function() { (addrEl.value ? phoneEl : addrEl).focus(); }, 50);
 }
 
 // ── Meet & Greet: load user info + pet profiles when modal opens ──
@@ -6234,21 +6348,37 @@ async function submitContact() {
   if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 
   var cName = (document.getElementById('contact-name').value || '').trim();
-  var cReach = (document.getElementById('contact-reach').value || '').trim();
+  var cEmail = (document.getElementById('contact-email').value || '').trim();
+  var cPhone = (document.getElementById('contact-phone').value || '').trim();
   var cQuestion = (document.getElementById('contact-question').value || '').trim();
 
-  // Validate
+  // R11 P1 #5 — Validate name + email + question. Email must actually look
+  // like an email (not a phone number crammed into the field). Phone is
+  // optional but if provided must have ≥7 digits.
   var missing = [];
   if (!cName) missing.push('Name');
-  if (!cReach) missing.push('Contact info');
+  if (!cEmail) missing.push('Email');
   if (!cQuestion) missing.push('Question');
   if (missing.length) {
     if (errEl) { errEl.textContent = 'Please fill in: ' + missing.join(', '); errEl.style.display = 'block'; }
     return;
   }
+  // Basic email regex — good enough to catch phone numbers, typos.
+  var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cEmail);
+  if (!emailOk) {
+    if (errEl) { errEl.textContent = 'That doesn\'t look like an email — please check. (Numbers-only? Use the Phone field.)'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (cPhone && cPhone.replace(/\D/g,'').length < 7) {
+    if (errEl) { errEl.textContent = 'Phone number looks incomplete — remove it or add more digits.'; errEl.style.display = 'block'; }
+    return;
+  }
 
   var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+
+  // Combined "reach" string kept for /api/contact-form back-compat + legacy consumers.
+  var cReach = cEmail + (cPhone ? (' · ' + cPhone) : '');
 
   try {
     // Save the contact submission to booking_requests as a general inquiry
@@ -6256,7 +6386,8 @@ async function submitContact() {
       var { error: brErr } = await sb.from('booking_requests').insert({
         service: 'General Inquiry',
         contact_name: cName,
-        contact_email: cReach,
+        contact_email: cEmail,
+        contact_phone: cPhone || null,
         special_notes: cQuestion,
         client_id: user ? user.id : null,
         status: 'pending',
@@ -12810,6 +12941,84 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(function() { checkNeedsPetSetup(); }, 2500);
 });
 
+// R11 P0 #4 — Onboarding checklist for brand-new clients. Shows a big
+// visible card at the top of c-dash listing what still needs doing before
+// they can book. Auto-hides once bookings >= 1. Without this, Gwyneth
+// Harner and other early signups landed on a blank portal and vanished
+// without ever completing the setup that unlocks booking.
+async function renderOnboardingChecklist() {
+  var container = document.getElementById('onboardingChecklistBanner');
+  if (!container) return;
+  if (!window.HHP_Auth || !window.HHP_Auth.currentUser) { container.style.display = 'none'; return; }
+  if (window.HHP_Auth.currentRole !== 'client') { container.style.display = 'none'; return; }
+  var sb = window.HHP_Auth.supabase;
+  var user = window.HHP_Auth.currentUser;
+  try {
+    var [profRes, petsRes, bkRes] = await Promise.all([
+      sb.from('profiles').select('address, phone').eq('user_id', user.id).maybeSingle(),
+      sb.from('pets').select('id', { count: 'exact', head: true }).eq('owner_id', user.id),
+      sb.from('booking_requests').select('id', { count: 'exact', head: true }).eq('client_id', user.id),
+    ]);
+    var bookingCount = bkRes.count || 0;
+    // If they've already booked once, we're done — no more checklist.
+    if (bookingCount > 0) { container.style.display = 'none'; return; }
+    var prof = profRes.data || {};
+    var addressOk = !!(prof.address && String(prof.address).trim().length > 3);
+    var phoneOk   = !!(prof.phone   && String(prof.phone).replace(/\D/g,'').length >= 7);
+    var contactOk = addressOk && phoneOk;
+    var petCount = petsRes.count || 0;
+    var petsOk = petCount > 0;
+    var bookReady = contactOk && petsOk;
+    // Row helper: icon + label + action.
+    function row(done, label, actionLabel, actionOnclick, disabled) {
+      var check = done
+        ? '<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--forest,#3d5a47);color:#fff;font-size:0.82rem;flex-shrink:0">✓</span>'
+        : '<span style="display:inline-block;width:24px;height:24px;border-radius:50%;border:2px solid #d0c5b3;flex-shrink:0"></span>';
+      var actionBtn = done
+        ? '<span style="font-size:0.78rem;color:var(--forest,#3d5a47);font-weight:600;text-transform:uppercase;letter-spacing:0.06em">Done</span>'
+        : ('<button ' + (disabled ? 'disabled' : ('onclick="' + actionOnclick + '"')) + ' style="padding:7px 14px;background:' + (disabled ? '#d0c5b3;cursor:not-allowed' : 'var(--gold,#c8963e);cursor:pointer') + ';color:#fff;border:none;border-radius:8px;font-size:0.82rem;font-weight:700;font-family:inherit">' + actionLabel + '</button>');
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 4px;' + (done ? 'opacity:0.7' : '') + '">' + check + '<div style="flex:1;font-size:0.92rem;color:var(--ink,#1e1409);' + (done ? 'text-decoration:line-through' : '') + '">' + label + '</div>' + actionBtn + '</div>';
+    }
+    container.style.cssText = 'background:linear-gradient(135deg,#fdf7ee,#fff);border:2px solid var(--gold,#c8963e);border-radius:14px;padding:20px 22px;margin:0 0 16px;box-shadow:0 4px 14px rgba(200,150,62,0.12);';
+    container.innerHTML = ''+
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">' +
+        '<div style="font-size:1.6rem">🐾</div>' +
+        '<div>' +
+          '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.35rem;font-weight:700;color:var(--forest,#3d5a47);line-height:1.1">Get started with Housley Happy Paws</div>' +
+          '<div style="font-size:0.82rem;color:var(--brown,#5c3d1e);margin-top:2px">A few quick steps and Rachel can start caring for your pet.</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="margin-top:12px;border-top:1px solid rgba(200,150,62,0.2);padding-top:8px">' +
+        row(true, 'Account created', '', '', false) +
+        row(contactOk, 'Add your address & phone', 'Add now', "if(typeof _hhpEnsureProfileCompleteThen==='function')_hhpEnsureProfileCompleteThen(function(){renderOnboardingChecklist()},{serviceName:''})", false) +
+        row(petsOk, 'Add your pet' + (petCount > 1 ? 's' : '') + ' info', 'Add pet', "sTab('c','c-pets');setTimeout(function(){if(typeof openPetForm==='function')openPetForm()},250)", false) +
+        row(false, 'Book your first meet & greet', 'Book now', "openModal('mgModal')", !bookReady) +
+      '</div>' +
+      (!bookReady ? '<div style="margin-top:10px;font-size:0.78rem;color:var(--mid,#6b5c4d);text-align:center">Finish the steps above to unlock booking.</div>' : '');
+    container.style.display = 'block';
+  } catch (e) {
+    console.warn('Onboarding checklist error:', e);
+    container.style.display = 'none';
+  }
+}
+// Wire onto c-dash panel activation — sTab already fires loadDashboardStats
+// for c-dash; we piggyback the same hook via a small wrapper.
+(function() {
+  var _origSTab = window.sTab;
+  if (typeof _origSTab === 'function' && !_origSTab.__hhpOnboardWrapped) {
+    window.sTab = function(portal, panelId) {
+      var r = _origSTab.apply(this, arguments);
+      if (portal === 'c' && (panelId === 'c-dash' || !panelId)) {
+        setTimeout(renderOnboardingChecklist, 200);
+      }
+      return r;
+    };
+    window.sTab.__hhpOnboardWrapped = true;
+  }
+  // Also fire on initial DOMContentLoaded once auth settles.
+  setTimeout(renderOnboardingChecklist, 2800);
+})();
+
 // ── Owner: All Clients Panel ──
 var _ownerClientsData = [];
 
@@ -16007,7 +16216,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/js/stripe-client.js?v=20260603a" defer></script>
 
 <!-- Supabase Auth Client -->
-<script src="/js/auth-client.js?v=20260620a" defer></script>
+<script src="/js/auth-client.js?v=20260715a" defer></script>
 
 <!-- End-of-service Report Submission Pipeline (localStorage save + parallel side effects) -->
 <script src="/js/report-submission.js?v=20260511a" defer></script>
@@ -17555,7 +17764,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260628a" defer></script>
+  <script src="/js/booking-system.js?v=20260715a" defer></script>
   <script src="/js/messaging.js?v=20260618a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>

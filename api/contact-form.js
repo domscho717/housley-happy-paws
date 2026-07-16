@@ -22,6 +22,15 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required fields: name, contact, question' });
   }
 
+  // R11 P1 #5 — Server-side email validation. The client-side check is
+  // the primary gate, but reject phone-numbers-as-email at the server too
+  // so nothing sneaks through if the JS is bypassed.
+  const emailPart = String(contact).split('·')[0].trim();  // strip " · phone" suffix if present
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailPart);
+  if (!emailOk) {
+    return res.status(400).json({ error: 'Contact must include a valid email address.' });
+  }
+
   try {
     const safeName = escHtml(name);
     const safeContact = escHtml(contact);
