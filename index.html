@@ -12811,13 +12811,47 @@ async function savePet() {
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
   if (!sb || !user) { toast('Please sign in first.'); return; }
 
-  toast('Saving pet profile...');
+  // R12 P0 #1 — Lock the Save button so a slow network doesn't produce a
+  // double-click / double-insert. Restored in every exit path below.
+  var _saveBtn = document.querySelector('#petFormOverlay button[onclick*="savePet"]') ||
+                 document.querySelector('button[onclick*="savePet"]');
+  var _savedBtnLabel = _saveBtn ? _saveBtn.textContent : '';
+  if (_saveBtn) { _saveBtn.disabled = true; _saveBtn.textContent = 'Saving…'; }
+  function _restoreBtn() { if (_saveBtn) { _saveBtn.disabled = false; _saveBtn.textContent = _savedBtnLabel || 'Save'; } }
 
-  // Upload photo if new one selected
+  toast('Saving pet profile...');
+  console.log('[pet-insert] start — user:', user.id, 'name:', name);
+
+  // R12 P0 #1 — Refresh the session before hitting the DB. Rachel + a
+  // new client can spend 10+ min filling out the pet form; if the token
+  // expires mid-form, the RLS auth.uid() check silently rejects the
+  // insert. Same pattern as R6's JWT refresh on charge-on-accept.
+  try {
+    var _sessRes = await sb.auth.getSession();
+    var _sess = _sessRes && _sessRes.data && _sessRes.data.session;
+    var _nowSec = Math.floor(Date.now() / 1000);
+    var _expSoon = _sess && _sess.expires_at && (_sess.expires_at - _nowSec) < 120;
+    if (!_sess || _expSoon) {
+      console.log('[pet-insert] refreshing session before insert');
+      await sb.auth.refreshSession();
+    }
+  } catch (sessErr) {
+    console.warn('[pet-insert] session refresh failed (continuing):', sessErr && sessErr.message);
+  }
+
+  // Upload photo if new one selected. uploadPetPhoto is already try/caught
+  // internally and returns null on failure — the pet still saves without
+  // the photo, and the client can add it after (edit pet → new photo).
   var photoUrl = null;
   var input = document.getElementById('pet-photo-input');
   if (input.files && input.files[0]) {
-    photoUrl = await uploadPetPhoto();
+    console.log('[pet-insert] uploading photo…');
+    try {
+      photoUrl = await uploadPetPhoto();
+      if (!photoUrl) console.warn('[pet-insert] photo upload returned null — saving pet without photo');
+    } catch (photoErr) {
+      console.warn('[pet-insert] photo upload threw — saving pet without photo:', photoErr);
+    }
   }
 
   var petData = {
@@ -12853,31 +12887,57 @@ async function savePet() {
 
   var editId = document.getElementById('pet-edit-id').value;
   try {
+    // R12 P0 #1 — Re-confirm current user right before insert. If Supabase
+    // somehow returns a mismatched session (rare, but seen), the RLS
+    // policy (auth.uid() = owner_id) will silently reject; force the
+    // owner_id to whatever getUser() reports right now.
+    if (!editId) {
+      try {
+        var _uRes = await sb.auth.getUser();
+        var _uNow = _uRes && _uRes.data && _uRes.data.user;
+        if (_uNow && _uNow.id) petData.owner_id = _uNow.id;
+      } catch (_) {}
+    }
     if (editId) {
+      console.log('[pet-insert] UPDATE id=' + editId);
       var { error } = await sb.from('pets').update(petData).eq('id', editId);
       if (error) throw error;
+      console.log('[pet-insert] update OK');
       toast('✅ ' + name + '\'s profile updated!');
     } else {
-      var { error } = await sb.from('pets').insert(petData);
+      console.log('[pet-insert] INSERT owner=' + petData.owner_id + ' name=' + petData.name);
+      var { data: insData, error } = await sb.from('pets').insert(petData).select('id').single();
       if (error) throw error;
-      toast('✅ ' + name + ' added to your pets!');
+      console.log('[pet-insert] insert OK id=' + (insData && insData.id));
+      var extra = photoUrl ? '' : (input.files && input.files[0] ? ' (photo failed — you can add one later via Edit)' : '');
+      toast('✅ ' + name + ' added to your pets!' + extra);
     }
     // Save emergency contact to profile
     var ecNameVal = document.getElementById('pet-ec-name').value.trim();
     var ecPhoneVal = document.getElementById('pet-ec-phone').value.trim();
     if (ecNameVal || ecPhoneVal) {
-      await sb.from('profiles').update({
-        emergency_contact_name: ecNameVal,
-        emergency_contact_phone: ecPhoneVal,
-        updated_at: new Date().toISOString()
-      }).eq('user_id', user.id);
+      try {
+        await sb.from('profiles').update({
+          emergency_contact_name: ecNameVal,
+          emergency_contact_phone: ecPhoneVal,
+          updated_at: new Date().toISOString()
+        }).eq('user_id', user.id);
+      } catch (ecErr) {
+        console.warn('[pet-insert] emergency contact save failed (non-fatal):', ecErr);
+      }
     }
     closePetForm();
     document.getElementById('pet-photo-input').value = '';
     loadMyPets();
+    _restoreBtn();
   } catch (err) {
-    console.error('Save pet error:', err);
-    toast('Could not save pet: ' + (err.message || err.details || 'Please try again.'));
+    console.error('[pet-insert] FAILED:', err);
+    // Friendlier messages for the common failure modes.
+    var msg = err && (err.message || err.details) || 'Please try again.';
+    if (err && err.code === '42501') msg = 'Permission denied — please sign out and back in, then try again.';
+    else if (err && String(err.message || '').toLowerCase().indexOf('jwt') !== -1) msg = 'Your session expired — please sign out and back in.';
+    toast('Could not save ' + name + ': ' + msg);
+    _restoreBtn();
   }
 }
 

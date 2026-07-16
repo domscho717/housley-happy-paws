@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
     // ── 1. Find all accepted/confirmed bookings for today AND tomorrow ──
     const { data: bookings, error: fetchErr } = await supabase
       .from('booking_requests')
-      .select('id, service, preferred_date, preferred_time, contact_name, contact_email, client_id, estimated_total, pet_names, status, booking_dates, staff_id, payment_intent_id')
+      .select('id, service, preferred_date, preferred_time, contact_name, contact_email, client_id, estimated_total, pet_names, status, booking_dates, assigned_to, payment_intent_id')
       .in('status', ['accepted', 'confirmed'])
       .or(`preferred_date.eq.${todayStr},preferred_date.eq.${tomorrowStr}`);
 
@@ -59,7 +59,7 @@ module.exports = async function handler(req, res) {
     // Also check bookings with multi-date booking_dates arrays
     const { data: multiDateBookings, error: mdErr } = await supabase
       .from('booking_requests')
-      .select('id, service, preferred_date, preferred_time, contact_name, contact_email, client_id, estimated_total, pet_names, status, booking_dates, staff_id, payment_intent_id')
+      .select('id, service, preferred_date, preferred_time, contact_name, contact_email, client_id, estimated_total, pet_names, status, booking_dates, assigned_to, payment_intent_id')
       .in('status', ['accepted', 'confirmed'])
       .not('booking_dates', 'is', null);
 
@@ -224,8 +224,10 @@ module.exports = async function handler(req, res) {
       }
 
       // ── Message to STAFF (if assigned directly or via staff_assignments) ──
+      // R12 P0 #2: `booking.staff_id` was renamed to `assigned_to` in R3/R4.
+      // Missing this rename crashed the cron for 4 months (Mar 23 → Jul 16).
       const staffIds = new Set();
-      if (booking.staff_id) staffIds.add(booking.staff_id);
+      if (booking.assigned_to) staffIds.add(booking.assigned_to);
       // Also check staff_assignments for this client
       if (booking.client_id && clientStaffMap[booking.client_id]) {
         clientStaffMap[booking.client_id].forEach(sid => staffIds.add(sid));
