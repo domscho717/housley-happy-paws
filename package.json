@@ -4,7 +4,6 @@
     "private": true,
     "description": "Housley Happy Paws — Rachel Housley · Lancaster, PA",
     "scripts": {
-          "dev": "vercel dev",
           "build": "echo 'Static site — no build step'"
     },
     "dependencies": {

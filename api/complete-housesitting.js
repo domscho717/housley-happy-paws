@@ -23,6 +23,7 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
+const { getDestination, recordUnroutedFee } = require('./_platform-fee');
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', 'https://www.housleyhappypaws.com');
@@ -98,7 +99,8 @@ module.exports = async function handler(req, res) {
     const finalAmountCents = Math.round(finalAmount * 100);
     const originalAmountCents = Math.round(booking.estimated_total * 100);
 
-    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    // Logs loudly if unset; never blocks the customer charge.
+    const connectedAccountId = getDestination('complete-housesitting');
 
     console.log(`[hs-complete] Booking ${bookingRequestId}: ${originalNights} nights → ${finalNights} nights, $${booking.estimated_total} → $${finalAmount}`);
 
@@ -184,7 +186,14 @@ module.exports = async function handler(req, res) {
                     });
                   }
                 } catch (transferErr) {
-                  console.error('[hs-complete] Extra nights transfer error (non-blocking):', transferErr.message);
+                  // Money is already taken; refusing cannot undo it. Record it so it can
+                  // be found and reconciled. Query: notes ILIKE '%FEE-UNROUTED%'
+                  await recordUnroutedFee(supabase, {
+                    paymentIntentId: extraPI.id,
+                    amountCents: extraDevShare,
+                    context: 'complete-housesitting',
+                    reason: transferErr.message,
+                  });
                 }
               }
             }

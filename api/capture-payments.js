@@ -13,6 +13,7 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
+const { getDestination, recordUnroutedFee } = require('./_platform-fee');
 module.exports = async function handler(req, res) {
   // Allow manual trigger via POST or cron via GET
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -72,7 +73,8 @@ module.exports = async function handler(req, res) {
   const weekEndStr = estDateStr(weekEnd);
   results.weekRange = `${weekStartStr} to ${weekEndStr}`;
 
-  const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+  // Logs loudly if unset; never blocks the customer charge.
+  const connectedAccountId = getDestination('capture-payments');
 
   console.log(`[cron] ${isRetry ? 'RETRY' : 'Sunday'} charge run — week: ${weekStartStr} to ${weekEndStr}`);
 
@@ -214,7 +216,14 @@ module.exports = async function handler(req, res) {
                   description: `15% dev share — ${booking.service || 'Pet Care'} recurring ${nextOccurrence} (#${booking.id.slice(0, 8)})`,
                 });
               } catch (transferErr) {
-                console.error('[cron] Transfer FAILED (non-blocking):', transferErr.message);
+                // Money is already taken; refusing cannot undo it. Record it so it can
+                // be found and reconciled. Query: notes ILIKE '%FEE-UNROUTED%'
+                await recordUnroutedFee(supabase, {
+                  paymentIntentId: paymentIntent.id,
+                  amountCents: devShareCents,
+                  context: 'capture-payments',
+                  reason: transferErr.message,
+                });
               }
             }
 
@@ -363,7 +372,14 @@ module.exports = async function handler(req, res) {
                       description: `15% dev share — ${booking.service || 'Pet Care'} retry (#${booking.id.slice(0, 8)})`,
                     });
                   } catch (transferErr) {
-                    console.error('[cron-retry] Transfer FAILED (non-blocking):', transferErr.message);
+                    // Money is already taken; refusing cannot undo it. Record it so it can
+                    // be found and reconciled. Query: notes ILIKE '%FEE-UNROUTED%'
+                    await recordUnroutedFee(supabase, {
+                      paymentIntentId: retryIntent.id,
+                      amountCents: retryDevShare,
+                      context: 'capture-payments-retry',
+                      reason: transferErr.message,
+                    });
                   }
                 }
 

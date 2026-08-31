@@ -4405,11 +4405,41 @@
         if (newStatus === 'accepted' && req && req.recurrence_pattern && req.estimated_total > 0 && req.client_id) {
           (async function() {
             try {
+              // This endpoint 401s without a Bearer token. It was called without one, so
+              // the "already billed at acceptance" marker was never written — and the
+              // Sunday cron then billed the first occurrence a SECOND time. That is the
+              // Julia Bossert double charge of 30 Aug 2026: $42.50 twice for two visits.
+              var fwTok = null;
+              try {
+                var fwSb = getSB();
+                if (fwSb) {
+                  var fwSess = await fwSb.auth.getSession();
+                  fwTok = fwSess && fwSess.data && fwSess.data.session
+                    ? fwSess.data.session.access_token : null;
+                }
+              } catch (e) { console.error('[first-week] session lookup failed', e); }
+              if (!fwTok) {
+                console.error('[first-week] NO TOKEN — acceptance charge not recorded. ' +
+                              'The Sunday cron WILL double-bill booking ' + requestId);
+                if (typeof toast === 'function') {
+                  toast('⚠️ Recurring set up, but first-week billing was NOT recorded. ' +
+                        'Tell Dom before Sunday or this client gets charged twice.');
+                }
+                return;
+              }
               var fwResp = await fetch('/api/recurring-invoices?firstWeek=true&bookingId=' + requestId, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + fwTok },
                 body: JSON.stringify({ firstWeek: true, bookingId: requestId }),
               });
+              if (!fwResp.ok) {
+                console.error('[first-week] server refused:', fwResp.status);
+                if (typeof toast === 'function') {
+                  toast('⚠️ First-week billing NOT recorded (' + fwResp.status + '). ' +
+                        'The Sunday cron may double-charge this client — tell Dom.');
+                }
+                return;
+              }
               var fwData = await fwResp.json().catch(function() { return {}; });
               if (typeof toast === 'function') {
                 if (fwData.charged > 0) toast('💳 Recurring: billed for this week!');
@@ -5406,6 +5436,102 @@
   }
 
   // Batch notification: send ONE email + ONE in-app message for multiple bookings
+  // ── R14: verified writes ────────────────────────────────────────────
+  // The Supabase client RESOLVES on a failed write — it returns { data, error }
+  // and does NOT throw. Every batch update in this file used to ignore that, so
+  // an RLS rejection or an expired JWT was indistinguishable from success:
+  // Promise.all resolved, catch never fired, the client got notified, and the
+  // database never changed. That is the Kyle Motell silent no-op (Jul + Aug 2026).
+  //
+  // Rule: never notify a client, and never fire a charge, until .ok is true.
+  async function _verifiedUpdate(sb, patch, ids, label) {
+    if (!ids || !ids.length) {
+      return { ok: true, updated: 0, expected: 0, error: null };
+    }
+    var res = await sb.from('booking_requests').update(patch).in('id', ids).select('id');
+    var updated = (res && res.data) ? res.data.length : 0;
+    var ok = !(res && res.error) && updated === ids.length;
+    if (!ok) {
+      console.error('[' + label + '] WRITE NOT VERIFIED', {
+        expected: ids.length, updated: updated, error: res && res.error
+      });
+    }
+    return { ok: ok, updated: updated, expected: ids.length, error: (res && res.error) || null };
+  }
+
+  // Long-open dashboard tabs outlast the ~1 hour Supabase JWT. The notification
+  // endpoint uses the service-role key server-side and keeps working, which is
+  // why the classic symptom is "client was notified, nothing changed in the DB".
+  async function _ensureSession(sb, label) {
+    try {
+      var s = await sb.auth.getSession();
+      if (!s || !s.data || !s.data.session) throw new Error('no active session');
+      await sb.auth.refreshSession();
+      return true;
+    } catch (e) {
+      console.error('[' + label + '] session check failed', e);
+      if (typeof toast === 'function') {
+        toast('⚠️ Your session expired — nothing was changed. Reload the page and sign in again.');
+      }
+      return false;
+    }
+  }
+
+  // Shared entry guard for every batch action. Returns null (already toasted)
+  // when the action must not proceed. Never fails silently.
+  function _batchGuard(batchKey, label) {
+    var sb = getSB();
+    if (!sb) {
+      console.error('[' + label + '] getSB() returned null - auth client unavailable');
+      if (typeof toast === 'function') {
+        toast('⚠️ Not connected — nothing was changed. Reload the page and sign in again.');
+      }
+      return null;
+    }
+    var bookings = _bookingPanelState.requests.filter(function(r) {
+      return r.status === 'pending' &&
+             r.client_id &&
+             r.created_at &&
+             (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
+    });
+    if (!bookings.length) {
+      console.error('[' + label + '] no pending rows matched batchKey', batchKey);
+      if (typeof toast === 'function') {
+        toast('⚠️ Batch not found — nothing was changed. Reload and try again.');
+      }
+      return null;
+    }
+    return { sb: sb, bookings: bookings, card: document.querySelector('[data-batch-id="' + batchKey + '"]') };
+  }
+
+  function _lockCard(card, locked) {
+    if (!card) return;
+    card.style.opacity = locked ? '0.7' : '1';
+    card.querySelectorAll('button').forEach(function(b) { b.disabled = !!locked; });
+  }
+
+  // A toast fades. A failed batch must stay visible until Rachel acts on it,
+  // because the whole class of bug here is "looked like it worked".
+  function _markCardFailed(card, msg) {
+    _lockCard(card, false);
+    if (!card) return;
+    card.style.borderLeft = '6px solid #c00';
+    var banner = card.querySelector('[data-batch-error]');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.setAttribute('data-batch-error', '1');
+      banner.style.cssText = 'background:#fdecea;color:#8a1c1c;border:1px solid #c00;border-radius:6px;padding:8px 10px;margin:8px 0;font-size:0.82rem;font-weight:600';
+      card.insertBefore(banner, card.firstChild);
+    }
+    banner.textContent = '⚠️ ' + msg;
+  }
+
+  function _clearCardFailed(card) {
+    if (!card) return;
+    var banner = card.querySelector('[data-batch-error]');
+    if (banner) banner.remove();
+  }
+
   async function _sendBatchNotification(bookings, actions) {
     if (!bookings || bookings.length === 0) return;
     var firstBooking = bookings[0];
@@ -5507,53 +5633,57 @@
 
   // Batch accept: all bookings in batch are accepted as-is
   window.acceptBatchBookings = async function(batchKey) {
-    var sb = getSB();
-    if (!sb) return;
+    var g = _batchGuard(batchKey, 'batch-accept');
+    if (!g) return;
+    var sb = g.sb, batchBookings = g.bookings, batchCard = g.card;
+
+    if (!(await _ensureSession(sb, 'batch-accept'))) return;
+
+    _clearCardFailed(batchCard);
+    _lockCard(batchCard, true);
 
     try {
-      // Find all bookings in this batch
-      var batchBookings = _bookingPanelState.requests.filter(function(r) {
-        return r.status === 'pending' &&
-               r.client_id &&
-               r.created_at &&
-               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
+      var ids = batchBookings.map(function(bk) { return bk.id; });
+
+      // Rows share a batch but not necessarily the same schedule, so group by
+      // the (date, time) pair and verify each group's write independently.
+      var groups = {};
+      batchBookings.forEach(function(bk) {
+        var k = (bk.preferred_date || '') + '|' + (bk.preferred_time || '');
+        (groups[k] = groups[k] || { date: bk.preferred_date, time: bk.preferred_time, ids: [] }).ids.push(bk.id);
       });
 
-      if (batchBookings.length === 0) {
-        if (typeof toast === 'function') toast('Batch not found');
+      var totalUpdated = 0, firstError = null;
+      var keys = Object.keys(groups);
+      for (var n = 0; n < keys.length; n++) {
+        var grp = groups[keys[n]];
+        var r = await _verifiedUpdate(sb, {
+          status: 'accepted',
+          scheduled_date: grp.date,
+          scheduled_time: grp.time
+        }, grp.ids, 'batch-accept');
+        totalUpdated += r.updated;
+        if (!r.ok && !firstError) firstError = r.error;
+      }
+
+      // HARD STOP. Nothing below this line may run on an unverified write:
+      // not the notification, and above all not the Stripe charge. Charging
+      // for rows that are still 'pending' is how a client pays for a booking
+      // the system does not believe it accepted.
+      if (totalUpdated !== ids.length) {
+        var detail = firstError ? firstError.message : 'the database rejected the change';
+        _markCardFailed(batchCard,
+          'FAILED — ' + totalUpdated + ' of ' + ids.length + ' accepted. No client was notified and no card was charged. Reason: ' + detail);
+        if (typeof toast === 'function') {
+          toast('⚠️ Batch NOT accepted (' + totalUpdated + '/' + ids.length + '). Nobody was notified, nothing was charged.');
+        }
         return;
       }
 
-      // Mark card as processing
-      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
-      if (batchCard) {
-        batchCard.style.opacity = '0.7';
-        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
-      }
-
-      // Update all bookings to 'accepted'
-      var updatePromises = batchBookings.map(function(bk) {
-        return sb.from('booking_requests').update({
-          status: 'accepted',
-          scheduled_date: bk.preferred_date,
-          scheduled_time: bk.preferred_time
-        }).eq('id', bk.id);
-      });
-
-      await Promise.all(updatePromises);
-
-      // Send ONE batch notification
-      var actions = batchBookings.map(function(bk) {
+      await _sendBatchNotification(batchBookings, batchBookings.map(function(bk) {
         return { id: bk.id, action: 'accepted' };
-      });
+      }));
 
-      await _sendBatchNotification(batchBookings, actions);
-
-      // Charge ONE combined payment for the entire batch. This used to be a
-      // silent fire-and-forget — if the fetch returned a non-2xx the error
-      // was swallowed and Rachel never knew. Now everything routes through
-      // _fireAcceptanceCharge which marks payment_hold + toasts on failure
-      // and validates the HTTP response.
       var chargeableBatch = batchBookings.filter(function(bk) { return bk.estimated_total > 0 && bk.client_id; });
       if (chargeableBatch.length > 0) {
         (async function() {
@@ -5569,157 +5699,168 @@
             clientProfileId: chargeableBatch[0].client_id,
             batchBookingIds: batchIds,
           });
-          // Refresh the panel so Rachel sees the final state (paid or payment_hold).
           if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
         })();
       }
 
-      if (typeof toast === 'function') toast('✓ Batch accepted! ' + batchBookings.length + ' booking' + (batchBookings.length !== 1 ? 's' : '') + ' confirmed. Processing payments...');
+      if (typeof toast === 'function') {
+        toast('✓ ' + ids.length + ' booking' + (ids.length !== 1 ? 's' : '') + ' accepted and confirmed. Processing payment...');
+      }
 
       _afterBookingAction();
       setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
 
     } catch (e) {
-      console.error('Failed to accept batch:', e);
-      if (typeof toast === 'function') toast('Error accepting batch');
-      if (batchCard) {
-        batchCard.style.opacity = '1';
-        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
-      }
+      console.error('[batch-accept] threw:', e);
+      _markCardFailed(batchCard, 'FAILED — ' + (e && e.message ? e.message : 'unexpected error') + '. Nothing was changed.');
+      if (typeof toast === 'function') toast('⚠️ Error accepting batch — nothing was changed.');
     }
   };
 
   // Batch submit with modifications: mark as 'batch_review' for client to review
   window.submitBatchModifications = async function(batchKey) {
-    var sb = getSB();
-    if (!sb) return;
+    var g = _batchGuard(batchKey, 'batch-modify');
+    if (!g) return;
+    var sb = g.sb, batchBookings = g.bookings, batchCard = g.card;
+
+    if (!batchCard) {
+      if (typeof toast === 'function') toast('⚠️ Batch card not found — nothing was changed. Reload and try again.');
+      return;
+    }
+    if (!(await _ensureSession(sb, 'batch-modify'))) return;
+
+    _clearCardFailed(batchCard);
+    _lockCard(batchCard, true);
 
     try {
-      // Find all bookings in this batch
-      var batchBookings = _bookingPanelState.requests.filter(function(r) {
-        return r.status === 'pending' &&
-               r.client_id &&
-               r.created_at &&
-               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
-      });
-
-      if (batchBookings.length === 0) {
-        if (typeof toast === 'function') toast('Batch not found');
-        return;
-      }
-
-      // Get marked removals
+      // Scoped to THIS card. These used to query the whole document, so with two
+      // batch cards open, submitting one applied the other card's removals too.
       var removedIds = new Set();
-      document.querySelectorAll('[data-batch-remove-id]').forEach(function(el) {
+      batchCard.querySelectorAll('[data-batch-remove-id]').forEach(function(el) {
         removedIds.add(el.getAttribute('data-batch-remove-id'));
       });
 
-      // Get time changes
       var timeChanges = {};
-      document.querySelectorAll('[data-batch-new-time]').forEach(function(el) {
+      batchCard.querySelectorAll('[data-batch-new-time]').forEach(function(el) {
         var id = el.getAttribute('data-batch-appt-id');
         if (id) timeChanges[id] = el.getAttribute('data-batch-new-time');
       });
 
-      // Mark card as processing
-      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
-      if (batchCard) {
-        batchCard.style.opacity = '0.7';
-        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
-      }
-
-      // Build actions array and update DB
       var actions = [];
-      var updatePromises = batchBookings.map(function(bk) {
+      var removed = [], retimed = {}, kept = {};
+
+      batchBookings.forEach(function(bk) {
         if (removedIds.has(bk.id)) {
           actions.push({ id: bk.id, action: 'removed' });
-          return sb.from('booking_requests').update({ status: 'batch_review' }).eq('id', bk.id);
+          removed.push(bk.id);
         } else if (timeChanges[bk.id]) {
           actions.push({ id: bk.id, action: 'modified', newTime: timeChanges[bk.id], newDate: bk.preferred_date });
-          return sb.from('booking_requests').update({
-            status: 'batch_review',
-            scheduled_date: bk.preferred_date,
-            scheduled_time: timeChanges[bk.id]
-          }).eq('id', bk.id);
+          var rk = bk.preferred_date + '|' + timeChanges[bk.id];
+          (retimed[rk] = retimed[rk] || { date: bk.preferred_date, time: timeChanges[bk.id], ids: [] }).ids.push(bk.id);
         } else {
           actions.push({ id: bk.id, action: 'accepted' });
-          return sb.from('booking_requests').update({
-            status: 'batch_review',
-            scheduled_date: bk.preferred_date,
-            scheduled_time: bk.preferred_time
-          }).eq('id', bk.id);
+          var kk = (bk.preferred_date || '') + '|' + (bk.preferred_time || '');
+          (kept[kk] = kept[kk] || { date: bk.preferred_date, time: bk.preferred_time, ids: [] }).ids.push(bk.id);
         }
       });
 
-      await Promise.all(updatePromises);
+      var expected = batchBookings.length;
+      var totalUpdated = 0, firstError = null;
 
-      // Send ONE batch notification with the actions
+      function absorb(r) {
+        totalUpdated += r.updated;
+        if (!r.ok && !firstError) firstError = r.error;
+      }
+
+      absorb(await _verifiedUpdate(sb, { status: 'batch_review' }, removed, 'batch-modify'));
+
+      var rkeys = Object.keys(retimed);
+      for (var a = 0; a < rkeys.length; a++) {
+        absorb(await _verifiedUpdate(sb, {
+          status: 'batch_review',
+          scheduled_date: retimed[rkeys[a]].date,
+          scheduled_time: retimed[rkeys[a]].time
+        }, retimed[rkeys[a]].ids, 'batch-modify'));
+      }
+
+      var kkeys = Object.keys(kept);
+      for (var b = 0; b < kkeys.length; b++) {
+        absorb(await _verifiedUpdate(sb, {
+          status: 'batch_review',
+          scheduled_date: kept[kkeys[b]].date,
+          scheduled_time: kept[kkeys[b]].time
+        }, kept[kkeys[b]].ids, 'batch-modify'));
+      }
+
+      // HARD STOP. The client is only told about changes that actually landed.
+      // Previously the notification fired regardless, which is how Kyle received
+      // three confirmations for a batch that never moved.
+      if (totalUpdated !== expected) {
+        var detail = firstError ? firstError.message : 'the database rejected the change';
+        _markCardFailed(batchCard,
+          'FAILED — ' + totalUpdated + ' of ' + expected + ' rows updated. The client was NOT notified. Reason: ' + detail);
+        if (typeof toast === 'function') {
+          toast('⚠️ Batch NOT sent (' + totalUpdated + '/' + expected + ' updated). Client was not notified.');
+        }
+        return;
+      }
+
       await _sendBatchNotification(batchBookings, actions);
 
-      if (typeof toast === 'function') toast('✓ Batch submitted for client review');
+      if (typeof toast === 'function') {
+        toast('✓ ' + expected + ' row' + (expected !== 1 ? 's' : '') + ' updated. Sent to client for review.');
+      }
 
       _afterBookingAction();
       setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
 
     } catch (e) {
-      console.error('Failed to submit batch modifications:', e);
-      if (typeof toast === 'function') toast('Error submitting batch');
-      if (batchCard) {
-        batchCard.style.opacity = '1';
-        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
-      }
+      console.error('[batch-modify] threw:', e);
+      _markCardFailed(batchCard, 'FAILED — ' + (e && e.message ? e.message : 'unexpected error') + '. Nothing was changed.');
+      if (typeof toast === 'function') toast('⚠️ Error submitting batch — nothing was changed.');
     }
   };
 
   // Batch decline: decline all bookings in batch
   window.declineBatchBookings = async function(batchKey) {
-    var sb = getSB();
-    if (!sb) return;
-    if (!confirm('Are you sure you want to decline ALL bookings in this batch?')) return;
+    var g = _batchGuard(batchKey, 'batch-decline');
+    if (!g) return;
+    var sb = g.sb, batchBookings = g.bookings, batchCard = g.card;
+
+    if (!confirm('Are you sure you want to decline ALL ' + batchBookings.length + ' bookings in this batch?')) return;
+    if (!(await _ensureSession(sb, 'batch-decline'))) return;
+
+    _clearCardFailed(batchCard);
+    _lockCard(batchCard, true);
 
     try {
-      var batchBookings = _bookingPanelState.requests.filter(function(r) {
-        return r.status === 'pending' &&
-               r.client_id &&
-               r.created_at &&
-               (r.client_id + '|' + Math.floor(new Date(r.created_at).getTime() / 2000)) === batchKey;
-      });
+      var ids = batchBookings.map(function(bk) { return bk.id; });
+      var r = await _verifiedUpdate(sb, { status: 'declined' }, ids, 'batch-decline');
 
-      if (batchBookings.length === 0) {
-        if (typeof toast === 'function') toast('Batch not found');
+      if (!r.ok) {
+        var detail = r.error ? r.error.message : 'the database rejected the change';
+        _markCardFailed(batchCard,
+          'FAILED — ' + r.updated + ' of ' + ids.length + ' declined. The client was NOT notified. Reason: ' + detail);
+        if (typeof toast === 'function') {
+          toast('⚠️ Batch NOT declined (' + r.updated + '/' + ids.length + '). Client was not notified.');
+        }
         return;
       }
 
-      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
-      if (batchCard) {
-        batchCard.style.opacity = '0.7';
-        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = true; });
-      }
-
-      var updatePromises = batchBookings.map(function(bk) {
-        return sb.from('booking_requests').update({ status: 'declined' }).eq('id', bk.id);
-      });
-
-      await Promise.all(updatePromises);
-
-      var actions = batchBookings.map(function(bk) {
+      await _sendBatchNotification(batchBookings, batchBookings.map(function(bk) {
         return { id: bk.id, action: 'removed' };
-      });
+      }));
 
-      await _sendBatchNotification(batchBookings, actions);
-
-      if (typeof toast === 'function') toast('Batch declined. Client notified.');
+      if (typeof toast === 'function') {
+        toast('✓ ' + ids.length + ' booking' + (ids.length !== 1 ? 's' : '') + ' declined. Client notified.');
+      }
       _afterBookingAction();
       setTimeout(function() { window.loadBookingRequestsPanel(_bookingPanelState.portal); }, 500);
 
     } catch (e) {
-      console.error('Failed to decline batch:', e);
-      if (typeof toast === 'function') toast('Error declining batch');
-      var batchCard = document.querySelector('[data-batch-id="' + batchKey + '"]');
-      if (batchCard) {
-        batchCard.style.opacity = '1';
-        batchCard.querySelectorAll('button').forEach(function(b) { b.disabled = false; });
-      }
+      console.error('[batch-decline] threw:', e);
+      _markCardFailed(batchCard, 'FAILED — ' + (e && e.message ? e.message : 'unexpected error') + '. Nothing was changed.');
+      if (typeof toast === 'function') toast('⚠️ Error declining batch — nothing was changed.');
     }
   };
 
@@ -6076,9 +6217,39 @@
     }
 
     try {
+      // /api/complete-housesitting requires a Bearer token — it 401s without one.
+      // This header was missing, so EVERY attempt to finish a house sit failed with
+      // "Unauthorized" from the day the feature shipped. Six real stays between Jun
+      // and Aug 2026 ($125-$1,187 each) were never completed, no client ever got a
+      // report card, and no extra-nights top-up was ever billed.
+      var sb = getSB();
+      if (!sb) {
+        if (typeof toast === 'function') toast('⚠️ Not connected — reload the page and sign in again.');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = '1'; }
+        return;
+      }
+      var token = null;
+      try {
+        // Refresh first: a long-open dashboard tab outlives the ~1h JWT.
+        await sb.auth.refreshSession();
+        var sess = await sb.auth.getSession();
+        token = sess && sess.data && sess.data.session ? sess.data.session.access_token : null;
+      } catch (sessErr) {
+        console.error('[hs-report] session lookup failed', sessErr);
+      }
+      if (!token) {
+        if (typeof toast === 'function') toast('⚠️ Your session expired — nothing was changed. Reload and sign in again.');
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = '📋 Complete Stay & Charge $' + (rpt.perNight * rpt.currentNights).toFixed(2);
+          submitBtn.style.opacity = '1';
+        }
+        return;
+      }
+
       var resp = await fetch('/api/complete-housesitting', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({
           bookingRequestId: rpt.bookingId,
           adjustedNights: rpt.currentNights !== rpt.originalNights ? rpt.currentNights : null,
@@ -6099,7 +6270,11 @@
         if (typeof window.loadMasterSchedule === 'function') window.loadMasterSchedule();
         if (typeof window.loadCalendarBookings === 'function') window.loadCalendarBookings();
       } else {
-        if (typeof toast === 'function') toast('⚠️ Error: ' + (data.error || 'Could not complete'));
+        console.error('[hs-report] server refused:', resp.status, data);
+        if (typeof toast === 'function') {
+          toast('⚠️ NOT completed (' + resp.status + '): ' + (data.error || 'unknown') +
+                '. Nothing was charged and the client was not notified.');
+        }
         if (submitBtn) {
           submitBtn.disabled = false;
           submitBtn.textContent = '📋 Complete Stay & Charge $' + (rpt.perNight * rpt.currentNights).toFixed(2);
@@ -6142,11 +6317,41 @@
             try {
               // Recurring bookings: trigger first-week billing (Sunday cron handles ongoing)
               if (booking.recurrence_pattern) {
+                // This endpoint 401s without a Bearer token. It was called without one, so
+                // the "already billed at acceptance" marker was never written — and the
+                // Sunday cron then billed the first occurrence a SECOND time. That is the
+                // Julia Bossert double charge of 30 Aug 2026: $42.50 twice for two visits.
+                var fwTok = null;
+                try {
+                  var fwSb = getSB();
+                  if (fwSb) {
+                    var fwSess = await fwSb.auth.getSession();
+                    fwTok = fwSess && fwSess.data && fwSess.data.session
+                      ? fwSess.data.session.access_token : null;
+                  }
+                } catch (e) { console.error('[first-week] session lookup failed', e); }
+                if (!fwTok) {
+                  console.error('[first-week] NO TOKEN — acceptance charge not recorded. ' +
+                                'The Sunday cron WILL double-bill booking ' + requestId);
+                  if (typeof toast === 'function') {
+                    toast('⚠️ Recurring set up, but first-week billing was NOT recorded. ' +
+                          'Tell Dom before Sunday or this client gets charged twice.');
+                  }
+                  return;
+                }
                 var fwResp = await fetch('/api/recurring-invoices?firstWeek=true&bookingId=' + requestId, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + fwTok },
                   body: JSON.stringify({ firstWeek: true, bookingId: requestId }),
                 });
+                if (!fwResp.ok) {
+                  console.error('[first-week] server refused:', fwResp.status);
+                  if (typeof toast === 'function') {
+                    toast('⚠️ First-week billing NOT recorded (' + fwResp.status + '). ' +
+                          'The Sunday cron may double-charge this client — tell Dom.');
+                  }
+                  return;
+                }
                 var fwData = await fwResp.json();
                 if (fwData.charged > 0) {
                   if (typeof toast === 'function') toast('\uD83D\uDCB3 Recurring: billed for this week!');

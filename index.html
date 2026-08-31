@@ -8149,6 +8149,22 @@ function stopClientLiveTrack(bookingId) {
 }
 
 // ── Client: Retry Payment (for payment_hold bookings where card was declined) ──
+// ── Shared: fetch the caller's Supabase access token for /api calls ──
+// Several endpoints require `Authorization: Bearer <token>` and return 401
+// without it. Calls that omitted it failed silently for months — the client
+// payment retry, announcement emails, and Cloudinary deletes all did nothing.
+async function _hhpAuthToken() {
+  try {
+    var sb = (window.HHP_Auth && window.HHP_Auth.supabase) || window._hhpSB || null;
+    if (!sb) return null;
+    var s = await sb.auth.getSession();
+    return (s && s.data && s.data.session) ? s.data.session.access_token : null;
+  } catch (e) {
+    console.error('[auth-token] lookup failed', e);
+    return null;
+  }
+}
+
 async function payEarly(bookingId, amount, service, btn) {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
@@ -8161,9 +8177,15 @@ async function payEarly(bookingId, amount, service, btn) {
   if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Processing...'; }
 
   try {
+    var _tok = await _hhpAuthToken();
+    if (!_tok) {
+      if (typeof toast === 'function') toast('⚠️ Your session expired — please sign in again. Nothing was charged.');
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Retry Payment'; }
+      return;
+    }
     var resp = await fetch('/api/charge-saved-card', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _tok },
       body: JSON.stringify({
         bookingRequestId: bookingId,
         amount: amount,
@@ -14203,9 +14225,14 @@ async function submitAnnouncement() {
       // Also send email if "In-App + Email" was selected
       if (via === 'in_app_email') {
         try {
+          var _annTok = await _hhpAuthToken();
+          if (!_annTok) {
+            toast('⚠️ In-app announcement sent, but the EMAIL was not — session expired.');
+            throw new Error('no token for announcement email');
+          }
           var emailRes = await fetch('/api/send-announcement-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _annTok },
             body: JSON.stringify({ message: messageText.trim(), sendTo: sendTo, dealName: dealName || '', dealDetails: dealDetails || '' })
           });
           var emailData = await emailRes.json();
@@ -16282,7 +16309,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/js/report-submission.js?v=20260511a" defer></script>
 
 <!-- Cloudinary Photo Manager -->
-<script src="/js/cloudinary-client.js?v=20260517e" defer></script>
+<script src="/js/cloudinary-client.js?v=20260827a" defer></script>
     <!-- Public site hamburger menu controller -->
     <script>
       (function() {
@@ -17824,7 +17851,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260715a" defer></script>
+  <script src="/js/booking-system.js?v=20260827a" defer></script>
   <script src="/js/messaging.js?v=20260618a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>

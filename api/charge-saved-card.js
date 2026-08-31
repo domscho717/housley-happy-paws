@@ -1,6 +1,7 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
+const { getDestination, recordUnroutedFee } = require('./_platform-fee');
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -129,7 +130,8 @@ module.exports = async function handler(req, res) {
     const paymentMethodId = methods.data[0].id;
 
     // Charge immediately — Rover model: charge at acceptance, refund on cancel
-    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    // Logs loudly if unset; never blocks the customer charge.
+    const connectedAccountId = getDestination('charge-saved-card');
     const amountCents = Math.round(amount * 100);
     const devShareCents = connectedAccountId ? Math.round(amountCents * 0.15) : 0;
 
@@ -217,7 +219,14 @@ module.exports = async function handler(req, res) {
           });
           console.log('[charge] Transfer SUCCESS:', transfer.id, '$' + (devShareCents / 100).toFixed(2));
         } catch (transferErr) {
-          console.error('[charge] Transfer FAILED (non-blocking):', transferErr.message);
+          // Money is already taken; refusing cannot undo it. Record it so it can
+          // be found and reconciled. Query: notes ILIKE '%FEE-UNROUTED%'
+          await recordUnroutedFee(supabase, {
+            paymentIntentId: paymentIntent.id,
+            amountCents: devShareCents,
+            context: 'charge-saved-card',
+            reason: transferErr.message,
+          });
         }
       }
 

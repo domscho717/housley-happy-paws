@@ -6,3 +6,4 @@ node_modules/
 .env*.local
 # trigger
 # deploy trigger
+.env*

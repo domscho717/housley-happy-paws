@@ -53,7 +53,7 @@ module.exports = async function handler(req, res) {
         process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
         process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
       );
-      const { data: callerProfile } = await svcSupabase.from('profiles').select('role').eq('id', authUser.id).single();
+      const { data: callerProfile } = await svcSupabase.from('profiles').select('role').eq('user_id', authUser.id).maybeSingle();
       if (!callerProfile || (callerProfile.role !== 'owner' && callerProfile.role !== 'staff')) {
         return res.status(403).json({ error: 'Forbidden — only owner/staff can trigger first-week billing' });
       }

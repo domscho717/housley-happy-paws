@@ -519,13 +519,31 @@ const HHP_Photos = window.HHP_Photos = {
 
     // Try to delete from Cloudinary via API
     try {
+      // Without a Bearer token this 401s and the image stays live on a public
+      // Cloudinary URL even though the app shows it as deleted.
+      let _cldTok = null;
+      try {
+        const _sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
+        if (_sb) {
+          const _s = await _sb.auth.getSession();
+          _cldTok = (_s && _s.data && _s.data.session) ? _s.data.session.access_token : null;
+        }
+      } catch (e) { console.error('[cloudinary-delete] session lookup failed', e); }
+
       const response = await fetch('/api/cloudinary-delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign(
+          { 'Content-Type': 'application/json' },
+          _cldTok ? { 'Authorization': 'Bearer ' + _cldTok } : {}
+        ),
         body: JSON.stringify({ publicId: photo.publicId })
       });
       if (!response.ok) {
-        console.warn('Could not delete from Cloudinary — will remove reference only');
+        console.error('[cloudinary-delete] FAILED (' + response.status + ') — the image is STILL ' +
+                      'publicly reachable at its Cloudinary URL. publicId=' + photo.publicId);
+        if (typeof toast === 'function') {
+          toast('⚠️ Removed from the page, but the image is still stored online. Tell Dom.');
+        }
       }
     } catch (err) {
       console.warn('Cloudinary delete API not available:', err);

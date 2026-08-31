@@ -1,6 +1,7 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
+const { getDestination, recordUnroutedFee } = require('./_platform-fee');
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', 'https://www.housleyhappypaws.com');
@@ -92,7 +93,8 @@ module.exports = async function handler(req, res) {
 
     const paymentMethodId = methods.data[0].id;
     const amountCents = Math.round(tipAmount * 100);
-    const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+    // Logs loudly if unset; never blocks the customer charge.
+    const connectedAccountId = getDestination('charge-tip');
     const devShareCents = connectedAccountId ? Math.round(amountCents * 0.15) : 0;
 
     console.log('[tip] Charging tip of $' + tipAmount + ' for ' + (service || 'Pet Care'));
@@ -132,7 +134,14 @@ module.exports = async function handler(req, res) {
           });
           console.log('[tip] Transfer SUCCESS:', transfer.id);
         } catch (transferErr) {
-          console.error('[tip] Transfer FAILED (non-blocking):', transferErr.message);
+          // Money is already taken; refusing cannot undo it. Record it so it can
+          // be found and reconciled. Query: notes ILIKE '%FEE-UNROUTED%'
+          await recordUnroutedFee(supabase, {
+            paymentIntentId: paymentIntent.id,
+            amountCents: devShareCents,
+            context: 'charge-tip',
+            reason: transferErr.message,
+          });
         }
       }
 

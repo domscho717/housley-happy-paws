@@ -12,6 +12,7 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
+const { getDestination, recordUnroutedFee } = require('./_platform-fee');
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -35,7 +36,8 @@ module.exports = async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
   );
 
-  const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
+  // Logs loudly if unset; never blocks the customer charge.
+  const connectedAccountId = getDestination('retry-failed-payments');
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.housleyhappypaws.com';
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
@@ -203,7 +205,14 @@ module.exports = async function handler(req, res) {
                 description: `15% dev share — ${booking.service || 'Pet Care'} retry #${attempts + 1} (#${booking.id.slice(0, 8)})`,
               });
             } catch (transferErr) {
-              console.error('[retry-payments] Transfer failed (non-blocking):', transferErr.message);
+              // Money is already taken; refusing cannot undo it. Record it so it can
+              // be found and reconciled. Query: notes ILIKE '%FEE-UNROUTED%'
+              await recordUnroutedFee(supabase, {
+                paymentIntentId: paymentIntent.id,
+                amountCents: devShareCents,
+                context: 'retry-failed-payments',
+                reason: transferErr.message,
+              });
             }
           }
 
