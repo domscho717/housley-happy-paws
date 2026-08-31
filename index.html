@@ -12251,11 +12251,11 @@ async function _sendInvoiceInner(name, email, service, amount, dueDate, serviceD
   } catch (err) {
     console.error('[sendInvoice] failed:', err);
     var msg = (err && err.message) ? err.message : 'unknown error — see console';
-    // Build a debug-log summary the user can read out to Domenic if it persists.
+    // Build a debug-log summary the owner can pass to support if it persists.
     var debugSnippet = '';
     if (err && err.debugLog && err.debugLog.length) {
       var tail = err.debugLog.slice(-5).map(function(e) { return e.step; }).join(' → ');
-      debugSnippet = '<div style="margin-top:8px;font-size:0.78rem;opacity:0.9">Debug trail: ' + tail + ' — open DevTools Console + read <code>window.__hhp_invoice_debug</code> to Domenic.</div>';
+      debugSnippet = '<div style="margin-top:8px;font-size:0.78rem;opacity:0.9">Debug trail: ' + tail + ' — open DevTools Console + read <code>window.__hhp_invoice_debug</code> for support.</div>';
     }
     if (err && err.timeout) {
       _setInvBanner('warning',
@@ -17851,7 +17851,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260827a" defer></script>
+  <script src="/js/booking-system.js?v=20260827c" defer></script>
   <script src="/js/messaging.js?v=20260618a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>

@@ -5717,7 +5717,9 @@
     }
   };
 
-  // Batch submit with modifications: mark as 'batch_review' for client to review
+  // Batch submit with modifications: mark as 'modified' for client review.
+  // NOT 'batch_review' — booking_requests_status_check rejects that value, which
+  // is why every batch modify failed at the DB while still emailing the client.
   window.submitBatchModifications = async function(batchKey) {
     var g = _batchGuard(batchKey, 'batch-modify');
     if (!g) return;
@@ -5772,12 +5774,12 @@
         if (!r.ok && !firstError) firstError = r.error;
       }
 
-      absorb(await _verifiedUpdate(sb, { status: 'batch_review' }, removed, 'batch-modify'));
+      absorb(await _verifiedUpdate(sb, { status: 'modified' }, removed, 'batch-modify'));
 
       var rkeys = Object.keys(retimed);
       for (var a = 0; a < rkeys.length; a++) {
         absorb(await _verifiedUpdate(sb, {
-          status: 'batch_review',
+          status: 'modified',
           scheduled_date: retimed[rkeys[a]].date,
           scheduled_time: retimed[rkeys[a]].time
         }, retimed[rkeys[a]].ids, 'batch-modify'));
@@ -5786,7 +5788,7 @@
       var kkeys = Object.keys(kept);
       for (var b = 0; b < kkeys.length; b++) {
         absorb(await _verifiedUpdate(sb, {
-          status: 'batch_review',
+          status: 'modified',
           scheduled_date: kept[kkeys[b]].date,
           scheduled_time: kept[kkeys[b]].time
         }, kept[kkeys[b]].ids, 'batch-modify'));
