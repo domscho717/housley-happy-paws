@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
 
   const supabase = createClient(
     process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
   const forceResend = qs.force === '1' || qs.force === 'true' || qs.force === true;
   const overrideDate = (qs.date && /^\d{4}-\d{2}-\d{2}$/.test(qs.date)) ? qs.date : null;

@@ -3666,16 +3666,20 @@ try {
     <!-- Recurring Options -->
     <div id="cancelModal_recurringGroup" style="display:none;margin-bottom:16px">
       <label style="font-size:0.88rem;font-weight:600;color:var(--ink);display:block;margin-bottom:10px">This is a recurring booking. Cancel:</label>
+      <div id="cancelModal_dateWrap" style="margin-bottom:12px">
+        <label for="cancelModal_dateSelect" style="font-size:0.8rem;font-weight:600;color:var(--mid);display:block;margin-bottom:6px">Which date?</label>
+        <select id="cancelModal_dateSelect" onchange="_hhpOnCancelDateChange()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);font-size:0.88rem;font-family:inherit;color:var(--ink);cursor:pointer"></select>
+      </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
-          <input type="radio" name="cancelOption" value="this" checked style="cursor:pointer;margin-top:3px">
+          <input type="radio" name="cancelOption" value="this" checked onchange="_hhpRenderCancelNotices()" style="cursor:pointer;margin-top:3px">
           <div>
             <div style="font-size:0.86rem;font-weight:600;color:var(--ink)">Just this one date</div>
             <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Future weeks of this recurring service keep running.</div>
           </div>
         </label>
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
-          <input type="radio" name="cancelOption" value="future" style="cursor:pointer;margin-top:3px">
+          <input type="radio" name="cancelOption" value="future" onchange="_hhpRenderCancelNotices()" style="cursor:pointer;margin-top:3px">
           <div>
             <div style="font-size:0.86rem;font-weight:600;color:var(--ink)">Cancel ENTIRE series</div>
             <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Stops every future occurrence. Any sent but unpaid invoices are voided; future weeks are not billed.</div>
@@ -10902,6 +10906,101 @@ function getCancelType(bookingDate) {
   return new Date() <= cutoff ? 'free' : 'late';
 }
 
+// R16: build the real upcoming occurrence list for a recurring booking.
+// Self-contained on purpose — isRecurringOnDate() lives in another scope and
+// every existing caller guards it with typeof, so we can't rely on it here.
+// Mirrors that function's per_card + legacy logic.
+function _hhpUpcomingOccurrences(bk, limit) {
+  var out = [];
+  if (!bk || !bk.recurrence_pattern) return out;
+  var pattern = bk.recurrence_pattern;
+  try { if (typeof pattern === 'string') pattern = JSON.parse(pattern); } catch (e) { return out; }
+  if (!pattern) return out;
+
+  var canceled = Array.isArray(bk.canceled_dates) ? bk.canceled_dates : [];
+  var max = limit || 12;
+  var cursor = new Date();
+  cursor.setHours(12, 0, 0, 0);
+
+  for (var i = 0; i < 400 && out.length < max; i++) {
+    var mm = String(cursor.getMonth() + 1); if (mm.length < 2) mm = '0' + mm;
+    var dd2 = String(cursor.getDate());     if (dd2.length < 2) dd2 = '0' + dd2;
+    var ds = cursor.getFullYear() + '-' + mm + '-' + dd2;
+    var hit = false;
+
+    if (pattern.type === 'per_card' && Array.isArray(pattern.schedules)) {
+      for (var s = 0; s < pattern.schedules.length; s++) {
+        var sc = pattern.schedules[s];
+        if (!sc.start_date) continue;
+        var start = new Date(sc.start_date + 'T12:00:00');
+        if (cursor < start) continue;
+        if (!sc.ongoing && sc.end_date && cursor > new Date(sc.end_date + 'T23:59:59')) continue;
+        if (cursor.getDay() !== start.getDay()) continue;
+        var diff = Math.round((cursor - start) / 86400000);
+        if (diff % (sc.frequency === 'biweekly' ? 14 : 7) !== 0) continue;
+        hit = true; break;
+      }
+    } else if (pattern.days && Array.isArray(pattern.days)) {
+      var dayMap = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+      var cd = cursor.getDay();
+      if (pattern.days.some(function (dn) { return dayMap[dn] === cd; })) {
+        var okEnd = !pattern.end_date || cursor <= new Date(pattern.end_date + 'T23:59:59');
+        var okFreq = true;
+        if (pattern.frequency === 'biweekly') {
+          var sd = new Date((bk.preferred_date || bk.scheduled_date) + 'T12:00:00');
+          okFreq = Math.round((cursor - sd) / 604800000) % 2 === 0;
+        }
+        hit = okEnd && okFreq;
+      }
+    }
+
+    if (hit && canceled.indexOf(ds) === -1) out.push(ds);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return out;
+}
+
+function _hhpOnCancelDateChange() {
+  var sel = document.getElementById('cancelModal_dateSelect');
+  if (!sel || !sel.value) return;
+  _cancelData.date = sel.value;
+  _hhpRenderCancelNotices();
+}
+
+// Redraws the date line, the 48-hour notice and the refund prompt against
+// whatever date/scope is currently selected.
+function _hhpRenderCancelNotices() {
+  var d = _cancelData.date;
+  var dEl = document.getElementById('cancelModal_date');
+  if (dEl) dEl.textContent = d
+    ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    : 'TBD';
+
+  var scopeEl = document.querySelector('input[name="cancelOption"]:checked');
+  var singleDate = !!_cancelData.isRecurring && (scopeEl ? scopeEl.value : 'this') === 'this';
+
+  // The 48-hour window is measured from the date actually being canceled.
+  var late = d ? (getCancelType(d) === 'late') : false;
+  var warningEl = document.getElementById('cancelModal_warning');
+  var refundNoticeEl = document.getElementById('cancelModal_refundNotice');
+  if (warningEl) warningEl.style.display = late ? '' : 'none';
+  if (refundNoticeEl) refundNoticeEl.style.display = late ? 'none' : '';
+
+  var wrap = document.getElementById('cancelModal_dateWrap');
+  if (wrap) wrap.style.display = singleDate ? '' : 'none';
+
+  // Refund prompt: owner/staff only, on a paid booking — and NEVER when
+  // canceling a single date of a series. The parent row's payment_intent_id
+  // is the FIRST occurrence's charge, so offering "full refund" here would
+  // refund a different date's money than the one being canceled.
+  var refundGroup = document.getElementById('cancelModal_refundGroup');
+  if (refundGroup) {
+    var canRefund = !!_cancelData.paymentIntentId && !singleDate &&
+      (_cancelData.canceledBy === 'owner' || _cancelData.canceledBy === 'staff');
+    refundGroup.style.display = canRefund ? '' : 'none';
+  }
+}
+
 async function openCancelModal(bookingRequestId, service, date, clientName, isRecurring, canceledBy) {
   // Store data for confirm action
   _cancelData.bookingRequestId = bookingRequestId;
@@ -10913,55 +11012,74 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
   _cancelData.paymentIntentId = null;
   _cancelData.paidAmount = 0;
 
-  // Populate modal with booking details
-  var dateDisplay = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : 'TBD';
   document.getElementById('cancelModal_service').textContent = service || 'Pet Care';
-  document.getElementById('cancelModal_date').textContent = dateDisplay;
   document.getElementById('cancelModal_client').textContent = clientName || 'Client';
 
-  // Show/hide warning or refund notice based on cancel type
-  var cancelType = getCancelType(date);
-  var warningEl = document.getElementById('cancelModal_warning');
-  var refundNoticeEl = document.getElementById('cancelModal_refundNotice');
-  if (cancelType === 'late') {
-    warningEl.style.display = '';
-    if (refundNoticeEl) refundNoticeEl.style.display = 'none';
-  } else {
-    warningEl.style.display = 'none';
-    if (refundNoticeEl) refundNoticeEl.style.display = '';
+  var recurringGroup = document.getElementById('cancelModal_recurringGroup');
+  var sel = document.getElementById('cancelModal_dateSelect');
+  if (sel) sel.innerHTML = '';
+
+  // Load the row once: we need the recurrence pattern to build the date list
+  // AND the payment fields for the refund prompt.
+  var bk = null;
+  try {
+    var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+    if (sb) {
+      var res = await sb.from('booking_requests')
+        .select('payment_intent_id, estimated_total, recurrence_pattern, canceled_dates, preferred_date, scheduled_date')
+        .eq('id', bookingRequestId).maybeSingle();
+      bk = (res && res.data) ? res.data : null;
+    }
+  } catch (e) { console.warn('[cancel] booking lookup failed:', e); }
+
+  if (bk && bk.payment_intent_id) {
+    _cancelData.paymentIntentId = bk.payment_intent_id;
+    _cancelData.paidAmount = bk.estimated_total || 0;
+    var pa = document.getElementById('cancelModal_paidAmount');
+    if (pa) pa.textContent = '$' + Number(_cancelData.paidAmount).toFixed(2);
+    var refundRadio = document.querySelector('input[name="refundOption"][value="refund"]');
+    if (refundRadio) refundRadio.checked = true;
   }
 
-  // Show/hide recurring options
-  var recurringGroup = document.getElementById('cancelModal_recurringGroup');
   if (isRecurring) {
     recurringGroup.style.display = '';
-    document.querySelector('input[name="cancelOption"][value="this"]').checked = true;
+    var thisRadio = document.querySelector('input[name="cancelOption"][value="this"]');
+    if (thisRadio) thisRadio.checked = true;
+
+    // R16 — the bug Rachel reported on 4 Sep 2026. Every call site passes the
+    // row's scheduled_date, which for a recurring series is the FIRST date,
+    // not the occurrence the client tapped. Julia clicked Mon Sep 7 and the
+    // modal said Mon Aug 31: "just this one date" would have canceled a date
+    // already in the past, left Sep 7 live, and shown a late-fee warning
+    // computed against a date that had already happened. Rather than thread an
+    // occurrence date through ~15 call sites, let the user pick the date —
+    // which is also exactly what Rachel asked for.
+    var dates = _hhpUpcomingOccurrences(bk || {}, 12);
+    if (sel) {
+      if (dates.length) {
+        dates.forEach(function (ds) {
+          var o = document.createElement('option');
+          o.value = ds;
+          o.textContent = new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+          sel.appendChild(o);
+        });
+        sel.value = (dates.indexOf(date) !== -1) ? date : dates[0];
+        _cancelData.date = sel.value;
+      } else {
+        var o2 = document.createElement('option');
+        o2.value = date || '';
+        o2.textContent = date
+          ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+          : 'No upcoming dates';
+        sel.appendChild(o2);
+        _cancelData.date = date || '';
+      }
+    }
   } else {
     recurringGroup.style.display = 'none';
   }
 
-  // Show/hide refund option — only for owner/staff canceling a paid booking
-  var refundGroup = document.getElementById('cancelModal_refundGroup');
-  refundGroup.style.display = 'none';
-  if (canceledBy === 'owner' || canceledBy === 'staff') {
-    try {
-      var sb = window.HHP_Auth && window.HHP_Auth.supabase;
-      if (sb) {
-        var { data: bk } = await sb.from('booking_requests').select('payment_intent_id, estimated_total').eq('id', bookingRequestId).maybeSingle();
-        if (bk && bk.payment_intent_id) {
-          _cancelData.paymentIntentId = bk.payment_intent_id;
-          _cancelData.paidAmount = bk.estimated_total || 0;
-          document.getElementById('cancelModal_paidAmount').textContent = '$' + Number(_cancelData.paidAmount).toFixed(2);
-          refundGroup.style.display = '';
-          // Default to refund for owner/staff cancels
-          var refundRadio = document.querySelector('input[name="refundOption"][value="refund"]');
-          if (refundRadio) refundRadio.checked = true;
-        }
-      }
-    } catch(e) { console.warn('Could not check payment status:', e); }
-  }
-
-  // Open modal
+  _hhpRenderCancelNotices();
   openModal('cancelBookingModal');
 }
 
@@ -10984,8 +11102,15 @@ async function confirmCancelBooking() {
 
     // Check refund selection (only present for owner/staff paid cancels)
     var refundOption = document.querySelector('input[name="refundOption"]:checked');
+    var refundGroupEl = document.getElementById('cancelModal_refundGroup');
+    // The "Yes, issue full refund" radio is checked by default and stays
+    // checked even when the group is hidden — so we must also confirm the
+    // group is actually on screen. Without this, canceling ONE date of a
+    // recurring series would silently refund the series' first-occurrence
+    // payment, which is a different date's money.
+    var refundVisible = !!refundGroupEl && refundGroupEl.style.display !== 'none';
     var issueRefund = false;
-    if (_cancelData.paymentIntentId && refundOption && refundOption.value === 'refund') {
+    if (_cancelData.paymentIntentId && refundVisible && refundOption && refundOption.value === 'refund') {
       issueRefund = true;
     }
 
@@ -14800,8 +14925,12 @@ async function sendReportEmailNotification(clientId, service, reportDate) {
     var { data } = await HHP_Auth.supabase
       .from('profiles')
       .select('email, full_name')
-      .eq('id', clientId)
-      .single();
+      // clientId comes from the #rpt-client / #srpt-client dropdown, which
+      // carries profiles.user_id (all 94 service_reports.client_id rows match
+      // user_id, none match profiles.id). Looking it up by .eq('id', …) found
+      // nothing every time, so no report email was ever sent from here.
+      .eq('user_id', clientId)
+      .maybeSingle();
     if (data && data.email) {
       var subject = encodeURIComponent('New Service Report from Housley Happy Paws');
       var body = encodeURIComponent(
@@ -15898,13 +16027,18 @@ async function _sendReviewRequest(clientProfileId, reportId, service, petName) {
   if (!sb || !clientProfileId) return;
 
   try {
-    // Get client's user_id from profile id
-    var { data: clientProfile } = await sb.from('profiles').select('user_id').eq('id', clientProfileId).single();
-    if (!clientProfile || !clientProfile.user_id) return;
+    // The caller passes the report dropdown's value, which is already the
+    // auth user_id — not a profiles.id. The old .eq('id', …) lookup matched
+    // nothing, so this function returned early every time and no client has
+    // ever received a review request. Resolve by user_id and fall back to the
+    // value itself.
+    var { data: clientProfile } = await sb.from('profiles').select('user_id').eq('user_id', clientProfileId).maybeSingle();
+    var clientUserId = (clientProfile && clientProfile.user_id) || clientProfileId;
+    if (!clientUserId) return;
 
     // Send an in-app notification asking for a review
     await sb.from('notifications').insert({
-      user_id: clientProfile.user_id,
+      user_id: clientUserId,
       title: '⭐ How was your visit?',
       body: 'Your ' + (service || 'service') + ' report' + (petName ? ' for ' + petName : '') + ' is ready! We\'d love to hear your feedback.',
       type: 'review_request',
@@ -17908,7 +18042,7 @@ document.addEventListener('DOMContentLoaded', function() {
       js.onload=function(){
         leafletLoaded=true;
         // Check if live-tracking.js is already loaded to prevent double-load
-        var existingScript=document.querySelector('script[src="/js/live-tracking.js"]');
+        var existingScript=document.querySelector('script[src^="/js/live-tracking.js"]');
         if(!existingScript){
           var t=document.createElement('script');t.src='/js/live-tracking.js?v=20260620a';
           if(cb)t.onload=cb;document.body.appendChild(t);

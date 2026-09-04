@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
       // Verify caller is owner or staff
       const svcSupabase = createClient(
         process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+        process.env.SUPABASE_SERVICE_ROLE_KEY
       );
       const { data: callerProfile } = await svcSupabase.from('profiles').select('role').eq('user_id', authUser.id).maybeSingle();
       if (!callerProfile || (callerProfile.role !== 'owner' && callerProfile.role !== 'staff')) {
@@ -69,7 +69,7 @@ module.exports = async function handler(req, res) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const supabase = createClient(
     process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
   // ── Date helpers (Eastern time, auto-adjusts for DST) ──

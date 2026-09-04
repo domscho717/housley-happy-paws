@@ -39,7 +39,7 @@ Add these (for ALL environments: Production, Preview, Development):
 
 | Variable | Value |
 |----------|-------|
-| `STRIPE_SECRET_KEY` | `sk_test_51TADQQGXeWFMBaIc3ev5hi...` (your full test key) |
+| `STRIPE_SECRET_KEY` | (paste your key from the Stripe dashboard - never commit it) |
 | `STRIPE_WEBHOOK_SECRET` | (set up in Step 5) |
 | `NEXT_PUBLIC_SITE_URL` | `https://housleyhappypaws.com` |
 

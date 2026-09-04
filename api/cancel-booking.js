@@ -2,6 +2,21 @@ const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 const { sendEmail, sendToRachel, fmt12, escHtml, SITE_URL } = require('./_email');
 
+
+// Julia Bossert, Sep 2026: her $42.50 PaymentIntent had already been fully
+// refunded by hand, but the cancel flow still offered "issue full refund" and
+// would have called stripe.refunds.create() on it again. Checking status alone
+// is not enough — a fully refunded PI still reads 'succeeded'. The idempotency
+// keys below only stop an identical replay within 24h, not a second refund
+// with different params.
+function _fullyRefunded(intent) {
+  if (!intent) return true;
+  if (intent.refunded === true) return true;
+  const amt = intent.amount_received || intent.amount || 0;
+  const ref = intent.amount_refunded || 0;
+  return amt > 0 && ref >= amt;
+}
+
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', 'https://www.housleyhappypaws.com');
@@ -28,7 +43,7 @@ module.exports = async function handler(req, res) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const supabase = createClient(
     process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
   try {
@@ -88,7 +103,7 @@ module.exports = async function handler(req, res) {
       try {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
-        if (intent.status === 'succeeded') {
+        if (intent.status === 'succeeded' && !_fullyRefunded(intent)) {
           // Check if this payment intent is shared by multiple bookings (batch charge)
           const { data: sharedBookings } = await supabase
             .from('booking_requests')
@@ -156,7 +171,7 @@ module.exports = async function handler(req, res) {
       try {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
-        if (intent.status === 'succeeded') {
+        if (intent.status === 'succeeded' && !_fullyRefunded(intent)) {
           // Check if batch payment — partial refund only this booking's amount
           const { data: sharedBookings } = await supabase
             .from('booking_requests')
@@ -280,7 +295,7 @@ module.exports = async function handler(req, res) {
               try {
                 if (inv.stripe_invoice_id.startsWith('pi_')) {
                   const intent = await stripe.paymentIntents.retrieve(inv.stripe_invoice_id);
-                  if (intent.status === 'succeeded') {
+                  if (intent.status === 'succeeded' && !_fullyRefunded(intent)) {
                     await stripe.refunds.create({ payment_intent: inv.stripe_invoice_id, reason: 'requested_by_customer' });
                   }
                 } else if (inv.stripe_invoice_id.startsWith('in_')) {

@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
 
       // Save payment record to Supabase
       try {
-        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
         // Look up client_id from email
         let clientId = session.metadata?.clientId || null;
         if (!clientId && session.customer_email) {
@@ -90,7 +90,7 @@ module.exports = async function handler(req, res) {
       });
 
       try {
-        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY);
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
         // 1. Record the payment (look up client_id from email)
         let invClientId = meta.clientId || null;
