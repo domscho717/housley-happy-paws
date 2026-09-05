@@ -47,7 +47,15 @@ module.exports = async function handler(req, res) {
   );
 
   try {
-    const { bookingRequestId, canceledBy, cancelSingle, cancelDate, issueRefund, stopRecurring } = req.body;
+    const { bookingRequestId, canceledBy, cancelSingle, cancelDate, cancelDates, issueRefund, stopRecurring } = req.body;
+
+    // R16b: the modal can now tick several occurrences at once. Older clients
+    // (a cached page) still send only cancelDate, so accept both and work
+    // from a normalised, de-duplicated, sorted list.
+    const cancelDateList = Array.from(new Set(
+      (Array.isArray(cancelDates) && cancelDates.length ? cancelDates : (cancelDate ? [cancelDate] : []))
+        .filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+    )).sort();
 
     if (!bookingRequestId || !canceledBy) {
       return res.status(400).json({ error: 'bookingRequestId and canceledBy are required' });
@@ -86,13 +94,13 @@ module.exports = async function handler(req, res) {
     const isSingleCancel = cancelSingle && isRecurring;
 
     // Validate that cancelDate is provided for single occurrence cancel
-    if (isSingleCancel && !cancelDate) {
-      return res.status(400).json({ error: 'cancelDate is required for single-occurrence cancellation' });
+    if (isSingleCancel && !cancelDateList.length) {
+      return res.status(400).json({ error: 'cancelDate(s) required for single-occurrence cancellation' });
     }
 
     // 3. Calculate if it's a free or late cancel based on policy
     // Policy: Free cancel = before midnight, 2 days before booking (EST)
-    const cancellationType = calculateCancellationType(booking, isSingleCancel ? cancelDate : null);
+    const cancellationType = calculateCancellationType(booking, isSingleCancel ? cancelDateList[0] : null);
 
     let refunded = false;
     let refundResult = null;
@@ -256,12 +264,10 @@ module.exports = async function handler(req, res) {
         updateData.admin_notes = ((booking.admin_notes || '') + noteLine).slice(0, 8000);
         updateData.recurrence_pattern = null;
       } catch(pe) { console.warn('Pattern archive error:', pe); }
-    } else if (isSingleCancel && cancelDate) {
+    } else if (isSingleCancel && cancelDateList.length) {
       const currentCanceledDates = Array.isArray(booking.canceled_dates) ? booking.canceled_dates : [];
-      if (!currentCanceledDates.includes(cancelDate)) {
-        currentCanceledDates.push(cancelDate);
-        updateData.canceled_dates = currentCanceledDates;
-      }
+      const merged = Array.from(new Set(currentCanceledDates.concat(cancelDateList))).sort();
+      if (merged.length !== currentCanceledDates.length) updateData.canceled_dates = merged;
     } else {
       updateData.status = 'canceled';
     }
@@ -332,12 +338,12 @@ module.exports = async function handler(req, res) {
     }
 
     // 6. For recurring single-day cancel, also handle the specific recurring_invoice
-    if (isSingleCancel && cancelDate) {
+    for (const _cd of (isSingleCancel ? cancelDateList : [])) {
       const { data: recurringInvoice } = await supabase
         .from('recurring_invoices')
         .select('*')
         .eq('booking_request_id', bookingRequestId)
-        .eq('service_date', cancelDate)
+        .eq('service_date', _cd)
         .maybeSingle();
 
       if (recurringInvoice && recurringInvoice.stripe_invoice_id) {
@@ -363,19 +369,28 @@ module.exports = async function handler(req, res) {
     // 7. Send cancellation email notifications (non-blocking)
     const safeName = escHtml(booking.contact_name || 'Client');
     const safeService = escHtml(booking.service || 'Pet Care');
-    const serviceDate = cancelDate || booking.scheduled_date || booking.preferred_date || '';
-    const dateFmt = serviceDate
-      ? new Date(serviceDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-      : 'TBD';
+    const _fmtDay = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const serviceDate = cancelDateList[0] || booking.scheduled_date || booking.preferred_date || '';
+    // Multi-date cancels must name EVERY date. Listing only the first would
+    // let a client show up for a visit they were told was canceled.
+    const dateFmt = (isSingleCancel && cancelDateList.length)
+      ? cancelDateList.map(_fmtDay).join('<br>')
+      : (serviceDate ? _fmtDay(serviceDate) : 'TBD');
     const timeFmt = booking.preferred_time ? fmt12(booking.preferred_time) : '';
     const cancelLabel = isStopRecurring ? 'the recurring service (stopped by client)' : (isSingleCancel ? 'a single visit' : 'the booking');
     const refundAmount = refundResult && refundResult.amount ? '$' + refundResult.amount.toFixed(2) : (booking.estimated_total ? '$' + Number(booking.estimated_total).toFixed(2) : '');
     const refundNote = refunded
       ? `<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">💳 A full refund of ${refundAmount} has been issued to your card on file. Please allow 5-10 business days for it to appear.</div>`
       : '';
-    const feeNote = cancellationType === 'late' && !refunded
-      ? '<div style="background:#fff3cd;border-radius:8px;padding:12px;margin:12px 0;color:#856404;font-weight:600">⚠️ Late cancellation (within 48 hours) — no refund per cancellation policy.</div>'
-      : (refundNote || '<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">✅ Canceled before the 48-hour window — full refund issued.</div>');
+    // Only ever claim a refund when one was actually issued. The old fallback
+    // told every free cancel "full refund issued" whether or not any money
+    // moved — Julia Bossert was told that on 4 Sep 2026 for a Labor Day skip
+    // that had nothing to refund. Never promise a client money on a guess.
+    const feeNote = refunded
+      ? refundNote
+      : (cancellationType === 'late'
+          ? '<div style="background:#fff3cd;border-radius:8px;padding:12px;margin:12px 0;color:#856404;font-weight:600">⚠️ Late cancellation (within 48 hours) — charged per the cancellation policy.</div>'
+          : '<div style="background:#d4edda;border-radius:8px;padding:12px;margin:12px 0;color:#155724;font-weight:600">✅ Canceled more than 48 hours ahead — you will not be charged for ' + (isSingleCancel && cancelDateList.length > 1 ? 'these visits' : 'this visit') + '.</div>');
 
     try {
       if (canceledBy === 'client') {
@@ -406,7 +421,9 @@ module.exports = async function handler(req, res) {
           title: refunded ? 'Booking Canceled — Refund Issued' : 'Booking Canceled',
           bodyHTML: `
             <p>Hi ${safeName}!</p>
-            <p>Your <strong>${safeService}</strong> booking has been canceled by ${canceledByName}. We sincerely apologize for any inconvenience.</p>
+            <p>${isSingleCancel
+              ? `The following ${cancelDateList.length > 1 ? 'visits have' : 'visit has'} been canceled by ${canceledByName}. <strong>The rest of your recurring schedule is unchanged</strong> — everything after ${cancelDateList.length > 1 ? 'these dates' : 'this date'} runs as normal.`
+              : `Your <strong>${safeService}</strong> booking has been canceled by ${canceledByName}. We sincerely apologize for any inconvenience.`}</p>
             <div style="background:#fef2f2;border-radius:10px;padding:16px;margin:16px 0;border-left:4px solid #c62828">
               <div style="font-weight:700;font-size:1.05rem;margin-bottom:8px">${safeService}</div>
               ${dateFmt !== 'TBD' ? `<div style="margin-bottom:4px">📅 ${dateFmt}</div>` : ''}

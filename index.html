@@ -3667,8 +3667,12 @@ try {
     <div id="cancelModal_recurringGroup" style="display:none;margin-bottom:16px">
       <label style="font-size:0.88rem;font-weight:600;color:var(--ink);display:block;margin-bottom:10px">This is a recurring booking. Cancel:</label>
       <div id="cancelModal_dateWrap" style="margin-bottom:12px">
-        <label for="cancelModal_dateSelect" style="font-size:0.8rem;font-weight:600;color:var(--mid);display:block;margin-bottom:6px">Which date?</label>
-        <select id="cancelModal_dateSelect" onchange="_hhpOnCancelDateChange()" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);font-size:0.88rem;font-family:inherit;color:var(--ink);cursor:pointer"></select>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:8px">
+          <label style="font-size:0.8rem;font-weight:600;color:var(--mid)">Which date(s)? Tick every one to skip.</label>
+          <button type="button" id="cancelModal_clearDates" onclick="_hhpClearCancelDates()" style="background:none;border:none;padding:0;font-size:0.76rem;font-weight:600;color:var(--mid);text-decoration:underline;cursor:pointer;font-family:inherit">Clear</button>
+        </div>
+        <div id="cancelModal_dateList" style="max-height:190px;overflow-y:auto;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);padding:4px"></div>
+        <div id="cancelModal_dateCount" style="font-size:0.76rem;color:var(--mid);margin-top:6px"></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
@@ -10960,27 +10964,65 @@ function _hhpUpcomingOccurrences(bk, limit) {
   return out;
 }
 
+// Every ticked occurrence, in date order.
+function _hhpSelectedCancelDates() {
+  var list = document.getElementById('cancelModal_dateList');
+  if (!list) return [];
+  var out = [];
+  list.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) { out.push(cb.value); });
+  return out.sort();
+}
+
 function _hhpOnCancelDateChange() {
-  var sel = document.getElementById('cancelModal_dateSelect');
-  if (!sel || !sel.value) return;
-  _cancelData.date = sel.value;
+  // _cancelData.date stays as the EARLIEST ticked date: it drives the 48-hour
+  // notice and the header line. The full set travels separately.
+  var picked = _hhpSelectedCancelDates();
+  _cancelData.dates = picked;
+  if (picked.length) _cancelData.date = picked[0];
   _hhpRenderCancelNotices();
+}
+
+function _hhpClearCancelDates() {
+  var list = document.getElementById('cancelModal_dateList');
+  if (list) list.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+  _hhpOnCancelDateChange();
 }
 
 // Redraws the date line, the 48-hour notice and the refund prompt against
 // whatever date/scope is currently selected.
 function _hhpRenderCancelNotices() {
-  var d = _cancelData.date;
-  var dEl = document.getElementById('cancelModal_date');
-  if (dEl) dEl.textContent = d
-    ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-    : 'TBD';
-
   var scopeEl = document.querySelector('input[name="cancelOption"]:checked');
   var singleDate = !!_cancelData.isRecurring && (scopeEl ? scopeEl.value : 'this') === 'this';
+  var picked = singleDate ? (_cancelData.dates || []) : [];
+  var d = _cancelData.date;
 
-  // The 48-hour window is measured from the date actually being canceled.
-  var late = d ? (getCancelType(d) === 'late') : false;
+  var fmt = function (ds) {
+    return new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  var dEl = document.getElementById('cancelModal_date');
+  if (dEl) {
+    if (singleDate && picked.length > 1) {
+      dEl.textContent = picked.length + ' dates · ' + fmt(picked[0]) + ' → ' + fmt(picked[picked.length - 1]);
+    } else if (singleDate && picked.length === 1) {
+      dEl.textContent = fmt(picked[0]);
+    } else {
+      dEl.textContent = d ? fmt(d) : 'TBD';
+    }
+  }
+
+  var countEl = document.getElementById('cancelModal_dateCount');
+  if (countEl) {
+    countEl.textContent = picked.length === 0
+      ? 'Pick at least one date.'
+      : picked.length + ' date' + (picked.length === 1 ? '' : 's') + ' will be skipped — the rest of the series keeps running.';
+    countEl.style.color = picked.length === 0 ? 'var(--rose,#c25656)' : 'var(--mid)';
+  }
+
+  // The 48-hour window is measured from the EARLIEST date being canceled — if
+  // any ticked date falls inside the window, the warning has to show.
+  var gaugeDate = (singleDate && picked.length) ? picked[0] : d;
+  var late = gaugeDate ? (getCancelType(gaugeDate) === 'late') : false;
   var warningEl = document.getElementById('cancelModal_warning');
   var refundNoticeEl = document.getElementById('cancelModal_refundNotice');
   if (warningEl) warningEl.style.display = late ? '' : 'none';
@@ -11006,6 +11048,7 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
   _cancelData.bookingRequestId = bookingRequestId;
   _cancelData.service = service;
   _cancelData.date = date;
+  _cancelData.dates = date ? [date] : [];
   _cancelData.clientName = clientName;
   _cancelData.isRecurring = isRecurring;
   _cancelData.canceledBy = canceledBy;
@@ -11016,7 +11059,7 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
   document.getElementById('cancelModal_client').textContent = clientName || 'Client';
 
   var recurringGroup = document.getElementById('cancelModal_recurringGroup');
-  var sel = document.getElementById('cancelModal_dateSelect');
+  var sel = document.getElementById('cancelModal_dateList');
   if (sel) sel.innerHTML = '';
 
   // Load the row once: we need the recurrence pattern to build the date list
@@ -11054,25 +11097,38 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
     // computed against a date that had already happened. Rather than thread an
     // occurrence date through ~15 call sites, let the user pick the date —
     // which is also exactly what Rachel asked for.
-    var dates = _hhpUpcomingOccurrences(bk || {}, 12);
+    var dates = _hhpUpcomingOccurrences(bk || {}, 16);
     if (sel) {
       if (dates.length) {
+        // Pre-tick the date the card was opened from if it's a real
+        // occurrence, otherwise the soonest one.
+        var preselect = (dates.indexOf(date) !== -1) ? date : dates[0];
         dates.forEach(function (ds) {
-          var o = document.createElement('option');
-          o.value = ds;
-          o.textContent = new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-          sel.appendChild(o);
+          var row = document.createElement('label');
+          row.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer;padding:9px 10px;border-radius:6px';
+          row.onmouseover = function () { row.style.background = 'var(--warm)'; };
+          row.onmouseout = function () { row.style.background = 'transparent'; };
+
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = ds;
+          cb.checked = (ds === preselect);
+          cb.style.cssText = 'cursor:pointer;width:17px;height:17px;flex:none';
+          cb.onchange = _hhpOnCancelDateChange;
+
+          var txt = document.createElement('span');
+          txt.style.cssText = 'font-size:0.86rem;color:var(--ink)';
+          txt.textContent = new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+          row.appendChild(cb); row.appendChild(txt);
+          sel.appendChild(row);
         });
-        sel.value = (dates.indexOf(date) !== -1) ? date : dates[0];
-        _cancelData.date = sel.value;
+        _cancelData.date = preselect;
+        _cancelData.dates = [preselect];
       } else {
-        var o2 = document.createElement('option');
-        o2.value = date || '';
-        o2.textContent = date
-          ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-          : 'No upcoming dates';
-        sel.appendChild(o2);
+        sel.innerHTML = '<div style="padding:12px;font-size:0.84rem;color:var(--mid)">No upcoming dates in this series.</div>';
         _cancelData.date = date || '';
+        _cancelData.dates = date ? [date] : [];
       }
     }
   } else {
@@ -11095,6 +11151,14 @@ async function confirmCancelBooking() {
     var cancelOption = document.querySelector('input[name="cancelOption"]:checked');
     var option = cancelOption ? cancelOption.value : 'this';
     var isSingleCancel = _cancelData.isRecurring && option === 'this';
+
+    // Multi-date: everything ticked in the occurrence list.
+    var pickedDates = isSingleCancel ? _hhpSelectedCancelDates() : [];
+    if (isSingleCancel && !pickedDates.length) {
+      toast('Pick at least one date to cancel.', 'error');
+      btn.disabled = false; btn.textContent = 'Confirm Cancel';
+      return;
+    }
     // option='future' on a recurring booking → stop the whole series. We
     // forward stopRecurring: true so the server voids future sent-invoices
     // and ends the recurrence_pattern, not just sets status='canceled'.
@@ -11124,7 +11188,9 @@ async function confirmCancelBooking() {
         bookingRequestId: _cancelData.bookingRequestId,
         canceledBy: _cancelData.canceledBy,
         cancelSingle: isSingleCancel,
-        cancelDate: isSingleCancel ? _cancelData.date : undefined,
+        // cancelDate kept for backward compatibility; cancelDates is the set.
+        cancelDate: isSingleCancel ? pickedDates[0] : undefined,
+        cancelDates: isSingleCancel ? pickedDates : undefined,
         stopRecurring: isStopSeries,
         issueRefund: issueRefund
       })
@@ -11140,9 +11206,11 @@ async function confirmCancelBooking() {
           ? '✅ Entire recurring series stopped + refund issued 🐾'
           : '✅ Entire recurring series stopped — future weeks will not bill 🐾';
       } else if (isSingleCancel) {
+        var nD = pickedDates.length;
+        var whatD = nD === 1 ? 'This date' : (nD + ' dates');
         toastMsg = result.refunded
-          ? '✅ This date canceled + refund issued (future weeks keep running) 🐾'
-          : '✅ This date canceled (future weeks keep running) 🐾';
+          ? '✅ ' + whatD + ' canceled + refund issued (future weeks keep running) 🐾'
+          : '✅ ' + whatD + ' canceled (future weeks keep running) 🐾';
       } else {
         toastMsg = result.refunded
           ? '✅ Booking canceled + refund issued 🐾'
