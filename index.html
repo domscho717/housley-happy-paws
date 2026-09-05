@@ -3678,8 +3678,8 @@ try {
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
           <input type="radio" name="cancelOption" value="this" checked onchange="_hhpRenderCancelNotices()" style="cursor:pointer;margin-top:3px">
           <div>
-            <div style="font-size:0.86rem;font-weight:600;color:var(--ink)">Just this one date</div>
-            <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Future weeks of this recurring service keep running.</div>
+            <div id="cancelModal_thisLabel" style="font-size:0.86rem;font-weight:600;color:var(--ink)">Just this one date</div>
+            <div id="cancelModal_thisSub" style="font-size:0.76rem;color:var(--mid);margin-top:2px">Future weeks of this recurring service keep running.</div>
           </div>
         </label>
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px 12px;background:var(--warm);border-radius:8px;border:1.5px solid var(--border);transition:all 0.2s">
@@ -11025,6 +11025,22 @@ function _hhpRenderCancelNotices() {
     } else {
       dEl.textContent = d ? fmt(d) : 'TBD';
     }
+  }
+
+  // Keep the radio label honest about how many dates are ticked — reading
+  // "Just this one date" with four boxes checked makes Rachel second-guess
+  // whether the other three are really included.
+  var thisLabel = document.getElementById('cancelModal_thisLabel');
+  var thisSub = document.getElementById('cancelModal_thisSub');
+  if (thisLabel) {
+    thisLabel.textContent = picked.length > 1
+      ? 'Just these ' + picked.length + ' dates'
+      : 'Just this one date';
+  }
+  if (thisSub) {
+    thisSub.textContent = picked.length > 1
+      ? 'Only the dates ticked above are canceled — every other week keeps running.'
+      : 'Future weeks of this recurring service keep running.';
   }
 
   var countEl = document.getElementById('cancelModal_dateCount');
