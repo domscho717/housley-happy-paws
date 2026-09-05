@@ -3668,7 +3668,7 @@ try {
       <label style="font-size:0.88rem;font-weight:600;color:var(--ink);display:block;margin-bottom:10px">This is a recurring booking. Cancel:</label>
       <div id="cancelModal_dateWrap" style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:8px">
-          <label style="font-size:0.8rem;font-weight:600;color:var(--mid)">Which date(s)? Tick every one to skip.</label>
+          <label style="font-size:0.8rem;font-weight:600;color:var(--mid)">Select the dates to cancel</label>
           <button type="button" id="cancelModal_clearDates" onclick="_hhpClearCancelDates()" style="background:none;border:none;padding:0;font-size:0.76rem;font-weight:600;color:var(--mid);text-decoration:underline;cursor:pointer;font-family:inherit">Clear</button>
         </div>
         <div id="cancelModal_dateList" style="max-height:190px;overflow-y:auto;border:1.5px solid var(--border);border-radius:8px;background:var(--cream,white);padding:4px"></div>
@@ -3686,7 +3686,7 @@ try {
           <input type="radio" name="cancelOption" value="future" onchange="_hhpRenderCancelNotices()" style="cursor:pointer;margin-top:3px">
           <div>
             <div style="font-size:0.86rem;font-weight:600;color:var(--ink)">Cancel ENTIRE series</div>
-            <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Stops every future occurrence. Any sent but unpaid invoices are voided; future weeks are not billed.</div>
+            <div style="font-size:0.76rem;color:var(--mid);margin-top:2px">Ends this recurring service for good — every future occurrence, not just the dates above. Sent but unpaid invoices are voided.</div>
           </div>
         </label>
       </div>
@@ -10973,6 +10973,22 @@ function _hhpSelectedCancelDates() {
   return out.sort();
 }
 
+// Ticked dates grouped by the booking row they belong to. A client's schedule
+// can span several rows (Julia: one for Mondays, one for Tuesdays), so a single
+// confirm may have to cancel dates on more than one booking.
+function _hhpSelectedByBooking() {
+  var list = document.getElementById('cancelModal_dateList');
+  var groups = {};
+  if (!list) return groups;
+  list.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+    var bid = cb.getAttribute('data-booking-id') || _cancelData.bookingRequestId;
+    if (!groups[bid]) groups[bid] = [];
+    groups[bid].push(cb.value);
+  });
+  Object.keys(groups).forEach(function (k) { groups[k].sort(); });
+  return groups;
+}
+
 function _hhpOnCancelDateChange() {
   // _cancelData.date stays as the EARLIEST ticked date: it drives the 48-hour
   // notice and the header line. The full set travels separately.
@@ -11069,9 +11085,26 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
     var sb = window.HHP_Auth && window.HHP_Auth.supabase;
     if (sb) {
       var res = await sb.from('booking_requests')
-        .select('payment_intent_id, estimated_total, recurrence_pattern, canceled_dates, preferred_date, scheduled_date')
+        .select('id, client_id, service, payment_intent_id, estimated_total, recurrence_pattern, canceled_dates, preferred_date, scheduled_date, preferred_time, scheduled_time')
         .eq('id', bookingRequestId).maybeSingle();
       bk = (res && res.data) ? res.data : null;
+
+      // R16c: a client's recurring schedule can span SEVERAL booking_requests
+      // rows — Julia Bossert has one row for Mondays and a separate one for
+      // Tuesdays. The modal only ever knew about the row that was clicked, so
+      // Rachel could only skip Mondays from the Monday card. Rachel thinks in
+      // terms of "Julia's visits", not database rows, so pull every active
+      // recurring series for this client and merge them into one list.
+      if (bk && bk.client_id && isRecurring) {
+        var sib = await sb.from('booking_requests')
+          .select('id, service, recurrence_pattern, canceled_dates, preferred_date, scheduled_date, preferred_time, scheduled_time')
+          .eq('client_id', bk.client_id)
+          .not('recurrence_pattern', 'is', null)
+          .in('status', ['pending', 'accepted', 'confirmed', 'modified', 'payment_hold', 'in_progress']);
+        _cancelData.series = (sib && sib.data && sib.data.length) ? sib.data : [bk];
+      } else {
+        _cancelData.series = bk ? [bk] : [];
+      }
     }
   } catch (e) { console.warn('[cancel] booking lookup failed:', e); }
 
@@ -11097,13 +11130,33 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
     // computed against a date that had already happened. Rather than thread an
     // occurrence date through ~15 call sites, let the user pick the date —
     // which is also exactly what Rachel asked for.
-    var dates = _hhpUpcomingOccurrences(bk || {}, 16);
+    // Merge the occurrences of every one of this client's recurring series,
+    // each entry remembering which booking row it belongs to.
+    var entries = [];
+    (_cancelData.series || []).forEach(function (row) {
+      _hhpUpcomingOccurrences(row, 16).forEach(function (ds) {
+        entries.push({
+          date: ds,
+          bookingId: row.id,
+          time: row.scheduled_time || row.preferred_time || ''
+        });
+      });
+    });
+    entries.sort(function (a, b) { return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+    entries = entries.slice(0, 20);
+    _cancelData.entries = entries;
+
     if (sel) {
-      if (dates.length) {
+      if (entries.length) {
         // Pre-tick the date the card was opened from if it's a real
-        // occurrence, otherwise the soonest one.
-        var preselect = (dates.indexOf(date) !== -1) ? date : dates[0];
-        dates.forEach(function (ds) {
+        // occurrence of THIS booking, otherwise the soonest one.
+        var preIdx = -1;
+        for (var pi = 0; pi < entries.length; pi++) {
+          if (entries[pi].date === date && entries[pi].bookingId === bookingRequestId) { preIdx = pi; break; }
+        }
+        if (preIdx === -1) preIdx = 0;
+
+        entries.forEach(function (en, idx) {
           var row = document.createElement('label');
           row.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer;padding:9px 10px;border-radius:6px';
           row.onmouseover = function () { row.style.background = 'var(--warm)'; };
@@ -11111,22 +11164,24 @@ async function openCancelModal(bookingRequestId, service, date, clientName, isRe
 
           var cb = document.createElement('input');
           cb.type = 'checkbox';
-          cb.value = ds;
-          cb.checked = (ds === preselect);
+          cb.value = en.date;
+          cb.setAttribute('data-booking-id', en.bookingId);
+          cb.checked = (idx === preIdx);
           cb.style.cssText = 'cursor:pointer;width:17px;height:17px;flex:none';
           cb.onchange = _hhpOnCancelDateChange;
 
           var txt = document.createElement('span');
           txt.style.cssText = 'font-size:0.86rem;color:var(--ink)';
-          txt.textContent = new Date(ds + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+          txt.textContent = new Date(en.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+            + (en.time ? '  ·  ' + (typeof fmt12 === 'function' ? fmt12(en.time) : en.time) : '');
 
           row.appendChild(cb); row.appendChild(txt);
           sel.appendChild(row);
         });
-        _cancelData.date = preselect;
-        _cancelData.dates = [preselect];
+        _cancelData.date = entries[preIdx].date;
+        _cancelData.dates = [entries[preIdx].date];
       } else {
-        sel.innerHTML = '<div style="padding:12px;font-size:0.84rem;color:var(--mid)">No upcoming dates in this series.</div>';
+        sel.innerHTML = '<div style="padding:12px;font-size:0.84rem;color:var(--mid)">No upcoming dates in this schedule.</div>';
         _cancelData.date = date || '';
         _cancelData.dates = date ? [date] : [];
       }
@@ -11181,23 +11236,54 @@ async function confirmCancelBooking() {
     // Call the backend API — include auth token (required by cancel-booking)
     var _cToken = '';
     try { var _csess = await (window.HHP_Auth && window.HHP_Auth.supabase || window.HHP_supabase).auth.getSession(); _cToken = _csess.data.session.access_token; } catch(e) {}
-    var response = await fetch('/api/cancel-booking', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _cToken },
-      body: JSON.stringify({
-        bookingRequestId: _cancelData.bookingRequestId,
-        canceledBy: _cancelData.canceledBy,
-        cancelSingle: isSingleCancel,
-        // cancelDate kept for backward compatibility; cancelDates is the set.
-        cancelDate: isSingleCancel ? pickedDates[0] : undefined,
-        cancelDates: isSingleCancel ? pickedDates : undefined,
-        stopRecurring: isStopSeries,
-        issueRefund: issueRefund
-      })
-    });
+    // The ticked dates may span several booking rows, so send one request per
+    // row. Every call is checked — a partial success must never report success.
+    var _post = async function (bid, dts) {
+      var r = await fetch('/api/cancel-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _cToken },
+        body: JSON.stringify({
+          bookingRequestId: bid,
+          canceledBy: _cancelData.canceledBy,
+          cancelSingle: isSingleCancel,
+          // cancelDate kept for backward compatibility; cancelDates is the set.
+          cancelDate: dts ? dts[0] : undefined,
+          cancelDates: dts || undefined,
+          stopRecurring: isStopSeries,
+          issueRefund: issueRefund
+        })
+      });
+      var j = null;
+      try { j = await r.json(); } catch (e) { j = null; }
+      return { bookingId: bid, ok: !!(r.ok && j && j.success), body: j };
+    };
 
-    var result = await response.json();
-    if (result.success) {
+    var calls = [];
+    if (isSingleCancel) {
+      var groups = _hhpSelectedByBooking();
+      Object.keys(groups).forEach(function (bid) { calls.push(_post(bid, groups[bid])); });
+    } else {
+      calls.push(_post(_cancelData.bookingRequestId, undefined));
+    }
+
+    var settled = await Promise.all(calls);
+    var failed = settled.filter(function (s) { return !s.ok; });
+
+    if (failed.length) {
+      var okCount = settled.length - failed.length;
+      var firstErr = (failed[0].body && (failed[0].body.error || failed[0].body.message)) || 'request failed';
+      toast(okCount
+        ? '⚠️ Only ' + okCount + ' of ' + settled.length + ' bookings updated — ' + firstErr
+        : '✗ Nothing was canceled — ' + firstErr, 'error');
+      console.error('[cancel] failures', failed);
+      btn.disabled = false;
+      btn.textContent = 'Confirm Cancel';
+      return;
+    }
+
+    var result = settled[0].body || {};
+    result.refunded = settled.some(function (s) { return s.body && s.body.refunded; });
+    if (result.success !== false) {
       // Distinct toasts (R4 #3) so Rachel never wonders "did it cancel just
       // this one or the whole series?".
       var toastMsg;
