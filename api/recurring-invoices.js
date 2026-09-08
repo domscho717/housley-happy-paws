@@ -15,6 +15,7 @@
  *   Bills from today through Saturday of this week.
  */
 
+const crypto = require('crypto');
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 const { sendEmail, sendToRachel, escHtml, SITE_URL } = require('./_email');
@@ -250,7 +251,7 @@ module.exports = async function handler(req, res) {
         // Log each service date individually to recurring_invoices
         // Uses onConflict to prevent double-billing if cron runs twice
         for (const entry of group.entries) {
-          await supabase.from('recurring_invoices').upsert({
+          const _upsertRes = await supabase.from('recurring_invoices').upsert({
             booking_request_id: entry.booking.id,
             invoice_date: estDateStr(),
             service_date: entry.date,
@@ -263,6 +264,34 @@ module.exports = async function handler(req, res) {
             status: chargeResult.success ? (chargeResult.method === 'auto_charge' ? 'paid' : 'sent') : 'failed',
             error_message: chargeResult.error || null,
           }, { onConflict: 'booking_request_id,service_date', ignoreDuplicates: true });
+
+          // R18: this row IS the double-billing guard - next week's run reads it
+          // to decide whether this date was already charged. The Supabase client
+          // resolves rather than throws on a failed write, so a silent failure
+          // here means the card is charged again in seven days with nothing to
+          // show why. ignoreDuplicates makes an empty result ambiguous (conflict
+          // vs failure), so confirm the row exists either way.
+          if (_upsertRes && _upsertRes.error) {
+            console.error('[recurring] guard row write errored', {
+              booking: entry.booking.id, date: entry.date, error: _upsertRes.error.message,
+            });
+          }
+          const { data: _guardRow } = await supabase
+            .from('recurring_invoices')
+            .select('id')
+            .eq('booking_request_id', entry.booking.id)
+            .eq('service_date', entry.date)
+            .maybeSingle();
+          if (!_guardRow) {
+            console.error('[recurring] UNGUARDED CHARGE - will re-bill next run', {
+              booking: entry.booking.id, date: entry.date,
+              amount: entry.amount, charged: chargeResult.success,
+            });
+            results.errors.push({
+              group: groupKey,
+              error: 'UNGUARDED CHARGE ' + entry.booking.id + ' ' + entry.date + ' - guard row missing, next run will bill again',
+            });
+          }
         }
 
         if (chargeResult.success) {
@@ -477,7 +506,30 @@ async function chargeClient(stripe, supabase, opts) {
               piParams.transfer_data = { destination: connectedAccountId };
             }
 
-            const paymentIntent = await stripe.paymentIntents.create(piParams);
+            // R18: the double-charge guard. billedSet is read at the START of a
+            // run, but the recurring_invoices row that feeds it is only written
+            // AFTER this charge. Anything that overlaps in that window - the
+            // Sunday cron racing a ?firstWeek=true call from the dashboard, or a
+            // retry after the guard-row write failed - charges the card a second
+            // time. The unique index protects the row, not the money. Julia
+            // Bossert was charged $42.50 twice this way.
+            //
+            // The key is derived from the client, the service and the exact set of
+            // service dates, so a repeat of the SAME billing run reuses the same
+            // key and Stripe returns the ORIGINAL PaymentIntent instead of making
+            // a second one. A genuinely different week hashes differently and
+            // charges normally.
+            const _idemSeed = [
+              clientId || clientEmail,
+              service,
+              entries.map(e => e.booking.id + ':' + e.date).sort().join('|'),
+              Math.round(totalAmount * 100),
+            ].join('::');
+            const _idemKey = 'rec-' + crypto.createHash('sha256').update(_idemSeed).digest('hex').slice(0, 48);
+
+            const paymentIntent = await stripe.paymentIntents.create(piParams, {
+              idempotencyKey: _idemKey,
+            });
 
             if (paymentIntent.status === 'succeeded') {
               return {
