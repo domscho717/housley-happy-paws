@@ -341,6 +341,29 @@
     return HOLIDAYS.indexOf(md) !== -1;
   }
 
+  // R21 — a house sitting stay is holiday-rate if ANY date it covers is a
+  // holiday, per Rachel: a stay that touches a holiday is a holiday stay.
+  // isHoliday() alone only ever saw the START date, so Allison Schmidt's
+  // 24-29 Nov stay priced at the normal rate even though it runs straight
+  // through Thanksgiving. Walks and drop-ins are unaffected: those book one
+  // date per row and are already checked date by date.
+  function isHolidayStay(startStr, endStr) {
+    if (!startStr) return false;
+    if (!endStr || endStr <= startStr) return isHoliday(startStr);
+    var cur = new Date(startStr + 'T12:00:00');
+    var end = new Date(endStr + 'T12:00:00');
+    if (isNaN(cur.getTime()) || isNaN(end.getTime())) return isHoliday(startStr);
+    var safety = 0;
+    while (cur <= end && safety++ < 400) {
+      var y = cur.getFullYear();
+      var m = String(cur.getMonth() + 1).padStart(2, '0');
+      var d = String(cur.getDate()).padStart(2, '0');
+      if (isHoliday(y + '-' + m + '-' + d)) return true;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return false;
+  }
+
   // Expand a {start_date, end_date} range into individual YYYY-MM-DD keys.
   function _expandHolidayRange(startStr, endStr, label) {
     if (!startStr || !endStr) return;
@@ -871,7 +894,10 @@
       var petType = document.getElementById('brm-pettype').value;
       var isPuppy = document.getElementById('brm-puppy').value === 'true';
       var dateVal = document.getElementById('brm-date').value;
-      var holidayFlag = isHoliday(dateVal);
+      // R21: house sitting spans dates, so ask about the whole stay.
+      var _estEndVal = (document.getElementById('brm-enddate') || {}).value || '';
+      var _estIsHS = (svcName || '').toLowerCase().indexOf('house sitting') !== -1;
+      var holidayFlag = _estIsHS ? isHolidayStay(dateVal, _estEndVal) : isHoliday(dateVal);
 
       var estimateEl = document.getElementById('brm-price-estimate');
       var breakdownEl = document.getElementById('brm-price-breakdown');
@@ -2787,9 +2813,11 @@
     }
 
     // Calculate price (with nights for House Sitting)
-    var holidayFlag = isHoliday(date);
     var petCombo = document.getElementById('brm-petcombo') ? document.getElementById('brm-petcombo').value : '';
     var isHouseSitting = service.toLowerCase().indexOf('house sitting') !== -1;
+    // R21: must match the estimator above, or the saved total disagrees with
+    // the price the client was shown when they booked.
+    var holidayFlag = isHouseSitting ? isHolidayStay(date, endDate) : isHoliday(date);
     var nights = 1;
     var hsArrivalSubmit = '', hsDepartureSubmit = '';
     if (isHouseSitting) {
