@@ -173,6 +173,12 @@ module.exports = async function handler(req, res) {
           ? `Housley Happy Paws — ${booking.service || 'House Sitting'} extra nights (retry #${attempts + 1})`
           : `Housley Happy Paws — ${booking.service || 'Pet Care'} (retry #${attempts + 1})`;
 
+        // Selection is only status='payment_hold' + charge_attempts < 3, with no
+        // PaymentIntent retrieve. Two overlapping runs (the 6/14/22 cron, or a
+        // manual x-cron-secret hit) both see the same row and both charge.
+        // Keyed on booking + amount + attempt so a genuine later retry still
+        // goes through but a duplicate of the SAME attempt does not.
+        const _retryKey = `retry-${booking.id}-${chargeCents}-${attempts}`;
         const paymentIntent = await stripe.paymentIntents.create({
           amount: chargeCents,
           currency: 'usd',
@@ -188,7 +194,7 @@ module.exports = async function handler(req, res) {
             service: booking.service || '',
             retry_attempt: String(attempts + 1),
           },
-        });
+        }, { idempotencyKey: _retryKey });
 
         if (paymentIntent.status === 'succeeded') {
           chargeSuccess = true;

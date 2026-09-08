@@ -188,8 +188,13 @@ module.exports = async function handler(req, res) {
                 } catch (transferErr) {
                   // Money is already taken; refusing cannot undo it. Record it so it can
                   // be found and reconciled. Query: notes ILIKE '%FEE-UNROUTED%'
+                  // extraPI is const-scoped to the try above, so reading it here
+                  // threw ReferenceError - which escaped to the outer catch and
+                  // marked the booking payment_hold AFTER the card had already
+                  // been charged, so retry-failed-payments charged it a second
+                  // time. extraCharge is in scope and is the same PaymentIntent.
                   await recordUnroutedFee(supabase, {
-                    paymentIntentId: extraPI.id,
+                    paymentIntentId: extraCharge.id,
                     amountCents: extraDevShare,
                     context: 'complete-housesitting',
                     reason: transferErr.message,

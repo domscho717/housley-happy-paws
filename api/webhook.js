@@ -124,6 +124,10 @@ module.exports = async function handler(req, res) {
               destination: connectedAccountId,
               source_transaction: invoice.charge,
               description: `Invoice ${invoice.number || invoice.id} — ${meta.service || 'Pet Care'}`,
+            }, {
+              // Stripe retries invoice.payment_succeeded on any non-2xx or
+              // timeout. Without a key each retry moved another 85% out.
+              idempotencyKey: `inv-transfer-${invoice.charge}`,
             });
             console.log('Fee transfer completed:', { total: amountCents, fee: feeCents, transferred: transferCents });
           } catch (transferErr) {

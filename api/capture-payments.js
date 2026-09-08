@@ -341,6 +341,10 @@ module.exports = async function handler(req, res) {
               const retryCents = Math.round(booking.estimated_total * 100);
               const retryDevShare = connectedAccountId ? Math.round(retryCents * 0.15) : 0;
 
+              // Selection is only status='payment_hold'; two overlapping runs
+              // (the retry cron and a manual x-cron-secret hit) both see it and
+              // both charge. Keyed on booking + amount so a repeat is a no-op.
+              const _retryKey = `cap-retry-${booking.id}-${retryCents}`;
               const retryIntent = await stripe.paymentIntents.create({
                 amount: retryCents,
                 currency: 'usd',
@@ -355,7 +359,7 @@ module.exports = async function handler(req, res) {
                   client_name: profile.full_name || '',
                   service: booking.service || '',
                 },
-              });
+              }, { idempotencyKey: _retryKey });
 
               if (retryIntent.status === 'succeeded') {
                 retrySuccess = true;
