@@ -9478,12 +9478,26 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   var svcLower = (service || '').toLowerCase();
   var isDogWalk = svcLower.indexOf('walk') !== -1;
 
-  var startTimeStr = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  // R17: the arrival field prefilled with new Date() - the moment the REPORT
+  // PANEL was opened, not when the visit began. Rachel starts a walk at 10:57
+  // and writes the report at 11:57, so arrival was recorded an hour late on
+  // every report (Julia Bossert, 31 Aug + 1 Sep 2026). Use the walk's real
+  // start_time; fall back to now only if it is missing.
+  var _wStart = null;
+  try {
+    if (walk && walk.start_time) {
+      var _ws = new Date(walk.start_time);
+      if (!isNaN(_ws.getTime())) _wStart = _ws;
+    }
+  } catch (e) {}
+  var _arrBase = _wStart || new Date();
+  function _hhmm(dt) {
+    return (dt.getHours() < 10 ? '0' : '') + dt.getHours() + ':' + (dt.getMinutes() < 10 ? '0' : '') + dt.getMinutes();
+  }
+  var startTimeStr = _arrBase.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   var dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   var dateVal = _localDateStr();
-  // Convert start time to 24h for input
-  var now = new Date();
-  var arrivalVal = (now.getHours() < 10 ? '0' : '') + now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+  var arrivalVal = _hhmm(_arrBase);
 
   var fieldStyle = 'width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)';
   var labelStyle = 'font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px';
@@ -10337,6 +10351,33 @@ async function endServiceFromPanel() {
   var startMs = d.startTime ? new Date(d.startTime).getTime() : 0;
   var endMs = new Date(endTime).getTime();
   var durMin = startMs ? Math.round((endMs - startMs) / 60000) : 0;
+
+  // R17: never save times that cannot be true. Julia's 31 Aug report went out
+  // saying Rachel left at 11:27 PM on a 30-minute midday visit; 1 Sep said she
+  // left BEFORE she arrived. Both were visible to the client. The visit timer
+  // is the source of truth - fall back to it rather than storing nonsense.
+  (function _sanityCheckTimes() {
+    if (!safeArrival || !safeDeparture) return;
+    var toMin = function (t) { var q = t.split(':'); return parseInt(q[0], 10) * 60 + parseInt(q[1], 10); };
+    var _fromTimer = function () {
+      if (!startMs || !endMs) return false;
+      var s1 = new Date(startMs), e1 = new Date(endMs);
+      safeArrival = (s1.getHours() < 10 ? '0' : '') + s1.getHours() + ':' + (s1.getMinutes() < 10 ? '0' : '') + s1.getMinutes();
+      safeDeparture = (e1.getHours() < 10 ? '0' : '') + e1.getHours() + ':' + (e1.getMinutes() < 10 ? '0' : '') + e1.getMinutes();
+      return true;
+    };
+    var a = toMin(safeArrival), dep = toMin(safeDeparture);
+    if (dep < a) {
+      console.warn('[report] departure before arrival', safeArrival, safeDeparture);
+      if (_fromTimer()) toast('Arrival/departure looked wrong - corrected from the visit timer.');
+      return;
+    }
+    // A 30-minute visit typed as 12 hours is an AM/PM slip, not a long visit.
+    if (durMin > 0 && (dep - a) > durMin + 180) {
+      console.warn('[report] typed duration far exceeds timer', dep - a, 'vs', durMin);
+      if (_fromTimer()) toast('Times looked off by hours - corrected from the visit timer.');
+    }
+  })();
 
   // ============================================================
   //  STEP 2 — Save the form to localStorage NOW, before any
