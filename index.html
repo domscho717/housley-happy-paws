@@ -10581,13 +10581,22 @@ async function endServiceFromPanel() {
 
     // Duplicate-prevention guard — if a report already exists for this booking
     // (e.g. the user clicked Send twice from two devices), bail out cleanly.
+    //
+    // R20c: booking_id identifies the SERIES, not the visit. On a recurring
+    // booking week 1's report made every later week look like a duplicate, so
+    // the pipeline returned before saving anything: Rachel saw "Report Sent!",
+    // the walk stayed in_progress, and the client got nothing. Julia's 8 Sep
+    // visit failed exactly here, against her 1 Sep report. Scope the check to
+    // the date as well, and read a list rather than maybeSingle() — that throws
+    // once a series has two reports, which is every recurring booking.
     if (d.bookingId) {
       try {
-        var dupRes = await sb.from('service_reports').select('id').eq('booking_id', d.bookingId).maybeSingle();
-        if (dupRes && dupRes.data) {
+        var dupRes = await sb.from('service_reports').select('id')
+          .eq('booking_id', d.bookingId).eq('report_date', reportDate).limit(1);
+        if (dupRes && dupRes.data && dupRes.data.length > 0) {
           console.log('[report] duplicate detected — clearing pending payload');
           if (window.HHP_Report) window.HHP_Report.clearPending(pendingKey);
-          if (typeof toast === 'function') toast('⚠️ A report already exists for this booking.');
+          if (typeof toast === 'function') toast('⚠️ A report already exists for this visit.');
           return;
         }
       } catch(dupErr) { console.warn('Duplicate check failed (continuing):', dupErr); }
