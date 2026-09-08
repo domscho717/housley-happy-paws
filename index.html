@@ -8816,8 +8816,30 @@ async function showBookingDetail(bookingId, role, source) {
     // Determine date and time fields based on source table
     var dateVal = b.scheduled_date || b.preferred_date || b.date || '';
     var timeVal = b.scheduled_time || b.preferred_time || b.time_slot || '';
-    var dateDisplay = dateVal ? new Date(dateVal + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD';
-    var timeDisplay = (typeof fmt12h === 'function') ? fmt12h(timeVal) : timeVal;
+
+    // ── R20: a recurring series is ONE row ──────────────────────────────
+    // dateVal above is the anchor date, i.e. week 1. Every later occurrence
+    // is generated from recurrence_pattern and never becomes its own row, so
+    // any 'is this booking today?' test that compares dateVal to today is
+    // false from week 2 onward. That is what stopped Rachel starting Julia's
+    // Tuesday visit: the Start Service button is gated on that test, so it
+    // simply never rendered. Verified in the data — every walk ever recorded
+    // against a recurring booking landed on that booking's anchor date.
+    // Ask the pattern instead. isRecurringOnDate() already returns false for
+    // dates listed in canceled_dates, so a skipped visit stays unstartable.
+    var _bkToday = _localDateStr();
+    var _bkRecurs = !!b.recurrence_pattern;
+    var _occursToday = (dateVal === _bkToday) ||
+      (_bkRecurs && typeof isRecurringOnDate === 'function' && isRecurringOnDate(b, _bkToday));
+    // Show today's occurrence in the drawer, not week 1's date/time.
+    var _occDate = dateVal, _occTime = timeVal;
+    if (_bkRecurs && _occursToday) {
+      _occDate = _bkToday;
+      try { var _occT = (typeof getRecurringTime === 'function') ? getRecurringTime(b, _bkToday) : ''; if (_occT) _occTime = _occT; } catch (e) {}
+    }
+
+    var dateDisplay = _occDate ? new Date(_occDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD';
+    var timeDisplay = (typeof fmt12h === 'function') ? fmt12h(_occTime) : _occTime;
     var svc = b.service || 'Pet Care';
     var svcLower = svc.toLowerCase();
 
@@ -8865,7 +8887,7 @@ async function showBookingDetail(bookingId, role, source) {
     // Client: prominent live tracking banner at top when booking is in progress
     var isHouseSittingSvc = svc && svc.toLowerCase().indexOf('house sitting') !== -1;
     var _detailToday = _localDateStr();
-    var _detailIsToday = dateVal === _detailToday;
+    var _detailIsToday = _occursToday; // R20: recurring series — ask the pattern, not the anchor date
     if (role === 'client' && (st === 'in_progress' || (st === 'accepted' || st === 'confirmed')) && _detailIsToday && !isHouseSittingSvc) {
       var _topWalk = null;
       try {
@@ -9100,7 +9122,7 @@ async function showBookingDetail(bookingId, role, source) {
 
     // ── ACTION BUTTONS ──
     var today = _localDateStr();
-    var isToday = dateVal === today;
+    var isToday = _occursToday; // R20: true on any occurrence of a recurring series, not just week 1
     var isActive = (st === 'accepted' || st === 'confirmed');
 
     // House Sitting: Complete & Report button (owner/staff, when end date is today or past)
@@ -9131,6 +9153,25 @@ async function showBookingDetail(bookingId, role, source) {
         if (activeWalks && activeWalks.length > 0) activeService = activeWalks[0];
       } catch(we) { console.warn('Walk check:', we); }
 
+      // R20: a recurring row is reused every week, so a completed walk on it
+      // says nothing about today. Look only at walks that started today, and
+      // show Rachel it is already done rather than blocking her — she can
+      // still start a second visit if the day genuinely needs one.
+      var _doneToday = null;
+      if (!activeService) {
+        try {
+          var _dayStart = new Date(); _dayStart.setHours(0, 0, 0, 0);
+          var _dayEnd = new Date(_dayStart); _dayEnd.setDate(_dayEnd.getDate() + 1);
+          var { data: _dwalks } = await sb.from('walks')
+            .select('id, start_time, end_time, status')
+            .eq('booking_id', bookingId).eq('status', 'completed')
+            .gte('start_time', _dayStart.toISOString())
+            .lt('start_time', _dayEnd.toISOString())
+            .order('start_time', { ascending: false }).limit(1);
+          if (_dwalks && _dwalks.length > 0) _doneToday = _dwalks[0];
+        } catch (de) { console.warn('Completed-today check:', de); }
+      }
+
       h += '<div style="margin-bottom:12px">';
       if (activeService) {
         // Service is in progress — show elapsed time + Stop button
@@ -9155,8 +9196,14 @@ async function showBookingDetail(bookingId, role, source) {
         h += '⏹ End Service & Generate Report</button>';
       } else {
         // No active service — show Start button
+        if (_doneToday) {
+          var _dtEnd = _doneToday.end_time ? new Date(_doneToday.end_time) : null;
+          var _dtStr = _dtEnd ? _dtEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+          h += '<div style="background:rgba(76,175,80,0.1);border:1.5px solid #4caf50;border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:0.85rem;color:var(--ink);font-weight:600">';
+          h += '\u2705 Already completed today' + (_dtStr ? ' at ' + _dtStr : '') + '</div>';
+        }
         h += '<button onclick="startServiceFromDrawer(\'' + bookingId + '\',\'' + (b.client_id || '').replace(/'/g, "\\'") + '\',\'' + svc.replace(/'/g, "\\'") + '\',\'' + (b.pet_names || '').replace(/'/g, "\\'") + '\')" style="width:100%;padding:14px;background:var(--forest,#3d5a47);color:white;border:none;border-radius:10px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">';
-        h += '▶ Start Service</button>';
+        h += '▶ Start ' + (_doneToday ? 'Another Visit' : 'Service') + '</button>';
       }
       h += '</div>';
     }
