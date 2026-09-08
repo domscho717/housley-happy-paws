@@ -10426,6 +10426,27 @@ async function endServiceFromPanel() {
     }
   })();
 
+  // R20: R17 corrected what got SAVED, but the client-facing copy below is
+  // built from arrivalStr/departureStr, which were formatted from the raw
+  // typed fields further up - so the bad time still went out. Mike Schmelder's
+  // 8 Sep message read "7:01 AM - 7:31 PM" for a 28-minute walk whose saved
+  // report correctly read 07:01-07:29. These two strings feed the in-app
+  // message, the confirmation card and the email payload, so re-deriving them
+  // from the checked values fixes all four at once.
+  if (safeArrival) arrivalStr = fmt12(safeArrival);
+  if (safeDeparture) departureStr = fmt12(safeDeparture);
+
+  // Same mismatch on the number in front of the parentheses: it came from the
+  // panel timer while the times inside came from the form. A visit logged
+  // after the fact would read "1 min (11:00 AM - 11:30 AM)". Once the times
+  // above have passed the check they are the better source; the timer stays
+  // the fallback when the form gave us nothing.
+  if (safeArrival && safeDeparture) {
+    var _toMinD = function (t) { var q = t.split(':'); return parseInt(q[0], 10) * 60 + parseInt(q[1], 10); };
+    var _typedDur = _toMinD(safeDeparture) - _toMinD(safeArrival);
+    if (_typedDur > 0) durMin = _typedDur;
+  }
+
   // ============================================================
   //  STEP 2 — Save the form to localStorage NOW, before any
   //  network call. If anything below fails (or the browser dies),
