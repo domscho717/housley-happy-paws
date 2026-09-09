@@ -953,6 +953,11 @@
         hsDepartureVal = (document.getElementById('brm-hs-departure') || {}).value || '';
       }
       var result = calculatePrice(svcName, numPets, isPuppy, holidayFlag, petType, nights, window._brmDogCount, window._brmCatCount, hsArrivalVal, hsDepartureVal);
+      // R23: one visit priced on the holiday status of one specific date.
+      function _priceForDate(d) {
+        return calculatePrice(svcName, numPets, isPuppy, isHoliday(d), petType, 1,
+                              window._brmDogCount, window._brmCatCount, '', '');
+      }
       if (estimateEl) estimateEl.style.display = 'block';
       if (breakdownEl) breakdownEl.innerHTML = result.breakdown.split(' | ').join('<br>');
 
@@ -1046,8 +1051,22 @@
           }
         }
       } else if (totalDates > 1 && !isHS) {
-        var multiTotal = result.total * totalDates;
-        if (breakdownEl) breakdownEl.innerHTML += '<br><span style="font-weight:600">' + totalDates + ' appointments x $' + result.total.toFixed(2) + '</span>';
+        // R23 — every date used to be priced off the FIRST date's holiday flag.
+        // Mike Schmelder's 9 walks from 1 Sep were booked starting Sat 5 Sep
+        // (Labor Day weekend), so all nine were charged the holiday rate even
+        // though only 5-7 Sep fall in the range. Price each date on its own.
+        var _perDate = (window._brmGetDateCardsData ? window._brmGetDateCardsData() : []).map(function (dc) {
+          return { date: dc.date, time: dc.time, total: _priceForDate(dc.date).total, holiday: isHoliday(dc.date) };
+        });
+        var multiTotal = _perDate.length
+          ? _perDate.reduce(function (s2, x) { return s2 + x.total; }, 0)
+          : result.total * totalDates;
+        var _mixed = _perDate.some(function (x) { return x.total !== _perDate[0].total; });
+        if (breakdownEl) {
+          breakdownEl.innerHTML += _mixed
+            ? '<br><span style="font-weight:600">' + totalDates + ' appointments — $' + multiTotal.toFixed(2) + ' (holiday dates cost more)</span>'
+            : '<br><span style="font-weight:600">' + totalDates + ' appointments x $' + result.total.toFixed(2) + '</span>';
+        }
         // Show per-date-card breakdown
         if (perServiceEl && window._brmGetDateCardsData) {
           var cards = window._brmGetDateCardsData();
@@ -1058,8 +1077,9 @@
               var dFmt = new Date(dc.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
               var tFmt = dc.time ? ((typeof fmt12h === 'function') ? fmt12h(dc.time) : dc.time) : '';
               listHTML += '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:0.76rem">';
-              listHTML += '<span>' + svcName + ' — ' + dFmt + (tFmt ? ' at ' + tFmt : '') + '</span>';
-              listHTML += '<span style="font-weight:600">$' + result.total.toFixed(2) + '</span></div>';
+              var _pd = _perDate[idx] || { total: result.total, holiday: false };
+              listHTML += '<span>' + svcName + ' — ' + dFmt + (tFmt ? ' at ' + tFmt : '') + (_pd.holiday ? ' <span style="color:#c8963e">· holiday</span>' : '') + '</span>';
+              listHTML += '<span style="font-weight:600">$' + _pd.total.toFixed(2) + '</span></div>';
             });
             listHTML += '</div>';
             perServiceEl.innerHTML = listHTML;
@@ -3001,9 +3021,19 @@
       var data, error;
 
       if (shouldSplit) {
-        var perVisitPrice = priceResult.total;
-        var perVisitDealSavings = window._brmDealDiscount ? (window._brmDealDiscount.savings / dateCardDetails.length) : null;
-        var perVisitTotal = window._brmDealDiscount ? (window._brmDealDiscount.discountedTotal / dateCardDetails.length) : perVisitPrice;
+        // R23 — price each date on ITS OWN holiday status, not the first date's.
+        // priceResult was computed once from the primary date field, so a run of
+        // walks that happened to start on a holiday charged the holiday rate for
+        // every date in the run. Mike Schmelder's 9 walks from 1 Sep were charged
+        // $267.75 when the correct figure was $255.00.
+        var _slotPrices = dateCardDetails.map(function (dc) {
+          return calculatePrice(service, numPets, isPuppy, isHoliday(dc.date), petType, 1,
+                                window._brmDogCount, window._brmCatCount, '', '');
+        });
+        // Spread the deal proportionally instead of splitting it evenly, so a
+        // dearer holiday date carries a proportionally larger share of it.
+        var _dealRate = (window._brmDealDiscount && window._brmDealDiscount.originalTotal > 0)
+          ? (window._brmDealDiscount.savings / window._brmDealDiscount.originalTotal) : 0;
 
         // Build a map of per-slot recurring settings
         var slotRecurMap = {};
@@ -3033,7 +3063,11 @@
 
         var insertRows = dateCardDetails.map(function(dc, idx) {
           var slotRecurrence = slotRecurMap[idx] || null;
-          var slotBreakdown = priceResult.breakdown;
+          var _sp = _slotPrices[idx] || priceResult;
+          var perVisitPrice = _sp.total;
+          var perVisitDealSavings = _dealRate > 0 ? Math.round(perVisitPrice * _dealRate * 100) / 100 : null;
+          var perVisitTotal = perVisitDealSavings ? Math.round((perVisitPrice - perVisitDealSavings) * 100) / 100 : perVisitPrice;
+          var slotBreakdown = _sp.breakdown;
           if (slotRecurrence) {
             slotBreakdown += ' | Recurring: $' + perVisitPrice.toFixed(2) + '/appointment, charged the Sunday before each appointment week';
           }
