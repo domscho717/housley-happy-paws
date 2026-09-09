@@ -59,6 +59,26 @@
   var _dealsLoaded = false;
   var _dealsFetching = false;  // Prevent concurrent fetches
   var _clientUsedDealIds = []; // deal IDs the current client has already redeemed
+  var _clientPriorBreakdowns = []; // price_breakdown of this client's prior bookings
+
+  // R22 - deal_id is NOT a reliable record of a redemption.
+  // The DB trigger enforce_deal_usage_limit() nulls deal_id and deal_discount
+  // on a repeat use, but leaves estimated_total discounted and the deal's own
+  // label sitting in price_breakdown. So the row this guard looks for erases
+  // itself, and the next booking looks like a first use. Mike Schmelder took
+  // the First Time Client discount on four separate orders that way.
+  // The label in price_breakdown is the only surviving trace - check both.
+  function _dealAlreadyUsed(deal) {
+    if (!deal) return false;
+    if (deal.id && _clientUsedDealIds.indexOf(deal.id) !== -1) return true;
+    return _breakdownsShowDeal(_clientPriorBreakdowns, deal);
+  }
+  function _breakdownsShowDeal(list, deal) {
+    var name = (deal && deal.name || '').trim();
+    if (!name) return false;
+    var needle = '\uD83C\uDFF7\uFE0F ' + name + ':';  // how the label is written into price_breakdown
+    return (list || []).some(function (bd) { return String(bd || '').indexOf(needle) !== -1; });
+  }
 
   async function _fetchActiveDeals() {
     // Prevent concurrent calls
@@ -76,9 +96,10 @@
       var promises = [sb.from('deals').select('*').eq('is_active', true)];
       if (clientId) {
         promises.push(
-          sb.from('booking_requests').select('deal_id')
+          // R22: no longer filtered to deal_id NOT NULL - the rows that matter
+          // are exactly the ones the trigger stripped it from.
+          sb.from('booking_requests').select('deal_id, price_breakdown')
             .eq('client_id', clientId)
-            .not('deal_id', 'is', null)
             .not('status', 'in', '(canceled,declined,rejected)')
         );
       }
@@ -86,7 +107,9 @@
 
       _activeDealsCache = (results[0].data || []).filter(function(d) { return d.discount_value > 0; });
       _dealsLoaded = true;
-      _clientUsedDealIds = results[1] && results[1].data ? results[1].data.map(function(r) { return r.deal_id; }) : [];
+      var _priorRows = (results[1] && results[1].data) ? results[1].data : [];
+      _clientUsedDealIds = _priorRows.map(function(r) { return r.deal_id; }).filter(Boolean);
+      _clientPriorBreakdowns = _priorRows.map(function(r) { return r.price_breakdown || ''; });
     } catch (e) { console.warn('Failed to load active deals:', e); }
     finally { _dealsFetching = false; }
   }
@@ -143,7 +166,7 @@
 
     _activeDealsCache.forEach(function(deal) {
       // Skip once_per_client deals already used by this client
-      if (deal.usage_limit === 'once_per_client' && _clientUsedDealIds.indexOf(deal.id) !== -1) {
+      if (deal.usage_limit === 'once_per_client' && _dealAlreadyUsed(deal)) {
         return;
       }
 
@@ -2959,9 +2982,13 @@
         var dealToCheck = window._brmDealDiscount.deal;
         if (dealToCheck && dealToCheck.usage_limit === 'once_per_client') {
           var { data: priorUse } = await sb.from('booking_requests')
-            .select('id').eq('client_id', clientId).eq('deal_id', dealToCheck.id)
-            .not('status', 'in', '(canceled,declined,rejected)').limit(1);
-          if (priorUse && priorUse.length > 0) {
+            .select('id, deal_id, price_breakdown').eq('client_id', clientId)
+            .not('status', 'in', '(canceled,declined,rejected)');
+          var _rows = priorUse || [];
+          var _usedBefore =
+            (dealToCheck.id && _rows.some(function (r) { return r.deal_id === dealToCheck.id; })) ||
+            _breakdownsShowDeal(_rows.map(function (r) { return r.price_breakdown; }), dealToCheck);
+          if (_usedBefore) {
             window._brmDealDiscount = null;
             if (typeof toast === 'function') toast('Discount already used — booking will be submitted at full price.');
           }
