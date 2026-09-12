@@ -160,41 +160,62 @@
     var sb = payload.sb;
     var onProgress = payload.onProgress || function() {};
 
+    // R25 — the caller may have found a report already saved for this visit (a
+    // previous run got the insert in and then died before closing anything).
+    // Reuse it rather than inserting a second one, and rather than giving up:
+    // the walk and booking still need closing.
+    var reusedReport = !!payload.existingReportId;
+
     // Stage 1: insert service_reports (the source of truth) with 5s timeout.
-    var insertPromise = sb.from('service_reports').insert(payload.reportData).select('id').single();
-    return withTimeout(insertPromise, REPORT_INSERT_TIMEOUT_MS, 'service_reports insert').then(function(insertResult) {
+    var stage1 = reusedReport
+      ? Promise.resolve({ data: { id: payload.existingReportId }, error: null })
+      : withTimeout(
+          sb.from('service_reports').insert(payload.reportData).select('id').single(),
+          REPORT_INSERT_TIMEOUT_MS, 'service_reports insert');
+
+    return stage1.then(function(insertResult) {
       if (insertResult.error) throw insertResult.error;
       var reportId = insertResult.data && insertResult.data.id;
       onProgress('reportSaved', { reportId: reportId });
 
-      // We can safely clear the localStorage entry — text/metadata is durable in DB now.
-      // (Media URLs will be added via UPDATE once Cloudinary returns; if that fails the
-      //  report is still useful, just without photos.)
+      // R25 — Stage 1b: CLOSE THE VISIT, and prove it closed, before anything
+      // optimistic happens. These used to sit in the fire-and-forget batch
+      // below, with no .select() and a .catch() that can never fire, because the
+      // Supabase client RESOLVES on a failed write instead of throwing. A walk
+      // that failed to close looked identical to one that closed, and nothing
+      // ever retried it. Nothing else closes the walk either: the live-service
+      // panel only stops GPS, it never calls HHP_Tracking.endWalk(), so the
+      // comment that used to sit here about a safety-net update was wrong for
+      // the path Rachel actually uses.
+      function verifiedUpdate(table, values, id) {
+        return Promise.resolve(sb.from(table).update(values).eq('id', id).select('id'))
+          .then(function (res) {
+            if (res && res.error) throw res.error;
+            var rows = (res && res.data) || [];
+            if (rows.length === 0) throw new Error(table + ' update matched no rows (id ' + id + ')');
+            return rows.length;
+          });
+      }
+
+      var closers = [];
+      if (payload.walkId && payload.walkUpdate) {
+        closers.push(verifiedUpdate('walks', payload.walkUpdate, payload.walkId)
+          .then(function () { onProgress('walkClosed'); }));
+      }
+      if (payload.bookingId && payload.bookingUpdate) {
+        closers.push(verifiedUpdate('booking_requests', payload.bookingUpdate, payload.bookingId)
+          .then(function () { onProgress('bookingUpdated'); }));
+      }
+
+      return Promise.all(closers).then(function () {
+      // The visit is definitively closed, so the local retry copy can go. Until
+      // this point it stays put: it is the only thing that can finish the job if
+      // the phone dies mid-run.
       clearPending(payload.pendingKey);
 
       // Stage 2: kick off everything else in parallel. Each step has its own catch
       // so one failure doesn't poison the others.
       var tasks = [];
-
-      // 2a — Walks row (status + route_summary)
-      if (payload.walkId && payload.walkUpdate) {
-        tasks.push(
-          Promise.resolve(sb.from('walks').update(payload.walkUpdate).eq('id', payload.walkId))
-            .then(function() { onProgress('walkClosed'); })
-            .catch(function(e) { console.warn('[report] walk update failed:', e); })
-        );
-      }
-
-      // 2b — Booking status (live-tracking.js endWalk already does a safety-net update
-      //      before we get here, but we re-do it with the smarter recurring/one-time
-      //      decision so the booking lands on the right final status).
-      if (payload.bookingId && payload.bookingUpdate) {
-        tasks.push(
-          Promise.resolve(sb.from('booking_requests').update(payload.bookingUpdate).eq('id', payload.bookingId))
-            .then(function() { onProgress('bookingUpdated'); })
-            .catch(function(e) { console.warn('[report] booking update failed:', e); })
-        );
-      }
 
       // 2c — Client message (in-portal "service complete" note)
       if (payload.clientMessage) {
@@ -243,12 +264,16 @@
 
       return Promise.allSettled(tasks).then(function() {
         onProgress('done');
-        return { reportId: reportId, success: true };
+        return { reportId: reportId, success: true, reusedReport: reusedReport };
       });
+      }); // end closers
     }).catch(function(insertErr) {
-      // service_reports insert failed (or timed out). Keep localStorage entry so the
-      // recovery banner can offer Send Now next time the user opens the portal.
-      console.error('[report] service_reports insert failed/timed out:', insertErr);
+      // The report insert failed or timed out, OR the walk/booking failed to
+      // close. Either way the visit is not finished, so the localStorage entry
+      // STAYS and the recovery banner can offer Send Now next time the portal
+      // opens. R25: closing failures reach this handler too — before, they were
+      // swallowed and the pending copy had already been deleted.
+      console.error('[report] submission did not complete:', insertErr);
       onProgress('reportFailed', { error: insertErr && insertErr.message });
       return { success: false, error: insertErr && insertErr.message };
     });

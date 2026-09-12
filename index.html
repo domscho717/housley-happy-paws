@@ -9579,8 +9579,16 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<div><div style="' + labelStyle + '">Date</div>';
   h += '<input type="date" id="lsp-date" value="' + dateVal + '" style="' + fieldStyle + '"></div>';
   h += '<div><div style="' + labelStyle + '">Service</div>';
+  // R25 — these read "1 hr" while every real service is named "1 hour", so
+  // s === service never matched for an hour-long visit and the select fell back
+  // to its first option. Stevie Voss's 1-hour drop-in on 12 Sep was reported to
+  // the client as "Dog Walking - 30 min". Names now match service_pricing, and
+  // anything not in the list is added so the booking's own service is always the
+  // selected one rather than silently becoming a dog walk.
   h += '<select id="lsp-service" style="' + fieldStyle + '">';
-  ['Dog Walking - 30 min','Dog Walking - 1 hr','Drop-In Visit - 30 min','Drop-In Visit - 1 hr','Drop-In Visit (Cat) - 30 min','Drop-In Visit (Cat) - 1 hr','Dog Boarding','Doggy Day Care','House Sitting (Dog)','House Sitting (Cat)'].forEach(function(s) {
+  var _lspServices = ['Dog Walking - 30 min','Dog Walking - 1 hour','Drop-In Visit - 30 min','Drop-In Visit - 1 hour','Drop-In Visit (Cat) - 30 min','Drop-In Visit (Cat) - 1 hour','Dog Boarding','Doggy Day Care','House Sitting (Dog)','House Sitting (Cat)','House Sitting (Mixed)'];
+  if (service && _lspServices.indexOf(service) === -1) _lspServices.unshift(service);
+  _lspServices.forEach(function(s) {
     h += '<option value="' + s + '"' + (s === service ? ' selected' : '') + '>' + s + '</option>';
   });
   h += '</select></div></div>';
@@ -10589,15 +10597,20 @@ async function endServiceFromPanel() {
     // visit failed exactly here, against her 1 Sep report. Scope the check to
     // the date as well, and read a list rather than maybeSingle() — that throws
     // once a series has two reports, which is every recurring booking.
+    // R25: finding an existing report must NOT abandon the run. Closing the
+    // walk, updating the booking and notifying the client all happen after
+    // this point, so bailing out here left the visit running with no way to
+    // finish it - every retry found the same report and bailed again. Stevie
+    // Voss's 12 Sep visit sat open for hours while Rachel pressed End over and
+    // over. Reuse the report we already have and carry on with the rest.
+    var _existingReportId = null;
     if (d.bookingId) {
       try {
         var dupRes = await sb.from('service_reports').select('id')
           .eq('booking_id', d.bookingId).eq('report_date', reportDate).limit(1);
         if (dupRes && dupRes.data && dupRes.data.length > 0) {
-          console.log('[report] duplicate detected — clearing pending payload');
-          if (window.HHP_Report) window.HHP_Report.clearPending(pendingKey);
-          if (typeof toast === 'function') toast('⚠️ A report already exists for this visit.');
-          return;
+          _existingReportId = dupRes.data[0].id;
+          console.log('[report] report already saved - finishing the rest of the run', _existingReportId);
         }
       } catch(dupErr) { console.warn('Duplicate check failed (continuing):', dupErr); }
     }
@@ -10731,6 +10744,7 @@ async function endServiceFromPanel() {
     var result = await window.HHP_Report.runSubmissionPipeline({
       pendingKey: pendingKey,
       sb: sb, user: user,
+      existingReportId: _existingReportId,
       reportData: reportData,
       stagedMedia: d.mediaUrls || [],
       walkId: d.walkId,
@@ -10744,7 +10758,11 @@ async function endServiceFromPanel() {
       onProgress: onProgress
     });
 
-    if (result.success && typeof toast === 'function') toast('✅ Service completed & report sent!');
+    if (typeof toast === 'function') {
+      if (result.success && result.reusedReport) toast('✅ Visit closed — the report was already saved.');
+      else if (result.success) toast('✅ Service completed & report sent!');
+      else toast('⚠️ Could not finish closing this visit — it will retry next time you open the portal.', 'error');
+    }
 
     // Refresh whatever views are open. Done at the end so the user's optimistic UI
     // doesn't flash with old data first.
@@ -16728,7 +16746,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/js/auth-client.js?v=20260715a" defer></script>
 
 <!-- End-of-service Report Submission Pipeline (localStorage save + parallel side effects) -->
-<script src="/js/report-submission.js?v=20260511a" defer></script>
+<script src="/js/report-submission.js?v=20260912a" defer></script>
 
 <!-- Cloudinary Photo Manager -->
 <script src="/js/cloudinary-client.js?v=20260827a" defer></script>
