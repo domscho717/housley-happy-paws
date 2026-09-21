@@ -2577,6 +2577,7 @@ try {
           <div class="tabs" style="margin:0">
             <button class="tab active" onclick="loadStaffPanel('team',this)">Team</button>
             <button class="tab" onclick="loadStaffPanel('assign',this)">Client Assignments</button>
+            <button class="tab" onclick="loadStaffPanel('payroll',this)">Payroll</button>
           </div>
           <button class="btn btn-forest btn-sm" onclick="openAddStaffForm()">+ Add Staff Member</button>
         </div>
@@ -2610,6 +2611,28 @@ try {
         </div>
 
         <!-- Add Staff Form (hidden by default) -->
+        <!-- Payroll (R29). Weekly, Sunday to Saturday, matching the cycle that
+             charges clients on Sundays so money in and money out line up. -->
+        <div id="staffPayrollView" style="display:none">
+          <div class="card" style="margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+              <div class="card-title" style="margin:0">Weekly Payroll</div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn-outline btn-sm" onclick="hhpPayrollWeek(-1)">‹ Prev</button>
+                <div id="payrollWeekLabel" style="font-weight:700;font-size:0.9rem;min-width:190px;text-align:center">—</div>
+                <button class="btn btn-outline btn-sm" onclick="hhpPayrollWeek(1)">Next ›</button>
+              </div>
+            </div>
+            <div id="payrollList" style="display:flex;flex-direction:column;gap:12px">
+              <div style="padding:22px;text-align:center;color:var(--mid);font-size:0.88rem">Loading…</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title" style="margin-bottom:10px">Outstanding, all weeks</div>
+            <div id="payrollOutstanding" style="font-size:0.88rem;color:var(--mid)">—</div>
+          </div>
+        </div>
+
         <div id="addStaffFormWrap" style="display:none;margin-top:16px">
           <div class="card" style="border:2px solid var(--forest)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -2625,7 +2648,7 @@ try {
               <div class="form-group"><label class="form-lbl">Temporary Password *</label><input class="form-in" id="ns-pass" type="text" placeholder="TempPass123!"></div>
             </div>
             <div class="form-row" style="margin-bottom:14px">
-              <div class="form-group"><label class="form-lbl">Hourly Rate ($)</label><input class="form-in" id="ns-rate" type="number" step="0.01" placeholder="15.00"></div>
+              <div class="form-group"><label class="form-lbl">Pay Rate (% of each visit)</label><input class="form-in" id="ns-pct" type="number" step="1" min="0" max="85" placeholder="60"><div style="font-size:0.74rem;color:var(--mid);margin-top:4px">Leave blank for the standard 60%. On a $25 visit that is $15.00 to them.</div></div>
               <div class="form-group"><label class="form-lbl">Role / Title</label><input class="form-in" id="ns-title" placeholder="e.g. Dog Walker"></div>
             </div>
             <div id="ns-error" style="display:none;color:#c44;font-size:0.82rem;margin-bottom:8px"></div>
@@ -8429,7 +8452,20 @@ async function clientAcceptTimeChange(bookingId) {
       await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: ownerIds[oi], body: alertBody, is_alert: true });
     }
     try {
-      var { data: staffAssignments } = await sb.from('staff_assignments').select('staff_id').eq('client_id', bk.client_id);
+      // R29: staff_assignments.client_id is a profiles.id, but bk.client_id is
+      // an auth user id - this matched nothing, so an assigned staff member was
+      // never alerted. The staff_id it returns is also a profiles.id, and
+      // messages.recipient_id needs an auth id, so map that back too.
+      var { data: _cProf } = await sb.from('profiles').select('id').eq('user_id', bk.client_id).maybeSingle();
+      var staffAssignments = [];
+      if (_cProf && _cProf.id) {
+        var { data: _sa } = await sb.from('staff_assignments').select('staff_id').eq('client_id', _cProf.id);
+        var _sPids = (_sa || []).map(function(a) { return a.staff_id; }).filter(Boolean);
+        if (_sPids.length) {
+          var { data: _sProfs } = await sb.from('profiles').select('user_id').in('id', _sPids);
+          staffAssignments = (_sProfs || []).map(function(r) { return { staff_id: r.user_id }; }).filter(function(r) { return r.staff_id; });
+        }
+      }
       if (staffAssignments && staffAssignments.length > 0) {
         for (var si = 0; si < staffAssignments.length; si++) {
           await sb.from('messages').insert({ sender_id: user.id, sender_name: clientName || 'Client', recipient_id: staffAssignments[si].staff_id, body: alertBody, is_alert: true });
@@ -8550,7 +8586,20 @@ async function clientDeclineTimeChange(bookingId) {
     }
     // Also notify assigned staff
     try {
-      var { data: staffAssignments } = await sb.from('staff_assignments').select('staff_id').eq('client_id', bk.client_id);
+      // R29: staff_assignments.client_id is a profiles.id, but bk.client_id is
+      // an auth user id - this matched nothing, so an assigned staff member was
+      // never alerted. The staff_id it returns is also a profiles.id, and
+      // messages.recipient_id needs an auth id, so map that back too.
+      var { data: _cProf } = await sb.from('profiles').select('id').eq('user_id', bk.client_id).maybeSingle();
+      var staffAssignments = [];
+      if (_cProf && _cProf.id) {
+        var { data: _sa } = await sb.from('staff_assignments').select('staff_id').eq('client_id', _cProf.id);
+        var _sPids = (_sa || []).map(function(a) { return a.staff_id; }).filter(Boolean);
+        if (_sPids.length) {
+          var { data: _sProfs } = await sb.from('profiles').select('user_id').in('id', _sPids);
+          staffAssignments = (_sProfs || []).map(function(r) { return { staff_id: r.user_id }; }).filter(function(r) { return r.staff_id; });
+        }
+      }
       if (staffAssignments && staffAssignments.length > 0) {
         for (var si = 0; si < staffAssignments.length; si++) {
           await sb.from('messages').insert({
@@ -11604,7 +11653,7 @@ function openAddStaffForm() {
   document.getElementById('ns-email').value = '';
   document.getElementById('ns-phone').value = '';
   document.getElementById('ns-pass').value = '';
-  document.getElementById('ns-rate').value = '';
+  document.getElementById('ns-pct').value = '';
   document.getElementById('ns-title').value = '';
   var errEl = document.getElementById('ns-error');
   if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
@@ -11617,9 +11666,153 @@ function loadStaffPanel(view, tabBtn) {
   }
   document.getElementById('staffTeamView').style.display = view === 'team' ? '' : 'none';
   document.getElementById('staffAssignView').style.display = view === 'assign' ? '' : 'none';
+  var _pv = document.getElementById('staffPayrollView');
+  if (_pv) _pv.style.display = view === 'payroll' ? '' : 'none';
   if (view === 'team') loadStaffTeam();
   if (view === 'assign') { loadAssignDropdowns(); loadAssignments(); }
+  if (view === 'payroll') loadStaffPayroll();
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+//  PAYROLL (R29) — what Rachel owes, and marking it paid
+// ═══════════════════════════════════════════════════════════════
+// Weeks run Sunday to Saturday, matching the cron that charges recurring
+// clients on Sundays, so the money coming in and the money going out are
+// described by the same week.
+var _payrollWeekOffset = 0;
+
+function _hhpWeekBounds(offset) {
+  var d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - d.getDay() + (offset || 0) * 7);   // back to Sunday
+  var start = new Date(d);
+  var end = new Date(d);
+  end.setDate(end.getDate() + 6);
+  return { start: _localDateStr(start), end: _localDateStr(end) };
+}
+
+function hhpPayrollWeek(delta) {
+  _payrollWeekOffset += delta;
+  if (_payrollWeekOffset > 0) _payrollWeekOffset = 0;   // no paying for work not yet done
+  loadStaffPayroll();
+}
+
+async function loadStaffPayroll() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var listEl = document.getElementById('payrollList');
+  if (!sb || !listEl) return;
+  function money(n) { return '$' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
+  function esc(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : v; return d.innerHTML; }
+
+  var wk = _hhpWeekBounds(_payrollWeekOffset);
+  var lblEl = document.getElementById('payrollWeekLabel');
+  if (lblEl) {
+    var a = new Date(wk.start + 'T12:00:00'), b = new Date(wk.end + 'T12:00:00');
+    var f = { month: 'short', day: 'numeric' };
+    lblEl.textContent = a.toLocaleDateString('en-US', f) + ' – ' + b.toLocaleDateString('en-US', f) +
+      (_payrollWeekOffset === 0 ? ' (this week)' : '');
+  }
+
+  try {
+    var { data: rows, error } = await sb.from('staff_earnings')
+      .select('id, staff_id, service_date, service, client_name, staff_amount, pay_pct, status')
+      .gte('service_date', wk.start).lte('service_date', wk.end)
+      .neq('status', 'void')
+      .order('service_date', { ascending: true });
+    if (error) throw error;
+    rows = rows || [];
+
+    // Names, resolved once rather than per row.
+    var ids = rows.map(function (r) { return r.staff_id; }).filter(function (v, k, a2) { return v && a2.indexOf(v) === k; });
+    var names = {};
+    if (ids.length) {
+      var { data: profs } = await sb.from('profiles').select('user_id, full_name').in('user_id', ids);
+      (profs || []).forEach(function (p) { names[p.user_id] = p.full_name; });
+    }
+
+    if (!rows.length) {
+      listEl.innerHTML = '<div style="padding:22px;text-align:center;color:var(--mid);font-size:0.88rem">No staff visits this week.</div>';
+    } else {
+      var byStaff = {};
+      rows.forEach(function (r) { (byStaff[r.staff_id] = byStaff[r.staff_id] || []).push(r); });
+      listEl.innerHTML = Object.keys(byStaff).map(function (sid) {
+        var mine = byStaff[sid];
+        var unpaid = mine.filter(function (r) { return r.status === 'unpaid'; });
+        var owed = unpaid.reduce(function (a, r) { return a + (Number(r.staff_amount) || 0); }, 0);
+        var total = mine.reduce(function (a, r) { return a + (Number(r.staff_amount) || 0); }, 0);
+        var visits = mine.map(function (r) {
+          var d = new Date(r.service_date + 'T12:00:00');
+          return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:0.8rem;padding:5px 0;border-top:1px solid var(--border,#e8e0d4)">'
+            + '<span style="color:var(--mid)">' + d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            + ' · ' + esc(r.service || '') + (r.client_name ? ' · ' + esc(r.client_name) : '') + '</span>'
+            + '<span style="font-weight:600;white-space:nowrap">' + money(r.staff_amount)
+            + (r.status === 'paid' ? ' <span style="color:var(--forest);font-size:0.72rem">paid</span>' : '') + '</span></div>';
+        }).join('');
+        return '<div style="border:1px solid var(--border,#e8e0d4);border-radius:12px;padding:14px;background:var(--cream,#fdfaf5)">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">'
+          +   '<div><div style="font-weight:700">' + esc(names[sid] || 'Staff member') + '</div>'
+          +   '<div style="font-size:0.78rem;color:var(--mid)">' + mine.length + ' visit' + (mine.length > 1 ? 's' : '')
+          +     ' · ' + money(total) + ' earned</div></div>'
+          +   '<div style="text-align:right">'
+          +     '<div style="font-size:1.15rem;font-weight:800;color:' + (owed > 0 ? 'var(--gold-deep,#8c6b4a)' : 'var(--forest)') + '">' + money(owed) + '</div>'
+          +     '<div style="font-size:0.72rem;color:var(--mid)">' + (owed > 0 ? 'to pay' : 'all paid') + '</div>'
+          +   '</div></div>'
+          + visits
+          + (owed > 0
+              ? '<button class="btn btn-forest btn-sm" style="width:100%;justify-content:center;margin-top:12px" onclick="hhpMarkWeekPaid(\'' + sid + '\',\'' + wk.start + '\',\'' + wk.end + '\',this)">Mark ' + money(owed) + ' paid</button>'
+              : '')
+          + '</div>';
+      }).join('');
+    }
+
+    // Everything still owed, across every week, so nothing gets forgotten.
+    var { data: allUnpaid } = await sb.from('staff_earnings')
+      .select('staff_id, staff_amount').eq('status', 'unpaid');
+    var outEl = document.getElementById('payrollOutstanding');
+    if (outEl) {
+      var tot = (allUnpaid || []).reduce(function (a, r) { return a + (Number(r.staff_amount) || 0); }, 0);
+      outEl.innerHTML = (allUnpaid || []).length
+        ? '<strong style="color:var(--ink);font-size:1.05rem">' + money(tot) + '</strong> across '
+          + (allUnpaid || []).length + ' unpaid visit' + ((allUnpaid || []).length > 1 ? 's' : '')
+          + '. Use Prev to find the weeks they belong to.'
+        : 'Nothing outstanding — everyone is paid up.';
+    }
+  } catch (e) {
+    console.error('[payroll] load failed:', e);
+    listEl.innerHTML = '<div style="padding:22px;text-align:center;color:var(--rose,#c25656);font-size:0.88rem">Could not load payroll — see console.</div>';
+  }
+}
+
+// Mark one person's week paid. Verified with .select() and a row count,
+// because the Supabase client resolves on a failed write rather than
+// throwing - an unverified update would tell Rachel someone had been paid
+// when nothing had changed.
+async function hhpMarkWeekPaid(staffId, weekStart, weekEnd, btn) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !staffId) return;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Marking…'; }
+  try {
+    var { data, error } = await sb.from('staff_earnings')
+      .update({ status: 'paid', paid_at: new Date().toISOString() })
+      .eq('staff_id', staffId).eq('status', 'unpaid')
+      .gte('service_date', weekStart).lte('service_date', weekEnd)
+      .select('id');
+    if (error) throw error;
+    var n = (data || []).length;
+    if (n === 0) {
+      if (typeof toast === 'function') toast('Nothing changed — those visits were already marked paid.', 'error');
+    } else if (typeof toast === 'function') {
+      toast('✅ Marked ' + n + ' visit' + (n > 1 ? 's' : '') + ' paid');
+    }
+    loadStaffPayroll();
+  } catch (e) {
+    console.error('[payroll] mark paid failed:', e);
+    if (typeof toast === 'function') toast('⚠️ Could not mark paid — nothing was changed', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Mark paid'; }
+  }
+}
+
 
 async function loadStaffTeam() {
   var listEl = document.getElementById('staffTeamList');
@@ -11645,7 +11838,11 @@ async function loadStaffTeam() {
       html += '<div style="flex:1;min-width:0">';
       html += '<div style="font-weight:600;font-size:0.9rem">' + (s.full_name || 'Unnamed') + '</div>';
       html += '<div style="font-size:0.78rem;color:var(--mid)">' + (s.email || '') + (s.phone ? ' · ' + s.phone : '') + '</div>';
-      if (s.hourly_rate) html += '<div style="font-size:0.78rem;color:var(--mid)">Rate: $' + Number(s.hourly_rate).toFixed(2) + '/hr</div>';
+      // R29: show the share of each visit, and say so explicitly when the
+      // person is on the default rather than leaving it blank.
+      var _pct = (s.staff_pay_pct === null || s.staff_pay_pct === undefined || s.staff_pay_pct === '')
+        ? null : Number(s.staff_pay_pct);
+      html += '<div style="font-size:0.78rem;color:var(--mid)">Pay: ' + (_pct === null ? '60% (default)' : _pct + '%') + ' of each visit</div>';
       html += '</div>';
       html += '<div style="display:flex;gap:8px;align-items:center">';
       html += '<span style="background:' + (isActive ? '#d4edda' : '#f8d7da') + ';color:' + (isActive ? '#155724' : '#721c24') + ';padding:3px 10px;border-radius:4px;font-size:0.72rem;font-weight:600">' + (isActive ? 'Active' : 'Inactive') + '</span>';
@@ -11676,7 +11873,15 @@ async function createNewStaff() {
   var phone = (document.getElementById('ns-phone') || {}).value;
   phone = phone ? phone.trim() : '';
   var password = (document.getElementById('ns-pass') || {}).value || '';
-  var rate = parseFloat((document.getElementById('ns-rate') || {}).value) || null;
+  // R29: staff are paid a share of each visit, not by the hour. Blank means
+  // the business default (60%) rather than zero - a new person must never be
+  // created on 0% by accident.
+  var pctRaw = (document.getElementById('ns-pct') || {}).value;
+  var payPct = (pctRaw === '' || pctRaw == null) ? null : Number(pctRaw);
+  if (payPct !== null && (!isFinite(payPct) || payPct < 0 || payPct > 85)) {
+    showErr('Pay rate must be between 0 and 85%. Leave it blank for the standard 60%.');
+    return;
+  }
   var title = (document.getElementById('ns-title') || {}).value;
   title = title ? title.trim() : '';
 
@@ -11708,7 +11913,7 @@ async function createNewStaff() {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + session.access_token,
       },
-      body: JSON.stringify({ name: name, email: email, password: password, phone: phone, hourlyRate: rate, jobTitle: title }),
+      body: JSON.stringify({ name: name, email: email, password: password, phone: phone, payPct: payPct, jobTitle: title }),
     });
     var result = await resp.json().catch(function() { return {}; });
     if (!resp.ok || !result.success) {
@@ -18483,72 +18688,88 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   })();
 
-  // ---- STAFF EARNINGS LOADER ----
+  // ---- STAFF EARNINGS LOADER (R29) ----
+  // The previous version queried payments.staff_id and bookings.staff_id.
+  // Neither column exists, so every figure on this panel was $0 and every
+  // list empty, permanently and silently. It now reads staff_earnings, which
+  // is the ledger written when a visit is completed.
+  //
+  // A staff member sees THEIR OWN CUT ONLY. gross_amount - what the client
+  // paid - is deliberately never selected here, and RLS on staff_earnings
+  // stops them reading anyone else's rows regardless of what this asks for.
   async function loadStaffEarnings() {
     var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
     var user = (window.HHP_Auth && window.HHP_Auth.currentUser) ? window.HHP_Auth.currentUser : null;
     if (!sb || !user) return;
-    var userId = user.id;
+    function money(n) { return '$' + (Math.round((Number(n) || 0) * 100) / 100).toFixed(2); }
+    function esc(v) { var d = document.createElement('div'); d.textContent = v == null ? '' : v; return d.innerHTML; }
+    function setTxt(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
     try {
       var now = new Date();
-      var startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      var startOfQuarter = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+      var monthStart = _localDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+      var qStart = _localDateStr(new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1));
 
-      // Monthly payments
-      var { data: monthPayments } = await sb.from('payments').select('amount').eq('staff_id', userId).gte('created_at', startOfMonth.toISOString());
-      var monthTotal = (monthPayments || []).reduce(function(acc, p) { return acc + (p.amount || 0); }, 0);
-      var e1 = document.getElementById('stat-earnMonth');
-      if (e1) e1.textContent = '$' + monthTotal.toFixed(0);
+      var { data: rows, error } = await sb.from('staff_earnings')
+        .select('id, service_date, service, client_name, staff_amount, pay_pct, status, paid_at')
+        .eq('staff_id', user.id)
+        .order('service_date', { ascending: false });
+      if (error) { console.warn('[earnings] read failed:', error); return; }
+      rows = rows || [];
 
-      // Quarter payments
-      var { data: qtrPayments } = await sb.from('payments').select('amount').eq('staff_id', userId).gte('created_at', startOfQuarter.toISOString());
-      var qtrTotal = (qtrPayments || []).reduce(function(acc, p) { return acc + (p.amount || 0); }, 0);
-      var e2 = document.getElementById('stat-earnQuarter');
-      if (e2) e2.textContent = '$' + qtrTotal.toFixed(0);
+      var live = rows.filter(function (r) { return r.status !== 'void'; });
+      var sum = function (list) { return list.reduce(function (a, r) { return a + (Number(r.staff_amount) || 0); }, 0); };
+      var monthRows = live.filter(function (r) { return r.service_date >= monthStart; });
+      var unpaid = live.filter(function (r) { return r.status === 'unpaid'; });
 
-      // Total jobs all time
-      var { count: totalJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId);
-      var e3 = document.getElementById('stat-earnTotalJobs');
-      if (e3) e3.textContent = totalJobs || '0';
+      setTxt('stat-earnMonth', money(sum(monthRows)));
+      setTxt('stat-earnQuarter', money(sum(live.filter(function (r) { return r.service_date >= qStart; }))));
+      setTxt('stat-earnTotalJobs', String(live.length));
+      setTxt('stat-earnMonthJobs', String(monthRows.length));
 
-      // Jobs this month
-      var { count: monthJobs } = await sb.from('bookings').select('*', { count: 'exact', head: true }).eq('staff_id', userId).gte('date', startOfMonth.toISOString());
-      var e4 = document.getElementById('stat-earnMonthJobs');
-      if (e4) e4.textContent = monthJobs || '0';
-
-      // Recent completed jobs
-      var histEl = document.getElementById('staffEarningsHistory');
-      if (histEl) {
-        var { data: recentJobs } = await sb.from('bookings').select('service, date, time_slot, status, pet_names')
-          .eq('staff_id', userId).in('status', ['completed', 'confirmed']).order('date', { ascending: false }).limit(8);
-        if (recentJobs && recentJobs.length > 0) {
-          var svcIcons = {'Dog Walking':'🐕','Drop-In Visit':'🚪','Drop-In Visit (Cat)':'🐱','Cat Care Visit':'🐱','House Sitting':'🏡','Dog Boarding':'🌙','Doggy Day Care':'☀️'};
-          var rh = '';
-          recentJobs.forEach(function(b) {
-            var icon = svcIcons[b.service] || '🐾';
-            var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-            rh += '<div style="display:flex;justify-content:space-between;padding:12px;background:var(--warm);border-radius:8px;font-size:0.86rem">';
-            rh += '<div><div style="font-weight:600">' + icon + ' ' + (b.service || 'Service') + '</div>';
-            rh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' · ' + fmt12h(b.time_slot) : '') + '</div></div>';
-            rh += '<div style="font-weight:600;color:var(--forest);font-size:0.82rem;text-transform:uppercase">' + (b.status || '') + '</div></div>';
-          });
-          histEl.innerHTML = rh;
-        } else {
-          histEl.innerHTML = '<div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No completed jobs yet. Your work history will appear here.</div>';
+      // Relabel two of the stat tiles: what a staff member actually wants to
+      // know is what is still owed to them, not a quarter figure.
+      try {
+        var qt = document.getElementById('stat-earnQuarter');
+        if (qt) {
+          qt.textContent = money(sum(unpaid));
+          var lbl = qt.parentElement && qt.parentElement.querySelector('.stat-lbl');
+          if (lbl) lbl.textContent = 'Not Yet Paid';
         }
+      } catch (e) {}
+
+      var histEl = document.getElementById('staffEarningsHistory');
+      if (!histEl) return;
+      if (!live.length) {
+        histEl.innerHTML = '<div style="padding:18px;text-align:center;color:var(--mid);font-size:0.88rem">No completed visits yet. Your earnings will appear here after your first visit.</div>';
+        return;
       }
-    } catch(e) {
+      var svcIcons = { 'Dog Walking': '\uD83D\uDC15', 'Drop-In Visit': '\uD83D\uDEAA', 'Drop-In Visit (Cat)': '\uD83D\uDC31', 'House Sitting': '\uD83C\uDFE1' };
+      function iconFor(svc) { for (var k in svcIcons) { if ((svc || '').indexOf(k) !== -1) return svcIcons[k]; } return '\uD83D\uDC3E'; }
+      histEl.innerHTML = live.slice(0, 25).map(function (r) {
+        var d = new Date(r.service_date + 'T12:00:00');
+        var when = isNaN(d.getTime()) ? r.service_date : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        var paid = r.status === 'paid';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;background:var(--warm);border-radius:8px;font-size:0.86rem">'
+          + '<div style="min-width:0"><div style="font-weight:600">' + iconFor(r.service) + ' ' + esc(r.service || 'Visit') + '</div>'
+          + '<div style="font-size:0.76rem;color:var(--mid)">' + when + (r.client_name ? ' \u00b7 ' + esc(r.client_name) : '') + '</div></div>'
+          + '<div style="text-align:right;flex-shrink:0"><div style="font-weight:700;color:var(--forest)">' + money(r.staff_amount) + '</div>'
+          + '<div style="font-size:0.72rem;font-weight:700;color:' + (paid ? 'var(--forest)' : 'var(--gold-deep,#8c6b4a)') + '">' + (paid ? 'Paid' : 'Awaiting payment') + '</div></div></div>';
+      }).join('');
+    } catch (e) {
       console.error('loadStaffEarnings error:', e);
     }
   }
+  // Two functions of this name exist in different script blocks. Bind the
+  // correct one explicitly so load order cannot decide which the panel calls.
+  window.loadStaffEarnings = loadStaffEarnings;
 </script>
 
   <script src="/js/site-content-client.js?v=20260517e" defer></script>
-  <script src="/js/profiles.js?v=20260517j" defer></script>
+  <script src="/js/profiles.js?v=20260921a" defer></script>
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
-  <script src="/js/realtime-cache.js?v=20260325" defer></script>
-  <script src="/js/booking-system.js?v=20260909b" defer></script>
+  <script src="/js/realtime-cache.js?v=20260921a" defer></script>
+  <script src="/js/booking-system.js?v=20260921a" defer></script>
   <script src="/js/messaging.js?v=20260618a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>
@@ -18562,7 +18783,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('hhp-customizer-script')) return;
         var s = document.createElement('script');
         s.id = 'hhp-customizer-script';
-        s.src = '/js/customizer.js?v=20260620a';
+        s.src = '/js/customizer.js?v=20260921a';
         s.defer = true;
         document.head.appendChild(s);
       }
@@ -19391,7 +19612,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(eagerLoadTracking, 1000);
   })();
   </script>
-  <script src="/js/service-timer.js?v=20260517e" defer></script>
+  <script src="/js/service-timer.js?v=20260921a" defer></script>
   <!-- ═══════════════════════════════════════════════════════════════
        PUBLIC WALK TRACKING PAGE — no auth required
        Activated when URL has ?track={walkId}

@@ -4864,8 +4864,21 @@
           // Legacy: client-level assignment via staff_assignments table.
           var legacyClientIds = [];
           try {
-            var { data: staffAssignments } = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffUid);
-            legacyClientIds = (staffAssignments || []).map(function(a) { return a.client_id; });
+            // R29: staff_assignments keys on profiles.id (both columns are FKs
+            // to profiles(id)), but staffUid here is an AUTH user id and
+            // booking_requests.client_id is an auth user id too. Two hops are
+            // needed: my auth id -> my profile id, then the assigned clients'
+            // profile ids -> their auth ids. Querying with the auth id directly
+            // matched nothing, so a staff member saw none of their clients.
+            var { data: _meProf } = await sb.from('profiles').select('id').eq('user_id', staffUid).maybeSingle();
+            if (_meProf && _meProf.id) {
+              var { data: staffAssignments } = await sb.from('staff_assignments').select('client_id').eq('staff_id', _meProf.id);
+              var _cProfIds = (staffAssignments || []).map(function(a) { return a.client_id; }).filter(Boolean);
+              if (_cProfIds.length) {
+                var { data: _cProfs } = await sb.from('profiles').select('user_id').in('id', _cProfIds);
+                legacyClientIds = (_cProfs || []).map(function(r) { return r.user_id; }).filter(Boolean);
+              }
+            }
           } catch (laErr) { console.warn('[bookings panel] staff_assignments lookup:', laErr); }
 
           // Combined filter: either assigned_to me OR client_id ∈ my legacy set.

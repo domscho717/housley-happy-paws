@@ -42,7 +42,7 @@ module.exports = async function handler(req, res) {
     return res.status(403).json({ error: 'Forbidden — owner access required' });
   }
 
-  const { name, email, password, phone, hourlyRate, jobTitle } = req.body || {};
+  const { name, email, password, phone, payPct, jobTitle } = req.body || {};
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'name, email, and password are required' });
   }
@@ -125,7 +125,11 @@ module.exports = async function handler(req, res) {
         full_name: name,
         phone: phone || null,
         role: 'staff',
-        hourly_rate: hourlyRate != null && !Number.isNaN(Number(hourlyRate)) ? Number(hourlyRate) : null,
+        // R29: share of each visit. null means 'use the business default'.
+        // Anything out of range is stored as null for the same reason - a bad
+        // value must not become a 0% wage.
+        staff_pay_pct: (payPct != null && !Number.isNaN(Number(payPct))
+          && Number(payPct) >= 0 && Number(payPct) <= 85) ? Number(payPct) : null,
         hire_date: todayStr,
         is_active: true,
         job_title: (jobTitle && String(jobTitle).trim()) || null,

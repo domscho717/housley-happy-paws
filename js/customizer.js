@@ -915,8 +915,18 @@
       // Staff: filter by assigned clients
       if(user){
         try{
-          var{data:sa}=await sb.from('staff_assignments').select('client_id').eq('staff_id',user.id);
-          var cids=(sa||[]).map(function(a){return a.client_id;}).filter(Boolean);
+          // R29: staff_assignments keys on profiles.id, and booking_requests
+          // .client_id is an auth user id. Hop through profiles both ways.
+          var{data:_mp}=await sb.from('profiles').select('id').eq('user_id',user.id).maybeSingle();
+          var cids=[];
+          if(_mp&&_mp.id){
+            var{data:sa}=await sb.from('staff_assignments').select('client_id').eq('staff_id',_mp.id);
+            var pids=(sa||[]).map(function(a){return a.client_id;}).filter(Boolean);
+            if(pids.length){
+              var{data:cp}=await sb.from('profiles').select('user_id').in('id',pids);
+              cids=(cp||[]).map(function(r){return r.user_id;}).filter(Boolean);
+            }
+          }
           if(cids.length>0) query=query.in('client_id',cids);
         }catch(e){}
       }

@@ -403,19 +403,27 @@
     try {
       // Fetch today's bookings
       var query = sb.from('booking_requests')
-        .select('id, service, preferred_time, contact_name, pet_names, address, client_id, staff_id')
+        .select('id, service, preferred_time, contact_name, pet_names, address, client_id, assigned_to')
         .eq('preferred_date', today)
         .in('status', ['accepted', 'confirmed']);
 
       // Staff only see their assigned bookings
       if (role === 'staff') {
         // Get my assigned clients
-        var { data: assignments } = await sb.from('staff_assignments')
-          .select('client_id')
-          .eq('staff_id', user.id);
-        var clientIds = (assignments || []).map(function(a) { return a.client_id; });
-        // Also include bookings directly assigned
-        query = query.or('staff_id.eq.' + user.id + (clientIds.length ? ',client_id.in.(' + clientIds.join(',') + ')' : ''));
+        // R29: two fixes here. staff_assignments keys on profiles.id, not the
+        // auth id, so this matched nothing; and booking_requests has no
+        // staff_id column at all - the field is assigned_to.
+        var { data: _mp } = await sb.from('profiles').select('id').eq('user_id', user.id).maybeSingle();
+        var clientIds = [];
+        if (_mp && _mp.id) {
+          var { data: assignments } = await sb.from('staff_assignments').select('client_id').eq('staff_id', _mp.id);
+          var _pids = (assignments || []).map(function(a) { return a.client_id; }).filter(Boolean);
+          if (_pids.length) {
+            var { data: _cp } = await sb.from('profiles').select('user_id').in('id', _pids);
+            clientIds = (_cp || []).map(function(r) { return r.user_id; }).filter(Boolean);
+          }
+        }
+        query = query.or('assigned_to.eq.' + user.id + (clientIds.length ? ',client_id.in.(' + clientIds.join(',') + ')' : ''));
       }
 
       var { data: bookings } = await query;

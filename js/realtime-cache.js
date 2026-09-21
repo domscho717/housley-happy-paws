@@ -94,10 +94,15 @@
           sb.from('pets').select('id,name,species,breed,photo_url,owner_id'),
         ];
       } else if (portal === 'staff') {
+        // R29: staff_assignments keys on profiles.id, not the auth id. Resolve
+        // it first; the impossible UUID below keeps the batch shape intact when
+        // no profile is found rather than returning every row.
+        var _spRes = await sb.from('profiles').select('id').eq('user_id', user.id).maybeSingle();
+        var _staffProfileId = _spRes && _spRes.data ? _spRes.data.id : null;
         queries = [
           sb.from('booking_requests').select('*').order('created_at', { ascending: false }).limit(50),
           sb.from('messages').select('*').or('sender_id.eq.' + user.id + ',recipient_id.eq.' + user.id).order('created_at', { ascending: false }).limit(10),
-          sb.from('staff_assignments').select('client_id').eq('staff_id', user.id),
+          sb.from('staff_assignments').select('client_id').eq('staff_id', _staffProfileId || '00000000-0000-0000-0000-000000000000'),
         ];
       } else if (portal === 'client') {
         // Use effective client ID for "View As Client" mode

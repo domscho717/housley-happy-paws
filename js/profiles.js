@@ -283,7 +283,7 @@ async function showStaffProfile(profileId) {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;">
         <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Phone:</strong> ${_escHtml(s.phone || '—')}</div>
         <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Email:</strong> ${_escHtml(s.email || '—')}</div>
-        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Hourly Rate:</strong> ${_escHtml(s.hourly_rate ? '$' + s.hourly_rate : '—')}</div>
+        <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Pay Rate:</strong> ${_escHtml((s.staff_pay_pct === null || s.staff_pay_pct === undefined || s.staff_pay_pct === '') ? '60% of each visit (default)' : s.staff_pay_pct + '% of each visit')}</div>
         <div style="padding:12px;background:var(--cream);border-radius:8px;"><strong>Address:</strong> ${_escHtml(s.address || '—')}</div>
       </div>
 
