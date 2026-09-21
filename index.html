@@ -10718,10 +10718,13 @@ async function endServiceFromPanel() {
 
     // Look up client email so the notification email can be sent in parallel.
     var clientEmail = '';
+    var _visitGross = null;   // R28 - what the client paid for this visit
     try {
       if (d.bookingId) {
-        var bkEmailRes = await sb.from('booking_requests').select('contact_email').eq('id', d.bookingId).maybeSingle();
+        var bkEmailRes = await sb.from('booking_requests').select('contact_email, estimated_total').eq('id', d.bookingId).maybeSingle();
         if (bkEmailRes && bkEmailRes.data) clientEmail = bkEmailRes.data.contact_email;
+        // R28: the visit price, for the staff pay record below.
+        if (bkEmailRes && bkEmailRes.data) _visitGross = bkEmailRes.data.estimated_total;
       }
       if (!clientEmail && d.clientId) {
         var profEmailRes = await sb.from('profiles').select('email').eq('user_id', d.clientId).maybeSingle();
@@ -10794,6 +10797,25 @@ async function endServiceFromPanel() {
       emailNotification: emailNotification,
       onProgress: onProgress
     });
+
+    // R28 - log what the person who did this visit earned. Deliberately after
+    // the pipeline has confirmed the visit closed: a payout line for a visit
+    // that never finished would be worse than none. Returns null and stays
+    // quiet when the walker is Rachel herself, which is not a payout.
+    if (result && result.success) {
+      try {
+        await hhpRecordStaffEarning({
+          staffId: user.id,
+          bookingId: d.bookingId || null,
+          walkId: d.walkId || null,
+          reportId: result.reportId || null,
+          serviceDate: reportDate,
+          service: reportService,
+          clientName: d.clientName || '',
+          gross: _visitGross
+        });
+      } catch (payErr) { console.error('[staff-pay] record failed:', payErr); }
+    }
 
     if (typeof toast === 'function') {
       if (result.success && result.reusedReport) toast('✅ Visit closed — the report was already saved.');
@@ -16400,6 +16422,84 @@ async function _sendReviewRequest(clientProfileId, reportId, service, petName) {
 // ═══════════════════════════════════════════════════════════
 //  PUBLIC REVIEWS SECTION — visible on homepage
 // ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+//  STAFF PAY — the split, and the record of who is owed what
+// ═══════════════════════════════════════════════════════════════
+// Agreed split: staff 60, Rachel 25, platform 15.
+//
+// The platform share comes off the top and does not change with who did the
+// work. Rachel's share is computed as the REMAINDER, never as a third
+// percentage, so the three figures always add back to exactly what the client
+// paid. Three independent roundings leave stray cents that never reconcile.
+var HHP_PLATFORM_PCT = 15;
+var HHP_DEFAULT_STAFF_PCT = 60;
+function hhpPaySplit(gross, payPct) {
+  gross = Math.round((Number(gross) || 0) * 100) / 100;
+  // null / '' / undefined all mean 'no rate set for this person' and must fall
+  // back to the default. Number(null) is 0, which passes every range check and
+  // would quietly pay a new staff member nothing at all.
+  var pct = (payPct === null || payPct === undefined || payPct === '')
+    ? HHP_DEFAULT_STAFF_PCT : Number(payPct);
+  if (!isFinite(pct) || pct < 0 || pct > 100 - HHP_PLATFORM_PCT) pct = HHP_DEFAULT_STAFF_PCT;
+  var staff = Math.round(gross * pct) / 100;
+  var platform = Math.round(gross * HHP_PLATFORM_PCT) / 100;
+  var owner = Math.round((gross - staff - platform) * 100) / 100;
+  return { gross: gross, pct: pct, staff: staff, platform: platform, owner: owner };
+}
+
+// Record what a staff member earned for one completed visit.
+// Every figure is SNAPSHOT - the percentage in force today and all three dollar
+// amounts - because changing someone's rate later must not rewrite what they
+// have already earned. The unique index is on (booking_id, service_date,
+// staff_id): a recurring series is ONE booking row whose later visits never
+// become rows of their own, so keying on booking_id alone would pay a weekly
+// client's walker once and call every later week a duplicate.
+async function hhpRecordStaffEarning(opts) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !opts || !opts.staffId || !opts.serviceDate) return null;
+  try {
+    var { data: prof } = await sb.from('profiles')
+      .select('user_id, role, full_name, staff_pay_pct')
+      .eq('user_id', opts.staffId).maybeSingle();
+    // Rachel doing her own visits is not a payout. Only staff generate a line.
+    if (!prof || prof.role !== 'staff') return null;
+
+    var gross = Number(opts.gross);
+    if (!isFinite(gross) || gross <= 0) {
+      console.warn('[staff-pay] no price on this visit - nothing recorded', opts.bookingId);
+      return null;
+    }
+    var s = hhpPaySplit(gross, prof.staff_pay_pct);
+    var res = await sb.from('staff_earnings').insert({
+      staff_id: opts.staffId,
+      booking_id: opts.bookingId || null,
+      walk_id: opts.walkId || null,
+      service_report_id: opts.reportId || null,
+      service_date: opts.serviceDate,
+      service: opts.service || null,
+      client_name: opts.clientName || null,
+      gross_amount: s.gross,
+      pay_pct: s.pct,
+      staff_amount: s.staff,
+      platform_amount: s.platform,
+      owner_amount: s.owner,
+      status: 'unpaid'
+    }).select('id').maybeSingle();
+    if (res && res.error) {
+      // 23505 is the unique index doing its job on a re-send. Not a problem.
+      if (String(res.error.code) === '23505') return null;
+      console.error('[staff-pay] could not record earning:', res.error);
+      if (typeof toast === 'function') toast('\u26a0\ufe0f Visit saved, but ' + (prof.full_name || 'staff') + "'s $" + s.staff.toFixed(2) + ' was not recorded - tell Dom', 'error');
+      return null;
+    }
+    console.log('[staff-pay]', prof.full_name, s.pct + '% of $' + s.gross.toFixed(2), '= $' + s.staff.toFixed(2));
+    return res && res.data ? res.data.id : null;
+  } catch (e) {
+    console.error('[staff-pay] error:', e);
+    return null;
+  }
+}
 
 // Rachel #4 — phone numbers type themselves with dashes.
 // One delegated listener rather than per-field handlers: phone inputs appear in
