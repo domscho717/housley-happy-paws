@@ -17528,9 +17528,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // ---- OWNER TODAY'S SCHEDULE WITH START/END WALK BUTTONS ----
   window.loadOwnerTodaySchedule = loadOwnerTodaySchedule;
+  // Rachel #5 - finished house sits used to sit on the dashboard forever
+  // waiting to be confirmed. Once the end date has passed there is nothing
+  // left to do: the stay is paid at acceptance, and she sends the write-up
+  // herself when she wants to. Close them out so they stop asking.
+  //
+  // Guards, because this marks bookings completed on its own:
+  //   - a full day of grace after the end date, so 'Complete Stay & Send
+  //     Report' is still reachable the morning after a stay ends
+  //   - PAID only. An unpaid stay is exactly the one that needs a human
+  //   - verified with .select(), because the Supabase client resolves on a
+  //     failed write instead of throwing, so an unverified update would
+  //     report success while changing nothing
+  async function _autoCloseFinishedStays(sb) {
+    try {
+      var cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 1);
+      var cutoffStr = _localDateStr(cutoff);
+      var { data: done, error } = await sb.from('booking_requests')
+        .update({ status: 'completed' })
+        .ilike('service', '%house sitting%')
+        .in('status', ['accepted', 'confirmed'])
+        .lt('preferred_end_date', cutoffStr)
+        .not('payment_intent_id', 'is', null)
+        .select('id, contact_name, preferred_end_date');
+      if (error) { console.warn('[auto-close] failed:', error); return; }
+      var rows = done || [];
+      if (rows.length && typeof toast === 'function') {
+        toast('\u2705 Closed ' + rows.length + ' finished house sit' + (rows.length > 1 ? 's' : ''));
+      }
+      if (rows.length) console.log('[auto-close] finished stays closed:', rows.map(function (r) { return r.contact_name; }).join(', '));
+    } catch (e) { console.warn('[auto-close] error:', e); }
+  }
+
   async function loadOwnerTodaySchedule() {
     var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
     if (!sb) return;
+    await _autoCloseFinishedStays(sb);   // Rachel #5
 
     var listEl = document.getElementById('ownerTodayScheduleList');
     if (!listEl) return;
