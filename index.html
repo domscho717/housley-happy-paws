@@ -1515,7 +1515,7 @@ try {
         <div class="hero-photo-sm">🐶</div>
         <div class="hero-photo-sm hero-photo-sm-cta" onclick="openModal('mgModal')">
           <div style="font-size:1.4rem;margin-bottom:4px">🐾</div>
-          <div style="font-size:0.78rem;font-weight:700;color:var(--gold-deep)">Meet Rachel</div>
+          <div style="font-size:0.78rem;font-weight:700;color:var(--gold-deep)">Meet the Team</div>
         </div>
       </div>
     </div>
@@ -1540,7 +1540,7 @@ try {
         <p class="section-p" style="margin-bottom:28px">I'm based right here in Lancaster, PA, and I've had the privilege of caring for dogs and cats of all shapes, sizes, and personalities. Every single one has my full attention and a lot of love.</p>
         <p class="section-p" style="margin-bottom:32px;font-style:italic;font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--gold-deep)">"I treat your pets the way I'd want mine treated — like they're the most important thing in the room."</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <button class="btn btn-gold" onclick="openModal('mgModal')">Meet Rachel</button>
+          <button class="btn btn-gold" onclick="openModal('mgModal')">Meet the Team</button>
           <button class="btn btn-outline" onclick="openModal('contactModal')">Send a Message</button>
         </div>
       </div>
@@ -1590,7 +1590,7 @@ try {
           <h3 class="sc-name">Dog Walking</h3>
           <div class="sc-price" data-price-key="dog_walk_30">$25 <span>/ 30 min</span></div>
           <div class="sc-price" style="font-size:1.15rem;margin-top:-2px" data-price-key="dog_walk_60">$45 <span>/ 1 hour</span></div>
-          <div class="sc-desc">I come to your home and get your pup ready for a nice, long walk! Every walk is GPS tracked with a detailed report card sent to you afterward. Water bowls will also be refreshed upon returning!</div>
+          <div class="sc-desc"><strong>Happy walks, happy pups!</strong><br>Give your dog the exercise, fresh air, and one-on-one attention they need daily. Our personalized walks are tailored to your dog’s pace and personality, with plenty of love and care along the way. Every walk is also GPS tracked with a detailed report card sent to you afterward.</div>
           <ul class="sc-features">
             <li>Live GPS tracking</li><li>Photo updates mid-walk</li>
             <li>Personal walk report card</li><li>Route map included</li>
@@ -1601,8 +1601,9 @@ try {
         <div class="service-card fadeup">
           <div class="sc-icon">🚪</div>
           <h3 class="sc-name">Drop-In Visit</h3>
-          <div class="sc-price" data-price-key="dropin_min">From $20 <span>/ 30 min</span></div>
-          <div class="sc-desc">I come to your home and make sure your pets are fed, have fresh water, had potty break including clean up, and have lots of playtime and attention! Cats too — feeding, litter box cleaning, and playtime. I also can address any special needs or requests, such as medication, etc.!</div>
+          <div class="sc-price" data-price-key="dropin_dog_30_main">$25 <span>/ 30 min</span></div>
+          <div class="sc-price" style="font-size:1.15rem;margin-top:-2px" data-price-key="dropin_dog_60_main">$45 <span>/ 1 hour</span></div>
+          <div class="sc-desc"><strong>Care and companionship, right at home.</strong><br>From dogs and cats to small animals and everything in between, we’ll stop by to give your pets the attention and care they need. Whether it’s feeding, potty breaks, playtime, medication, or simply some extra cuddles, we make sure they feel happy, comfortable, and cared for.</div>
           <details style="margin-top:10px;cursor:pointer">
             <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
               <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Rates
@@ -1628,7 +1629,7 @@ try {
           <div class="sc-icon">🏡</div>
           <h3 class="sc-name">House Sitting</h3>
           <div class="sc-price" data-price-key="housesit_dog_main">$125 <span>/ night</span></div>
-          <div class="sc-desc">Going away? I stay at your home and care for your pets in their own environment — keeping their routine, giving medication if needed, and sending regular updates and photos so you have complete peace of mind while you're gone!</div>
+          <div class="sc-desc"><strong>Your pets stay comfortable in their own home.</strong><br>Enjoy peace of mind while you’re away knowing your pets and home are in caring hands. We provide personalized, in-home care, keeping your pets’ routines as normal as possible while giving them plenty of attention, love, and companionship.</div>
           <details style="margin-top:10px;cursor:pointer">
             <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
               <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Additional Rates
@@ -9661,8 +9662,16 @@ function openLiveServicePanel(walk, service, petNames, clientName, bookingId, ad
   h += '<div style="margin-bottom:18px"><div style="' + labelStyle + '">Personal Note</div>';
   h += '<textarea id="lsp-notes" rows="6" placeholder="Pick a scenario above and hit Generate — or write your own..." style="width:100%;padding:12px 14px;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.9rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white);resize:vertical;line-height:1.5;min-height:120px"></textarea></div>';
 
-  // End Service button
-  h += '<button id="lsp-end-btn" onclick="endServiceFromPanel()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:20px">⏹ End Service & Send Report</button>';
+  // End Service button (Rachel #6 - asks before sending)
+  h += '<div id="lsp-end-wrap" style="margin-bottom:20px">';
+  h += '<button id="lsp-end-btn" onclick="_lspAskEnd()" style="width:100%;padding:16px;background:var(--rose,#c25656);color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit">⏹ End Service & Send Report</button>';
+  h += '<div id="lsp-end-confirm" style="display:none;border:1.5px solid var(--rose,#c25656);border-radius:12px;padding:14px;background:rgba(194,86,86,0.06)">';
+  h += '<div style="font-weight:700;font-size:0.95rem;margin-bottom:4px">Send this report to the client?</div>';
+  h += '<div style="font-size:0.84rem;color:var(--mid);margin-bottom:12px">This ends the visit and emails the report. It cannot be unsent.</div>';
+  h += '<div style="display:flex;gap:10px">';
+  h += '<button onclick="_lspCancelEnd()" style="flex:1;padding:13px;background:transparent;border:1.5px solid var(--border,#e8e0d4);border-radius:10px;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:inherit;color:var(--ink)">Not yet</button>';
+  h += '<button onclick="_lspConfirmEnd()" style="flex:1;padding:13px;background:var(--rose,#c25656);color:white;border:none;border-radius:10px;font-size:0.92rem;font-weight:700;cursor:pointer;font-family:inherit">Yes, send it</button>';
+  h += '</div></div></div>';
 
   h += '</div></div>';
 
@@ -10306,6 +10315,29 @@ async function submitHouseSittingReport(bookingId, clientId) {
 }
 
 // ── END SERVICE from live panel — stop timer, fill report, send to client ──
+// Rachel #6 - confirm step for End Service. Kept deliberately as two separate
+// buttons rather than a browser confirm(): confirm() is easy to dismiss by
+// reflex on a phone, and a "tap twice" pattern is defeated by the exact
+// double-tap that caused the problem in the first place.
+function _lspAskEnd() {
+  var btn = document.getElementById('lsp-end-btn');
+  var box = document.getElementById('lsp-end-confirm');
+  if (!btn || !box) { endServiceFromPanel(); return; }   // markup missing - don't trap her
+  btn.style.display = 'none';
+  box.style.display = '';
+}
+function _lspCancelEnd() {
+  var btn = document.getElementById('lsp-end-btn');
+  var box = document.getElementById('lsp-end-confirm');
+  if (box) box.style.display = 'none';
+  if (btn) btn.style.display = '';
+}
+function _lspConfirmEnd() {
+  var box = document.getElementById('lsp-end-confirm');
+  if (box) box.innerHTML = '<div style="text-align:center;font-weight:700;color:var(--mid);padding:8px">\u23f3 Sending...</div>';
+  endServiceFromPanel();
+}
+
 async function endServiceFromPanel() {
   var d = window._liveServiceData;
 
@@ -10338,6 +10370,11 @@ async function endServiceFromPanel() {
   // Disable the button immediately so a double-click can't double-submit.
   var endBtn = document.getElementById('lsp-end-btn');
   if (endBtn) { endBtn.disabled = true; endBtn.innerHTML = '⏳ Saving...'; }
+  // Rachel #6: the confirm box is what is on screen at this point.
+  try {
+    var _cbox = document.getElementById('lsp-end-confirm');
+    if (_cbox) _cbox.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+  } catch (e) {}
 
   // ============================================================
   //  STEP 1 — Read all form values & stop GPS/timers SYNCHRONOUSLY.
@@ -12198,7 +12235,12 @@ function applyDynamicPricing() {
   if (w30) setPrice('dog_walk_surcharges', '+$' + parseFloat(w30.extra_pet_fee) + ' per additional dog · +$' + parseFloat(w30.puppy_surcharge) + ' puppy surcharge · +$' + parseFloat(w30.holiday_surcharge) + ' holiday rate');
 
   var dc30 = $('dropin_cat_30');
-  if (dc30) setPrice('dropin_min', 'From $' + parseFloat(dc30.base_price) + ' <span>/ 30 min</span>');
+  // Rachel #11: this card headlined the CAT rate ("From $20") while Dog Walking
+  // showed both tiers, so a drop-in read as cheaper than a walk when the dog
+  // rate is identical. Headline the dog tiers; cat stays under View Rates.
+  var _dd30m = $('dropin_dog_30'), _dd60m = $('dropin_dog_60');
+  if (_dd30m) setPrice('dropin_dog_30_main', '$' + parseFloat(_dd30m.base_price) + ' <span>/ 30 min</span>');
+  if (_dd60m) setPrice('dropin_dog_60_main', '$' + parseFloat(_dd60m.base_price) + ' <span>/ 1 hour</span>');
 
   var hd = $('housesit_dog');
   if (hd) setPrice('housesit_dog_main', '$' + parseFloat(hd.base_price) + ' <span>/ night</span>');
@@ -16359,6 +16401,81 @@ async function _sendReviewRequest(clientProfileId, reportId, service, petName) {
 //  PUBLIC REVIEWS SECTION — visible on homepage
 // ═══════════════════════════════════════════════════════════
 
+// Rachel #4 — phone numbers type themselves with dashes.
+// One delegated listener rather than per-field handlers: phone inputs appear in
+// signup, the profile, pet vet details, emergency contacts, the contact form and
+// the staff form, and several of those are built at runtime, so binding
+// individually would miss them. Anything over 10 digits is left alone rather
+// than truncated - an international number or an extension must not be eaten.
+(function _hhpPhoneDashes() {
+  function looksLikePhone(el) {
+    if (!el || el.tagName !== 'INPUT') return false;
+    if ((el.type || '').toLowerCase() === 'tel') return true;
+    return /phone|tel\b/i.test((el.id || '') + ' ' + (el.name || '') + ' ' + (el.placeholder || ''));
+  }
+  function dash(d) {
+    if (d.length <= 3) return d;
+    if (d.length <= 6) return d.slice(0, 3) + '-' + d.slice(3);
+    return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+  }
+  document.addEventListener('input', function (e) {
+    var el = e.target;
+    if (!looksLikePhone(el)) return;
+    var digits = (el.value || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits.charAt(0) === '1') digits = digits.slice(1);  // pasted 1-717-...
+    if (digits.length > 10) return;          // leave anything unusual exactly as typed
+    var atEnd = el.selectionStart === (el.value || '').length;
+    var out = dash(digits);
+    if (out === el.value) return;
+    el.value = out;
+    if (atEnd) { try { el.setSelectionRange(out.length, out.length); } catch (_e) {} }
+  });
+})();
+
+// Rachel #9 — each team member's own write-up, opened from their card.
+// Built in JS rather than as markup so the section stays self-contained: the
+// grid is rendered from the database and the modal is rendered from the same
+// rows, so they can never disagree about who exists.
+function openTeamBio(i) {
+  var rows = window._hhpTeamRows || [];
+  var m = rows[i];
+  if (!m) return;
+  function esc(v) { var d = document.createElement('div'); d.textContent = v || ''; return d.innerHTML; }
+  var old = document.getElementById('hhpTeamBioModal');
+  if (old) old.remove();
+
+  var roleBg = m.role === 'owner' ? 'var(--gold,#c8963e)' : 'var(--forest,#3d5a47)';
+  var role = (m.job_title && m.job_title.trim()) ? m.job_title.trim() : (m.role === 'owner' ? 'Owner' : 'Staff');
+  var avatar = m.avatar_url
+    ? '<img src="' + esc(m.avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover">'
+    : '<span style="font-size:2.6rem;font-weight:700;color:var(--cream,#fdfaf5)">' + esc((m.full_name || '?').trim().charAt(0).toUpperCase()) + '</span>';
+
+  var el = document.createElement('div');
+  el.id = 'hhpTeamBioModal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(36,29,22,0.55);display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
+  el.innerHTML =
+    '<div style="background:var(--cream,#fdfaf5);border-radius:18px;max-width:520px;width:100%;padding:30px 26px;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:90vh;overflow-y:auto">' +
+      '<button aria-label="Close" onclick="closeTeamBio()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--mid);line-height:1">\u2715</button>' +
+      '<div style="text-align:center">' +
+        '<div style="width:110px;height:110px;border-radius:50%;background:' + roleBg + ';margin:0 auto 16px;display:flex;align-items:center;justify-content:center;overflow:hidden">' + avatar + '</div>' +
+        '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.6rem;font-weight:700;color:var(--ink)">' + esc(m.full_name) + '</div>' +
+        '<div style="font-size:0.78rem;color:var(--gold-deep,#8c6b4a);text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:4px">' + esc(role) + '</div>' +
+      '</div>' +
+      '<div style="font-size:0.95rem;color:var(--ink);line-height:1.7;margin-top:20px;white-space:pre-wrap">' + esc(m.bio || '') + '</div>' +
+    '</div>';
+  el.onclick = function (e) { if (e.target === el) closeTeamBio(); };
+  document.body.appendChild(el);
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', _teamBioEsc);
+}
+function _teamBioEsc(e) { if (e.key === 'Escape') closeTeamBio(); }
+function closeTeamBio() {
+  var el = document.getElementById('hhpTeamBioModal');
+  if (el) el.remove();
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', _teamBioEsc);
+}
+
 // R4 #8: Meet Our Team — public homepage section that pulls Rachel +
 // active staff from profiles. Falls back to just Rachel if no other
 // rows match. Mobile-responsive grid (auto-fit minmax).
@@ -16383,16 +16500,22 @@ async function loadMeetOurTeam() {
       return m.role === 'owner' ? 'Owner' : 'Staff';
     }
     function _esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-    grid.innerHTML = rows.map(function(m) {
+    window._hhpTeamRows = rows;   // Rachel #9 - the bio modal reads from here
+    grid.innerHTML = rows.map(function(m, _i) {
       var avatar = m.avatar_url
         ? '<img src="' + _esc(m.avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy">'
         : '<span style="font-size:2.4rem;font-weight:700;color:var(--cream,#fdfaf5)">' + _esc(_initial(m.full_name)) + '</span>';
-      var bioLine = m.bio && m.bio.trim()
-        ? '<div style="font-size:0.82rem;color:var(--mid);margin-top:8px;line-height:1.5">' + _esc(m.bio) + '</div>'
+      var hasBio = !!(m.bio && m.bio.trim());
+      var bioLine = hasBio
+        ? '<div style="font-size:0.82rem;color:var(--mid);margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">' + _esc(m.bio) + '</div>'
+          + '<div style="font-size:0.78rem;font-weight:700;color:var(--gold-deep,#8c6b4a);margin-top:10px">Read more \u2192</div>'
         : '';
       var roleBg = m.role === 'owner' ? 'var(--gold,#c8963e)' : 'var(--forest,#3d5a47)';
+      var clickable = hasBio
+        ? ' onclick="openTeamBio(' + _i + ')" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openTeamBio(' + _i + ')}"'
+        : '';
       return ''
-        + '<div class="fadeup" style="background:var(--cream,#fdfaf5);border:1px solid var(--border,#e8e0d4);border-radius:14px;padding:22px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04)">'
+        + '<div class="fadeup"' + clickable + ' style="background:var(--cream,#fdfaf5);border:1px solid var(--border,#e8e0d4);border-radius:14px;padding:22px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04)' + (hasBio ? ';cursor:pointer;transition:box-shadow 0.15s,transform 0.15s" onmouseover="this.style.boxShadow=\'0 6px 18px rgba(0,0,0,0.10)\';this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.04)\';this.style.transform=\'none\'' : '') + '">'
         +   '<div style="width:96px;height:96px;border-radius:50%;background:' + roleBg + ';margin:0 auto 14px;display:flex;align-items:center;justify-content:center;overflow:hidden">' + avatar + '</div>'
         +   '<div style="font-family:\'Cormorant Garamond\',serif;font-size:1.25rem;font-weight:700;color:var(--ink)">' + _esc(m.full_name) + '</div>'
         +   '<div style="font-size:0.78rem;color:var(--gold-deep,#8c6b4a);text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-top:4px">' + _esc(_roleLabel(m)) + '</div>'
