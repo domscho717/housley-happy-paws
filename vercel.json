@@ -5,7 +5,7 @@
             "destination": "/links.html"
         },
         {
-            "source": "/((?!api/)(?!js/)(?!links)(?!icon-)(?!favicon)(?!manifest)(?!logo)(?!sitemap)(?!robots)(?!accessibility).*)",
+            "source": "/((?!api/)(?!js/)(?!links)(?!icon-)(?!favicon)(?!manifest)(?!logo)(?!sitemap)(?!robots)(?!accessibility)(?!privacy)(?!terms).*)",
             "destination": "/index.html"
         }
     ],
