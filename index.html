@@ -199,7 +199,7 @@ try{var _ca=sessionStorage.getItem('hhp_avatar_url');if(_ca){var st=document.cre
 [data-theme="dark"] body{background:#141210;color:#E8E0D4}
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:auto;overflow-y:scroll;overflow-x:hidden;width:100%;overscroll-behavior-x:none;overscroll-behavior-y:none;-webkit-overflow-scrolling:touch}
-body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);overflow-x:hidden;width:100%;-webkit-text-size-adjust:100%;overscroll-behavior-x:none;overscroll-behavior-y:none;position:relative;touch-action:pan-y pinch-zoom}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--ink);width:100%;max-width:100%;-webkit-text-size-adjust:100%;position:relative;touch-action:pan-y pinch-zoom}
 .page{display:none;min-height:100vh;min-height:100dvh}
 .page.active{display:block}
 /* Hide everything until auth settles — prevents any flash of wrong view */
@@ -17245,7 +17245,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })();
     </script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
-    <script src="/ux-patch.js?v=20260406e" defer></script>
+    <script src="/ux-patch.js?v=20260922a" defer></script>
 <script>
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
@@ -18769,7 +18769,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20260921a" defer></script>
+  <script src="/js/booking-system.js?v=20260922a" defer></script>
   <script src="/js/messaging.js?v=20260618a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>

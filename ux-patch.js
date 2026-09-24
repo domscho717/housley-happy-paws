@@ -206,13 +206,18 @@
     css.textContent =
 
       /* ===== GLOBAL: Prevent horizontal overflow / bounce on mobile ===== */
-      'html, body {' +
+      /* R31: exactly ONE scroll container (html). body must not scroll and must
+         not block scroll chaining. 100vw includes the scrollbar gutter, so it is
+         wider than the viewport once overflow-y:scroll is forced - use 100%. */
+      'html {' +
         'overflow-x: hidden !important;' +
-        'max-width: 100vw !important;' +
+        'max-width: 100% !important;' +
+        'scroll-behavior: auto !important;' +
+        'overflow-y: scroll !important;' +
+        'overscroll-behavior-x: none !important;' +
       '}' +
-      'html { scroll-behavior: auto !important; overflow-y: scroll !important; overscroll-behavior: none !important; }' +
-      'body { overscroll-behavior: none !important; }' +
-      '*, *::before, *::after { max-width: 100vw; }' +
+      'body { overflow-x: clip !important; max-width: 100% !important; }' +
+      '*, *::before, *::after { max-width: 100%; }' +
       '.nav, .hero, section, footer, .portal-wrap, .portal-main,' +
       '#pg-public, #pg-client, #pg-staff, #pg-owner {' +
         'overflow-x: hidden !important;' +

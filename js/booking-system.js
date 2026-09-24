@@ -272,7 +272,10 @@
     css.id = 'hhp-scroll-fix';
     css.textContent = [
       'html { overflow-y: scroll !important; overflow-x: hidden !important; scroll-behavior: auto !important; }',
-      'body { overflow-y: auto !important; overflow-x: hidden !important; scroll-behavior: auto !important; }',
+      // R31: body must NOT be a scroll container. html already scrolls the page.
+      // Forcing overflow-y:auto made body a second, nested scroller; with
+      // overscroll-behavior:none that stalled touch scrolling on Android.
+      'body { overflow-y: visible !important; overflow-x: clip !important; scroll-behavior: auto !important; }',
       '#pg-public, #pg-client, #pg-staff, #pg-owner { overflow: visible !important; }',
       '.reviews-track { scroll-snap-type: x mandatory !important; scroll-behavior: auto !important; }',
     ].join('\n');
