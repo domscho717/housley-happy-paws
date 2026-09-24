@@ -747,6 +747,18 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 
 /* MODAL */
 .overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(30,20,9,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px}
+/* R32 - Rachel could not tap "Confirm Cancellation". The live service timer
+   is position:fixed bottom-right at z-index 9999; .overlay is 500, so the
+   timer sat on top of every modal, directly over that button. While any
+   dialog is open the timer drops behind it and stops taking taps. :has() is
+   ignored by browsers that do not support it, which is exactly today's
+   behaviour, so this cannot make anything worse. */
+body:has(.overlay.open) #hhp-service-timer,
+body:has(.overlay[style*="display: flex"]) #hhp-service-timer,
+body:has(.modal-overlay.open) #hhp-service-timer,
+body.hhp-dialog-open #hhp-service-timer{
+  z-index:400!important;opacity:0.25;pointer-events:none;
+}
 .overlay.open{display:flex}
 .modal{background:var(--cream,white);border-radius:14px;padding:0;max-width:580px;width:100%;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:mIn 0.28s ease;display:flex;flex-direction:column}
 .modal-wide{max-width:720px}
@@ -995,7 +1007,10 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
   }
 
   /* Availability */
-  #o-avail > div[style*="grid"] { grid-template-columns: 1fr !important; }
+  /* Availability - R32: this used to force grid-template-columns:1fr, which
+     flattened the month into one long column of days. Rachel's "looks funny".
+     A calendar has to stay 7 across; shrink the cells instead. */
+  #o-avail > div[style*="grid"] { grid-template-columns: repeat(7, minmax(0,1fr)) !important; gap: 2px !important; }
   .avail-grid { gap: 4px !important; }
   .avail-day { font-size: 0.78rem !important; padding: 8px 6px !important; }
 
@@ -1392,7 +1407,7 @@ try {
   <ul class="nav-center">
     <li><a href="#about">About Rachel</a></li>
     <li><a href="#services">Services & Pricing</a></li>
-    <li><a href="#calendar-pub">Calendar</a></li>
+    
     <li><a href="#reviews">Reviews</a></li>
     <li><a href="#coming-soon">Coming Soon</a></li>
   </ul>
@@ -1422,7 +1437,7 @@ try {
 <div id="pubMenuDrawer" class="nav-menu-drawer">
   <a href="#about" class="nav-menu-item">About Rachel</a>
   <a href="#services" class="nav-menu-item">Services & Pricing</a>
-  <a href="#calendar-pub" class="nav-menu-item">Calendar</a>
+  
   <a href="#reviews" class="nav-menu-item">Reviews</a>
   <a href="#coming-soon" class="nav-menu-item">Coming Soon</a>
   <a href="#services" class="nav-menu-item nav-menu-book">Book Now</a>
@@ -1696,16 +1711,9 @@ try {
   </section>
 
   <!-- PUBLIC CALENDAR -->
-  <section class="cal-section" id="calendar-pub">
-    <div style="max-width:1120px;margin:0 auto">
-      <div class="fadeup">
-        <div class="section-eyebrow">Calendar</div>
-        <h2 class="section-h">What's Happening <em>This Month</em></h2>
-        <p class="section-p">See Rachel's schedule, availability, and any closures — so you always know when to book.</p>
-      </div>
-      <div class="cal-wrap fadeup" id="pubCalWrap"></div>
-    </div>
-  </section>
+  <!-- R32: public calendar removed from the homepage per Rachel - the schedule
+       is for signed-in clients in their portal, not for the open web. The
+       client portal calendar is untouched. -->
 
   <!-- REVIEWS — UNIFIED (database-driven, owner-controlled) -->
   <section class="reviews-section" id="reviews">
@@ -1784,7 +1792,7 @@ try {
         </div>
       </div>
       <div><div class="footer-col-head">Services</div><ul class="footer-links"><li><a href="#services" onclick="switchView('home')">Dog Walking</a></li><li><a href="#services" onclick="switchView('home')">Drop-In Visits</a></li><li><a href="#services" onclick="switchView('home')">House Sitting</a></li><li><a href="#" onclick="openModal('boardingInterestModal')">Dog Boarding <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('daycareModal')">Day Care <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('pawbusModal')">Paw Bus <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('weddingModal')">Wedding Addition <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('contactModal')">Pet Shop <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li></ul></div>
-      <div><div class="footer-col-head">Clients</div><ul class="footer-links"><li><a href="#" onclick="switchView('client')">Client Portal</a></li><li><a href="#" onclick="openModal('mgModal')">Book Meet & Greet</a></li><li><a href="#" onclick="openModal('contactModal')">Ask a Question</a></li><li><a href="#calendar-pub">View Calendar</a></li><li><a href="#reviews">Reviews</a></li></ul></div>
+      <div><div class="footer-col-head">Clients</div><ul class="footer-links"><li><a href="#" onclick="switchView('client')">Client Portal</a></li><li><a href="#" onclick="openModal('mgModal')">Book Meet & Greet</a></li><li><a href="#" onclick="openModal('contactModal')">Ask a Question</a></li><li><a href="#reviews">Reviews</a></li></ul></div>
       <div><div class="footer-col-head">Lancaster, PA</div><ul class="footer-links"><li><a href="https://maps.google.com/?q=Lancaster+PA" target="_blank">📍 Lancaster City Area</a></li><li><a href="tel:+17177157595">📞 Call: 717-715-7595</a></li><li><a href="sms:+17177157595">💬 Text: 717-715-7595</a></li><li><a href="mailto:housleyhappypaws@gmail.com">📧 housleyhappypaws@gmail.com</a></li></ul></div>
     </div>
     <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA · <a href="/privacy.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Privacy</a> · <a href="/terms.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Terms</a> · <a href="/accessibility.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Accessibility</a></div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
@@ -4070,6 +4078,7 @@ function switchView(view) {
   });
   // Ensure body scroll is never stuck from a modal or overlay
   document.body.style.overflow = '';
+  document.body.classList.remove('hhp-dialog-open');  // R32
 
   // Reset back button history when switching portals or going to public
   window._panelHistory = [];
@@ -6035,6 +6044,7 @@ function closeModal(id) {
   if(id==='mgModal'){ const f=document.getElementById('mgForm'); const s=document.getElementById('mgSuccess'); if(f)f.style.display=''; if(s)s.style.display='none'; }
   // Always ensure body scroll is restored when closing any modal
   document.body.style.overflow = '';
+  document.body.classList.remove('hhp-dialog-open');  // R32
   // R8 P2 #8 — return focus to whatever opened the modal (if we tracked it).
   try {
     if (window._modalOpenerStack && window._modalOpenerStack.length) {
@@ -6137,6 +6147,7 @@ function guestServicePrompt(serviceName) {
 
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
+  document.body.classList.add('hhp-dialog-open');  // R32
   // Animate in
   requestAnimationFrame(function() { modal.style.opacity = '1'; modal.querySelector('div').style.transform = 'translateY(0)'; });
   // Close on backdrop click
@@ -6197,6 +6208,7 @@ function _hhpShowCompleteProfilePrompt(prof, callback, serviceName) {
     '</div>';
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
+  document.body.classList.add('hhp-dialog-open');  // R32
   var addrEl = document.getElementById('hhp-cp-address');
   var phoneEl = document.getElementById('hhp-cp-phone');
   var errEl = document.getElementById('hhp-cp-err');
@@ -6757,11 +6769,13 @@ function openInviteModal() {
 
   document.body.appendChild(modal);
   document.body.style.overflow = 'hidden';
+  document.body.classList.add('hhp-dialog-open');  // R32
 }
 function closeInviteModal() {
   var m = document.getElementById('inviteClientModal');
   if (m) m.remove();
   document.body.style.overflow = '';
+  document.body.classList.remove('hhp-dialog-open');  // R32
 }
 function copyInviteLink() {
   var input = document.getElementById('invite-link');
@@ -7621,7 +7635,10 @@ window._calOwnerBlocks = {};
       }
     }
   } catch (e) { console.warn('Init avail load:', e); }
-  buildCalendar('pubCalWrap', now.getFullYear(), now.getMonth());
+  // R32: #pubCalWrap was removed with the public homepage calendar. Guarded
+  // rather than deleted so the client/staff/owner calendars below still build
+  // if anyone puts a public calendar back.
+  if (document.getElementById('pubCalWrap')) buildCalendar('pubCalWrap', now.getFullYear(), now.getMonth());
   buildCalendar('cCalWrap', now.getFullYear(), now.getMonth());
   buildCalendar('sCalWrap', now.getFullYear(), now.getMonth());
   buildCalendar('oCalWrap', now.getFullYear(), now.getMonth());
@@ -16771,6 +16788,7 @@ function openTeamBio(i) {
   el.onclick = function (e) { if (e.target === el) closeTeamBio(); };
   document.body.appendChild(el);
   document.body.style.overflow = 'hidden';
+  document.body.classList.add('hhp-dialog-open');  // R32
   document.addEventListener('keydown', _teamBioEsc);
 }
 function _teamBioEsc(e) { if (e.key === 'Escape') closeTeamBio(); }
@@ -16778,6 +16796,7 @@ function closeTeamBio() {
   var el = document.getElementById('hhpTeamBioModal');
   if (el) el.remove();
   document.body.style.overflow = '';
+  document.body.classList.remove('hhp-dialog-open');  // R32
   document.removeEventListener('keydown', _teamBioEsc);
 }
 
@@ -17245,7 +17264,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })();
     </script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
-    <script src="/ux-patch.js?v=20260922a" defer></script>
+    <script src="/ux-patch.js?v=20260924a" defer></script>
 <script>
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
@@ -18769,7 +18788,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20260922a" defer></script>
+  <script src="/js/booking-system.js?v=20260924a" defer></script>
   <script src="/js/messaging.js?v=20260618a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>

@@ -1,7 +1,6 @@
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 
-const { getDestination, recordUnroutedFee } = require('./_platform-fee');
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', 'https://www.housleyhappypaws.com');
@@ -93,9 +92,8 @@ module.exports = async function handler(req, res) {
 
     const paymentMethodId = methods.data[0].id;
     const amountCents = Math.round(tipAmount * 100);
-    // Logs loudly if unset; never blocks the customer charge.
-    const connectedAccountId = getDestination('charge-tip');
-    const devShareCents = connectedAccountId ? Math.round(amountCents * 0.15) : 0;
+    // R32: a tip is for the person who did the work. The 15% platform share
+    // applies to service revenue, never to tips. Rachel asked for this directly.
 
     console.log('[tip] Charging tip of $' + tipAmount + ' for ' + (service || 'Pet Care'));
 
@@ -121,29 +119,7 @@ module.exports = async function handler(req, res) {
     console.log('[tip] PaymentIntent:', paymentIntent.id, 'status:', paymentIntent.status);
 
     if (paymentIntent.status === 'succeeded') {
-      // 15% dev share transfer (same split as services)
-      if (connectedAccountId && devShareCents > 0) {
-        try {
-          const chargeId = paymentIntent.latest_charge;
-          const transfer = await stripe.transfers.create({
-            amount: devShareCents,
-            currency: 'usd',
-            destination: connectedAccountId,
-            source_transaction: chargeId,
-            description: '15% dev share - Tip for ' + (service || 'Pet Care'),
-          });
-          console.log('[tip] Transfer SUCCESS:', transfer.id);
-        } catch (transferErr) {
-          // Money is already taken; refusing cannot undo it. Record it so it can
-          // be found and reconciled. Query: notes ILIKE '%FEE-UNROUTED%'
-          await recordUnroutedFee(supabase, {
-            paymentIntentId: paymentIntent.id,
-            amountCents: devShareCents,
-            context: 'charge-tip',
-            reason: transferErr.message,
-          });
-        }
-      }
+      // R32: no platform transfer on tips. 100% stays with Rachel.
 
       // Record in tips table
       await supabase.from('tips').insert({

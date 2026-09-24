@@ -390,6 +390,87 @@
     return false;
   }
 
+  // ── R32: Rachel's holidays, computed instead of typed ──────────────
+  // She was adding six ranges by hand every year. Her 2026 rows follow an
+  // exact rule, so we generate them for ANY year and she never touches a
+  // date again:
+  //
+  //   Memorial Day      Fri before the LAST Monday of May  -> that Monday
+  //   Juneteenth        Jun 19                             -> following Sunday
+  //   Independence Day  Jul 3                              -> Jul 5
+  //   Labor Day         Fri before the FIRST Monday of Sep -> that Monday
+  //   Thanksgiving      4th Thursday of Nov                -> following Sunday
+  //   Christmas -> New Year   Dec 24                       -> Jan 3 next year
+  //
+  // Deliberately NOT included: MLK, Presidents Day, Columbus/Indigenous
+  // Peoples, Easter, Halloween. Rachel has never charged a holiday rate on
+  // those. Adding them here would quietly raise prices on days clients
+  // already have quotes for. If she wants one, it goes in holiday_ranges -
+  // DB rows still win, see _autoHolidayRanges() usage below.
+  function _ymd(d) {
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  // nth weekday of a month. n = 1..4 for "first".."fourth", n = -1 for last.
+  // weekday: 0=Sun .. 6=Sat
+  function _nthWeekday(year, monthIdx, weekday, n) {
+    if (n > 0) {
+      var d = new Date(year, monthIdx, 1, 12, 0, 0);
+      var shift = (weekday - d.getDay() + 7) % 7;
+      d.setDate(1 + shift + (n - 1) * 7);
+      return d;
+    }
+    var last = new Date(year, monthIdx + 1, 0, 12, 0, 0);   // last day of month
+    var back = (last.getDay() - weekday + 7) % 7;
+    last.setDate(last.getDate() - back);
+    return last;
+  }
+  function _addDays(d, n) {
+    var c = new Date(d.getTime());
+    c.setDate(c.getDate() + n);
+    return c;
+  }
+  // Every date from `from` forward to the next Sunday (inclusive).
+  function _throughSunday(from) {
+    return _addDays(from, (7 - from.getDay()) % 7);
+  }
+  function _autoHolidayRanges(year) {
+    var out = [];
+
+    var memMon = _nthWeekday(year, 4, 1, -1);               // last Mon of May
+    out.push({ label: 'Memorial Day weekend', start: _addDays(memMon, -3), end: memMon });
+
+    var june19 = new Date(year, 5, 19, 12, 0, 0);
+    // Juneteenth is a fixed date, so the weekend around it moves. Only extend
+    // to Sunday when Jun 19 is itself a Fri or Sat - otherwise "through the
+    // following Sunday" turns a Monday Juneteenth into a SEVEN day holiday
+    // surcharge (caught in test: 2028 came out Jun 19 -> Jun 25). When it
+    // lands midweek we charge the day only.
+    var _j = june19.getDay();
+    out.push({ label: 'Juneteenth weekend', start: june19,
+               end: (_j === 5 || _j === 6) ? _throughSunday(june19) : june19 });
+
+    out.push({ label: 'Independence Day weekend',
+               start: new Date(year, 6, 3, 12, 0, 0), end: new Date(year, 6, 5, 12, 0, 0) });
+
+    var laborMon = _nthWeekday(year, 8, 1, 1);              // first Mon of Sep
+    out.push({ label: 'Labor Day weekend', start: _addDays(laborMon, -3), end: laborMon });
+
+    var thanks = _nthWeekday(year, 10, 4, 4);               // 4th Thu of Nov
+    out.push({ label: 'Thanksgiving weekend', start: thanks, end: _throughSunday(thanks) });
+
+    out.push({ label: 'Christmas through New Year',
+               start: new Date(year, 11, 24, 12, 0, 0), end: new Date(year + 1, 0, 3, 12, 0, 0) });
+
+    return out.map(function (r) {
+      return { label: r.label, start_date: _ymd(r.start), end_date: _ymd(r.end) };
+    });
+  }
+  // Expose for tests and for the owner screen that lists holiday dates.
+  window.hhpAutoHolidayRanges = _autoHolidayRanges;
+
+
   // Expand a {start_date, end_date} range into individual YYYY-MM-DD keys.
   function _expandHolidayRange(startStr, endStr, label) {
     if (!startStr || !endStr) return;
@@ -433,6 +514,30 @@
       HOLIDAY_EXACT = Object.create(null);
       (rangeRows || []).forEach(function(r) { _expandHolidayRange(r.start_date, r.end_date, r.label); });
       window._holidayRanges = rangeRows || [];
+
+      // R32: fill in any year Rachel has not added by hand. DB rows win -
+      // we only generate for a (year, label) pair that is not already there,
+      // so if she edits or deletes one, her edit sticks. Covers last year
+      // through two years out, which is further than anyone books.
+      try {
+        var _have = Object.create(null);
+        (rangeRows || []).forEach(function (r) {
+          if (r.start_date) _have[r.start_date.slice(0, 4) + '|' + (r.label || '')] = true;
+        });
+        var _thisYear = new Date().getFullYear();
+        var _generated = 0;
+        for (var _y = _thisYear - 1; _y <= _thisYear + 2; _y++) {
+          _autoHolidayRanges(_y).forEach(function (r) {
+            if (_have[r.start_date.slice(0, 4) + '|' + r.label]) return;
+            _expandHolidayRange(r.start_date, r.end_date, r.label);
+            window._holidayRanges.push(r);
+            _generated++;
+          });
+        }
+        if (_generated > 0) console.log('\u2713 Auto-filled ' + _generated + ' holiday ranges Rachel had not added');
+      } catch (e) {
+        console.warn('Auto holiday generation failed; DB ranges still apply:', e);
+      }
       var exactCount = Object.keys(HOLIDAY_EXACT).length;
       if (exactCount > 0) console.log('✓ Holiday ranges loaded (' + (rangeRows || []).length + ' ranges = ' + exactCount + ' dates)');
     } catch (e) {

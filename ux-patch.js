@@ -460,7 +460,12 @@
         '.form-group input, .form-group textarea { font-size: 16px !important; }' +
 
         /* -- Availability section (mobile fix) -- */
-        '#o-avail .card > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; gap: 12px !important; }' +
+        /* R32: this used to flatten EVERY grid under #o-avail to one column,
+           including the month calendar that availability.js builds with an
+           inline repeat(7,...). That is what made Rachel's calendar render as
+           one long stack of days. Stacking is right for the settings cards
+           next to it, so exclude anything that asked for 7 columns. */
+        '#o-avail .card > div[style*="grid-template-columns"]:not([style*="repeat(7"]) { grid-template-columns: 1fr !important; gap: 12px !important; }' +
         '#o-avail .form-row { grid-template-columns: 1fr !important; }' +
 
         /* -- AI Studio section (mobile fix) -- */
@@ -971,7 +976,7 @@
       var publicLinks = [
         { text: 'About Rachel', scroll: '.about-section' },
         { text: 'Services & Pricing', scroll: '.services-section' },
-        { text: 'Calendar', scroll: '.cal-section' },
+        // R32: Calendar link removed - the public calendar section is gone.
         { text: 'Reviews', scroll: '.reviews-section' },
         { text: 'Coming Soon', scroll: '.future-section' },
       ];
