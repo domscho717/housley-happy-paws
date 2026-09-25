@@ -322,7 +322,12 @@
     html += '<div style="overflow-y:auto;flex:1;padding:8px 0">';
     // ── R39: Rachel's own alerts, first, above specials and announcements ──
     // Only ever populated when the signed-in user is the owner.
-    if (_ownerNotifs.length > 0) {
+    // R41: only the UNREAD ones. Opening the bell marks them read, so they
+    // are gone next time it is opened - which is what "disappear after
+    // opening the bell" means. Rendering every row regardless of read state
+    // just dimmed them and left the list looking unchanged.
+    var _unreadOwner = _ownerNotifs.filter(function (n) { return !n.read; });
+    if (_unreadOwner.length > 0) {
       var _esc = function (s) {
         var dv = document.createElement('div'); dv.textContent = s == null ? '' : s; return dv.innerHTML;
       };
@@ -331,7 +336,7 @@
         new_review: '\u2B50', payment_failed: '\u26A0\uFE0F'
       };
       html += '<div style="padding:6px 18px 4px"><div style="font-size:0.7rem;font-weight:700;color:var(--rose,#c0392b);text-transform:uppercase;letter-spacing:0.05em">For You</div></div>';
-      _ownerNotifs.slice(0, 10).forEach(function (n) {
+      _unreadOwner.slice(0, 10).forEach(function (n) {
         var isNew = !n.read;
         html += '<div onclick="window.HHP_Notif.openTarget(\'' + n.id + '\',\'' + _esc(n.type || '') + '\')" ' +
           'style="margin:4px 12px;padding:11px 13px;border-radius:10px;cursor:pointer;' +
