@@ -1776,31 +1776,14 @@
       }
     }
 
-    // Add "Book & Pay" buttons to paid service cards (skip Meet & Greet and Coming Soon)
-    var cards = document.querySelectorAll('.service-card:not(.mg-card):not(.coming)');
-    var cardLabels = [
-      { text: 'Request a Walk', service: 'Dog Walking' },
-      { text: 'Request a Visit', service: 'Drop-In Visit' },
-      { text: 'Request a Stay', service: 'House Sitting' }
-    ];
-    cards.forEach(function(card, i) {
-      if (i < cardLabels.length && !card.querySelector('.stripe-pay-btn')) {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'stripe-pay-btn';
-        btn.textContent = cardLabels[i].text;
-        btn.style.cssText = 'display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;text-decoration:none;transition:opacity 0.2s;cursor:pointer;font-family:inherit;';
-        btn.onmouseover = function() { this.style.opacity = '0.85'; };
-        btn.onmouseout = function() { this.style.opacity = '1'; };
-        (function(svc) {
-          btn.addEventListener('click', function() {
-            if (typeof window.openBookingModal === 'function') window.openBookingModal(svc);
-            else if (typeof openModal === 'function') openModal('bookModal');
-          });
-        })(cardLabels[i].service);
-        card.appendChild(btn);
-      }
-    });
+    // R47: this block used to inject "Request a Walk" / "Request a Visit" /
+    // "Request a Stay" onto the three paid service cards whenever they had no
+    // .stripe-pay-btn. Dom asked for those buttons gone, and deleting them from
+    // index.html alone would have done nothing - this would have put them
+    // straight back on every page load, under different labels. Same trap as
+    // the Samsung scroll, the squashed calendar and the glitchy arrows: fix the
+    // obvious file, watch nothing change. The service cards are information
+    // only now. openBookingModal() is untouched and still used elsewhere.
 
     console.log('Service request buttons wired to booking flow');
   }
