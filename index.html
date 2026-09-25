@@ -854,6 +854,12 @@ body.hhp-dialog-open #hhp-service-timer{
 /* TOAST */
 .toast{position:fixed;bottom:28px;right:28px;z-index:600;background:var(--ink);color:white;padding:13px 20px;border-radius:8px;font-size:0.86rem;font-weight:600;box-shadow:var(--shadow-lg);transform:translateY(70px);opacity:0;transition:all 0.3s ease;max-width:340px;line-height:1.4}
 .toast.show{transform:translateY(0);opacity:1}
+/* R50: the client Book Now FAB sits at bottom:24px right:24px, z-index 1000,
+   and is about 47px tall. When it is on screen the toast and the live-walk
+   paw have to clear it or they end up underneath it. Mobile is handled in
+   ux-patch.js, which pins all three to bottom:16px with !important. */
+body.hhp-fab-on .toast{bottom:88px}
+body.hhp-fab-on #hhp-live-paw{bottom:92px}
 
 /* AVAILABILITY GRID */
 .avail-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -4162,10 +4168,14 @@ function switchView(view) {
   var floatingPortalBtn = document.getElementById('floatingPortalBtn');
   if (floatingPortalBtn) floatingPortalBtn.style.display = 'none';
 
-  // For logged-in clients: show a floating "Book Now" FAB with quick-pick menu when inside the portal
+  // For logged-in clients: show a floating "Book Now" FAB with quick-pick menu.
+  // R50: was `isClient && view === 'client'`, so it vanished the moment a
+  // client clicked back to the homepage. Dom asked for it to follow them
+  // everywhere they go while signed in. Still clients only - owner, staff and
+  // signed-out visitors never see it.
   var floatingBookBtn = document.getElementById('floatingBookBtn');
   var floatingBookMenu = document.getElementById('floatingBookMenu');
-  if (isClient && view === 'client') {
+  if (isClient) {
     if (!floatingBookBtn) {
       // Quick-pick menu (hidden by default)
       floatingBookMenu = document.createElement('div');
@@ -4208,9 +4218,15 @@ function switchView(view) {
       }
     }
     floatingBookBtn.style.display = '';
+    // R50: three other things live in that corner - the live-walk paw, the
+    // toast, and on mobile ux-patch.js pins all of them to bottom:16px with
+    // !important. The FAB is z-index 1000 and would cover a toast outright.
+    // This class lifts the other two above it; see the rules next to .toast.
+    document.body.classList.add('hhp-fab-on');
   } else {
     if (floatingBookBtn) floatingBookBtn.style.display = 'none';
     if (floatingBookMenu) floatingBookMenu.style.display = 'none';
+    document.body.classList.remove('hhp-fab-on');
   }
   // Remove early-hide/early-panel styles — auth has settled, safe to show content
   var earlyHide = document.getElementById('early-hide');
@@ -17546,7 +17562,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })();
     </script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
-    <script src="/ux-patch.js?v=20260925c" defer></script>
+    <script src="/ux-patch.js?v=20260925d" defer></script>
 <script>
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];

@@ -484,6 +484,15 @@
         /* -- Floating book button (restored from v7) -- */
         '#floatingBookBtn { bottom: 16px !important; right: 16px !important; }' +
 
+        /* -- R50: the client Book Now FAB now follows a signed-in client onto
+           the public homepage, not just inside the portal. Everything above
+           pins the toast, the paw and the FAB to bottom:16px with !important,
+           so on a phone all three land on top of each other and the FAB (z 1000)
+           wins. body.hhp-fab-on is set in index.html only while the FAB is
+           actually on screen; these have to live here to beat the rules above. -- */
+        'body.hhp-fab-on .toast { bottom: 80px !important; }' +
+        'body.hhp-fab-on #hhp-live-paw { bottom: 78px !important; }' +
+
         /* -- Payment steps (restored from v7) -- */
         '.pay-step { padding: 10px !important; }' +
         '.pay-step-num { font-size: 1.2rem !important; }' +
