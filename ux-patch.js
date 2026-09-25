@@ -974,7 +974,7 @@
       navSection.style.cssText = 'padding: 0 20px 8px; border-bottom: 1px solid #d4c4ad; margin-bottom: 8px;';
 
       var publicLinks = [
-        { text: 'About Rachel', scroll: '.about-section' },
+        { text: 'About Us', scroll: '.about-section' },
         { text: 'Services & Pricing', scroll: '.services-section' },
         // R32: Calendar link removed - the public calendar section is gone.
         { text: 'Reviews', scroll: '.reviews-section' },

@@ -1405,7 +1405,7 @@ try {
 <nav class="nav" id="mainNav">
   <div class="nav-logo" onclick="showPublic()">Housley <span>Happy</span> Paws</div>
   <ul class="nav-center">
-    <li><a href="#about">About Rachel</a></li>
+    <li><a href="#about">About Us</a></li>
     <li><a href="#services">Services & Pricing</a></li>
     
     <li><a href="#reviews">Reviews</a></li>
@@ -1435,7 +1435,7 @@ try {
 <!-- Public site mobile menu (hamburger drawer) -->
 <div id="pubMenuOverlay" class="nav-menu-overlay"></div>
 <div id="pubMenuDrawer" class="nav-menu-drawer">
-  <a href="#about" class="nav-menu-item">About Rachel</a>
+  <a href="#about" class="nav-menu-item">About Us</a>
   <a href="#services" class="nav-menu-item">Services & Pricing</a>
   
   <a href="#reviews" class="nav-menu-item">Reviews</a>
@@ -1549,8 +1549,8 @@ try {
         </div>
       </div>
       <div class="fadeup">
-        <div class="section-eyebrow">About Rachel</div>
-        <h2 class="section-h">A Little Bit <em>About Me</em></h2>
+        <div class="section-eyebrow">About Housley Happy Paws</div>
+        <h2 class="section-h">A Little Bit <em>About Us</em></h2>
         <p class="section-p" style="margin-bottom:20px">Hi, I'm Rachel! 🐾 I've had animals in my life for as long as I can remember and am pursuing animal care full-time. I'm a proud Star Sitter on Rover with a 5.0 rating and <span id="bioReviewCount">48</span>+ five-star reviews — and I bring that same heart to every Housley Happy Paws visit. At home I have Moose (yellow lab), Cookie (chihuahua), three cats, and hermit crabs, so I truly understand how much your pets mean to you.</p>
         <p class="section-p" style="margin-bottom:28px">I'm based right here in Lancaster, PA, and I've had the privilege of caring for dogs and cats of all shapes, sizes, and personalities. Every single one has my full attention and a lot of love.</p>
         <p class="section-p" style="margin-bottom:32px;font-style:italic;font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--gold-deep)">"I treat your pets the way I'd want mine treated — like they're the most important thing in the room."</p>
@@ -1785,7 +1785,7 @@ try {
     <div class="footer-grid">
       <div>
         <div class="footer-logo">Housley <span>Happy</span> Paws</div>
-        <div class="footer-desc">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits for dogs & cats, house sitting, and more — all with Rachel's full heart.</div>
+        <div class="footer-desc">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits for dogs & cats, house sitting, and more — all with our whole hearts.</div>
         <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap">
           <div style="background:var(--gold);color:white;padding:8px 18px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="window.open('https://www.instagram.com/housleyhappypaws','_blank')">📸 Instagram</div>
           <div style="background:var(--gold);color:white;padding:8px 18px;border-radius:6px;font-size:0.78rem;font-weight:600;cursor:pointer" onclick="window.open('https://www.facebook.com/share/1ANwxfH7Tk/?mibextid=wwXIfr','_blank')">📘 Facebook</div>
@@ -2928,7 +2928,7 @@ try {
                 </div>
                 <div class="form-group" style="margin-bottom:14px">
                   <label class="form-lbl">Footer Description</label>
-                  <textarea class="form-ta ce-field" data-field="footerDesc" style="min-height:80px">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits for dogs & cats, house sitting, and more — all with Rachel's full heart.</textarea>
+                  <textarea class="form-ta ce-field" data-field="footerDesc" style="min-height:80px">Professional, personal pet care in Lancaster, PA. Dog walks, drop-in visits for dogs & cats, house sitting, and more — all with our whole hearts.</textarea>
                 </div>
                 <button class="submit-btn" onclick="saveFooter()">💾 Save Contact Info</button>
               </div>
@@ -12143,7 +12143,22 @@ function applySavedData() {
         const nameEl = card.querySelector('.sc-name');
         if(nameEl && nameEl.textContent.trim() === cardName) {
           const descEl = card.querySelector('.sc-desc');
-          if(descEl) descEl.textContent = d[key];
+          if(descEl) {
+            // R34: the service cards in index.html have a bold headline then
+            // the body. This overwrite used textContent, which flattened that
+            // to one grey paragraph - and it is why the homepage showed the
+            // old March copy instead of the markup. A description may now be
+            // stored as "Headline\nBody"; both halves are escaped before
+            // they go anywhere near innerHTML.
+            var _t = String(d[key] == null ? '' : d[key]);
+            var _esc = function (s) { var dv = document.createElement('div'); dv.textContent = s; return dv.innerHTML; };
+            var _nl = _t.indexOf('\n');
+            if (_nl > 0) {
+              descEl.innerHTML = '<strong>' + _esc(_t.slice(0, _nl)) + '</strong><br>' + _esc(_t.slice(_nl + 1));
+            } else {
+              descEl.textContent = _t;
+            }
+          }
         }
       });
     }
@@ -16817,6 +16832,38 @@ async function loadMeetOurTeam() {
       .order('role', { ascending: true })  // 'owner' < 'staff' alphabetically
       .order('full_name', { ascending: true });
     var rows = (members || []).filter(function(m) { return m && (m.full_name || '').trim().length > 0; });
+
+    // R34: team members who are shown on the site but have no login.
+    // profiles.user_id is NOT NULL with a foreign key to auth.users, so a
+    // profile row cannot exist without an account - and Dom asked for Donna
+    // and Domenic on the page WITHOUT accounts. They live in
+    // site_content.team_extra instead: display only, no login, no client
+    // assignment, no pay percentage, and nothing for PA employment law to
+    // bite on. Give someone a real staff account later and delete their
+    // entry here; the dedupe below means an overlap shows them only once.
+    try {
+      var { data: extraRow } = await sb.from('site_content')
+        .select('content').eq('section_key', 'team_extra').maybeSingle();
+      var extra = (extraRow && extraRow.content && extraRow.content.members) || [];
+      extra.forEach(function (m) {
+        if (!m || !(m.full_name || '').trim()) return;
+        var dup = rows.some(function (r) {
+          return (r.full_name || '').trim().toLowerCase() === m.full_name.trim().toLowerCase();
+        });
+        if (dup) return;
+        rows.push({
+          user_id: null, role: m.role === 'owner' ? 'owner' : 'staff',
+          full_name: m.full_name, job_title: m.job_title || null,
+          avatar_url: m.avatar_url || null, bio: m.bio || null
+        });
+      });
+      rows.sort(function (a, b) {
+        if (a.role !== b.role) return a.role === 'owner' ? -1 : 1;
+        return (a.full_name || '').localeCompare(b.full_name || '');
+      });
+    } catch (e) {
+      console.warn('team_extra not loaded; showing account-backed members only:', e);
+    }
     if (rows.length === 0) { section.style.display = 'none'; return; }
     function _initial(name) { return (name || '?').trim().charAt(0).toUpperCase(); }
     function _roleLabel(m) {
@@ -17264,7 +17311,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })();
     </script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
-    <script src="/ux-patch.js?v=20260924a" defer></script>
+    <script src="/ux-patch.js?v=20260925a" defer></script>
 <script>
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
@@ -18390,8 +18437,35 @@ document.addEventListener('DOMContentLoaded', function() {
         return (a.scheduled_time || '') < (b.scheduled_time || '') ? -1 : 1;
       });
 
+      // R34 - Rachel: "all services after the day is done should just
+      // disappear, even if they weren't completed." Display only. Nothing is
+      // closed, charged or refunded - a client is charged at booking and only
+      // Rachel cancelling changes that.
+      //
+      // Filtering by OCCURRENCE date, not by booking status, is what makes
+      // both real cases come out right:
+      //   Kyle Motell / Rory  one-off drop-in 31 Jul, still "accepted", no
+      //     service report. Done in the real world, never closed out. Goes.
+      //   Julia Bossert / Sam ONGOING weekly series from 31 Aug, end_date
+      //     null. That series is live and has to keep showing on future
+      //     dates - only its finished occurrences drop off.
+      var _schedToday = _localDateStr();
+      var _hiddenPast = 0;
+      bookings = bookings.filter(function (b) {
+        var d = b._displayDate || b.scheduled_date || b.preferred_date || '';
+        // A house sit spans nights - keep it until the LAST one is over.
+        var endD = (b.preferred_end_date && b.preferred_end_date > d) ? b.preferred_end_date : d;
+        if (endD && endD < _schedToday) { _hiddenPast++; return false; }
+        return true;
+      });
+
       if (bookings.length === 0) {
-        listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments this month.</div>';
+        listEl.innerHTML = _hiddenPast > 0
+          ? '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">' +
+            'Nothing upcoming this month.<br><span style="font-size:0.8rem">' + _hiddenPast +
+            ' finished ' + (_hiddenPast === 1 ? 'service is' : 'services are') +
+            ' hidden \u2014 past days drop off on their own.</span></div>'
+          : '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments this month.</div>';
         return;
       }
 
@@ -19505,8 +19579,35 @@ document.addEventListener('DOMContentLoaded', function() {
         });
       }
 
+      // R34 - Rachel: "all services after the day is done should just
+      // disappear, even if they weren't completed." Display only. Nothing is
+      // closed, charged or refunded - a client is charged at booking and only
+      // Rachel cancelling changes that.
+      //
+      // Filtering by OCCURRENCE date, not by booking status, is what makes
+      // both real cases come out right:
+      //   Kyle Motell / Rory  one-off drop-in 31 Jul, still "accepted", no
+      //     service report. Done in the real world, never closed out. Goes.
+      //   Julia Bossert / Sam ONGOING weekly series from 31 Aug, end_date
+      //     null. That series is live and has to keep showing on future
+      //     dates - only its finished occurrences drop off.
+      var _schedToday = _localDateStr();
+      var _hiddenPast = 0;
+      bookings = bookings.filter(function (b) {
+        var d = b._displayDate || b.scheduled_date || b.preferred_date || '';
+        // A house sit spans nights - keep it until the LAST one is over.
+        var endD = (b.preferred_end_date && b.preferred_end_date > d) ? b.preferred_end_date : d;
+        if (endD && endD < _schedToday) { _hiddenPast++; return false; }
+        return true;
+      });
+
       if (bookings.length === 0) {
-        listEl.innerHTML = '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments this month.</div>';
+        listEl.innerHTML = _hiddenPast > 0
+          ? '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">' +
+            'Nothing upcoming this month.<br><span style="font-size:0.8rem">' + _hiddenPast +
+            ' finished ' + (_hiddenPast === 1 ? 'service is' : 'services are') +
+            ' hidden \u2014 past days drop off on their own.</span></div>'
+          : '<div style="padding:30px;text-align:center;color:var(--mid);font-size:0.88rem">No appointments this month.</div>';
         return;
       }
 
