@@ -1666,11 +1666,22 @@ try {
           <div class="sc-price" data-price-key="dog_walk_30">$25 <span>/ 30 min</span></div>
           <div class="sc-price" style="font-size:1.15rem;margin-top:-2px" data-price-key="dog_walk_60">$45 <span>/ 1 hour</span></div>
           <div class="sc-desc"><strong>Happy walks, happy pups!</strong><br>Give your dog the exercise, fresh air, and one-on-one attention they need daily. Our personalized walks are tailored to your dog’s pace and personality, with plenty of love and care along the way. Every walk is also GPS tracked with a detailed report card sent to you afterward.</div>
+          <details style="margin-top:10px;cursor:pointer">
+            <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
+              <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Additional Rates
+            </summary>
+            <ul style="list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--warm);border-radius:8px;border:1px solid var(--border)">
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Walk (30 min)</span><span style="font-weight:700" data-price-key="dog_walk_30_detail">$25</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Walk (1 hour)</span><span style="font-weight:700" data-price-key="dog_walk_60_detail">$45</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Additional Dog</span><span style="font-weight:700" data-price-key="dog_walk_extra_dog_detail">+ $10</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Puppy Surcharge</span><span style="font-weight:700" data-price-key="dog_walk_puppy_detail">+ $5</span></li>
+              <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">Holiday Surcharge</span><span style="font-weight:700" data-price-key="dog_walk_holiday_detail">+ $10</span></li>
+            </ul>
+          </details>
           <ul class="sc-features">
             <li>Live GPS tracking</li><li>Photo updates mid-walk</li>
             <li>Personal walk report card</li><li>Route map included</li>
           </ul>
-          <div style="font-size:0.72rem;color:var(--mid);margin-top:8px;line-height:1.5" data-price-key="dog_walk_surcharges">+$10 per additional dog · +$5 puppy surcharge · +$10 holiday rate</div>
           <button type="button" class="stripe-pay-btn" style="display:block;width:auto;text-align:center;margin:14px auto 0;padding:8px 20px;background:var(--ink, #1e1409);color:#fff;border:none;border-radius:8px;font-weight:600;font-size:0.82rem;cursor:pointer;font-family:inherit;transition:opacity 0.2s;" onclick="if(typeof openBookingModal==='function')openBookingModal('Dog Walking')" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">Request Dog Walking</button>
         </div>
         <div class="service-card fadeup">
@@ -1681,7 +1692,7 @@ try {
           <div class="sc-desc"><strong>Care and companionship, right at home.</strong><br>From dogs and cats to small animals and everything in between, we’ll stop by to give your pets the attention and care they deserve. Whether it’s feeding, potty breaks, playtime, medication, or simply some extra cuddles, we make sure they feel happy, comfortable, and cared for.</div>
           <details style="margin-top:10px;cursor:pointer">
             <summary style="font-size:0.82rem;font-weight:600;color:var(--gold-deep);list-style:none;display:flex;align-items:center;gap:6px;user-select:none">
-              <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Rates
+              <span class="hs-arrow" style="transition:transform 0.2s;display:inline-block">▸</span> View Additional Rates
             </summary>
             <ul style="list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--warm);border-radius:8px;border:1px solid var(--border)">
               <li style="display:flex;justify-content:space-between;font-size:0.84rem"><span style="color:var(--brown)">🐶 Dog (30 min)</span><span style="font-weight:700" data-price-key="dropin_dog_30_detail">$25</span></li>
@@ -12607,12 +12618,20 @@ function applyDynamicPricing() {
   var w30 = $('dog_walk_30'), w60 = $('dog_walk_60');
   if (w30) setPrice('dog_walk_30', '$' + parseFloat(w30.base_price) + ' <span>/ 30 min</span>');
   if (w60) setPrice('dog_walk_60', '$' + parseFloat(w60.base_price) + ' <span>/ 1 hour</span>');
-  if (w30) setPrice('dog_walk_surcharges', '+$' + parseFloat(w30.extra_pet_fee) + ' per additional dog · +$' + parseFloat(w30.puppy_surcharge) + ' puppy surcharge · +$' + parseFloat(w30.holiday_surcharge) + ' holiday rate');
+  // R46: the walk surcharges were one grey run-on line under the feature
+  // list - "+$10 per additional dog . +$5 puppy surcharge . +$10 holiday
+  // rate" - while Drop-In and House Sitting put the same information in a
+  // View Additional Rates disclosure. Same rows, same place in the card now.
+  if (w30) setPrice('dog_walk_30_detail', '$' + parseFloat(w30.base_price));
+  if (w60) setPrice('dog_walk_60_detail', '$' + parseFloat(w60.base_price));
+  if (w30) setPrice('dog_walk_extra_dog_detail', '+ $' + parseFloat(w30.extra_pet_fee));
+  if (w30) setPrice('dog_walk_puppy_detail', '+ $' + parseFloat(w30.puppy_surcharge));
+  if (w30) setPrice('dog_walk_holiday_detail', '+ $' + parseFloat(w30.holiday_surcharge));
 
   var dc30 = $('dropin_cat_30');
   // Rachel #11: this card headlined the CAT rate ("From $20") while Dog Walking
   // showed both tiers, so a drop-in read as cheaper than a walk when the dog
-  // rate is identical. Headline the dog tiers; cat stays under View Rates.
+  // rate is identical. Headline the dog tiers; cat stays under View Additional Rates.
   var _dd30m = $('dropin_dog_30'), _dd60m = $('dropin_dog_60');
   if (_dd30m) setPrice('dropin_dog_30_main', '$' + parseFloat(_dd30m.base_price) + ' <span>/ 30 min</span>');
   if (_dd60m) setPrice('dropin_dog_60_main', '$' + parseFloat(_dd60m.base_price) + ' <span>/ 1 hour</span>');
