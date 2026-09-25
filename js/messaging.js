@@ -902,6 +902,83 @@
   // ============================================================
   //  UI: Owner Messages (o-msgs) — full inbox, all conversations
   // ============================================================
+  // R38: questions from the public contact form. Anyone can ask, including
+  // people with no account - messages.sender_id is NOT NULL so they can never
+  // be a real message sender, and they used to land in booking_requests where
+  // Rachel was asked to accept or decline a question. They live in `inquiries`
+  // now and simply show at the top of the inbox. Nothing to approve.
+  async function renderInquiries() {
+    var sb = getSB(); if (!sb) return '';
+    var rows = [];
+    try {
+      var res = await sb.from('inquiries').select('*')
+        .neq('status', 'archived')
+        .order('created_at', { ascending: false }).limit(50);
+      if (res && res.error) throw res.error;
+      rows = (res && res.data) || [];
+    } catch (e) {
+      console.warn('Inquiries not loaded:', e.message || e);
+      return '';
+    }
+    if (!rows.length) return '';
+
+    var newCount = rows.filter(function (r) { return r.status === 'new'; }).length;
+    var h = '<div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">';
+    h += '<div style="padding:12px 16px;background:var(--gold-pale);border-bottom:1px solid var(--border);' +
+         'display:flex;align-items:center;gap:8px">' +
+         '<span style="font-weight:700;font-size:0.9rem">\u2709\uFE0F Questions</span>' +
+         (newCount ? '<span style="background:var(--rose);color:white;border-radius:10px;padding:1px 7px;' +
+                     'font-size:0.65rem;font-weight:800">' + newCount + ' new</span>' : '') +
+         '<span style="margin-left:auto;font-size:0.72rem;color:var(--mid)">From the website contact form</span>' +
+         '</div>';
+
+    rows.forEach(function (r) {
+      var isNew = r.status === 'new';
+      var contact = [];
+      if (r.email) contact.push('<a href="mailto:' + escHTML(r.email) + '" style="color:var(--gold-deep)">' + escHTML(r.email) + '</a>');
+      if (r.phone) contact.push('<a href="tel:' + escHTML(String(r.phone).replace(/[^0-9+]/g, '')) + '" style="color:var(--gold-deep)">' + escHTML(r.phone) + '</a>');
+      h += '<div style="padding:14px 16px;border-bottom:1px solid var(--border)' +
+           (isNew ? ';background:rgba(200,150,62,0.08)' : '') + '">' +
+           '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+             '<span style="font-weight:700;font-size:0.88rem">' + escHTML(r.name || 'Someone') + '</span>' +
+             (isNew ? '<span style="background:var(--rose);color:white;border-radius:4px;padding:1px 6px;' +
+                      'font-size:0.62rem;font-weight:800">NEW</span>' : '') +
+             '<span style="margin-left:auto;font-size:0.7rem;color:var(--mid)">' + timeAgo(r.created_at) + '</span>' +
+           '</div>' +
+           (contact.length ? '<div style="font-size:0.76rem;margin-bottom:6px">' + contact.join(' &middot; ') + '</div>' : '') +
+           '<div style="font-size:0.84rem;line-height:1.55;white-space:pre-wrap;color:var(--ink)">' + escHTML(r.message || '') + '</div>' +
+           '<div style="margin-top:8px">' +
+             '<button onclick="HHP_Messaging.markInquiry(\'' + r.id + '\',\'' + (isNew ? 'replied' : 'new') + '\')" ' +
+             'style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;' +
+             'font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--mid)">' +
+             (isNew ? 'Mark replied' : 'Mark unread') + '</button>' +
+             '<button onclick="HHP_Messaging.markInquiry(\'' + r.id + '\',\'archived\')" ' +
+             'style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;' +
+             'font-size:0.72rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--mid);margin-left:6px">' +
+             'Archive</button>' +
+           '</div>' +
+           '</div>';
+    });
+    return h + '</div>';
+  }
+
+  // Verified write - the Supabase client resolves on a failed update, so check
+  // the row actually came back before telling Rachel it worked.
+  async function markInquiry(id, status) {
+    var sb = getSB(); if (!sb) return;
+    try {
+      var res = await sb.from('inquiries')
+        .update({ status: status, replied_at: status === 'replied' ? new Date().toISOString() : null })
+        .eq('id', id).select('id');
+      if (res && res.error) throw res.error;
+      if (!res || !res.data || res.data.length === 0) throw new Error('no row updated');
+      loadOwnerInbox();
+    } catch (e) {
+      if (typeof toast === 'function') toast('Could not update that question.');
+      console.warn('markInquiry failed:', e.message || e);
+    }
+  }
+
   async function loadOwnerInbox() {
     var sb = getSB(); if (!sb) return;
     var user = getCurrentUser(); if (!user) return;
@@ -920,6 +997,10 @@
 
     var convos = await getConversationList();
 
+    // R38: questions sit above the conversations, in both branches below -
+    // an inbox with no conversations can still have unanswered questions.
+    var inquiriesHTML = await renderInquiries();
+
     // Filter out cleared conversations (unless new messages came in after clearing)
     convos = convos.filter(function(c) {
       return !_isConvoCleared(c.partnerId, c.lastMessage.created_at);
@@ -927,7 +1008,7 @@
 
     if (convos.length === 0) {
       panel.innerHTML =
-        '<div class="p-header"><h2>All Messages 💬</h2><p>Every client & staff conversation in one inbox.</p></div>' +
+        '<div class="p-header"><h2>All Messages \ud83d\udcac</h2><p>Every client & staff conversation in one inbox.</p></div>' + inquiriesHTML +
         '<div class="card"><div style="padding:28px;text-align:center;color:var(--mid)">' +
         '<div style="font-size:2rem;margin-bottom:10px">💬</div>' +
         '<div style="font-weight:600;margin-bottom:6px">No messages yet</div>' +
@@ -937,6 +1018,7 @@
     }
 
     var html = '<div class="p-header"><h2>All Messages 💬</h2><p>Every client & staff conversation — private per person.</p></div>';
+    html += inquiriesHTML;
     html += '<div class="card" style="padding:0;overflow:hidden">';
     html += '<div id="ownerConvoList">';
 
@@ -1406,6 +1488,7 @@
     loadClientMessages: loadClientMessages,
     loadStaffMessages: loadStaffMessages,
     loadOwnerInbox: loadOwnerInbox,
+    markInquiry: markInquiry,  // R38
     loadAlertMessages: loadAlertMessages,
     openConvo: openOwnerConvo,
     closeConvo: closeOwnerConvo,

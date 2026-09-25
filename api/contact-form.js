@@ -5,6 +5,7 @@
  */
 
 const { sendToRachel, escHtml, SITE_URL } = require('./_email');
+const { createClient } = require('@supabase/supabase-js');
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -61,6 +62,34 @@ module.exports = async function handler(req, res) {
         <a href="${SITE_URL}" style="color:#3d5a47;font-weight:700">View in Dashboard →</a>
       </div>
     `;
+
+    // R38: notify Rachel in-app. This used to run in the browser, and for a
+    // logged-out visitor it silently did nothing: the code first looks up the
+    // owner in `profiles`, but profiles is readable only by authenticated
+    // users, so the lookup returned null and the whole block was skipped.
+    // No contact-form notification has been created since 6 May because of it.
+    // Done here with the service role, where row-level security does not apply.
+    try {
+      const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+      const { data: owner } = await sb.from('profiles')
+        .select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+      if (owner && owner.user_id) {
+        const preview = String(question).slice(0, 150) + (String(question).length > 150 ? '…' : '');
+        const { error: nErr } = await sb.from('notifications').insert({
+          user_id: owner.user_id,
+          title: '💬 New Question',
+          body: name + ': ' + preview,
+          type: 'contact_inquiry',
+          read: false
+        });
+        if (nErr) console.error('[contact-form] notification insert failed:', nErr.message);
+      } else {
+        console.error('[contact-form] no owner profile found - notification skipped');
+      }
+    } catch (nEx) {
+      // Never block the email on this.
+      console.error('[contact-form] notification error:', nEx.message);
+    }
 
     const result = await sendToRachel({
       subject: `📬 New Message from ${safeName} — Housley Happy Paws`,

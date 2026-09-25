@@ -6394,6 +6394,20 @@ async function submitMG() {
 
 // ── Contact Form Submit with auto-reply ──
 async function submitContact() {
+  // R38: Jill Hurst's question arrived three times and Andrew Haverty's twice,
+  // seconds apart - the button stayed live while the awaits ran. One flight at
+  // a time, and the button says so.
+  if (window._hhpContactSending) return;
+  window._hhpContactSending = true;
+  var _cBtn = document.getElementById('contact-submit-btn') ||
+              document.querySelector('#contactFormFields button.submit-btn') ||
+              document.querySelector('#contactModal button.submit-btn');
+  var _cBtnText = _cBtn ? _cBtn.textContent : '';
+  if (_cBtn) { _cBtn.disabled = true; _cBtn.textContent = 'Sending…'; }
+  function _cDone() {
+    window._hhpContactSending = false;
+    if (_cBtn) { _cBtn.disabled = false; _cBtn.textContent = _cBtnText; }
+  }
   var errEl = document.getElementById('contact-error');
   if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 
@@ -6411,17 +6425,17 @@ async function submitContact() {
   if (!cQuestion) missing.push('Question');
   if (missing.length) {
     if (errEl) { errEl.textContent = 'Please fill in: ' + missing.join(', '); errEl.style.display = 'block'; }
-    return;
+    _cDone(); return;
   }
   // Basic email regex — good enough to catch phone numbers, typos.
   var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cEmail);
   if (!emailOk) {
     if (errEl) { errEl.textContent = 'That doesn\'t look like an email — please check. (Numbers-only? Use the Phone field.)'; errEl.style.display = 'block'; }
-    return;
+    _cDone(); return;
   }
   if (cPhone && cPhone.replace(/\D/g,'').length < 7) {
     if (errEl) { errEl.textContent = 'Phone number looks incomplete — remove it or add more digits.'; errEl.style.display = 'block'; }
-    return;
+    _cDone(); return;
   }
 
   var sb = window.HHP_supabase || (window.HHP_Auth && window.HHP_Auth.supabase);
@@ -6431,21 +6445,20 @@ async function submitContact() {
   var cReach = cEmail + (cPhone ? (' · ' + cPhone) : '');
 
   try {
-    // Save the contact submission to booking_requests as a general inquiry
+    // R38: a general question is NOT a booking. This used to insert into
+    // booking_requests with service='General Inquiry', so every question
+    // landed in Rachel's booking queue waiting to be accepted or declined
+    // when there was nothing to accept. It goes to its own table now.
     if (sb) {
-      var { error: brErr } = await sb.from('booking_requests').insert({
-        service: 'General Inquiry',
-        contact_name: cName,
-        contact_email: cEmail,
-        contact_phone: cPhone || null,
-        special_notes: cQuestion,
+      var { error: inqErr } = await sb.from('inquiries').insert({
+        name: cName,
+        email: cEmail,
+        phone: cPhone || null,
+        message: cQuestion,
         client_id: user ? user.id : null,
-        status: 'pending',
-        preferred_date: new Date().toISOString().split('T')[0],
-        preferred_time: 'N/A',
-        pet_names: 'N/A'
+        status: 'new'
       });
-      if (brErr) console.warn('Contact booking_requests insert error:', brErr.message);
+      if (inqErr) console.warn('Inquiry insert error:', inqErr.message);
     }
 
     // Send notification to Rachel (owner)
@@ -6496,6 +6509,10 @@ async function submitContact() {
   } catch (err) {
     console.error('Contact submit error:', err);
     if (errEl) { errEl.textContent = 'Something went wrong. Please try again.'; errEl.style.display = 'block'; }
+  } finally {
+    // R38: always release, whether we succeeded, errored or threw. A stuck
+    // flag would leave the button dead until the page reloads.
+    _cDone();
   }
 }
 
@@ -18914,7 +18931,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
   <script src="/js/booking-system.js?v=20260925b" defer></script>
-  <script src="/js/messaging.js?v=20260618a" defer></script>
+  <script src="/js/messaging.js?v=20260925c" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>
   <!-- R8 P5 #18 — customizer.js (~138KB) is owner-only. Defer loading to
