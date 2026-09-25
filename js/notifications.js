@@ -499,11 +499,31 @@
     payment_failed:  'o-payments'
   };
 
+  // R40: the bell used to read the role once, at init, and give up.
+  // hhp-auth-ready fires the moment the Supabase client is constructed -
+  // BEFORE the session is restored and before currentRole is set - so this
+  // always saw "not the owner" and Rachel's bell stayed empty while she had
+  // six unread alerts sitting in the table. Wait for auth to actually settle.
+  function whenAuthSettled(maxMs) {
+    return new Promise(function (resolve) {
+      var waited = 0, step = 150;
+      (function poll() {
+        var a = window.HHP_Auth;
+        if (a && a.currentUser && a.currentRole) return resolve(true);
+        if (waited >= (maxMs || 10000)) return resolve(false);
+        waited += step;
+        setTimeout(poll, step);
+      })();
+    });
+  }
+
   async function fetchOwnerNotifs() {
     _ownerNotifs = [];
     var sb = getSB();
+    if (!sb) { _isOwner = false; return; }
+    await whenAuthSettled(10000);
     var auth = window.HHP_Auth;
-    if (!sb || !auth || !auth.currentUser) { _isOwner = false; return; }
+    if (!auth || !auth.currentUser) { _isOwner = false; return; }   // signed out
     _isOwner = (auth.currentRole === 'owner');
     if (!_isOwner) return;   // staff and clients never see these
     try {
@@ -512,9 +532,10 @@
         .eq('user_id', auth.currentUser.id)
         .order('created_at', { ascending: false })
         .limit(20);
+      if (res && res.error) throw res.error;
       if (res && res.data) _ownerNotifs = res.data;
     } catch (e) {
-      console.warn('Owner notifications not loaded:', e);
+      console.warn('Owner notifications not loaded:', e && e.message);
     }
   }
 
@@ -724,7 +745,15 @@
 
     // Fetch data
     try {
-      await Promise.all([fetchAnnouncements(), fetchActiveDeals(), fetchOwnerNotifs()]);
+      // R40: announcements and deals first so the bell is usable straight
+      // away. The owner fetch can wait up to 10s for auth to settle, so it
+      // runs on its own and refreshes the badge when it lands - blocking on
+      // it would leave every visitor staring at a bell with no count.
+      await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+      fetchOwnerNotifs().then(function () {
+        updateBadge();
+        if (_drawerOpen) renderDrawer();
+      });
     } catch (err) {
       console.warn('Failed to fetch notifications data:', err);
     }
@@ -738,6 +767,9 @@
       var dismissed = getDismissed();
       var unreadCount = _announcements.filter(function(a) { return dismissed.indexOf(a.id) === -1; }).length;
       unreadCount += _activeDeals.filter(function(d) { return dismissed.indexOf(d.id) === -1; }).length;
+      // R40: Rachel's own alerts count too, or the bell tucks itself away on
+      // her phone while she has unread ones.
+      unreadCount += _ownerNotifs.filter(function (n) { return !n.read; }).length;
       if (unreadCount === 0) {
         // Small delay so user sees it tuck away smoothly
         setTimeout(tuckBell, 1200);
