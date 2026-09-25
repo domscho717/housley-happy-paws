@@ -2616,6 +2616,7 @@ try {
           <button class="btn btn-outline btn-sm rv-filter-btn" onclick="filterReviews('approved')" data-filter="approved" style="font-size:0.76rem">✅ Approved</button>
           <button class="btn btn-outline btn-sm rv-filter-btn" onclick="filterReviews('rejected')" data-filter="rejected" style="font-size:0.76rem">❌ Rejected</button>
           <button class="btn btn-outline btn-sm rv-filter-btn" onclick="filterReviews('featured')" data-filter="featured" style="font-size:0.76rem">🌟 Featured</button>
+          <button class="btn btn-outline btn-sm rv-filter-btn" onclick="filterReviews('archived')" data-filter="archived" style="font-size:0.76rem">📦 Archived</button>
         </div>
 
         <!-- Reviews list -->
@@ -16431,13 +16432,16 @@ async function loadOwnerReviews() {
 
     // Update stats — show combined totals
     var extStats = _getExternalReviewStats();
-    var dbTotal = _rvCache.length;
+    // R45: archived reviews are put away on purpose - they should not count
+    // toward the totals Rachel reads at the top of the panel, and they must
+    // not inflate the blended average that the homepage schema uses.
+    var dbTotal = _rvCache.filter(function(r) { return r.status !== 'archived'; }).length;
     var pending = _rvCache.filter(function(r) { return r.status === 'pending'; }).length;
     var approved = _rvCache.filter(function(r) { return r.status === 'approved'; }).length;
     var featured = _rvCache.filter(function(r) { return r.featured; }).length;
     var displayTotal = Math.max(extStats.count, dbTotal);
     // Calculate avg rating: blend DB reviews with external stats if external count is higher
-    var dbSum = _rvCache.reduce(function(s, r) { return s + r.rating; }, 0);
+    var dbSum = _rvCache.reduce(function(s, r) { return r.status === 'archived' ? s : s + r.rating; }, 0);
     var avgRating;
     if (dbTotal >= displayTotal || displayTotal === 0) {
       avgRating = dbTotal > 0 ? (dbSum / dbTotal).toFixed(1) : extStats.rating.toFixed(1);
@@ -16490,14 +16494,22 @@ function renderReviewsList(filter) {
   var listEl = document.getElementById('rv-list');
   if (!listEl) return;
 
-  var filtered = _rvCache;
+  // R45: "All Reviews" now means everything except the archive - otherwise
+  // archiving would not actually clear anything off Rachel's list, which is
+  // the whole point of the button. The archive has its own tab.
+  var filtered = _rvCache.filter(function(r) { return r.status !== 'archived'; });
   if (filter === 'pending') filtered = _rvCache.filter(function(r) { return r.status === 'pending'; });
   else if (filter === 'approved') filtered = _rvCache.filter(function(r) { return r.status === 'approved'; });
   else if (filter === 'rejected') filtered = _rvCache.filter(function(r) { return r.status === 'rejected'; });
-  else if (filter === 'featured') filtered = _rvCache.filter(function(r) { return r.featured; });
+  else if (filter === 'archived') filtered = _rvCache.filter(function(r) { return r.status === 'archived'; });
+  else if (filter === 'featured') filtered = _rvCache.filter(function(r) { return r.featured && r.status !== 'archived'; });
 
   if (filtered.length === 0) {
-    listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">⭐</div>No reviews ' + (filter !== 'all' ? 'with this filter' : 'yet') + '.</div>';
+    var _emptyIcon = filter === 'archived' ? '📦' : '⭐';
+    var _emptyMsg = filter === 'archived'
+      ? 'Nothing archived. Archived reviews are kept here, off your website.'
+      : 'No reviews ' + (filter !== 'all' ? 'with this filter' : 'yet') + '.';
+    listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid);font-size:0.88rem"><div style="font-size:2rem;margin-bottom:10px">' + _emptyIcon + '</div>' + _emptyMsg + '</div>';
     return;
   }
 
@@ -16508,6 +16520,7 @@ function renderReviewsList(filter) {
     if (r.status === 'pending') statusBadge = '<span style="background:#fef3c7;color:#92400e;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">PENDING</span>';
     else if (r.status === 'approved') statusBadge = '<span style="background:var(--forest-pale);color:var(--forest);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">APPROVED</span>';
     else if (r.status === 'rejected') statusBadge = '<span style="background:var(--rose-pale);color:var(--rose,#c25656);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">REJECTED</span>';
+    else if (r.status === 'archived') statusBadge = '<span style="background:var(--border);color:var(--mid);font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">📦 ARCHIVED</span>';
     var featuredBadge = r.featured ? ' <span style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:20px">🌟 FEATURED</span>' : '';
 
     h += '<div class="card" style="padding:16px" data-review-id="' + r.id + '">';
@@ -16530,31 +16543,58 @@ function renderReviewsList(filter) {
       h += '<div style="font-size:0.82rem;color:var(--forest);margin-bottom:10px;padding-left:12px;border-left:3px solid var(--forest)"><strong>Your reply:</strong> ' + _escHtml(r.owner_response) + '</div>';
     }
     // Action buttons
+    // R45: an archived row gets one button - put it back. Feature and Respond
+    // on something that is not on the site would only be confusing.
+    var _btn = 'class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px"';
+    var _gold = 'class="btn btn-gold btn-sm" style="font-size:0.72rem;padding:4px 12px"';
     h += '<div style="display:flex;gap:6px;flex-wrap:wrap">';
-    if (r.status === 'pending') {
-      h += '<button class="btn btn-gold btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="updateReviewStatus(\'' + r.id + '\',\'approved\')">✅ Approve</button>';
-      h += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="updateReviewStatus(\'' + r.id + '\',\'rejected\')">❌ Reject</button>';
-    } else if (r.status === 'approved') {
-      h += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="updateReviewStatus(\'' + r.id + '\',\'rejected\')">Remove from Site</button>';
+    if (r.status === 'archived') {
+      h += '<button ' + _gold + ' onclick="restoreReview(\'' + r.id + '\')">↩️ Restore</button>';
     } else {
-      h += '<button class="btn btn-gold btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="updateReviewStatus(\'' + r.id + '\',\'approved\')">✅ Approve</button>';
+      if (r.status === 'pending') {
+        h += '<button ' + _gold + ' onclick="updateReviewStatus(\'' + r.id + '\',\'approved\')">✅ Approve</button>';
+        h += '<button ' + _btn + ' onclick="updateReviewStatus(\'' + r.id + '\',\'rejected\')">❌ Reject</button>';
+      } else if (r.status === 'approved') {
+        h += '<button ' + _btn + ' onclick="updateReviewStatus(\'' + r.id + '\',\'rejected\')">Remove from Site</button>';
+      } else {
+        h += '<button ' + _gold + ' onclick="updateReviewStatus(\'' + r.id + '\',\'approved\')">✅ Approve</button>';
+      }
+      h += '<button ' + _btn + ' onclick="toggleFeatured(\'' + r.id + '\',' + (r.featured ? 'false' : 'true') + ')">' + (r.featured ? '🌟 Unfeature' : '🌟 Feature') + '</button>';
+      h += '<button ' + _btn + ' onclick="openOwnerResponse(\'' + r.id + '\')">💬 Respond</button>';
+      h += '<button ' + _btn + ' onclick="archiveReview(\'' + r.id + '\')">📦 Archive</button>';
     }
-    h += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="toggleFeatured(\'' + r.id + '\',' + (r.featured ? 'false' : 'true') + ')">' + (r.featured ? '🌟 Unfeature' : '🌟 Feature') + '</button>';
-    h += '<button class="btn btn-outline btn-sm" style="font-size:0.72rem;padding:4px 12px" onclick="openOwnerResponse(\'' + r.id + '\')">💬 Respond</button>';
     h += '</div>';
     h += '</div>';
   });
   listEl.innerHTML = h;
 }
 
-// ── Approve / Reject ──
+// ── Approve / Reject / Archive / Restore ──
+// R45: this used to fire the update and toast success off a null error. The
+// Supabase JS client RESOLVES on a write that changed nothing - a blocked row
+// comes back {data: [], error: null} - so Rachel could click Approve, be told
+// the review was live, and have nothing move. .select() and a row count are
+// the only way to know the write landed.
+var _RV_TOAST = {
+  approved: '✅ Review approved and live on your website!',
+  rejected: '❌ Review removed from your website.',
+  archived: '📦 Archived. Find it under the Archived tab.',
+  pending:  '↩️ Restored to Pending.'
+};
 async function updateReviewStatus(reviewId, newStatus) {
   var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
   if (!sb) return;
 
-  var { error } = await sb.from('reviews').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', reviewId);
-  if (error) { toast('Failed to update review.'); return; }
-  toast(newStatus === 'approved' ? '✅ Review approved and live on your website!' : '❌ Review removed.');
+  var { data, error } = await sb.from('reviews')
+    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq('id', reviewId)
+    .select('id, status');
+  if (error || !data || data.length === 0) {
+    console.error('Review status write did not land:', error, data);
+    toast('Could not update that review — nothing was changed. Please try again.');
+    return;
+  }
+  toast(_RV_TOAST[newStatus] || 'Review updated.');
   // Update cache
   _rvCache.forEach(function(r) { if (r.id === reviewId) r.status = newStatus; });
   renderReviewsList(_rvCurrentFilter);
@@ -16564,13 +16604,40 @@ async function updateReviewStatus(reviewId, newStatus) {
   if (typeof loadPublicReviews === 'function') loadPublicReviews();
 }
 
+// R45: archive = put it away without judging it. Rejected means Rachel said no;
+// archived means she is done looking at it. Neither shows on the website - the
+// public query asks for status 'approved' and nothing else - but archived rows
+// also drop out of All Reviews and out of the panel's totals, which is what
+// makes the button actually tidy the list.
+function archiveReview(reviewId) {
+  var r = _rvCache.find(function(x) { return x.id === reviewId; });
+  if (r && r.status === 'approved') {
+    var who = r.client_name ? ' from ' + r.client_name : '';
+    if (!confirm('This review' + who + ' is live on your website right now.\n\nArchiving takes it off the site and files it under Archived. You can restore it any time. Archive it?')) return;
+  }
+  updateReviewStatus(reviewId, 'archived');
+}
+
+// Restore drops it back to Pending rather than straight to Approved, so an
+// archived review cannot reappear on the website with one click.
+function restoreReview(reviewId) {
+  updateReviewStatus(reviewId, 'pending');
+}
+
 // ── Toggle featured ──
 async function toggleFeatured(reviewId, val) {
   var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
   if (!sb) return;
 
-  var { error } = await sb.from('reviews').update({ featured: val, updated_at: new Date().toISOString() }).eq('id', reviewId);
-  if (error) { toast('Failed to update.'); return; }
+  var { data, error } = await sb.from('reviews')
+    .update({ featured: val, updated_at: new Date().toISOString() })
+    .eq('id', reviewId)
+    .select('id');                                   // R45: see the note above
+  if (error || !data || data.length === 0) {
+    console.error('Review featured write did not land:', error, data);
+    toast('Could not update that review — nothing was changed.');
+    return;
+  }
   toast(val ? '🌟 Review featured!' : 'Removed from featured.');
   _rvCache.forEach(function(r) { if (r.id === reviewId) r.featured = val; });
   renderReviewsList(_rvCurrentFilter);
@@ -16596,8 +16663,15 @@ async function submitOwnerResponse() {
   var sb = (typeof HHP_Auth !== 'undefined' && HHP_Auth.supabase) ? HHP_Auth.supabase : null;
   if (!sb) return;
 
-  var { error } = await sb.from('reviews').update({ owner_response: text || null, updated_at: new Date().toISOString() }).eq('id', reviewId);
-  if (error) { toast('Failed to save response.'); return; }
+  var { data, error } = await sb.from('reviews')
+    .update({ owner_response: text || null, updated_at: new Date().toISOString() })
+    .eq('id', reviewId)
+    .select('id');                                   // R45: see the note above
+  if (error || !data || data.length === 0) {
+    console.error('Review response write did not land:', error, data);
+    toast('Could not save that reply — nothing was changed. Please try again.');
+    return;
+  }
   toast('💬 Response saved!');
   _rvCache.forEach(function(r) { if (r.id === reviewId) r.owner_response = text || null; });
   closeModal('reviewResponseModal');
