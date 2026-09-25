@@ -3257,6 +3257,27 @@
 
       if (error) throw error;
 
+      // R39: ring Rachel's bell. Owner only - this is written to HER user_id,
+      // never the client's, so a client can never see it. Their own dashboard
+      // reads the same table filtered to their own id.
+      //
+      // Best-effort: a booking that saved must never fail because an alert
+      // did not, so the whole thing is swallowed.
+      try {
+        var { data: _ownerRow } = await sb.from('profiles')
+          .select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+        if (_ownerRow && _ownerRow.user_id) {
+          var _count = (shouldSplit && dateCardDetails.length > 1) ? dateCardDetails.length : 1;
+          await sb.from('notifications').insert({
+            user_id: _ownerRow.user_id,
+            title: '\uD83D\uDCC5 New Booking Request',
+            body: name + ' \u2014 ' + service + (_count > 1 ? ' (' + _count + ' dates)' : ' on ' + date),
+            type: 'booking_request',
+            read: false
+          });
+        }
+      } catch (_nErr) { console.warn('[booking] owner alert skipped:', _nErr && _nErr.message); }
+
       // Send email notification to Rachel + client notification
       try {
         if (shouldSplit && dateCardDetails.length > 1) {

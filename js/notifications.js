@@ -15,6 +15,12 @@
   var _promoStripEl = null;
   var _announcements = [];
   var _activeDeals = [];
+  // R39: rows from the `notifications` table. Owner only - this bell is the
+  // only place they are shown to Rachel. Clients read the same table on their
+  // own dashboard, which filters by their own user_id, so nothing here can
+  // leak an owner alert to a client or the other way round.
+  var _ownerNotifs = [];
+  var _isOwner = false;
   var _drawerOpen = false;
   var _dismissedKey = 'hhp_dismissed_announcements';
   var _tucked = false;       // mobile: is the bell tucked to the side?
@@ -263,6 +269,9 @@
       // Auto-mark all as read when drawer is opened
       _announcements.forEach(function(a) { addDismissed(a.id); });
       _activeDeals.forEach(function(d) { addDismissed(d.id); });
+      // R39: Rachel asked for these to clear once she opens the bell.
+      // Fire and forget - the badge has already cleared optimistically.
+      markOwnerNotifsRead();
       updateBadge();
       // Close on outside click
       setTimeout(function() {
@@ -311,6 +320,33 @@
 
     // Scrollable content
     html += '<div style="overflow-y:auto;flex:1;padding:8px 0">';
+    // ── R39: Rachel's own alerts, first, above specials and announcements ──
+    // Only ever populated when the signed-in user is the owner.
+    if (_ownerNotifs.length > 0) {
+      var _esc = function (s) {
+        var dv = document.createElement('div'); dv.textContent = s == null ? '' : s; return dv.innerHTML;
+      };
+      var _icon = {
+        booking_request: '\uD83D\uDCC5', client_message: '\uD83D\uDCAC', contact_inquiry: '\u2709\uFE0F',
+        new_review: '\u2B50', payment_failed: '\u26A0\uFE0F'
+      };
+      html += '<div style="padding:6px 18px 4px"><div style="font-size:0.7rem;font-weight:700;color:var(--rose,#c0392b);text-transform:uppercase;letter-spacing:0.05em">For You</div></div>';
+      _ownerNotifs.slice(0, 10).forEach(function (n) {
+        var isNew = !n.read;
+        html += '<div onclick="window.HHP_Notif.openTarget(\'' + n.id + '\',\'' + _esc(n.type || '') + '\')" ' +
+          'style="margin:4px 12px;padding:11px 13px;border-radius:10px;cursor:pointer;' +
+          'background:' + (isNew ? 'rgba(192,57,43,0.07)' : 'rgba(0,0,0,0.02)') + ';' +
+          'border:1px solid ' + (isNew ? 'rgba(192,57,43,0.18)' : 'rgba(0,0,0,0.05)') + '">' +
+          '<div style="display:flex;align-items:flex-start;gap:8px">' +
+            '<span style="font-size:0.95rem;line-height:1.3">' + (_icon[n.type] || '\uD83D\uDD14') + '</span>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-weight:700;font-size:0.83rem;color:var(--dark,#1e1409)">' + _esc(n.title || 'Notification') + '</div>' +
+              '<div style="font-size:0.78rem;color:var(--mid,#8c6b4a);margin-top:2px;line-height:1.45">' + _esc(n.body || '') + '</div>' +
+              '<div style="font-size:0.68rem;color:var(--mid,#8c6b4a);opacity:0.75;margin-top:4px">' + timeAgo(n.created_at) + ' \u00B7 tap to open</div>' +
+            '</div>' +
+          '</div></div>';
+      });
+    }
 
     // Active deals section
     if (_activeDeals.length > 0) {
@@ -389,6 +425,8 @@
     var count = _announcements.filter(function(a) { return dismissed.indexOf(a.id) === -1; }).length;
     // Also count active deals as "new" if user hasn't seen them
     count += _activeDeals.filter(function(d) { return dismissed.indexOf(d.id) === -1; }).length;
+    // R39: plus Rachel's own unread alerts, which live in the database
+    count += _ownerNotifs.filter(function (n) { return !n.read; }).length;
 
     if (count > 0) {
       _badgeEl.textContent = count > 9 ? '9+' : count;
@@ -448,6 +486,61 @@
     } catch (e) {
       console.warn('Failed to load deals:', e);
     }
+  }
+
+  // ── R39: Rachel's own alerts from the notifications table ──
+  // Where each type sends her when tapped. Anything unmapped opens the
+  // dashboard rather than doing nothing.
+  var NOTIF_TARGET = {
+    booking_request: 'o-requests',
+    client_message:  'o-msgs',
+    contact_inquiry: 'o-msgs',
+    new_review:      'o-reviews',
+    payment_failed:  'o-payments'
+  };
+
+  async function fetchOwnerNotifs() {
+    _ownerNotifs = [];
+    var sb = getSB();
+    var auth = window.HHP_Auth;
+    if (!sb || !auth || !auth.currentUser) { _isOwner = false; return; }
+    _isOwner = (auth.currentRole === 'owner');
+    if (!_isOwner) return;   // staff and clients never see these
+    try {
+      var res = await sb.from('notifications')
+        .select('id, title, body, type, created_at, read')
+        .eq('user_id', auth.currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (res && res.data) _ownerNotifs = res.data;
+    } catch (e) {
+      console.warn('Owner notifications not loaded:', e);
+    }
+  }
+
+  // Marks every unread row read in the DATABASE, not localStorage - that is
+  // what makes the count actually go away, and stay away on her other devices.
+  async function markOwnerNotifsRead() {
+    var sb = getSB();
+    var auth = window.HHP_Auth;
+    if (!sb || !_isOwner || !auth || !auth.currentUser) return;
+    var unreadIds = _ownerNotifs.filter(function (n) { return !n.read; }).map(function (n) { return n.id; });
+    if (!unreadIds.length) return;
+    _ownerNotifs.forEach(function (n) { n.read = true; });   // optimistic
+    try {
+      var res = await sb.from('notifications').update({ read: true })
+        .in('id', unreadIds).select('id');
+      if (res && res.error) throw res.error;
+      if (!res || !res.data || res.data.length === 0) throw new Error('no rows updated');
+    } catch (e) {
+      console.warn('Could not mark notifications read:', e && e.message);
+    }
+  }
+
+  function openNotifTarget(id, type) {
+    var panel = NOTIF_TARGET[type] || 'o-overview';
+    closeDrawer();
+    if (typeof sTab === 'function') sTab('o', panel);
   }
 
   // ── Owner: Load announcement history for re-send ───────────
@@ -559,6 +652,9 @@
   function dismissAll() {
     _announcements.forEach(function(a) { addDismissed(a.id); });
     _activeDeals.forEach(function(d) { addDismissed(d.id); });
+    // R39: Rachel asked for these to clear once she opens the bell.
+    // Fire and forget - the badge has already cleared optimistically.
+    markOwnerNotifsRead();
     updateBadge();
     if (_drawerOpen) renderDrawer();
   }
@@ -628,7 +724,7 @@
 
     // Fetch data
     try {
-      await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+      await Promise.all([fetchAnnouncements(), fetchActiveDeals(), fetchOwnerNotifs()]);
     } catch (err) {
       console.warn('Failed to fetch notifications data:', err);
     }
@@ -683,13 +779,15 @@
     init: init,
     dismiss: dismissNotif,
     dismissAll: dismissAll,
+    openTarget: openNotifTarget,   // R39
+    reloadOwner: fetchOwnerNotifs, // R39
     resend: resendAnnouncement,
     deleteAnnouncement: deleteAnnouncement,
     loadHistory: loadAnnouncementHistory,
     saveAnnouncement: saveAnnouncement,
     refresh: async function() {
       try {
-        await Promise.all([fetchAnnouncements(), fetchActiveDeals()]);
+        await Promise.all([fetchAnnouncements(), fetchActiveDeals(), fetchOwnerNotifs()]);
       } catch (err) {
         console.warn('Failed to refresh notifications:', err);
       }

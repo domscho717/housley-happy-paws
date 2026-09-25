@@ -231,7 +231,7 @@ module.exports = async function handler(req, res) {
             await supabase.from('service_reports').insert({
               booking_id: bookingRequestId,
               client_id: booking.client_id,
-              author_id: booking.owner_id || null,
+              author_id: user.id,   // R39: booking.owner_id is not a column - author was always null
               service: booking.service || 'House Sitting',
               report_date: new Date().toISOString().split('T')[0],
               duration: finalNights + ' nights',
@@ -325,7 +325,7 @@ module.exports = async function handler(req, res) {
       supabase.from('service_reports').insert({
         booking_id: bookingRequestId,
         client_id: booking.client_id,
-        author_id: booking.owner_id || null,
+        author_id: user.id,   // R39: booking.owner_id is not a column - author was always null
         service: booking.service || 'House Sitting',
         report_date: new Date().toISOString().split('T')[0],
         duration: finalNights + ' nights',
@@ -369,10 +369,20 @@ module.exports = async function handler(req, res) {
     if (booking.client_id) {
       notifPromises.push(
         supabase.from('messages').insert({
-          sender_id: booking.owner_id || booking.client_id,
-          receiver_id: booking.client_id,
-          message: `🏠 House Sitting Report\n\nYour house sitting stay${adjustNote} has been completed!\n\n📅 ${booking.preferred_date} → ${newEndDate} (${nightLabel})\n💰 Final charge: $${finalAmount.toFixed(2)}\n\n${reportNotes ? '📝 Notes from your sitter:\n' + reportNotes : ''}`,
-          read: false,
+          // R39: this insert has failed every single time. The messages table has
+          // recipient_id and body - not receiver_id and message - and it has no
+          // `read` column at all (read_at / is_read). One bad column rejects the
+          // whole insert, so no client has ever received the message explaining
+          // their final house-sitting charge. They got the bell notification
+          // below, which uses correct columns, and nothing else.
+          //
+          // sender_id was booking.owner_id, which is not a column on
+          // booking_requests - it was always undefined, so this fell back to
+          // client_id and the client appeared to message themselves. user.id is
+          // whoever completed the service, which is who it is actually from.
+          sender_id: user.id,
+          recipient_id: booking.client_id,
+          body: `\u{1F3E0} House Sitting Report\n\nYour house sitting stay${adjustNote} has been completed!\n\n\u{1F4C5} ${booking.preferred_date} \u2192 ${newEndDate} (${nightLabel})\n\u{1F4B0} Final charge: $${finalAmount.toFixed(2)}\n\n${reportNotes ? '\u{1F4DD} Notes from your sitter:\n' + reportNotes : ''}`,
         }),
         supabase.from('notifications').insert({
           user_id: booking.client_id,

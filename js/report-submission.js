@@ -250,6 +250,34 @@
         );
       }
 
+      // 2g - R39: ask the client for a review.
+      //
+      // This has never happened. _sendReviewRequest() exists in index.html but
+      // only the OLD report form calls it - this pipeline, which is what the
+      // Live Service Panel uses and therefore what Rachel actually uses, never
+      // did. 67 completed visits in 90 days, 2 reviews, and the client portal
+      // tells people "you'll be prompted automatically after each visit".
+      //
+      // This one is FOR THE CLIENT by design - it is their prompt to review.
+      // It is not one of the owner alerts.
+      //
+      // Skipped when we reused an existing report, so a retry after a failed
+      // run cannot ask the same person twice.
+      if (payload.clientId && reportId && !reusedReport) {
+        tasks.push(
+          Promise.resolve(sb.from('notifications').insert({
+            user_id: payload.clientId,
+            title: '\u2B50 How was your visit?',
+            body: 'Your ' + ((payload.reportData && payload.reportData.service) || 'service') + ' report' +
+                  ((payload.reportData && payload.reportData.pet_name) ? ' for ' + payload.reportData.pet_name : '') +
+                  ' is ready. We\'d love to hear how it went!',
+            type: 'review_request',
+            read: false
+          })).then(function () { onProgress('reviewRequested'); })
+            .catch(function (e) { console.warn('[report] review request failed:', e); })
+        );
+      }
+
       // 2f — Cloudinary photo uploads, then UPDATE service_reports.media
       if (payload.stagedMedia && payload.stagedMedia.length > 0 && reportId) {
         tasks.push(

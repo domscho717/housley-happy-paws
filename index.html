@@ -6461,23 +6461,15 @@ async function submitContact() {
       if (inqErr) console.warn('Inquiry insert error:', inqErr.message);
     }
 
-    // Send notification to Rachel (owner)
-    if (sb) {
-      var { data: ownerProf } = await sb.from('profiles').select('user_id').eq('role', 'owner').limit(1).maybeSingle();
-      if (ownerProf && ownerProf.user_id) {
-        await sb.from('notifications').insert({
-          user_id: ownerProf.user_id,
-          title: '💬 New Contact Message',
-          body: cName + ': ' + cQuestion.substring(0, 150) + (cQuestion.length > 150 ? '...' : ''),
-          type: 'contact_inquiry',
-          read: false
-        });
-        // Also send as in-app message to owner
-        if (user) {
-          await sb.from('messages').insert({ sender_id: user.id, sender_name: cName || 'Contact Form', recipient_id: ownerProf.user_id, body: '💬 Contact Form:\n' + cQuestion });
-        }
-      }
-    }
+    // R39: this block is gone. R38 moved contact questions to the `inquiries`
+    // table and had api/contact-form.js create Rachel's notification with the
+    // service role - which works for logged-out visitors too, unlike this,
+    // which silently did nothing for them.
+    //
+    // Leaving it here meant a SIGNED-IN visitor produced three pings for one
+    // question: this notification, the server's notification, and - once R39
+    // started alerting on client messages - the `messages` insert below it
+    // as well. The inquiry already shows at the top of her inbox.
 
     // Send general auto-reply to client (if logged in)
     if (user) {
@@ -16138,6 +16130,23 @@ async function submitClientReview() {
     toast('Failed to submit review. Please try again.');
     return;
   }
+  // R39: a new review is something Rachel wants to know about - it needs
+  // approving before it shows publicly. Owner's user_id only; the client who
+  // just wrote it gets nothing.
+  try {
+    var { data: _own } = await sb.from('profiles')
+      .select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+    if (_own && _own.user_id) {
+      await sb.from('notifications').insert({
+        user_id: _own.user_id,
+        title: '\u2B50 New ' + rating + '-star Review',
+        body: (profile.full_name || 'A client') + (petName ? ' (' + petName + ')' : '') +
+              ' left a review' + (reviewText ? ': \u201C' + String(reviewText).slice(0, 90) + '\u201D' : '.'),
+        type: 'new_review',
+        read: false
+      });
+    }
+  } catch (_nErr) { console.warn('[review] owner alert skipped:', _nErr && _nErr.message); }
 
   closeModal('reviewModal');
   toast('⭐ Thank you for your review! Rachel will see it soon.');
@@ -17308,7 +17317,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/js/auth-client.js?v=20260715a" defer></script>
 
 <!-- End-of-service Report Submission Pipeline (localStorage save + parallel side effects) -->
-<script src="/js/report-submission.js?v=20260912a" defer></script>
+<script src="/js/report-submission.js?v=20260925d" defer></script>
 
 <!-- Cloudinary Photo Manager -->
 <script src="/js/cloudinary-client.js?v=20260827a" defer></script>
@@ -18930,10 +18939,10 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20260925b" defer></script>
-  <script src="/js/messaging.js?v=20260925c" defer></script>
+  <script src="/js/booking-system.js?v=20260925d" defer></script>
+  <script src="/js/messaging.js?v=20260925d" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
-  <script src="/js/notifications.js?v=20260428" defer></script>
+  <script src="/js/notifications.js?v=20260925d" defer></script>
   <!-- R8 P5 #18 — customizer.js (~138KB) is owner-only. Defer loading to
        sessions where the last view was 'owner'. Saves bytes for every
        client and staff user. Falls back to loading later if the user

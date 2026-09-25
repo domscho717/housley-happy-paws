@@ -180,6 +180,29 @@ module.exports = async function handler(req, res) {
     case 'payment_intent.payment_failed': {
       const intent = event.data.object;
       console.log('Payment failed:', intent.id, intent.last_payment_error?.message);
+
+      // R39: tell Rachel. This only READS a failure Stripe has already
+      // reported - it starts no charge, refund or retry. Owner's user_id only,
+      // so no client ever sees it.
+      try {
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+        const { data: owner } = await supabase.from('profiles')
+          .select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+        if (owner && owner.user_id) {
+          const who = intent.metadata?.client_name || intent.metadata?.contact_name || '';
+          const amount = typeof intent.amount === 'number' ? (intent.amount / 100).toFixed(2) : null;
+          const reason = intent.last_payment_error?.message || 'Card was declined';
+          await supabase.from('notifications').insert({
+            user_id: owner.user_id,
+            title: '\u26A0\uFE0F Payment Failed',
+            body: (who ? who + ' \u2014 ' : '') + (amount ? '$' + amount + '. ' : '') + reason,
+            type: 'payment_failed',
+            read: false
+          });
+        }
+      } catch (nErr) {
+        console.error('[webhook] payment-failed alert skipped:', nErr.message);
+      }
       break;
     }
 

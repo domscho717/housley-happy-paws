@@ -290,6 +290,32 @@
       return null;
     }
 
+    // R39: ring Rachel's bell when a CLIENT messages her.
+    //
+    // Deliberately one-directional. The notification is written to the
+    // recipient's id and only when that recipient is the owner, so:
+    //   client -> Rachel   alert created
+    //   Rachel -> client   nothing (clients keep using email + the portal)
+    //   staff  -> anyone   nothing
+    // A client can therefore never be given one of these.
+    try {
+      var { data: _rcpt } = await sb.from('profiles')
+        .select('user_id, role').eq('user_id', recipientUserId).maybeSingle();
+      if (_rcpt && _rcpt.role === 'owner' && recipientUserId !== user.id) {
+        var { data: _senderProf } = await sb.from('profiles')
+          .select('full_name').eq('user_id', user.id).maybeSingle();
+        var _who = (_senderProf && _senderProf.full_name) || 'A client';
+        var _preview = body.trim().slice(0, 120) + (body.trim().length > 120 ? '\u2026' : '');
+        await sb.from('notifications').insert({
+          user_id: recipientUserId,
+          title: '\uD83D\uDCAC ' + _who,
+          body: _preview,
+          type: 'client_message',
+          read: false
+        });
+      }
+    } catch (_nErr) { console.warn('[messaging] owner alert skipped:', _nErr && _nErr.message); }
+
     // Fire-and-forget: ask the server to email the recipient if they're an
     // owner who hasn't been in the portal recently. The endpoint itself
     // suppresses emails when the owner is active (last_seen_at within 5min),
@@ -1167,11 +1193,35 @@
       // ── 1. Unread Messages (up to 5) ──
       var { data: unread } = await sb
         .from('messages')
-        .select('id, sender_id, content, created_at, conversation_id, sender_name')
-        .eq('receiver_id', userId)
-        .eq('read', false)
+        // R39: was selecting content, conversation_id and filtering on
+        // receiver_id / read - none of those columns exist. PostgREST fails the
+        // WHOLE query on one bad column, so this section has always come back
+        // empty and Rachel's dashboard has never shown an unread message.
+        .select('id, sender_id, body, created_at, sender_name')
+        .eq('recipient_id', userId)
+        .neq('sender_id', userId)      // skip the owner's own system notes to self
+        .is('read_at', null)
         .order('created_at', { ascending: false })
         .limit(5);
+
+      // R39: sender_name is null on every real client message in the database,
+      // so the card would have said "Someone" three times over. Resolve the
+      // names from profiles in one go.
+      if (unread && unread.length) {
+        try {
+          var _ids = unread.map(function (m) { return m.sender_id; })
+                           .filter(function (v, k, a) { return v && a.indexOf(v) === k; });
+          if (_ids.length) {
+            var { data: _senders } = await sb.from('profiles')
+              .select('user_id, full_name').in('user_id', _ids);
+            var _nameBy = {};
+            (_senders || []).forEach(function (s) { _nameBy[s.user_id] = s.full_name; });
+            unread.forEach(function (m) {
+              if (!m.sender_name) m.sender_name = _nameBy[m.sender_id] || 'Client';
+            });
+          }
+        } catch (e) { /* names are a nicety - never block the card */ }
+      }
 
       // ── 2. Pending Booking Requests (up to 5) ──
       var { data: pendingBookings } = await sb
@@ -1195,8 +1245,11 @@
       // ── 4. Recent Cancellations (last 7 days, up to 3) ──
       var { data: cancellations } = await sb
         .from('booking_requests')
-        .select('id, service, preferred_date, status, client_id, cancelled_at, created_at')
-        .eq('status', 'cancelled')
+        // R39: cancelled_at has two Ls; the column is canceled_at. And the
+        // status CHECK constraint only allows 'canceled', so this matched
+        // nothing even before the bad column killed the query.
+        .select('id, service, preferred_date, status, client_id, canceled_at, created_at')
+        .eq('status', 'canceled')
         .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: false })
         .limit(3);
@@ -1213,7 +1266,7 @@
         alerts.push({ type: 'signup', date: c.created_at, data: c });
       });
       if (cancellations) cancellations.forEach(function(c) {
-        alerts.push({ type: 'cancellation', date: c.created_at || c.cancelled_at, data: c });
+        alerts.push({ type: 'cancellation', date: c.canceled_at || c.created_at, data: c });
       });
 
       // Sort by date descending
@@ -1257,10 +1310,10 @@
           var d = alert.data;
           var timeAgo = _timeAgo(alert.date);
           if (alert.type === 'message') {
-            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--gold-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof HHP_Messaging!==\'undefined\')HHP_Messaging.openConversation(\'' + d.conversation_id + '\')">';
+            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'var(--gold-pale)\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof HHP_Messaging!==\'undefined\')HHP_Messaging.openConvo(\'' + d.sender_id + '\',\'' + String(d.sender_name || 'Client').replace(/'/g, "\\\\'") + '\')">';
             html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
             html += '<div><div style="font-weight:600;font-size:0.84rem;color:var(--ink)">💬 ' + (d.sender_name || 'Someone') + '</div>';
-            html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (d.content || '').substring(0, 80) + '</div></div>';
+            html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHTML((d.body || '').substring(0, 80)) + '</div></div>';
             html += '<div style="font-size:0.68rem;color:var(--mid);white-space:nowrap;margin-left:8px">' + timeAgo + '</div>';
             html += '</div></div>';
           } else if (alert.type === 'booking') {
@@ -1271,7 +1324,7 @@
             html += '<div style="font-size:0.68rem;color:var(--mid);white-space:nowrap;margin-left:8px">' + timeAgo + '</div>';
             html += '</div></div>';
           } else if (alert.type === 'signup') {
-            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'#e8f5e9\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof sTab===\'function\')sTab(\'owner\',\'o-clients\')">';
+            html += '<div style="padding:10px 18px;border-top:1px solid var(--border);cursor:pointer;transition:background 0.15s" onmouseover="this.style.background=\'#e8f5e9\'" onmouseout="this.style.background=\'transparent\'" onclick="if(typeof sTab===\'function\')sTab(\'o\',\'o-clients\')">';
             html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
             html += '<div><div style="font-weight:600;font-size:0.84rem;color:#2e7d32">👋 New Client Sign-up</div>';
             html += '<div style="font-size:0.8rem;color:var(--mid);margin-top:2px">' + (d.full_name || 'New client') + ' joined</div></div>';
@@ -1290,7 +1343,7 @@
 
       // Footer link
       html += '<div style="padding:12px 18px;border-top:1px solid var(--border);text-align:center">';
-      html += '<button onclick="if(typeof sTab===\'function\')sTab(\'owner\',\'o-activity\')" style="background:none;border:none;color:var(--gold-deep);font-weight:600;font-size:0.82rem;cursor:pointer;padding:4px 12px">View Full Activity Log →</button>';
+      html += '<button onclick="if(typeof sTab===\'function\')sTab(\'o\',\'o-activity\')" style="background:none;border:none;color:var(--gold-deep);font-weight:600;font-size:0.82rem;cursor:pointer;padding:4px 12px">View Full Activity Log →</button>';
       html += '</div>';
 
       card.innerHTML = html;
