@@ -481,37 +481,84 @@ details summary::-webkit-details-marker{display:none}
 .reviews-track-wrap{position:relative;max-width:1120px;margin:0 auto}
 .reviews-track{
   display:flex;
-  gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;
+  gap:24px;overflow-x:auto;scroll-snap-type:x mandatory;
   padding-bottom:12px;scrollbar-width:none;
   scroll-behavior:auto;
 }
 .reviews-track::-webkit-scrollbar{display:none}
+/* R44: three across, not four. At the 1120px wrap four cards left each
+   testimonial about 195px of text - six or seven words to a line - which is
+   most of why this section read as cramped whatever the type was doing.
+   scrollReviews() measures the real card width and gap at click time (R36),
+   so changing these numbers cannot desync the arrows. */
 .review-card{
-  min-width:calc(25% - 17px);max-width:calc(25% - 17px);flex-shrink:0;
-  background:var(--warm);border-radius:16px;padding:32px 34px;
+  min-width:calc(33.333% - 16px);max-width:calc(33.333% - 16px);flex-shrink:0;
+  background:var(--warm);border-radius:16px;padding:30px 32px;
   border:1px solid var(--border);scroll-snap-align:start;
-  display:flex;flex-direction:column;justify-content:space-between;
-  position:relative;
+  display:flex;flex-direction:column;
+  position:relative;transition:box-shadow 0.2s,border-color 0.2s;
 }
-.rc-stars{color:var(--gold);font-size:1rem;letter-spacing:4px;margin-bottom:16px}
+.review-card:hover{border-color:var(--gold-light);box-shadow:0 8px 24px rgba(0,0,0,0.06)}
+.rc-stars{font-size:0.95rem;letter-spacing:3px;margin-bottom:12px;line-height:1}
+/* R44: the verified line was a bare emoji and a run of text floating under
+   the stars. Same information, set as a chip like every other tag on the
+   site (.fc-tag, .section-eyebrow). */
+.rc-badge{
+  display:inline-flex;align-self:flex-start;background:var(--forest-pale,#e8f5e9);
+  color:var(--forest);font-size:0.64rem;font-weight:700;letter-spacing:0.07em;
+  text-transform:uppercase;padding:4px 10px;border-radius:20px;margin-bottom:16px;
+}
+.rc-feature{
+  position:absolute;top:14px;right:16px;background:var(--gold-light);
+  color:var(--gold-deep);font-size:0.6rem;font-weight:700;letter-spacing:0.07em;
+  text-transform:uppercase;padding:3px 9px;border-radius:20px;
+}
 /* R36: review text was italic Cormorant Garamond - a high-contrast display
    serif - in --brown. Contrast was never the problem (9.1:1); a whole
    paragraph set in an italic display serif is just hard to read. Same face
    as the rest of the body copy now, upright, in --ink: 16.8:1 in light,
    13.0:1 in dark. The quote marks around it already signal a testimonial,
    so the italic was not carrying meaning. */
-.rc-text{font-family:'Jost',-apple-system,BlinkMacSystemFont,sans-serif;font-size:1.02rem;color:var(--ink);line-height:1.7;font-style:normal;font-weight:400;margin-bottom:22px;flex:1}
-.rc-author{display:flex;align-items:center;gap:14px}
-.rc-ava{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:white;flex-shrink:0}
-.rc-name{font-size:0.9rem;font-weight:700}
-.rc-pet{font-size:0.76rem;color:var(--mid);font-weight:400;margin-top:2px}
+.rc-text{font-family:'Jost',-apple-system,BlinkMacSystemFont,sans-serif;font-size:1.02rem;color:var(--ink);line-height:1.7;font-style:normal;font-weight:400;margin-bottom:20px;flex:1}
+/* R44: was margin:-12px - a negative pull to close a gap that the card's own
+   spacing should handle. Accent rail instead, so Rachel's reply reads as a
+   reply rather than a second paragraph. */
+.rc-reply{
+  margin:0 0 20px;padding:10px 13px;background:var(--forest-pale,#e8f5e9);
+  border-left:3px solid var(--forest);border-radius:0 8px 8px 0;
+  font-size:0.8rem;line-height:1.6;color:var(--forest);
+}
+.rc-author{display:flex;align-items:center;gap:13px;padding-top:18px;border-top:1px solid var(--border)}
+.rc-ava{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.95rem;font-weight:700;color:white;flex-shrink:0}
+/* R44: every other card on this site sets its name line in Cormorant
+   Garamond - .sc-name, .fc-name, .profile-name, .cal-month. The review card
+   was the single exception at Jost 0.9rem, which is what made the section
+   look like it came from a different website. The paragraph above stays Jost
+   on purpose; see the R36 note. */
+.rc-name{font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:700;color:var(--ink);line-height:1.2}
+.rc-pet{font-size:0.74rem;color:var(--mid);font-weight:400;margin-top:3px;letter-spacing:0.02em}
+/* R44: the average was Jost while every other headline number on the site
+   (.stars-num, .stat-num, .rstat-num) is Cormorant. */
+.rc-agg-num{font-family:'Cormorant Garamond',serif;font-size:2.1rem;font-weight:700;color:var(--gold-deep);line-height:1}
 .reviews-nav{display:flex;gap:10px;justify-content:center;margin-top:28px}
 .rev-nav-btn{
-  width:40px;height:40px;border-radius:50%;border:1.5px solid var(--border);
-  background:var(--cream,white);cursor:pointer;font-size:0.9rem;transition:all 0.2s;
-  display:flex;align-items:center;justify-content:center;
+  width:42px;height:42px;border-radius:50%;border:1.5px solid var(--border);
+  background:var(--cream,white);cursor:pointer;transition:all 0.2s;
+  display:flex;align-items:center;justify-content:center;color:var(--ink);
 }
-.rev-nav-btn:hover{background:var(--ink);color:white;border-color:var(--ink)}
+/* R44: the arrows were the text glyphs U+2190/2192. Jost has no arrow
+   glyphs, so the browser substituted a system font for those two
+   characters - a different typeface sitting in the middle of the section.
+   Inline SVG renders identically everywhere. */
+.rev-nav-btn svg{width:16px;height:16px;display:block}
+.rev-nav-btn:hover:not(:disabled){background:var(--ink);color:white;border-color:var(--ink)}
+/* R44: in dark mode --forest is #5A8A67 on --forest-pale #1A231C, which is
+   4.06:1 - under the 4.5:1 small-text floor. The old reply block had the same
+   pair and had been failing there since it was written. Lifted only in dark;
+   light mode was already 7.9:1. */
+[data-theme="dark"] .rc-badge,
+[data-theme="dark"] .rc-reply{color:#7FAE8C}
+[data-theme="dark"] .rc-reply{border-left-color:#7FAE8C}
 
 /* COMING SOON SERVICES */
 .future-section{padding:80px 48px;background:var(--gold-pale)}
@@ -1071,6 +1118,13 @@ body.hhp-dialog-open #hhp-service-timer{
   #c-appts > div[style*="flex"] { flex-wrap: wrap !important; gap: 6px !important; }
 }
 
+/* R44: ux-patch.js only restyles the reviews track at <=767px, so the
+   768-1024px band was still running the desktop column count - four
+   cards inside 720px. Two across there. */
+@media(min-width:768px) and (max-width:1024px){
+  .review-card{min-width:calc(50% - 12px);max-width:calc(50% - 12px)}
+}
+
 /* ── Tablet breakpoint (768px) ── */
 @media(max-width:768px){
   .portal-wrap{grid-template-columns:1fr}
@@ -1557,7 +1611,7 @@ try {
       <div class="fadeup">
         <div class="section-eyebrow">About Housley Happy Paws</div>
         <h2 class="section-h">A Little Bit <em>About Us</em></h2>
-        <p class="section-p" style="margin-bottom:20px">Housley Happy Paws began with a genuine love for animals and that passion has grown into a dedicated team committed to providing exceptional care!</p>
+        <p class="section-p" style="margin-bottom:20px">At Housley Happy Paws, we believe every pet deserves to feel safe, loved, and cared for like family. What began with Rachel’s genuine love for animals has grown into a dedicated team of pet lovers serving families throughout Lancaster, PA and the surrounding areas.</p>
         <p class="section-p" style="margin-bottom:28px">I'm based right here in Lancaster, PA, and I've had the privilege of caring for dogs and cats of all shapes, sizes, and personalities. Every single one has my full attention and a lot of love.</p>
         <p class="section-p" style="margin-bottom:32px;font-style:italic;font-family:'Cormorant Garamond',serif;font-size:1.1rem;color:var(--gold-deep)">"I treat your pets the way I'd want mine treated — like they're the most important thing in the room."</p>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -1724,16 +1778,17 @@ try {
   <!-- REVIEWS — UNIFIED (database-driven, owner-controlled) -->
   <section class="reviews-section" id="reviews">
     <div class="reviews-track-wrap fadeup">
-      <div id="reviewsSectionHeader">
-        <h2 class="section-h" style="margin-bottom:8px">What Pet Families <em>Are Saying</em></h2>
+      <div id="reviewsSectionHeader" style="text-align:center">
+        <div class="section-eyebrow">Client Reviews</div>
+        <h2 class="section-h" style="margin-bottom:10px">What Pet Families <em>Are Saying</em></h2>
         <div id="reviewsAggregateBar" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:36px"></div>
       </div>
       <div class="reviews-track" id="reviewsTrack">
         <div style="padding:40px;text-align:center;color:var(--mid);font-size:0.88rem;width:100%">Loading reviews...</div>
       </div>
       <div class="reviews-nav">
-        <button class="rev-nav-btn" onclick="scrollReviews(-1)">←</button>
-        <button class="rev-nav-btn" onclick="scrollReviews(1)">→</button>
+        <button class="rev-nav-btn" aria-label="Previous reviews" onclick="scrollReviews(-1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <button class="rev-nav-btn" aria-label="Next reviews" onclick="scrollReviews(1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
       </div>
     </div>
   </section>
@@ -2864,7 +2919,7 @@ try {
                   <button class="btn btn-forest btn-sm" onclick="aiRewrite('about')">✨ AI Rewrite</button>
                 </div>
                 <div class="form-group"><label class="form-lbl">Section Headline</label><input class="form-in ce-field" data-field="aboutH" value="A Little Bit About Me"></div>
-                <div class="form-group"><label class="form-lbl">Paragraph 1</label><textarea class="form-ta ce-field" data-field="aboutP1" style="min-height:100px">Housley Happy Paws began with a genuine love for animals and that passion has grown into a dedicated team committed to providing exceptional care!</textarea></div>
+                <div class="form-group"><label class="form-lbl">Paragraph 1</label><textarea class="form-ta ce-field" data-field="aboutP1" style="min-height:100px">At Housley Happy Paws, we believe every pet deserves to feel safe, loved, and cared for like family. What began with Rachel’s genuine love for animals has grown into a dedicated team of pet lovers serving families throughout Lancaster, PA and the surrounding areas.</textarea></div>
                 <div class="form-group"><label class="form-lbl">Paragraph 2</label><textarea class="form-ta ce-field" data-field="aboutP2" style="min-height:80px">I'm based right here in Lancaster, PA, and I've had the privilege of caring for dogs and cats of all shapes, sizes, and personalities. Every single one has my full attention and a lot of love.</textarea></div>
                 <div class="form-group"><label class="form-lbl">Personal Quote (shown in italic gold)</label><textarea class="form-ta ce-field" data-field="aboutQuote" style="min-height:60px">"I treat your pets the way I'd want mine treated — like they're the most important thing in the room."</textarea></div>
                 <button class="submit-btn" onclick="saveContentSection('about')">💾 Save About Section</button>
@@ -16859,7 +16914,7 @@ function openTeamBio(i) {
   if (old) old.remove();
 
   var roleBg = m.role === 'owner' ? 'var(--gold,#c8963e)' : 'var(--forest,#3d5a47)';
-  var role = (m.job_title && m.job_title.trim()) ? m.job_title.trim() : (m.role === 'owner' ? 'Owner' : 'Staff');
+  var role = (m.job_title && m.job_title.trim()) ? m.job_title.trim() : (m.role === 'owner' ? 'Founder & Owner' : 'Staff');
   var avatar = m.avatar_url
     ? '<img src="' + esc(m.avatar_url) + '" alt="" style="width:100%;height:100%;object-fit:cover">'
     : '<span style="font-size:2.6rem;font-weight:700;color:var(--cream,#fdfaf5)">' + esc((m.full_name || '?').trim().charAt(0).toUpperCase()) + '</span>';
@@ -16945,7 +17000,7 @@ async function loadMeetOurTeam() {
     function _initial(name) { return (name || '?').trim().charAt(0).toUpperCase(); }
     function _roleLabel(m) {
       if (m.job_title && m.job_title.trim()) return m.job_title.trim();
-      return m.role === 'owner' ? 'Owner' : 'Staff';
+      return m.role === 'owner' ? 'Founder & Owner' : 'Staff';
     }
     function _esc(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
     window._hhpTeamRows = rows;   // Rachel #9 - the bio modal reads from here
@@ -17023,21 +17078,26 @@ async function loadPublicReviews() {
     }
     if (parseFloat(displayAvg) > 5) displayAvg = '5.0';
 
-    // Render aggregate bar
+    // Render aggregate bar.
+    // R44: Dom asked for the "(48 reviews)" count off the page. displayTotal
+    // is still fed to _injectReviewSchema below, so Google's aggregateRating
+    // keeps its reviewCount - without one the star rich result drops out.
     if (aggBar) {
       aggBar.innerHTML =
-        '<div style="font-size:1.4rem;font-weight:700;color:var(--gold,#c8963e)">' + displayAvg + '</div>' +
-        '<div>' + _rvStarsHTML(Math.round(parseFloat(displayAvg)), '1.2rem') + '</div>' +
-        '<div style="font-size:0.82rem;color:var(--mid)">(' + displayTotal + ' review' + (displayTotal !== 1 ? 's' : '') + ')</div>';
+        '<div class="rc-agg-num">' + displayAvg + '</div>' +
+        '<div style="display:flex;align-items:center">' + _rvStarsHTML(Math.round(parseFloat(displayAvg)), '1.15rem') + '</div>';
     }
 
     // ── Verified badge helper ──
+    // R44: the two cat branches tested for 'Cat' and 'Cat Care' against a
+    // string that had already been lowercased, so neither could ever match and
+    // a cat drop-in fell through to 'Verified Visit'. Cat check moved above
+    // the generic drop-in branch and comparing lowercase to lowercase.
     function _verifiedBadge(service) {
       var svc = (service || '').toLowerCase();
       if (svc.indexOf('walk') !== -1) return 'Verified Walk';
       if (svc.indexOf('sit') !== -1 || svc.indexOf('house') !== -1) return 'Verified Stay';
-      if (svc.indexOf('Cat') !== -1 && svc.indexOf('Drop') !== -1) return 'Verified Drop-In (Cat)';
-      if (svc.indexOf('cat') !== -1 && svc.indexOf('Cat Care') !== -1) return 'Verified Drop-In (Cat)';
+      if (svc.indexOf('cat') !== -1) return 'Verified Drop-In (Cat)';
       if (svc.indexOf('drop') !== -1 || svc.indexOf('visit') !== -1) return 'Verified Visit';
       return 'Verified Client';
     }
@@ -17054,17 +17114,26 @@ async function loadPublicReviews() {
       var badge = _verifiedBadge(r.service);
       var svcLabel = (r.service || '') + (dateStr ? ' · ' + dateStr : '');
 
+      // R44 three changes here beyond the styling:
+      //   - the stars were hardcoded to five regardless of r.rating. Every
+      //     approved review happens to be 5/5 today, so it has never shown
+      //     wrong - it would have the moment Rachel approved a 4.
+      //   - client_name, review_text and owner_response went into innerHTML
+      //     raw. Reviews are client-written and only gated by Rachel's
+      //     approve button, so an ampersand broke the card and a tag would
+      //     have run. _escHtml is the same helper the owner panel uses.
+      //   - typographic quotes instead of straight ones.
       cardsH += '<div class="review-card">' +
-        '<div class="rc-stars">★★★★★</div>' +
-        '<span class="verified-badge" style="font-size:0.7rem;color:var(--forest);font-weight:600">✅ ' + badge + '</span>' +
-        (r.featured ? '<div style="position:absolute;top:10px;right:10px;font-size:0.6rem;font-weight:700;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;padding:2px 8px;border-radius:20px">🌟</div>' : '') +
-        '<div class="rc-text">"' + (r.review_text || '') + '"</div>' +
-        (r.owner_response ? '<div style="margin:-12px 0 14px;padding:8px 10px;background:var(--forest-pale,#e8f5e9);border-radius:8px;font-size:0.76rem;color:var(--forest)"><strong>Rachel:</strong> ' + r.owner_response + '</div>' : '') +
+        (r.featured ? '<div class="rc-feature">Featured</div>' : '') +
+        '<div class="rc-stars">' + _rvStarsHTML(r.rating, '0.95rem') + '</div>' +
+        '<span class="rc-badge">' + badge + '</span>' +
+        '<div class="rc-text">“' + _escHtml(r.review_text || '') + '”</div>' +
+        (r.owner_response ? '<div class="rc-reply"><strong>Rachel:</strong> ' + _escHtml(r.owner_response) + '</div>' : '') +
         '<div class="rc-author">' +
           '<div class="rc-ava" style="background:' + avaColor + '">' + initial + '</div>' +
           '<div>' +
-            '<div class="rc-name">' + (r.client_name || 'Happy Client') + (r.pet_name ? ' & ' + r.pet_name : '') + '</div>' +
-            '<div class="rc-pet">' + svcLabel + '</div>' +
+            '<div class="rc-name">' + _escHtml((r.client_name || 'Happy Client') + (r.pet_name ? ' & ' + r.pet_name : '')) + '</div>' +
+            '<div class="rc-pet">' + _escHtml(svcLabel) + '</div>' +
           '</div>' +
         '</div>' +
       '</div>';
