@@ -494,7 +494,13 @@ details summary::-webkit-details-marker{display:none}
   position:relative;
 }
 .rc-stars{color:var(--gold);font-size:1rem;letter-spacing:4px;margin-bottom:16px}
-.rc-text{font-family:'Cormorant Garamond',serif;font-size:1.12rem;color:var(--brown);line-height:1.75;font-style:italic;font-weight:400;margin-bottom:22px;flex:1}
+/* R36: review text was italic Cormorant Garamond - a high-contrast display
+   serif - in --brown. Contrast was never the problem (9.1:1); a whole
+   paragraph set in an italic display serif is just hard to read. Same face
+   as the rest of the body copy now, upright, in --ink: 16.8:1 in light,
+   13.0:1 in dark. The quote marks around it already signal a testimonial,
+   so the italic was not carrying meaning. */
+.rc-text{font-family:'Jost',-apple-system,BlinkMacSystemFont,sans-serif;font-size:1.02rem;color:var(--ink);line-height:1.7;font-style:normal;font-weight:400;margin-bottom:22px;flex:1}
 .rc-author{display:flex;align-items:center;gap:14px}
 .rc-ava{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:white;flex-shrink:0}
 .rc-name{font-size:0.9rem;font-weight:700}
@@ -7108,10 +7114,55 @@ function buildNote(q1id,q2id,q3id,noteId) {
 // ---- REVIEWS SLIDER ----
 function scrollReviews(dir) {
   const track = document.getElementById('reviewsTrack');
-  if(!track) return;
-  const cardW = track.querySelector('.review-card')?.offsetWidth || 500;
-  track.scrollBy({ left: dir * (cardW + 22) * 2, behavior:'auto' });
+  if (!track) return;
+  const card = track.querySelector('.review-card');
+  if (!card) return;
+  // The old version hardcoded a 22px gap and jumped TWO cards at a time.
+  // On mobile ux-patch.js sets gap:0 and full-width cards, so every click
+  // overshot by 44px and scroll-snap yanked it back - that was the glitch.
+  // Read the real gap, move exactly one card, and let snap agree with us.
+  const cs = getComputedStyle(track);
+  const gap = parseFloat(cs.columnGap || cs.gap || '0') || 0;
+  const step = card.getBoundingClientRect().width + gap;
+  const max = track.scrollWidth - track.clientWidth;
+  const target = Math.max(0, Math.min(max, track.scrollLeft + dir * step));
+  track.scrollTo({ left: target, behavior: 'smooth' });
 }
+
+// Grey out an arrow once there is nothing more that way, so the buttons stop
+// looking broken when you reach either end.
+function _revSyncNav() {
+  const track = document.getElementById('reviewsTrack');
+  if (!track) return;
+  const btns = document.querySelectorAll('.rev-nav-btn');
+  if (btns.length < 2) return;
+  const max = track.scrollWidth - track.clientWidth;
+  const atStart = track.scrollLeft <= 1;
+  const atEnd = track.scrollLeft >= max - 1;
+  [[btns[0], atStart], [btns[1], atEnd || max <= 0]].forEach(function (pair) {
+    const el = pair[0], off = pair[1];
+    el.disabled = !!off;
+    el.style.opacity = off ? '0.35' : '';
+    el.style.cursor = off ? 'default' : 'pointer';
+    el.setAttribute('aria-disabled', off ? 'true' : 'false');
+  });
+}
+window._revSyncNav = _revSyncNav;
+(function () {
+  function bind() {
+    const track = document.getElementById('reviewsTrack');
+    if (!track || track._revNavBound) return;
+    track._revNavBound = true;
+    track.addEventListener('scroll', _revSyncNav, { passive: true });
+    window.addEventListener('resize', _revSyncNav);
+    _revSyncNav();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+  // Cards arrive from the database after first paint.
+  setTimeout(bind, 1500);
+  setTimeout(_revSyncNav, 2500);
+})();
 
 // ---- AVAILABILITY ----
 function toggleAvail(el) { el.classList.toggle('on'); el.classList.toggle('off'); }
