@@ -271,13 +271,17 @@
     var css = document.createElement('style');
     css.id = 'hhp-scroll-fix';
     css.textContent = [
-      'html { overflow-y: scroll !important; overflow-x: hidden !important; scroll-behavior: auto !important; }',
+      // R37: the html rule that used to sit here set overflow-y:scroll,
+      // overflow-x:hidden and scroll-behavior:auto - the exact three values
+      // index.html already sets. Identical values behind !important do
+      // nothing except make the next person edit the wrong file. Removed.
       // R31: body must NOT be a scroll container. html already scrolls the page.
       // Forcing overflow-y:auto made body a second, nested scroller; with
       // overscroll-behavior:none that stalled touch scrolling on Android.
       'body { overflow-y: visible !important; overflow-x: clip !important; scroll-behavior: auto !important; }',
       '#pg-public, #pg-client, #pg-staff, #pg-owner { overflow: visible !important; }',
-      '.reviews-track { scroll-snap-type: x mandatory !important; scroll-behavior: auto !important; }',
+      // R37: .reviews-track repeated index.html's own scroll-snap-type and
+      // scroll-behavior verbatim. Removed for the same reason.
     ].join('\n');
     document.head.appendChild(css);
 

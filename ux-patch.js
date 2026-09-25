@@ -1,4 +1,37 @@
 // ============================================================
+// READ THIS BEFORE EDITING CSS ANYWHERE IN THIS PROJECT  (R37)
+// ============================================================
+// This file injects a <style> block at runtime, almost entirely in
+// !important. That beats index.html no matter how specific index.html is,
+// and it loads later. Three separate bugs came from someone fixing the
+// obvious file and seeing nothing change:
+//
+//   Samsung scroll   index.html said body must not scroll; this file and
+//                    booking-system.js forced it to, creating two nested
+//                    scroll containers.  (R31)
+//   Squashed calendar index.html said 7 columns; a MORE specific selector
+//                    here flattened it to 1.  (R32)
+//   Glitchy reviews  the arrow step assumed a 22px gap that this file sets
+//                    to 0 on mobile.  (R36)
+//
+// So: when a CSS change appears to do nothing, grep THIS file and
+// js/booking-system.js, js/settings-panel.js, js/notifications.js before
+// assuming the change was wrong.
+//
+// Rules for anything added here from now on:
+//   1. If index.html can express it, put it in index.html, not here.
+//   2. Never restate a value index.html already sets. Identical values
+//      behind !important are invisible traps, not safety nets.
+//   3. If it must live here, say WHY in a comment on the line.
+//
+// State as of R37: 7 selector+property collisions with index.html remain,
+// all deliberate and commented - 5 in the shared overflow guard below
+// (which also covers selectors index.html does not set) and 2 font sizes
+// that cannot move because this file overrides them at a wider breakpoint.
+// Measured before/after across 4 viewport widths and 34 selectors: no
+// computed-style differences.
+// ============================================================
+// ============================================================
 // Housley Happy Paws — UX Patch v18 (ux-patch.js)
 // Merged: v9 architecture (hamburger=public links, drawer=portal nav)
 //       + v7 robust implementations (footer, meet&greet, preview, CSS)
@@ -209,15 +242,17 @@
       /* R31: exactly ONE scroll container (html). body must not scroll and must
          not block scroll chaining. 100vw includes the scrollbar gutter, so it is
          wider than the viewport once overflow-y:scroll is forced - use 100%. */
-      'html {' +
-        'overflow-x: hidden !important;' +
-        'max-width: 100% !important;' +
-        'scroll-behavior: auto !important;' +
-        'overflow-y: scroll !important;' +
-        'overscroll-behavior-x: none !important;' +
-      '}' +
-      'body { overflow-x: clip !important; max-width: 100% !important; }' +
+      /* R37: this block used to repeat index.html's own overflow-x, overflow-y,
+         scroll-behavior and overscroll-behavior-x at !important. Identical
+         values, so removing them changes nothing on screen - but it means a
+         scroll fix now lands where you would look for it. What is left is the
+         part index.html does NOT set. */
+      'html { max-width: 100% !important; }' +
+      'body { overflow-x: clip !important; }' +
       '*, *::before, *::after { max-width: 100%; }' +
+      /* Kept: index.html sets overflow-x/max-width on .hero, .portal-wrap and
+         .portal-main to these same values, but NOT on .nav, section, footer or
+         the #pg-* panels. Narrowing the list would leave those unguarded. */
       '.nav, .hero, section, footer, .portal-wrap, .portal-main,' +
       '#pg-public, #pg-client, #pg-staff, #pg-owner {' +
         'overflow-x: hidden !important;' +
@@ -250,7 +285,8 @@
       '}' +
 
       /* ===== DESKTOP: Hero + About tweaks ===== */
-      '.hero { grid-template-columns: 1.2fr 0.8fr !important; }' +
+      // R37: moved into index.html (.hero base rule). The media-query
+      // variants below still override it and are still needed.
       '.hero .hero-photo-col { max-width: 500px !important; justify-self: center !important; }' +
       '.hero h1 { font-size: 4.5rem !important; line-height: 1.05 !important; }' +
       '.hero .hero-sub, .hero p:not(.trust-row):not(.section-eyebrow) { font-size: 1.15rem !important; line-height: 1.6 !important; }' +
@@ -275,7 +311,7 @@
         'white-space: nowrap !important; line-height: 1 !important;' +
       '}' +
       '.hero .hero-photo-row { justify-content: center !important; margin-top: 10px !important; }' +
-      '.about-grid { grid-template-columns: 1fr 1fr !important; }' +
+      // R37: moved into index.html (.about-grid base rule).
       '.about-photos { min-height: 440px !important; border-radius: 18px !important; }' +
       '.about-photos img { object-fit: cover !important; width: 100% !important; height: 100% !important; }' +
 
@@ -584,6 +620,11 @@
       /* ===== SMALL PHONE (max 400px) — restored from v7 ===== */
       '@media (max-width: 400px) {' +
         '.hero { padding: 68px 12px 28px !important; }' +
+        /* R37 NOTE: this one CANNOT move to index.html. ux-patch.js sets
+           .hero h1 to 2rem !important at a wider breakpoint above, and an
+           !important beats index.html at any width - so deleting this made
+           360px jump from 1.7rem to 2rem. It is the narrowest link in this
+           file's own chain and has to stay here. */
         '.hero h1 { font-size: 1.7rem !important; }' +
         '.section-h { font-size: 1.45rem !important; }' +
         '.service-card { padding: 16px !important; }' +
@@ -591,6 +632,8 @@
         '.review-card { padding: 16px 18px !important; }' +
         '.cal-grid .cal-day { min-height: 40px !important; }' +
         '.stat-box { padding: 8px !important; }' +
+        /* R37 NOTE: same trap - .stat-num is 1.4rem !important at a wider
+           breakpoint above, so this has to stay to win at 400px. */
         '.stat-num { font-size: 1.2rem !important; }' +
         '.stats-row { grid-template-columns: 1fr 1fr !important; }' +
         '.ob-h { font-size: 1.1rem !important; }' +

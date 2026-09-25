@@ -305,7 +305,7 @@ body.loading-auth .nav{visibility:hidden}
 /* HERO */
 .hero{
   min-height:100vh;min-height:100dvh;padding:110px 48px 80px;
-  display:grid;grid-template-columns:1.05fr 0.95fr;
+  display:grid;grid-template-columns:1.2fr 0.8fr;  /* R37: was 1.05fr 0.95fr here while ux-patch.js forced 1.2fr 0.8fr. This is the value that has been rendering. */
   gap:64px;align-items:center;position:relative;overflow:hidden;
 }
 .hero-wash{
@@ -417,7 +417,7 @@ body.loading-auth .nav{visibility:hidden}
 /* Float badges */
 /* ABOUT SECTION */
 .about-section{padding:100px 48px;background:var(--cream,white)}
-.about-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:60px;align-items:start;max-width:1120px;margin:0 auto;overflow:hidden}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;  /* R37: was minmax(0,1fr) twice while ux-patch.js forced 1fr 1fr. Kept the rendering value. minmax(0,1fr) is the safer form - it stops a long word blowing the column out - but switching is a visible change, so it is a separate decision. */gap:60px;align-items:start;max-width:1120px;margin:0 auto;overflow:hidden}
 .about-photos{display:flex;width:100%;min-width:0;overflow:hidden}
 .about-photo-single{
   width:100%;min-height:420px;border-radius:16px;display:flex;align-items:center;justify-content:center;
@@ -17362,7 +17362,7 @@ document.addEventListener('DOMContentLoaded', function() {
       })();
     </script>
     <!-- UX Patch v12 — Mobile nav, responsive fixes, portal drawer -->
-    <script src="/ux-patch.js?v=20260925a" defer></script>
+    <script src="/ux-patch.js?v=20260925b" defer></script>
 <script>
   // Auth-ready callback system — modules register here, fire instantly once auth is done
   window._hhpAuthCallbacks = [];
@@ -18913,7 +18913,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20260924a" defer></script>
+  <script src="/js/booking-system.js?v=20260925b" defer></script>
   <script src="/js/messaging.js?v=20260618a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260428" defer></script>
