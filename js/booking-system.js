@@ -1882,9 +1882,20 @@
     window._hsRangeStart = null; // 'YYYY-MM-DD'
     window._hsRangeEnd = null;
 
+    // R51: _buildHsCalendar ends by calling toggleHouseSittingFields(), and
+    // toggleHouseSittingFields() calls _buildHsCalendar() whenever the selected
+    // service is House Sitting. That is an unconditional loop: picking House
+    // Sitting blew the call stack, the RangeError escaped openBookingModal
+    // before it reached _loadBookingPets(), and the pet list sat on "Loading
+    // your pets..." forever. Nobody could book a house sit. This guard makes a
+    // nested call a no-op, which is what both call sites actually want - the
+    // outer pass already does the work.
     window._buildHsCalendar = function() {
+      if (window._hsCalBuilding) return;
       var container = document.getElementById('brm-hs-cal');
       if (!container) return;
+      window._hsCalBuilding = true;
+      try {
       var year = window._hsCalYear;
       var month = window._hsCalMonth;
       var names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -1989,6 +2000,7 @@
       // Trigger price estimate update
       if (typeof updatePriceEstimate === 'function') updatePriceEstimate();
       if (typeof toggleHouseSittingFields === 'function') toggleHouseSittingFields();
+      } finally { window._hsCalBuilding = false; }   // R51
     };
 
     window._hsCalTapDate = function(dateStr) {
@@ -2502,7 +2514,10 @@
           var _hsRow = document.getElementById('brm-hs-date-row');
           if (_multiSec) _multiSec.style.display = _isHS ? 'none' : '';
           if (_hsRow) _hsRow.style.display = _isHS ? '' : 'none';
-          if (_isHS && typeof window._toggleHSFields === 'function') window._toggleHSFields();
+          if (_isHS && typeof window._toggleHSFields === 'function') {
+            try { window._toggleHSFields(); }
+            catch (e) { console.error('[booking] _toggleHSFields failed; continuing:', e); }   // R51
+          }
         } else {
           // Restore full dropdown (modal is reused, may have been filtered by a previous open)
           var seen = {};
@@ -2537,15 +2552,25 @@
       var hsDepReset = document.getElementById('brm-hs-departure');
       if (hsArrReset) hsArrReset.value = '';
       if (hsDepReset) hsDepReset.value = '';
+      // R51: these three builders run between opening the modal and loading the
+      // client's pets. When one of them threw - as _buildHsCalendar did for every
+      // House Sitting booking - the throw escaped this function and the pet list
+      // was left on its "Loading your pets..." placeholder with no error, no
+      // retry and no way forward. A broken calendar should cost the calendar,
+      // not the booking. Each is isolated and reports itself to the console.
+      function _brmSafe(label, fn) {
+        try { if (typeof fn === 'function') fn(); }
+        catch (e) { console.error('[booking] ' + label + ' failed; continuing:', e); }
+      }
       // Rebuild HS calendar with fresh state
-      if (typeof window._buildHsCalendar === 'function') window._buildHsCalendar();
+      _brmSafe('_buildHsCalendar', window._buildHsCalendar);
       // Show the helper message and rebuild calendar picker
       var noMsg = document.getElementById('brm-no-dates-msg');
       if (noMsg) noMsg.style.display = '';
       // Reset calendar picker to current month and rebuild
       window._brmCalPickerYear = new Date().getFullYear();
       window._brmCalPickerMonth = new Date().getMonth();
-      if (typeof window._buildBrmCalPicker === 'function') window._buildBrmCalPicker();
+      _brmSafe('_buildBrmCalPicker', window._buildBrmCalPicker);
 
       // Pre-fill and show greeting if logged in
       if (window.HHP_Auth && window.HHP_Auth.currentUser) {
@@ -2611,6 +2636,19 @@
 
     container.innerHTML = '<div style="color:#8c6b4a;font-size:0.84rem">Loading your pets...</div>';
 
+    // R51: last line of defence. If anything ever leaves this list on the
+    // placeholder again - this function not running at all, or dying before its
+    // own error handling - the client gets a retry button after 12 seconds
+    // instead of staring at "Loading your pets..." until they give up.
+    if (window._brmPetWatchdog) clearTimeout(window._brmPetWatchdog);
+    window._brmPetWatchdog = setTimeout(function () {
+      var c = document.getElementById('brm-pet-checkboxes');
+      if (c && c.textContent.indexOf('Loading your pets') !== -1) {
+        console.error('[booking] pet list never rendered; showing retry card');
+        _renderPetLoadError(c, 'That took too long. Tap Try Again.');
+      }
+    }, 12000);
+
     // Guard: bail out fast if we don't have a valid user id (prevents infinite "Loading...")
     if (!userId) {
       _renderPetLoadError(container, 'Your account session looks stale. Try refreshing the page or signing in again.');
@@ -2637,6 +2675,7 @@
       if (error) throw error;
 
       if (!pets || pets.length === 0) {
+        if (window._brmPetWatchdog) { clearTimeout(window._brmPetWatchdog); window._brmPetWatchdog = null; }   // R51
         container.innerHTML = [
           '<div style="background:#fff8ec;border:1px solid #e0d5c5;border-radius:10px;padding:16px;text-align:center">',
           '  <div style="font-size:1.5rem;margin-bottom:8px">🐾</div>',
@@ -2697,11 +2736,13 @@
       ].join('');
 
       container.innerHTML = html;
+      if (window._brmPetWatchdog) { clearTimeout(window._brmPetWatchdog); window._brmPetWatchdog = null; }   // R51
 
       // Filter pets based on selected service (hide cats for dog walks, etc.)
       window._brmFilterPetsByService();
 
     } catch (err) {
+      if (window._brmPetWatchdog) { clearTimeout(window._brmPetWatchdog); window._brmPetWatchdog = null; }   // R51
       console.error('Failed to load pets for booking:', err);
       var msg = err && err.message === 'Request timed out'
         ? 'Connection timed out. Check your internet and tap Try Again.'
