@@ -181,6 +181,29 @@ module.exports = async function handler(req, res) {
       .in('service_date', weekDates);
     const billedSet = new Set((allBilledRaw || []).map(r => r.booking_request_id + ':' + r.service_date));
 
+    // R52: a once-per-client discount is a welcome gift for the first service,
+    // not a standing rate. booking.estimated_total has it baked in, and this job
+    // re-reads that same number every Sunday - so Julia Bossert was getting
+    // $3.75 off all of her drop-ins, forever, on two weekly series. Pull every
+    // occurrence already billed for these bookings so a visit after the first
+    // can be charged the undiscounted rate.
+    const { data: everBilledRaw } = await supabase
+      .from('recurring_invoices')
+      .select('booking_request_id, service_date')
+      .in('booking_request_id', bookingIds)
+      .in('status', ['paid', 'sent', 'refunded']);
+    const priorCount = {};
+    (everBilledRaw || []).forEach(r => {
+      priorCount[r.booking_request_id] = (priorCount[r.booking_request_id] || 0) + 1;
+    });
+    function occurrenceAmount(booking) {
+      const base = Number(booking.estimated_total) || 0;
+      const disc = Number(booking.deal_discount) || 0;
+      if (disc <= 0) return base;
+      // The very first occurrence keeps the discount; everything after is full price.
+      return (priorCount[booking.id] || 0) === 0 ? base : base + disc;
+    }
+
         for (const booking of bookings) {
       results.processed++;
       const pattern = typeof booking.recurrence_pattern === 'string'
@@ -209,10 +232,12 @@ module.exports = async function handler(req, res) {
             entries: []
           };
         }
+        const _amt = occurrenceAmount(booking);          // R52
+        priorCount[booking.id] = (priorCount[booking.id] || 0) + 1;
         clientGroups[groupKey].entries.push({
           booking,
           date: dateStr,
-          amount: booking.estimated_total || 0,
+          amount: _amt,
           petNames: booking.pet_names || ''
         });
       }
