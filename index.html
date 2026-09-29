@@ -5813,28 +5813,53 @@ function _escH(s) { var d = document.createElement('div'); d.textContent = s || 
 function detectBathroomBreaks(noteText, petNamesStr, manual) {
   var peeWords = ['pee', 'peed', 'peeing', 'pees', 'potty', '#1', 'urinate', 'urinated', 'tinkle', 'tinkled', 'pee break', 'bathroom break'];
   var pooWords = ['poo', 'pooed', 'poop', 'pooped', 'pooping', 'poops', '#2', 'bowel', 'did her business', 'did his business', 'went potty', 'number two', 'number 2'];
-  var foodWords = ['ate', 'eaten', 'eating', 'eats', 'food', 'meal', 'fed', 'breakfast', 'dinner', 'snack', 'snacks', 'snacked', 'treat', 'treats', 'kibble'];
+  // R53: 'treat', 'treats', 'snack', 'snacks' and 'snacked' used to sit in
+  // foodWords, so "gave her a treat" came back on the report as a meal. Treats
+  // are their own category now and those words moved across.
+  var foodWords = ['ate', 'eaten', 'eating', 'eats', 'food', 'meal', 'fed', 'breakfast', 'dinner', 'kibble'];
+  var treatWords = ['treat', 'treats', 'treated', 'snack', 'snacks', 'snacked', 'biscuit', 'biscuits', 'cookie', 'cookies', 'chew', 'chews', 'bone'];
   var waterWords = ['drank', 'drinking', 'drinks', 'drink', 'water break', 'water bowl', 'hydrated', 'sip', 'sipped', 'sipping'];
   var manualPee = manual && typeof manual.pee === 'number' ? manual.pee : null;
   var manualPoo = manual && typeof manual.poo === 'number' ? manual.poo : null;
   var manualFood = manual && typeof manual.food === 'number' ? manual.food : null;
+  var manualTreat = manual && typeof manual.treat === 'number' ? manual.treat : null;
   var manualWater = manual && typeof manual.water === 'number' ? manual.water : null;
 
   var lower = (noteText || '').toLowerCase();
+  // R53: this used to add up each word in the list separately, so a single
+  // "pooped" matched 'poo', 'poop' AND 'pooped' and the report said 3 poo
+  // breaks. Same for "ate breakfast" -> 3 meals. Now a stretch of text can
+  // only be counted once: the longest words are tried first and the range
+  // they cover is claimed, so shorter words inside them do not fire again.
   function countAll(words) {
-    var n = 0;
-    words.forEach(function(w) {
+    var claimed = [];
+    function overlaps(a, b) {
+      return claimed.some(function (r) { return a < r[1] && b > r[0]; });
+    }
+    function isWordChar(ch) { return !!ch && /[a-z0-9]/.test(ch); }
+    var byLength = words.slice().sort(function (x, y) { return y.length - x.length; });
+    byLength.forEach(function (w) {
       var idx = 0;
-      while ((idx = lower.indexOf(w, idx)) !== -1) { n++; idx += w.length; }
+      while ((idx = lower.indexOf(w, idx)) !== -1) {
+        var end = idx + w.length;
+        // Word boundaries, or 'ate' fires inside "water" and 'bone' inside
+        // "bones" is fine but 'pee' inside "speedy" is not. A phrase like
+        // 'water break' still works - the check is only on the outer edges.
+        var okLeft  = !isWordChar(lower.charAt(idx - 1));
+        var okRight = !isWordChar(lower.charAt(end)) || /^(s|d|ed|ing|es)$/.test(lower.slice(end).match(/^[a-z]*/)[0]);
+        if (okLeft && okRight && !overlaps(idx, end)) claimed.push([idx, end]);
+        idx = end;
+      }
     });
-    return Math.min(n, 5);
+    return Math.min(claimed.length, 5);
   }
   var peeCount = manualPee !== null ? manualPee : countAll(peeWords);
   var pooCount = manualPoo !== null ? manualPoo : countAll(pooWords);
   var foodCount = manualFood !== null ? manualFood : countAll(foodWords);
+  var treatCount = manualTreat !== null ? manualTreat : countAll(treatWords);
   var waterCount = manualWater !== null ? manualWater : countAll(waterWords);
 
-  if (peeCount === 0 && pooCount === 0 && foodCount === 0 && waterCount === 0) return null;
+  if (peeCount === 0 && pooCount === 0 && foodCount === 0 && treatCount === 0 && waterCount === 0) return null;
 
   var pets = [];
   if (petNamesStr) {
@@ -5847,21 +5872,22 @@ function detectBathroomBreaks(noteText, petNamesStr, manual) {
   if (pets.length <= 1) {
     return { summary: [{
       pet: pets[0] || null,
-      pee: peeCount, poo: pooCount, food: foodCount, water: waterCount
+      pee: peeCount, poo: pooCount, food: foodCount, treat: treatCount, water: waterCount
     }] };
   }
 
   // Multiple pets — try to attribute per sentence (only meaningful when we
   // don't have manual counts; with manual counts we just split evenly).
   var petBreaks = {};
-  pets.forEach(function(name) { petBreaks[name] = { pee: 0, poo: 0, food: 0, water: 0 }; });
+  pets.forEach(function(name) { petBreaks[name] = { pee: 0, poo: 0, food: 0, treat: 0, water: 0 }; });
 
-  if (manualPee !== null || manualPoo !== null || manualFood !== null || manualWater !== null) {
+  if (manualPee !== null || manualPoo !== null || manualFood !== null || manualTreat !== null || manualWater !== null) {
     // Distribute manual counts evenly across pets so the badges still render.
     pets.forEach(function(name) {
       petBreaks[name].pee = Math.round(peeCount / pets.length);
       petBreaks[name].poo = Math.round(pooCount / pets.length);
       petBreaks[name].food = Math.round(foodCount / pets.length);
+      petBreaks[name].treat = Math.round(treatCount / pets.length);
       petBreaks[name].water = Math.round(waterCount / pets.length);
     });
   } else {
@@ -5872,15 +5898,17 @@ function detectBathroomBreaks(noteText, petNamesStr, manual) {
         pee: peeWords.some(function(w) { return sl.indexOf(w) !== -1; }),
         poo: pooWords.some(function(w) { return sl.indexOf(w) !== -1; }),
         food: foodWords.some(function(w) { return sl.indexOf(w) !== -1; }),
+        treat: treatWords.some(function(w) { return sl.indexOf(w) !== -1; }),
         water: waterWords.some(function(w) { return sl.indexOf(w) !== -1; }),
       };
-      if (!s.pee && !s.poo && !s.food && !s.water) return;
+      if (!s.pee && !s.poo && !s.food && !s.treat && !s.water) return;
       var mentioned = pets.filter(function(name) { return sl.indexOf(name.toLowerCase()) !== -1; });
       if (mentioned.length === 0) mentioned = pets;
       mentioned.forEach(function(name) {
         if (s.pee) petBreaks[name].pee++;
         if (s.poo) petBreaks[name].poo++;
         if (s.food) petBreaks[name].food++;
+        if (s.treat) petBreaks[name].treat++;
         if (s.water) petBreaks[name].water++;
       });
     });
@@ -5889,35 +5917,54 @@ function detectBathroomBreaks(noteText, petNamesStr, manual) {
   var summary = [];
   pets.forEach(function(name) {
     var b = petBreaks[name];
-    if (b.pee > 0 || b.poo > 0 || b.food > 0 || b.water > 0) summary.push({
-      pet: name, pee: b.pee, poo: b.poo, food: b.food, water: b.water
+    if (b.pee > 0 || b.poo > 0 || b.food > 0 || b.treat > 0 || b.water > 0) summary.push({
+      pet: name, pee: b.pee, poo: b.poo, food: b.food, treat: b.treat, water: b.water
     });
   });
   return summary.length > 0 ? { summary: summary } : null;
 }
 
-// Render bathroom + food/water badges as HTML
-// forClient = true strips emojis for client-facing reports
+// Render bathroom + food/treat/water badges as HTML.
+// R53: the emoji were replaced with Rachel's own artwork (/img/report/*.png),
+// and the `forClient` flag no longer strips them. It used to blank every icon
+// on the client-facing report, so clients had never seen one - which rather
+// defeated the point of her drawing them.
+var HHP_REPORT_ICONS = {
+  pee:   '/img/report/pee.png',
+  poo:   '/img/report/poo.png',
+  food:  '/img/report/food.png',
+  treat: '/img/report/treat.png',
+  water: '/img/report/water.png'
+};
+function _reportIcon(kind, compact) {
+  var src = HHP_REPORT_ICONS[kind];
+  if (!src) return '';
+  var px = compact ? 16 : 20;
+  return '<img src="' + src + '" alt="" aria-hidden="true" loading="lazy" '
+       + 'style="width:' + px + 'px;height:' + px + 'px;object-fit:contain;'
+       + 'flex-shrink:0;vertical-align:-3px">';
+}
 function renderBathroomBadges(breaks, compact, forClient) {
   if (!breaks || !breaks.summary || breaks.summary.length === 0) return '';
   var badgeStyle = compact
-    ? 'display:inline-flex;align-items:center;gap:3px;background:#f0ebe3;border-radius:20px;padding:3px 10px;font-size:0.72rem;font-weight:600;color:#5c3d1e'
-    : 'display:inline-flex;align-items:center;gap:4px;background:#f0ebe3;border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:600;color:#5c3d1e';
+    ? 'display:inline-flex;align-items:center;gap:5px;background:#f0ebe3;border-radius:20px;padding:3px 10px;font-size:0.72rem;font-weight:600;color:#5c3d1e'
+    : 'display:inline-flex;align-items:center;gap:6px;background:#f0ebe3;border-radius:20px;padding:5px 14px;font-size:0.8rem;font-weight:600;color:#5c3d1e';
+  var rows = [
+    { key: 'pee',   one: ' pee break',   many: ' pee breaks' },
+    { key: 'poo',   one: ' poo break',   many: ' poo breaks' },
+    { key: 'food',  one: ' meal',        many: ' meals' },
+    { key: 'treat', one: ' treat',       many: ' treats' },
+    { key: 'water', one: ' water break', many: ' water breaks' }
+  ];
   var html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
   breaks.summary.forEach(function(b) {
     var petLabel = b.pet && breaks.summary.length > 1 ? b.pet + ': ' : '';
-    if (b.pee > 0) {
-      html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '💧 ') + b.pee + ' pee break' + (b.pee > 1 ? 's' : '') + '</span>';
-    }
-    if (b.poo > 0) {
-      html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '💩 ') + b.poo + ' poo break' + (b.poo > 1 ? 's' : '') + '</span>';
-    }
-    if (b.food > 0) {
-      html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '🍽 ') + b.food + ' meal' + (b.food > 1 ? 's' : '') + '</span>';
-    }
-    if (b.water > 0) {
-      html += '<span style="' + badgeStyle + '">' + petLabel + (forClient ? '' : '🥛 ') + b.water + ' water break' + (b.water > 1 ? 's' : '') + '</span>';
-    }
+    rows.forEach(function(r) {
+      var n = b[r.key] || 0;
+      if (n <= 0) return;
+      html += '<span style="' + badgeStyle + '">' + _reportIcon(r.key, compact)
+            + '<span>' + petLabel + n + (n > 1 ? r.many : r.one) + '</span></span>';
+    });
   });
   html += '</div>';
   return html;
@@ -10029,10 +10076,11 @@ function addLspPetRow(petName, pronounKey) {
     '<div style="display:flex;gap:12px;align-items:flex-start">' +
       '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Pronouns</div><select class="lsp-pronoun" style="width:100%;padding:8px 12px;border:1.5px solid var(--border,#e8e0d4);border-radius:8px;font-size:0.85rem;font-family:inherit;box-sizing:border-box;background:var(--cream,white)"><option value="he"' + (pronounKey === 'he' ? ' selected' : '') + '>He / Him</option><option value="she"' + (!pronounKey || pronounKey === 'she' ? ' selected' : '') + '>She / Her</option><option value="they"' + (pronounKey === 'they' ? ' selected' : '') + '>They / Them</option></select></div>' +
       '<div style="flex:1"><div style="font-size:0.68rem;font-weight:700;color:var(--mid);text-transform:uppercase;margin-bottom:4px">Activity</div><div style="display:flex;flex-wrap:wrap;gap:8px 12px;padding-top:6px">' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-pee" checked> 💧 Pee</label>' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-poo"> 💩 Poo</label>' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-food"> 🍽 Food</label>' +
-        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-water"> 🥛 Water</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-pee" checked> <img src=\'/img/report/pee.png\' alt=\'\' style=\'width:16px;height:16px;object-fit:contain;vertical-align:-3px\'> Pee</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-poo"> <img src=\'/img/report/poo.png\' alt=\'\' style=\'width:16px;height:16px;object-fit:contain;vertical-align:-3px\'> Poo</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-food"> <img src=\'/img/report/food.png\' alt=\'\' style=\'width:16px;height:16px;object-fit:contain;vertical-align:-3px\'> Food</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-treat"> <img src=\'/img/report/treat.png\' alt=\'\' style=\'width:16px;height:16px;object-fit:contain;vertical-align:-3px\'> Treat</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;font-size:0.82rem;cursor:pointer"><input type="checkbox" class="lsp-water"> <img src=\'/img/report/water.png\' alt=\'\' style=\'width:16px;height:16px;object-fit:contain;vertical-align:-3px\'> Water</label>' +
       '</div></div>' +
     '</div>';
   container.appendChild(div);
@@ -10048,9 +10096,10 @@ function _getLspPetData() {
     var pee = row.querySelector('.lsp-pee')?.checked;
     var poo = row.querySelector('.lsp-poo')?.checked;
     var food = row.querySelector('.lsp-food')?.checked;
+    var treat = row.querySelector('.lsp-treat')?.checked;          // R53
     var water = row.querySelector('.lsp-water')?.checked;
     var potty = (pee && poo) ? 'both' : pee ? 'pee' : poo ? 'poo' : 'none';
-    pets.push({ name: name, pronounKey: pronounKey, potty: potty, food: !!food, water: !!water });
+    pets.push({ name: name, pronounKey: pronounKey, potty: potty, food: !!food, treat: !!treat, water: !!water });
   });
   return pets;
 }
@@ -10731,17 +10780,19 @@ async function endServiceFromPanel() {
   }
   var _potty = _sumPottyCounts();
   var _foodCount = _sumLspCounts('food');
+  var _treatCount = _sumLspCounts('treat');                        // R53
   var _waterCount = _sumLspCounts('water');
   // Run the heuristic against the notes too, allowing manual checkboxes to
   // override. This drives the food_count / water_count column writes.
   var _manualCounts = (_lspPetCounts.length > 0)
-    ? { pee: _potty.pee, poo: _potty.poo, food: _foodCount, water: _waterCount }
+    ? { pee: _potty.pee, poo: _potty.poo, food: _foodCount, treat: _treatCount, water: _waterCount }
     : null;
   var _detected = (typeof detectBathroomBreaks === 'function') ? detectBathroomBreaks(notes, reportPets, _manualCounts) : null;
-  var _foodTotal = 0, _waterTotal = 0;
+  var _foodTotal = 0, _treatTotal = 0, _waterTotal = 0;
   if (_detected && _detected.summary) {
     _detected.summary.forEach(function(b) {
       _foodTotal += (b.food || 0);
+      _treatTotal += (b.treat || 0);                               // R53
       _waterTotal += (b.water || 0);
     });
   }
@@ -10760,6 +10811,7 @@ async function endServiceFromPanel() {
     personal_note: notes || null,
     booking_id: d.bookingId || null,
     food_count: _foodTotal,
+    treat_count: _treatTotal,
     water_count: _waterTotal,
     // media gets added by the pipeline once Cloudinary uploads land.
   };
@@ -15827,7 +15879,7 @@ async function loadClientReports() {
           '</div>' +
           '<div style="font-size:1.2rem">' + (moodEmoji[r.mood] || '😄') + '</div>' +
         '</div>' +
-        (function() { var bb = detectBathroomBreaks(r.personal_note, r.pet_name, { food: typeof r.food_count === 'number' ? r.food_count : undefined, water: typeof r.water_count === 'number' ? r.water_count : undefined }); return bb ? renderBathroomBadges(bb, true, true) : ''; })() +
+        (function() { var bb = detectBathroomBreaks(r.personal_note, r.pet_name, { food: typeof r.food_count === 'number' ? r.food_count : undefined, treat: typeof r.treat_count === 'number' ? r.treat_count : undefined, water: typeof r.water_count === 'number' ? r.water_count : undefined }); return bb ? renderBathroomBadges(bb, true, true) : ''; })() +
         (r.personal_note ? '<div style="font-size:0.84rem;color:var(--ink);line-height:1.6;margin-top:6px">' + r.personal_note.substring(0, 150) + (r.personal_note.length > 150 ? '...' : '') + '</div>' : '') +
         thumbsHtml +
         (mediaCount > 0 ? '<div style="font-size:0.72rem;color:var(--mid);margin-top:8px">📷 ' + mediaCount + ' photo' + (mediaCount !== 1 ? 's' : '') + '/video' + (mediaCount !== 1 ? 's' : '') + '</div>' : '') +
@@ -15888,7 +15940,7 @@ function openReportDetail(reportOrId) {
       '<div class="rstat"><div class="rstat-num">' + (moodEmoji[report.mood] || '😄') + '</div><div class="rstat-lbl">Mood</div></div>' +
     '</div>' +
     photosHtml +
-    (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name, { food: typeof report.food_count === 'number' ? report.food_count : undefined, water: typeof report.water_count === 'number' ? report.water_count : undefined }); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false, true) + '</div>' : ''; })() +
+    (function() { var bb = detectBathroomBreaks(report.personal_note, report.pet_name, { food: typeof report.food_count === 'number' ? report.food_count : undefined, treat: typeof report.treat_count === 'number' ? report.treat_count : undefined, water: typeof report.water_count === 'number' ? report.water_count : undefined }); return bb ? '<div style="margin-bottom:12px">' + renderBathroomBadges(bb, false, true) + '</div>' : ''; })() +
     '<div class="note-area"><div class="note-lbl">📝 Rachel\'s Personal Note</div><div class="note-text">' + (report.personal_note || 'No note provided.') + '</div></div>' +
     '<div id="reportRouteMapContainer"></div>' +
     '<div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="closeModal(\'reportModal\')">Close</button>' +
