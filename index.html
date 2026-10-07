@@ -8160,8 +8160,17 @@ async function loadClientAppts(filter, tabBtn) {
             else paidBadge = '<span style="background:#fde8e8;color:#c62828;padding:2px 8px;border-radius:4px;font-size:0.72rem;font-weight:600">Unpaid</span>';
           }
 
-          // Detect time change request — owner/staff suggested a new time
-          var isTimeChange = b.status === 'modified' && b.scheduled_date;
+          // Detect time change request — owner/staff suggested a new time.
+          // R54: this used to fire on any 'modified' row with a scheduled_date,
+          // including rows whose scheduled date and time were identical to what
+          // the client asked for. Those rendered as "Rachel suggested a new
+          // time" with the same time struck through and repeated underneath.
+          // A time change now has to actually differ.
+          var _schedDiffers = !!b.scheduled_date && (
+            b.scheduled_date !== b.preferred_date ||
+            (b.scheduled_time || '') !== (b.preferred_time || '')
+          );
+          var isTimeChange = b.status === 'modified' && _schedDiffers;
           var ddTimeChanges = [];
           if (b.date_details && Array.isArray(b.date_details)) {
             b.date_details.forEach(function(dd, di) {
@@ -19165,7 +19174,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20260927a" defer></script>
+  <script src="/js/booking-system.js?v=20261007a" defer></script>
   <script src="/js/messaging.js?v=20260925d" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260925f" defer></script>

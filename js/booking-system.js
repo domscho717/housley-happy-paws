@@ -5143,10 +5143,14 @@
     }
   };
 
-  // ── Batch grouping helper: group pending bookings by client_id + created_at (2-second window) ──
+  // ── Batch grouping helper: group bookings by client_id + created_at (2-second window) ──
+  // R54: this used to collect 'pending' only, so the moment Rachel modified a
+  // batch the card vanished from her own screen and the 20 rows scattered into
+  // 20 separate cards. 'modified' rows stay grouped now, so she can still see
+  // and fix the batch while the client is reviewing it.
   function _groupPendingBookingsByBatch(requests) {
-    var pending = requests.filter(function(r) { return r.status === 'pending'; });
-    var nonPending = requests.filter(function(r) { return r.status !== 'pending'; });
+    var pending = requests.filter(function(r) { return r.status === 'pending' || r.status === 'modified'; });
+    var nonPending = requests.filter(function(r) { return r.status !== 'pending' && r.status !== 'modified'; });
 
     if (pending.length === 0) return nonPending;
 
@@ -6024,17 +6028,33 @@
         if (id) timeChanges[id] = el.getAttribute('data-batch-new-time');
       });
 
+      // R54. What this used to do: stamp status 'modified' on all three groups.
+      // A date Rachel removed became 'modified' with no scheduled_date, which
+      // renders in the client portal as nothing at all - no banner, no buttons,
+      // a dead row they can never clear. And a date she left completely alone
+      // became 'modified' with scheduled = the time the client already asked
+      // for, so Kyle Motell got fifteen "Rachel suggested a new time" cards
+      // whose before and after were identical, each needing its own tap and
+      // its own $25 charge. Neither of them could act on it from either side
+      // and Rory missed a visit.
+      //
+      // Each group now gets the status that describes it:
+      //   removed  -> canceled   (gone, and the client can see it is gone)
+      //   retimed  -> modified   (genuinely needs the client to agree)
+      //   kept     -> accepted   (Rachel said yes; nothing to review)
       var actions = [];
       var removed = [], retimed = {}, kept = {};
 
       batchBookings.forEach(function(bk) {
+        var newTime = timeChanges[bk.id];
+        var reallyChanged = newTime && newTime !== (bk.preferred_time || '');
         if (removedIds.has(bk.id)) {
           actions.push({ id: bk.id, action: 'removed' });
           removed.push(bk.id);
-        } else if (timeChanges[bk.id]) {
-          actions.push({ id: bk.id, action: 'modified', newTime: timeChanges[bk.id], newDate: bk.preferred_date });
-          var rk = bk.preferred_date + '|' + timeChanges[bk.id];
-          (retimed[rk] = retimed[rk] || { date: bk.preferred_date, time: timeChanges[bk.id], ids: [] }).ids.push(bk.id);
+        } else if (reallyChanged) {
+          actions.push({ id: bk.id, action: 'modified', newTime: newTime, newDate: bk.preferred_date });
+          var rk = bk.preferred_date + '|' + newTime;
+          (retimed[rk] = retimed[rk] || { date: bk.preferred_date, time: newTime, ids: [] }).ids.push(bk.id);
         } else {
           actions.push({ id: bk.id, action: 'accepted' });
           var kk = (bk.preferred_date || '') + '|' + (bk.preferred_time || '');
@@ -6050,7 +6070,11 @@
         if (!r.ok && !firstError) firstError = r.error;
       }
 
-      absorb(await _verifiedUpdate(sb, { status: 'modified' }, removed, 'batch-modify'));
+      absorb(await _verifiedUpdate(sb, {
+        status: 'canceled',
+        canceled_at: new Date().toISOString(),
+        canceled_by: 'owner'
+      }, removed, 'batch-modify'));
 
       var rkeys = Object.keys(retimed);
       for (var a = 0; a < rkeys.length; a++) {
@@ -6061,10 +6085,12 @@
         }, retimed[rkeys[a]].ids, 'batch-modify'));
       }
 
+      var keptIds = [];
       var kkeys = Object.keys(kept);
       for (var b = 0; b < kkeys.length; b++) {
+        keptIds = keptIds.concat(kept[kkeys[b]].ids);
         absorb(await _verifiedUpdate(sb, {
-          status: 'modified',
+          status: 'accepted',
           scheduled_date: kept[kkeys[b]].date,
           scheduled_time: kept[kkeys[b]].time
         }, kept[kkeys[b]].ids, 'batch-modify'));
@@ -6085,8 +6111,41 @@
 
       await _sendBatchNotification(batchBookings, actions);
 
+      // R54: the rows Rachel kept are accepted, so they are charged here in one
+      // go - exactly as acceptBatchBookings does. Before this, a modified batch
+      // charged nothing at all and waited for the client to accept each
+      // appointment one at a time, which fired a separate Stripe charge per
+      // visit. Retimed rows are deliberately NOT charged: the client has not
+      // agreed to the new time yet, and their own accept handles it.
+      var keptSet = {};
+      keptIds.forEach(function (id) { keptSet[id] = true; });
+      var chargeable = batchBookings.filter(function (bk) {
+        return keptSet[bk.id] && bk.estimated_total > 0 && bk.client_id;
+      });
+      if (chargeable.length > 0) {
+        (async function () {
+          var total = chargeable.reduce(function (sum, bk) { return sum + (bk.estimated_total || 0); }, 0);
+          var ids2 = chargeable.map(function (bk) { return bk.id; });
+          var label = chargeable.length > 1
+            ? chargeable[0].service + ' + ' + (chargeable.length - 1) + ' more'
+            : chargeable[0].service;
+          await _fireAcceptanceCharge(sb, {
+            bookingRequestId: ids2[0],
+            amount: total,
+            service: label,
+            clientProfileId: chargeable[0].client_id,
+            batchBookingIds: ids2,
+          });
+          if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
+        })();
+      }
+
       if (typeof toast === 'function') {
-        toast('✓ ' + expected + ' row' + (expected !== 1 ? 's' : '') + ' updated. Sent to client for review.');
+        var _parts = [];
+        if (keptIds.length) _parts.push(keptIds.length + ' confirmed');
+        if (Object.keys(retimed).length) _parts.push('time changes sent for review');
+        if (removed.length) _parts.push(removed.length + ' removed');
+        toast('✓ ' + _parts.join(', ') + '.');
       }
 
       _afterBookingAction();
