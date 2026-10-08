@@ -10920,9 +10920,16 @@ async function endServiceFromPanel() {
 
     // Fetch tracking points & compute distance now (cheap, one query). Done in
     // background so the modal doesn't wait on it.
+    // R55: this used to run only when the service name contained the word
+    // "walk". GPS records on every visit, drop-ins included, but a drop-in's
+    // points were then never read and route_summary was written as [] - so
+    // 79 of Rory's and others' drop-ins tracked a route and threw it away,
+    // 4,613 points in all. The report map reads route_summary and is not
+    // gated on service type, so those clients simply saw "No GPS route
+    // recorded". If points exist, they belong on the report.
     var routeSummary = [];
     var isDogWalk = (reportService || '').toLowerCase().indexOf('walk') !== -1;
-    if (isDogWalk && d.walkId) {
+    if (d.walkId) {
       try {
         var trkRes = await sb.from('tracking_points')
           .select('lat, lng, recorded_at').eq('walk_id', d.walkId)
@@ -10930,7 +10937,10 @@ async function endServiceFromPanel() {
         var trkPts = trkRes && trkRes.data;
         if (trkPts && trkPts.length > 0) {
           routeSummary = trkPts.map(function(p) { return { lat: p.lat, lng: p.lng, t: p.recorded_at }; });
-          if (!distanceVal || distanceVal === '') {
+          // Distance is still only auto-filled for walks. A drop-in's points
+          // are mostly the sitter moving around a house and a yard; adding
+          // them up and calling it "distance walked" would be misleading.
+          if (isDogWalk && (!distanceVal || distanceVal === '')) {
             var totalM = 0;
             for (var ri = 1; ri < routeSummary.length; ri++) {
               var R = 6371000;
