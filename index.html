@@ -1955,7 +1955,7 @@ try {
                 <div class="form-group"><label class="form-lbl">Species *</label><select class="form-sel" id="pet-species" onchange="calcPetAge();resetBreedOnSpeciesChange()"><option value="dog">Dog</option><option value="cat">Cat</option></select></div>
               </div>
               <div class="form-row">
-                <div class="form-group"><label class="form-lbl">Breed <span style="color:#c0392b">*</span></label>
+                <div class="form-group"><label class="form-lbl">Breed <span style="font-weight:400;color:var(--mid)">(optional)</span></label>
                   <div id="breed-search-wrap" style="position:relative">
                     <input class="form-in" id="pet-breed" placeholder="Start typing to search breeds..." autocomplete="off" onfocus="openBreedDropdown()" oninput="filterBreeds()">
                     <div id="breed-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--cream,#fff);border:1px solid #d4c5b0;border-top:none;border-radius:0 0 8px 8px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
@@ -2029,7 +2029,7 @@ try {
               <div style="font-weight:700;font-size:0.88rem;color:var(--forest);margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid var(--border)">Care & Vet Info</div>
               <div class="form-row">
                 <div class="form-group"><label class="form-lbl">Vet Name <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-vet" placeholder="e.g. Lancaster Animal Hospital"></div>
-                <div class="form-group"><label class="form-lbl">Vet Phone <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-vetphone" placeholder="(717) 555-0123"></div>
+                <div class="form-group"><label class="form-lbl">Vet Phone <span style="font-weight:400;color:var(--mid)">(optional)</span></label><input class="form-in" id="pet-vetphone" placeholder="(717) 555-0123"></div>
               </div>
               <div class="form-group"><label class="form-lbl">Medications <span style="font-weight:400;color:var(--mid)">(Write 'None' if none)</span> <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-meds" placeholder="e.g. Apoquel 16mg daily, Heartgard monthly"></div>
               <div class="form-group"><label class="form-lbl">Allergies <span style="font-weight:400;color:var(--mid)">(Write 'None' if none)</span> <span style="color:#c0392b">*</span></label><input class="form-in" id="pet-allergies" placeholder="e.g. Chicken, certain grasses"></div>
@@ -13734,12 +13734,12 @@ async function savePet() {
 
   // Validate mandatory fields
   var missing = [];
-  if (!document.getElementById('pet-breed').value.trim()) missing.push('Breed');
+  // R56: Breed is optional — plenty of clients have a rescue nobody can name.
   if (!document.getElementById('pet-sex').value) missing.push('Sex');
   if (!document.getElementById('pet-birthday').value) missing.push('Birthday');
   if (!document.getElementById('pet-size').value) missing.push('Size');
   if (!document.getElementById('pet-vet').value.trim()) missing.push('Vet Name');
-  if (!document.getElementById('pet-vetphone').value.trim()) missing.push('Vet Phone');
+  // R56: Vet Phone is optional — Vet Name alone is enough to find the practice.
   if (!document.getElementById('pet-meds').value.trim()) missing.push('Medications');
   if (!document.getElementById('pet-allergies').value.trim()) missing.push('Allergies');
   if (!document.getElementById('pet-special').value.trim()) missing.push('Special Needs');
@@ -13761,7 +13761,7 @@ async function savePet() {
   if (missing.length > 0) {
     toast('Please fill in: ' + missing.slice(0, 3).join(', ') + (missing.length > 3 ? ' and ' + (missing.length - 3) + ' more' : ''));
     // Scroll to first empty required field
-    var firstField = !document.getElementById('pet-breed').value.trim() ? 'pet-breed' :
+    var firstField =
       !document.getElementById('pet-sex').value ? 'pet-sex' :
       !document.getElementById('pet-birthday').value ? 'pet-birthday' :
       !document.getElementById('pet-size').value ? 'pet-size' : null;
