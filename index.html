@@ -3456,7 +3456,7 @@ try {
 <div class="overlay" id="mgModal">
   <div class="modal" id="mgForm">
     <div class="modal-head"><div><div class="modal-title">Schedule a Meet & Greet 🐾</div><p style="font-size:0.84rem;color:var(--mid);margin-top:3px">Free, no obligation — let's get to know your pet first.</p></div><button class="modal-close" aria-label="Close dialog" onclick="closeModal('mgModal')">✕</button></div>
-    <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll receive an instant confirmation and Rachel will personally follow up within a few hours with available times.</div></div>
+    <div class="auto-reply-notice"><div class="arn-lbl">🤖 Auto-Reply Active</div><div class="arn-txt">You'll receive an instant confirmation and Rachel will personally follow up within a few hours to confirm the time or suggest another.</div></div>
     <!-- Auto-filled from account -->
     <div id="mg-user-info" style="background:var(--warm);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
       <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-deep));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.9rem" id="mg-user-avatar">?</div>
@@ -3469,7 +3469,7 @@ try {
         <div style="text-align:center;color:var(--mid);font-size:0.85rem;padding:12px">Loading pets...</div>
       </div>
     </div>
-    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Preferred Date</label><input class="form-in" type="date" id="mg-date"></div><div><label class="form-lbl">Preferred Time</label><select class="form-in" id="mg-time"><option value="">Select time...</option><option value="09:00">9:00 AM</option><option value="09:30">9:30 AM</option><option value="10:00">10:00 AM</option><option value="10:30">10:30 AM</option><option value="11:00">11:00 AM</option><option value="11:30">11:30 AM</option><option value="12:00">12:00 PM</option><option value="12:30">12:30 PM</option><option value="13:00">1:00 PM</option><option value="13:30">1:30 PM</option><option value="14:00">2:00 PM</option><option value="14:30">2:30 PM</option><option value="15:00">3:00 PM</option><option value="15:30">3:30 PM</option><option value="16:00">4:00 PM</option><option value="16:30">4:30 PM</option><option value="17:00">5:00 PM</option><option value="17:30">5:30 PM</option><option value="18:00">6:00 PM</option></select></div></div>
+    <div class="form-row" style="margin-bottom:14px"><div><label class="form-lbl">Preferred Date <span style="color:#c0392b">*</span></label><input class="form-in" type="date" id="mg-date"></div><div><label class="form-lbl">Preferred Time <span style="color:#c0392b">*</span></label><select class="form-in" id="mg-time"><option value="">Select time...</option><option value="09:00">9:00 AM</option><option value="09:30">9:30 AM</option><option value="10:00">10:00 AM</option><option value="10:30">10:30 AM</option><option value="11:00">11:00 AM</option><option value="11:30">11:30 AM</option><option value="12:00">12:00 PM</option><option value="12:30">12:30 PM</option><option value="13:00">1:00 PM</option><option value="13:30">1:30 PM</option><option value="14:00">2:00 PM</option><option value="14:30">2:30 PM</option><option value="15:00">3:00 PM</option><option value="15:30">3:30 PM</option><option value="16:00">4:00 PM</option><option value="16:30">4:30 PM</option><option value="17:00">5:00 PM</option><option value="17:30">5:30 PM</option><option value="18:00">6:00 PM</option></select></div></div>
     <div class="form-group"><label class="form-lbl">Anything Rachel Should Know?</label><textarea class="form-ta" id="mg-notes" placeholder="e.g. Friendly but a little shy with new people at first..."></textarea></div>
     <div id="mg-error" style="display:none;color:#c44;font-size:0.82rem;margin-bottom:8px"></div>
     <button class="submit-btn gold" onclick="submitMG()">📅 Request Meet & Greet</button>
@@ -6391,6 +6391,15 @@ function loadMGData() {
     if (emailEl) emailEl.textContent = user.email;
   }
 
+  // R57: stop a client picking a date that has already gone.
+  var _mgDate = document.getElementById('mg-date');
+  if (_mgDate && !_mgDate.min) {
+    var _t = new Date();
+    _mgDate.min = _t.getFullYear() + '-' +
+      String(_t.getMonth() + 1).padStart(2, '0') + '-' +
+      String(_t.getDate()).padStart(2, '0');
+  }
+
   // Load pets from Supabase
   var listEl = document.getElementById('mg-pets-list');
   if (!listEl) return;
@@ -6473,8 +6482,31 @@ async function submitMG() {
   var time = document.getElementById('mg-time') ? document.getElementById('mg-time').value : '';
   var notes = document.getElementById('mg-notes') ? document.getElementById('mg-notes').value.trim() : '';
 
+  // R57: booking_requests.preferred_date and preferred_time are both NOT NULL,
+  // but this form left them optional and the insert sent `date || null`. Any
+  // client who left either blank - which the form invited, and which the
+  // notification fallback literally calls 'Flexible' - got Postgres 23502 in
+  // the error strip: 'null value in column "preferred_date" of relation
+  // "booking_requests" violates not-null constraint'. In five months exactly
+  // one Meet & Greet row was ever created, and that one had both filled in.
+  if (!date) {
+    if (errEl) { errEl.textContent = 'Please pick a preferred date.'; errEl.style.display = 'block'; }
+    var _mgD = document.getElementById('mg-date'); if (_mgD) _mgD.focus();
+    return;
+  }
+  if (!time) {
+    if (errEl) { errEl.textContent = 'Please pick a preferred time.'; errEl.style.display = 'block'; }
+    var _mgT = document.getElementById('mg-time'); if (_mgT) _mgT.focus();
+    return;
+  }
+
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    // Was a bare `return;` - the button simply did nothing and the client
+    // had no idea why.
+    if (errEl) { errEl.textContent = 'Your session expired \u2014 please sign in again.'; errEl.style.display = 'block'; }
+    return;
+  }
   var profile = user.user_metadata || {};
   var name = profile.full_name || profile.name || user.email.split('@')[0];
 
@@ -6483,8 +6515,8 @@ async function submitMG() {
     var sb = window.HHP_Auth.supabase;
     var insertData = {
       service: 'Meet & Greet',
-      preferred_date: date || null,
-      preferred_time: time || null,
+      preferred_date: date,
+      preferred_time: time,
       contact_name: name,
       contact_email: user.email,
       contact_phone: profile.phone || null,
