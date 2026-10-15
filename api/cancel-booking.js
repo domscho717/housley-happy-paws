@@ -17,6 +17,150 @@ function _fullyRefunded(intent) {
   return amt > 0 && ref >= amt;
 }
 
+// R58: recurring_invoices.status is constrained to
+// sent | paid | failed | skipped | refunded | voided. Two places wrote
+// 'captured', which the CHECK rejects - and the Supabase client RESOLVES on a
+// failed write instead of throwing, so those updates silently did nothing for
+// months. There are zero 'captured' rows in the table. Every status write now
+// goes through here, which .select()s and checks the row actually changed.
+const INVOICE_STATUSES = ['sent', 'paid', 'failed', 'skipped', 'refunded', 'voided'];
+async function _setInvoiceStatus(supabase, invoiceId, status) {
+  if (!INVOICE_STATUSES.includes(status)) {
+    console.error('[cancel] refusing to write invalid recurring_invoices status:', status);
+    return false;
+  }
+  const { data, error } = await supabase
+    .from('recurring_invoices')
+    .update({ status })
+    .eq('id', invoiceId)
+    .select('id');
+  if (error || !data || data.length === 0) {
+    console.error('[cancel] recurring_invoices status write did not land:', invoiceId, status,
+      error ? error.message : 'zero rows returned');
+    return false;
+  }
+  return true;
+}
+
+// R58: on a recurring series the money for a single visit is NOT on
+// booking.payment_intent_id. That column holds the ORIGINAL acceptance charge
+// and never changes - Julia Bossert's Monday series still points at a
+// PaymentIntent from 27 Aug. Each week's charge lives on the recurring_invoices
+// row for that service_date, in stripe_invoice_id, and one charge routinely
+// covers two visits across two DIFFERENT booking rows (her Monday and Tuesday
+// series share one $50 PaymentIntent every week). So the amount to give back is
+// the invoice row's own amount, and whether it is partial depends on the
+// sibling invoice rows sharing that charge - nothing to do with
+// booking_requests.payment_intent_id.
+async function _refundOccurrenceIntent(stripe, supabase, inv, piId, canceledBy) {
+  let intent;
+  try {
+    intent = await stripe.paymentIntents.retrieve(piId);
+  } catch (e) {
+    return { action: 'intent_fetch_failed', error: e.message };
+  }
+
+  if (intent.status === 'requires_capture') {
+    try {
+      await stripe.paymentIntents.cancel(piId);
+      await _setInvoiceStatus(supabase, inv.id, 'voided');
+      return { action: 'canceled_intent', paymentIntentId: piId };
+    } catch (e) {
+      return { action: 'intent_cancel_failed', error: e.message };
+    }
+  }
+  if (intent.status !== 'succeeded') {
+    return { action: 'no_refund_needed', intentStatus: intent.status };
+  }
+  if (_fullyRefunded(intent)) {
+    await _setInvoiceStatus(supabase, inv.id, 'refunded');
+    return { action: 'already_fully_refunded', paymentIntentId: piId };
+  }
+
+  // Which other visits are still riding on this same charge? Every
+  // recurring_invoices row sharing it, across ALL bookings, that has not
+  // already been given back.
+  const { data: siblings } = await supabase
+    .from('recurring_invoices')
+    .select('id, amount, status, service_date, booking_request_id')
+    .eq('stripe_invoice_id', piId);
+  const stillLive = (siblings || []).filter(r =>
+    r.id !== inv.id && r.status !== 'refunded' && r.status !== 'voided');
+
+  const remaining = (intent.amount_received || intent.amount || 0) - (intent.amount_refunded || 0);
+  let refundCents = stillLive.length > 0
+    ? Math.round(Number(inv.amount || 0) * 100)   // partial: just this visit
+    : remaining;                                   // last visit on the charge
+  if (refundCents > remaining) refundCents = remaining;  // never over-refund
+  if (refundCents <= 0) {
+    await _setInvoiceStatus(supabase, inv.id, 'refunded');
+    return { action: 'nothing_left_to_refund', paymentIntentId: piId };
+  }
+
+  let refund;
+  try {
+    refund = await stripe.refunds.create(
+      { payment_intent: piId, amount: refundCents, reason: 'requested_by_customer' },
+      // Keyed on the invoice row, so a retry of the same occurrence cannot
+      // refund a second time.
+      { idempotencyKey: 'rec-cancel-' + inv.id }
+    );
+  } catch (e) {
+    return { action: 'refund_failed', error: e.message };
+  }
+
+  await _setInvoiceStatus(supabase, inv.id, 'refunded');
+
+  const dollars = (refundCents / 100).toFixed(2);
+  await supabase.from('payments')
+    .update({
+      status: stillLive.length > 0 ? 'partial_refund' : 'refunded',
+      notes: '$' + dollars + ' refunded for ' + inv.service_date +
+             ' (canceled by ' + (canceledBy || 'owner') + ')' +
+             (stillLive.length > 0
+               ? '; unchanged: ' + stillLive.map(r => r.service_date).sort().join(', ')
+               : '; all visits on this charge refunded')
+    })
+    .eq('stripe_session_id', piId);
+
+  return {
+    action: stillLive.length > 0 ? 'partial_refund' : 'refunded',
+    refundId: refund.id,
+    amount: refundCents / 100,
+    paymentIntentId: piId
+  };
+}
+
+// recurring_invoices.stripe_invoice_id holds either a PaymentIntent (pi_, 16
+// rows) or a Stripe Invoice (in_, 4 rows). The old code called
+// stripe.invoices.voidInvoice() on it unconditionally, so every pi_ row threw
+// "No such invoice" - caught, logged, and the money never moved.
+async function refundRecurringOccurrence(stripe, supabase, inv, canceledBy) {
+  const chargeId = inv.stripe_invoice_id;
+  if (!chargeId) return { action: 'no_charge_on_invoice' };
+
+  if (chargeId.startsWith('in_')) {
+    try {
+      const sInv = await stripe.invoices.retrieve(chargeId);
+      const pi = sInv.payment_intent &&
+        (typeof sInv.payment_intent === 'string' ? sInv.payment_intent : sInv.payment_intent.id);
+      if (sInv.status === 'paid' && pi) {
+        return await _refundOccurrenceIntent(stripe, supabase, inv, pi, canceledBy);
+      }
+      await stripe.invoices.voidInvoice(chargeId);
+      await _setInvoiceStatus(supabase, inv.id, 'voided');
+      return { action: 'invoice_voided', invoiceId: chargeId };
+    } catch (e) {
+      return { action: 'invoice_handling_failed', error: e.message };
+    }
+  }
+
+  if (chargeId.startsWith('pi_')) {
+    return await _refundOccurrenceIntent(stripe, supabase, inv, chargeId, canceledBy);
+  }
+  return { action: 'unrecognised_charge_id', chargeId: chargeId };
+}
+
 module.exports = async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', 'https://www.housleyhappypaws.com');
@@ -107,7 +251,10 @@ module.exports = async function handler(req, res) {
 
     // 4. Handle Stripe refund/payment actions based on Rover model
     //    Payment is already captured — free cancel = refund, late cancel = no refund
-    if (cancellationType === 'free' && booking.payment_intent_id) {
+    // R58: a single-date cancel on a recurring series must NOT touch
+    // booking.payment_intent_id - that is the acceptance charge, not this
+    // week's. Section 6 handles the money for those dates.
+    if (cancellationType === 'free' && booking.payment_intent_id && !isSingleCancel) {
       try {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
@@ -175,7 +322,11 @@ module.exports = async function handler(req, res) {
     }
 
     // 4b. OVERRIDE REFUND — Owner/staff chose to refund regardless of policy
-    if (issueRefund && booking.payment_intent_id && !refunded && (canceledBy === 'owner' || canceledBy === 'staff')) {
+    // R58: same here. The owner override used to refund the acceptance charge
+    // when Rachel ticked "refund anyway" on a single recurring date - money off
+    // a months-old charge while that week's stayed captured.
+    if (issueRefund && booking.payment_intent_id && !refunded && !isSingleCancel &&
+        (canceledBy === 'owner' || canceledBy === 'staff')) {
       try {
         const intent = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
 
@@ -310,7 +461,11 @@ module.exports = async function handler(req, res) {
                 await supabase.from('recurring_invoices').update({ status: 'voided' }).eq('id', inv.id);
               } catch(voidErr) { console.warn('Void future invoice:', voidErr.message); }
             } else if (svcCancelType === 'late') {
-              await supabase.from('recurring_invoices').update({ status: 'captured' }).eq('id', inv.id);
+              // R58: this wrote status 'captured', which the CHECK constraint
+              // rejects; the client resolves on a failed write so it silently
+              // did nothing. A late cancel keeps the money and 'paid' already
+              // records that.
+              console.log('[cancel-series] late cancel, retaining charge for', inv.service_date);
             }
           }
         }
@@ -318,14 +473,16 @@ module.exports = async function handler(req, res) {
         // R5 P2 #2: nuke ALL future unpaid recurring_invoices for this booking.
         // The loop above only handled 'sent' invoices; this catches 'pending'
         // and 'draft' rows that the Sunday cron would otherwise pick up. Paid
-        // rows (status='paid' or 'captured') are NOT touched — they're history.
+        // Paid, refunded and voided rows are NOT touched — they're history.
         try {
           const { error: delErr, count: delCount } = await supabase
             .from('recurring_invoices')
             .delete({ count: 'exact' })
             .eq('booking_request_id', bookingRequestId)
             .gte('service_date', todayStr)
-            .not('status', 'in', '(paid,captured)');
+            // R58: was '(paid,captured)'. 'captured' never existed, so this
+            // deleted the refunded and voided rows too - financial history.
+            .not('status', 'in', '(paid,refunded,voided)');
           if (delErr) {
             console.warn('[cancel-series] Future invoice cleanup failed:', delErr.message);
           } else {
@@ -337,7 +494,13 @@ module.exports = async function handler(req, res) {
       } catch(stopErr) { console.error('Stop recurring invoice handling:', stopErr); }
     }
 
-    // 6. For recurring single-day cancel, also handle the specific recurring_invoice
+    // 6. Recurring single-date cancel — this is where that date's money lives.
+    //    R58: previously this called stripe.invoices.voidInvoice() on
+    //    stripe_invoice_id even when it was a PaymentIntent (it usually is),
+    //    which always threw, and otherwise wrote the illegal status
+    //    'captured'. Between this and section 4 refunding the acceptance
+    //    charge, there was no path that could return the right money for a
+    //    recurring visit.
     for (const _cd of (isSingleCancel ? cancelDateList : [])) {
       const { data: recurringInvoice } = await supabase
         .from('recurring_invoices')
@@ -346,23 +509,35 @@ module.exports = async function handler(req, res) {
         .eq('service_date', _cd)
         .maybeSingle();
 
-      if (recurringInvoice && recurringInvoice.stripe_invoice_id) {
-        try {
-          if (cancellationType === 'free') {
-            await stripe.invoices.voidInvoice(recurringInvoice.stripe_invoice_id);
-            await supabase
-              .from('recurring_invoices')
-              .update({ status: 'voided' })
-              .eq('id', recurringInvoice.id);
-          } else if (cancellationType === 'late') {
-            await supabase
-              .from('recurring_invoices')
-              .update({ status: 'captured' })
-              .eq('id', recurringInvoice.id);
-          }
-        } catch (invoiceErr) {
-          console.error('Failed to handle recurring invoice:', invoiceErr.message);
+      if (!recurringInvoice) {
+        console.log('[cancel] no recurring_invoice for', bookingRequestId, _cd, '- nothing billed yet');
+        continue;
+      }
+
+      const alreadyGiven = recurringInvoice.status === 'refunded' || recurringInvoice.status === 'voided';
+      const ownerOverride = issueRefund && (canceledBy === 'owner' || canceledBy === 'staff');
+      const shouldRefund = !alreadyGiven && (cancellationType === 'free' || ownerOverride);
+
+      if (shouldRefund) {
+        const r = await refundRecurringOccurrence(stripe, supabase, recurringInvoice, canceledBy);
+        console.log('[cancel] recurring occurrence', _cd, '->', JSON.stringify(r));
+        if (typeof r.amount === 'number' && r.amount > 0) {
+          refunded = true;
+          const prior = (refundResult && typeof refundResult.amount === 'number') ? refundResult.amount : 0;
+          refundResult = prior > 0
+            ? { action: 'partial_refund', amount: prior + r.amount }
+            : r;
+        } else if (r.error) {
+          refundResult = refundResult || { action: 'refund_failed', error: r.error };
         }
+      } else if (alreadyGiven) {
+        console.log('[cancel]', _cd, 'invoice already', recurringInvoice.status, '- leaving it alone');
+      } else {
+        // Late cancel: the money is kept on purpose. 'paid' already says that,
+        // and there is no legal status for "kept deliberately", so write
+        // nothing rather than a value the CHECK constraint rejects.
+        console.log('[cancel]', _cd, 'late cancel - charge of $' +
+          Number(recurringInvoice.amount || 0).toFixed(2) + ' retained per policy');
       }
     }
 
