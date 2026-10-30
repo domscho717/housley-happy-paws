@@ -750,7 +750,13 @@
     }
     html += '</div>';
     html += '<div class="msg-thread" id="cMsgs" style="max-height:350px"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading...</div></div>';
-    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="cMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.clientSend()"><button class="msg-send" onclick="HHP_Messaging.clientSend()">➤</button></div>';
+    // R60 — textarea, not <input>: an <input> cannot hold a line break at all.
+    // Enter inserts a newline; the send button sends.
+    html += '<div class="msg-input-row" style="margin-top:8px;align-items:flex-end">' +
+      '<textarea class="msg-input" id="cMsgIn" placeholder="Type a message..." rows="1" ' +
+      'style="resize:none;overflow-y:auto;max-height:140px;line-height:1.4;font-family:inherit" ' +
+      'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,140)+\'px\'"></textarea>' +
+      '<button class="msg-send" onclick="HHP_Messaging.clientSend()">➤</button></div>';
     html += '</div>';
 
     panel.innerHTML = html;
@@ -788,6 +794,8 @@
 
     var body = inp.value.trim();
     inp.value = '';
+    // R60 — collapse the auto-grown textarea back to one row after send.
+    if (inp.tagName === 'TEXTAREA') inp.style.height = '';
 
     var user = getCurrentUser();
     if (!user) { if (typeof toast === 'function') toast('Please sign in to send messages.'); return; }
@@ -861,7 +869,13 @@
     }
     html += '</div>';
     html += '<div class="msg-thread" id="sMsgs" style="max-height:350px"><div style="align-self:center;color:var(--mid);font-size:0.84rem;padding:20px">Loading...</div></div>';
-    html += '<div class="msg-input-row" style="margin-top:8px"><input class="msg-input" id="sMsgIn" placeholder="Type a message..." onkeydown="if(event.key===\'Enter\')HHP_Messaging.staffSend()"><button class="msg-send" onclick="HHP_Messaging.staffSend()">➤</button></div>';
+    // R60 — textarea, not <input>: an <input> cannot hold a line break at all.
+    // Enter inserts a newline; the send button sends.
+    html += '<div class="msg-input-row" style="margin-top:8px;align-items:flex-end">' +
+      '<textarea class="msg-input" id="sMsgIn" placeholder="Type a message..." rows="1" ' +
+      'style="resize:none;overflow-y:auto;max-height:140px;line-height:1.4;font-family:inherit" ' +
+      'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,140)+\'px\'"></textarea>' +
+      '<button class="msg-send" onclick="HHP_Messaging.staffSend()">➤</button></div>';
     html += '</div>';
 
     panel.innerHTML = html;
@@ -899,6 +913,8 @@
 
     var body = inp.value.trim();
     inp.value = '';
+    // R60 — collapse the auto-grown textarea back to one row after send.
+    if (inp.tagName === 'TEXTAREA') inp.style.height = '';
 
     var user = getCurrentUser();
     if (!user) { if (typeof toast === 'function') toast('Please sign in to send messages.'); return; }
@@ -1088,13 +1104,14 @@
       '<div id="ownerConvoName" style="font-weight:700;font-size:0.95rem"></div>' +
       '</div>' +
       '<div class="msg-thread" id="ownerMsgs" style="max-height:400px"></div>' +
-      // R6 P2 #7 — owner reply composer is a textarea that auto-grows up to
-      // ~140px tall. Plain Enter sends (keeps muscle-memory from <input>),
-      // Shift+Enter inserts a newline.
+      // R60 — Enter inserts a newline; the send button sends.
+      // The previous rule (plain Enter sends, Shift+Enter for a newline) was
+      // unusable on a phone: there is no Shift key, so every Enter fired the
+      // message mid-sentence. Rachel sent a half-written reply to a client
+      // this way on 30 Oct 2026. The send button is now the only way to send.
       '<div class="msg-input-row" style="margin-top:8px;align-items:flex-end">' +
       '<textarea class="msg-input" id="ownerMsgIn" placeholder="Type a reply..." rows="1" ' +
       'style="resize:none;overflow-y:auto;max-height:140px;line-height:1.4;font-family:inherit" ' +
-      'onkeydown="if(event.key===\'Enter\' && !event.shiftKey){event.preventDefault();HHP_Messaging.sendFromOwner()}" ' +
       'oninput="this.style.height=\'auto\';this.style.height=Math.min(this.scrollHeight,140)+\'px\'"></textarea>' +
       '<button class="msg-send" onclick="HHP_Messaging.sendFromOwner()">➤</button></div>' +
       '</div>';
