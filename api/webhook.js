@@ -206,6 +206,78 @@ module.exports = async function handler(req, res) {
       break;
     }
 
+    // R61 - a refund issued in Stripe now reaches the app.
+    //
+    // Until now nothing listened for this, so every refund Dom made by hand
+    // in the Stripe dashboard left the payments row sitting at 'paid'. The
+    // client kept seeing a charge they had been told was returned, Rachel's
+    // revenue figures were overstated by the whole value of every refund,
+    // and nobody but Dom ever knew it had happened.
+    //
+    // Reads only what Stripe has already done. Starts no charge and no
+    // refund of its own.
+    case 'charge.refunded':
+    case 'charge.refund.updated': {
+      const charge = event.data.object.object === 'charge'
+        ? event.data.object
+        : null;
+      // charge.refund.updated hands back a refund, not a charge.
+      const intentId = charge ? charge.payment_intent : event.data.object.payment_intent;
+      const refunded = charge ? charge.amount_refunded : null;
+      const total    = charge ? charge.amount : null;
+
+      if (!intentId) { console.log('Refund event with no payment_intent, skipping'); break; }
+
+      try {
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+        // Partial vs full. If Stripe did not give us the amounts (refund.updated),
+        // leave the existing status alone rather than guessing it was full.
+        let status = null;
+        if (refunded !== null && total !== null && total > 0) {
+          status = refunded >= total ? 'refunded' : 'partial_refund';
+        }
+        if (!status) { console.log('Refund event without amounts, no status change:', intentId); break; }
+
+        const when = new Date().toISOString().slice(0, 10);
+        const note = 'Refunded $' + (refunded / 100).toFixed(2) +
+                     ' of $' + (total / 100).toFixed(2) + ' in Stripe on ' + when + '.';
+
+        // Gotcha 1 in the handoff: the Supabase client RESOLVES on a failed
+        // write, it does not throw. So select back and check the row count
+        // instead of trusting the absence of an error.
+        const { data: rows, error } = await supabase
+          .from('payments')
+          .update({ status })
+          .eq('stripe_session_id', intentId)
+          .select('id, amount, status');
+
+        if (error) { console.error('[webhook] refund update failed:', error.message); break; }
+        if (!rows || rows.length === 0) {
+          console.warn('[webhook] refund had no matching payments row:', intentId);
+          break;
+        }
+        console.log('[webhook] marked', rows.length, 'payment(s)', status, '-', note);
+
+        // Tell Rachel, same one-directional rule as the failure alert:
+        // owner's user_id only, so no client ever receives one.
+        const { data: owner } = await supabase.from('profiles')
+          .select('user_id').eq('role', 'owner').limit(1).maybeSingle();
+        if (owner && owner.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: owner.user_id,
+            title: status === 'refunded' ? '\u21A9\uFE0F Refund completed' : '\u21A9\uFE0F Partial refund',
+            body: note,
+            type: 'refund',
+            read: false
+          });
+        }
+      } catch (rErr) {
+        console.error('[webhook] refund handler error:', rErr.message);
+      }
+      break;
+    }
+
     default:
       console.log(`Unhandled event type: ${event.type}`);
   }

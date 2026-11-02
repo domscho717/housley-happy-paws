@@ -1039,6 +1039,13 @@
       var totalEl = document.getElementById('brm-price-total');
 
       if (!svcName || svcName === 'Meet & Greet') {
+        // R59: this early return used to skip the deal block at the bottom of
+        // this function, the only place window._brmDealDiscount is ever cleared.
+        // Price House Sitting, then switch the dropdown to Meet & Greet, and the
+        // stale deal object survived - at submit it won the ternary and wrote its
+        // discountedTotal as estimated_total. Matt Zimmerman's free meet & greet
+        // on 29 Oct was stored at $629.00 with a $111 discount against it.
+        window._brmDealDiscount = null;
         if (estimateEl) estimateEl.style.display = svcName === 'Meet & Greet' ? 'block' : 'none';
         if (svcName === 'Meet & Greet') {
           if (breakdownEl) breakdownEl.textContent = 'Meet & Greet is free!';
@@ -3114,6 +3121,11 @@
 
     // ── Payment method required for all paid services (cached for speed) ──
     var isFreeService = service.toLowerCase().indexOf('meet') !== -1 && service.toLowerCase().indexOf('greet') !== -1;
+    // R59: belt and braces. A free service must reach the database as $0 with no
+    // deal attached, whatever stale state the form is carrying, because the
+    // accept path decides whether to charge purely on estimated_total > 0.
+    var _isFreeSvc = isFreeService;
+    if (_isFreeSvc) window._brmDealDiscount = null;
     if (!isFreeService && window.HHP_Auth && window.HHP_Auth.currentUser) {
       if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
       try {
@@ -3277,10 +3289,12 @@
             number_of_pets: numPets,
             is_puppy: isPuppy,
             is_holiday: holidayFlag,
-            estimated_total: window._brmDealDiscount ? window._brmDealDiscount.discountedTotal : (isHouseSittingSvc ? priceResult.total : multiDateTotal),
-            price_breakdown: multiDateBreakdown + (window._brmDealDiscount ? ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + window._brmDealDiscount.savings.toFixed(2) : ''),
-            deal_id: window._brmDealDiscount ? window._brmDealDiscount.deal.id : null,
-            deal_discount: window._brmDealDiscount ? window._brmDealDiscount.savings : null,
+            estimated_total: _isFreeSvc ? 0
+              : (window._brmDealDiscount ? window._brmDealDiscount.discountedTotal : (isHouseSittingSvc ? priceResult.total : multiDateTotal)),
+            price_breakdown: _isFreeSvc ? 'Meet & Greet — free'
+              : multiDateBreakdown + (window._brmDealDiscount ? ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + window._brmDealDiscount.savings.toFixed(2) : ''),
+            deal_id: _isFreeSvc ? null : (window._brmDealDiscount ? window._brmDealDiscount.deal.id : null),
+            deal_discount: _isFreeSvc ? null : (window._brmDealDiscount ? window._brmDealDiscount.savings : null),
             special_notes: notes || null,
             address: address,
             house_area: address,
@@ -3515,6 +3529,14 @@
   //   - returns { success, message, paymentIntentId, status } so callers can
   //     toast appropriately. NEVER silently swallows.
   // ════════════════════════════════════════════════════════════
+  // R59: Meet & Greet is free and must never be charged. Every charge gate below
+  // used to ask only 'is estimated_total > 0', so a row that wrongly carried a
+  // price would charge a client for a free visit. Ask what the service IS too.
+  function _isFreeService(service) {
+    var s = String(service || '').toLowerCase();
+    return s.indexOf('meet') !== -1 && s.indexOf('greet') !== -1;
+  }
+
   async function _fireAcceptanceCharge(sb, opts) {
     var bookingRequestId = opts.bookingRequestId;
     var amount = opts.amount;
@@ -3657,6 +3679,10 @@
     }
     if (!bk.estimated_total || bk.estimated_total <= 0) {
       if (typeof toast === 'function') toast('Nothing to charge (estimated_total = $0).');
+      return { success: false };
+    }
+    if (_isFreeService(bk.service)) {
+      if (typeof toast === 'function') toast('Meet & Greet is free \u2014 not charging.');
       return { success: false };
     }
     if (!bk.client_id) {
@@ -4509,7 +4535,7 @@
         // Recurring bookings bill week-by-week (firstWeek now, then Sunday cron) — never charge
         // the full series total up front. The per-appointment accept path already does this;
         // mirror it here at the top-level accept.
-        if (newStatus === 'accepted' && req && req.service && req.estimated_total > 0 && req.client_id && !req.recurrence_pattern) {
+        if (newStatus === 'accepted' && req && req.service && req.estimated_total > 0 && req.client_id && !req.recurrence_pattern && !_isFreeService(req.service)) {
           console.log('[charge-on-accept] HHP_BookingAdmin.updateStatus firing charge for', requestId);
           // Direct fetch here so we can branch on chargeData.error and feed the
           // 'cardDeclined' flag into the payment_hold/notify flow further below.
@@ -4665,7 +4691,7 @@
 
         // Recurring bookings: trigger first-week billing now (Sunday cron handles ongoing weeks).
         // Fire-and-forget — status is already 'accepted'; if billing fails the cron retry path will surface it.
-        if (newStatus === 'accepted' && req && req.recurrence_pattern && req.estimated_total > 0 && req.client_id) {
+        if (newStatus === 'accepted' && req && req.recurrence_pattern && req.estimated_total > 0 && req.client_id && !_isFreeService(req.service)) {
           (async function() {
             try {
               // This endpoint 401s without a Bearer token. It was called without one, so
@@ -4718,7 +4744,7 @@
 
         if (typeof toast === 'function') {
           var msg = 'Request ' + newStatus + '!';
-          if (newStatus === 'accepted' && !autoCharged && req && req.estimated_total > 0 && !req.recurrence_pattern) {
+          if (newStatus === 'accepted' && !autoCharged && req && req.estimated_total > 0 && !req.recurrence_pattern && !_isFreeService(req.service)) {
             msg += ' Payment link sent to client.';
           }
           toast(msg);
@@ -5964,7 +5990,8 @@
         return { id: bk.id, action: 'accepted' };
       }));
 
-      var chargeableBatch = batchBookings.filter(function(bk) { return bk.estimated_total > 0 && bk.client_id; });
+      var chargeableBatch = batchBookings.filter(function(bk) {
+        return bk.estimated_total > 0 && bk.client_id && !_isFreeService(bk.service); });
       if (chargeableBatch.length > 0) {
         (async function() {
           var batchTotal = chargeableBatch.reduce(function(sum, bk) { return sum + (bk.estimated_total || 0); }, 0);
@@ -6120,7 +6147,7 @@
       var keptSet = {};
       keptIds.forEach(function (id) { keptSet[id] = true; });
       var chargeable = batchBookings.filter(function (bk) {
-        return keptSet[bk.id] && bk.estimated_total > 0 && bk.client_id;
+        return keptSet[bk.id] && bk.estimated_total > 0 && bk.client_id && !_isFreeService(bk.service);
       });
       if (chargeable.length > 0) {
         (async function () {
