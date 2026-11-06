@@ -198,11 +198,24 @@
   }
 
   // Apply a deal to a price, returns { discountedTotal, savingsAmount, deal }
-  function _applyDeal(deal, originalTotal) {
+  //
+  // R62 - Rachel's rule, 30 Oct 2026: a once-per-client discount is worth ONE
+  // UNIT of service, not a percentage of the whole booking. One night of a
+  // house sit, one visit of a batch. Pass unitPrice and a percent deal is
+  // worked out from that; leave it out and the old whole-booking behaviour
+  // stands, which is correct for a single-visit booking where the unit IS
+  // the booking.
+  //
+  // The old rule gave away $304.50 more than it should have across three
+  // multi-night stays - $144 on a 6-night, $131.25 on a 7-night, $96 on a
+  // 4-night - because 15% of a week is not 15% of a night.
+  function _applyDeal(deal, originalTotal, unitPrice) {
     if (!deal || !originalTotal || originalTotal <= 0) return { discountedTotal: originalTotal, savingsAmount: 0, deal: null };
     var savings = 0;
     if (deal.discount_type === 'percent') {
-      savings = originalTotal * (deal.discount_value / 100);
+      var pctBase = (typeof unitPrice === 'number' && unitPrice > 0 && unitPrice < originalTotal)
+        ? unitPrice : originalTotal;
+      savings = pctBase * (deal.discount_value / 100);
     } else {
       savings = Math.min(deal.discount_value, originalTotal); // Don't go below $0
     }
@@ -1235,7 +1248,18 @@
         if (totalDates > 1 && !isHS) displayedTotal = result.total * totalDates;
         else if (isHS) displayedTotal = result.total;
 
-        var dealResult = _applyDeal(activeDeal, displayedTotal);
+        // R62 - the unit the discount is worth. House sitting bills per night,
+        // so one night is total/nights; a multi-date booking repeats one visit,
+        // so one visit is result.total. calculatePrice() already returns
+        // nights, so nothing is recomputed here.
+        var _dealUnit = null;
+        if (isHS) {
+          var _n = (result && result.nights) || 1;
+          if (_n > 1) _dealUnit = Math.round((displayedTotal / _n) * 100) / 100;
+        } else if (totalDates > 1) {
+          _dealUnit = result.total;
+        }
+        var dealResult = _applyDeal(activeDeal, displayedTotal, _dealUnit);
         if (dealResult.savingsAmount > 0) {
           // Update the total display with strikethrough + new price
           if (totalEl) {
@@ -3195,10 +3219,19 @@
           return calculatePrice(service, numPets, isPuppy, isHoliday(dc.date), petType, 1,
                                 window._brmDogCount, window._brmCatCount, '', '');
         });
-        // Spread the deal proportionally instead of splitting it evenly, so a
-        // dearer holiday date carries a proportionally larger share of it.
-        var _dealRate = (window._brmDealDiscount && window._brmDealDiscount.originalTotal > 0)
-          ? (window._brmDealDiscount.savings / window._brmDealDiscount.originalTotal) : 0;
+        // R62 - the deal lands on ONE visit, not spread across every visit.
+        // Sharing it out proportionally is what turned a one-visit discount
+        // into a discount on the whole batch. The dearest visit carries it:
+        // deterministic, and it can never exceed that visit's own price.
+        var _dealTotalSavings = (window._brmDealDiscount && window._brmDealDiscount.savings) || 0;
+        var _dealSlotIdx = -1;
+        if (_dealTotalSavings > 0) {
+          var _dearest = -1;
+          _slotPrices.forEach(function (sp, i) {
+            var t = (sp && sp.total) || 0;
+            if (t > _dearest) { _dearest = t; _dealSlotIdx = i; }
+          });
+        }
 
         // Build a map of per-slot recurring settings
         var slotRecurMap = {};
@@ -3230,13 +3263,15 @@
           var slotRecurrence = slotRecurMap[idx] || null;
           var _sp = _slotPrices[idx] || priceResult;
           var perVisitPrice = _sp.total;
-          var perVisitDealSavings = _dealRate > 0 ? Math.round(perVisitPrice * _dealRate * 100) / 100 : null;
+          var perVisitDealSavings = (idx === _dealSlotIdx && _dealTotalSavings > 0)
+            ? Math.round(Math.min(_dealTotalSavings, perVisitPrice) * 100) / 100 : null;
           var perVisitTotal = perVisitDealSavings ? Math.round((perVisitPrice - perVisitDealSavings) * 100) / 100 : perVisitPrice;
           var slotBreakdown = _sp.breakdown;
           if (slotRecurrence) {
             slotBreakdown += ' | Recurring: $' + perVisitPrice.toFixed(2) + '/appointment, charged the Sunday before each appointment week';
           }
-          if (window._brmDealDiscount) {
+          // R62 - only the one visit carrying the deal gets the line.
+          if (window._brmDealDiscount && perVisitDealSavings) {
             slotBreakdown += ' | 🏷️ ' + window._brmDealDiscount.deal.name + ': -$' + perVisitDealSavings.toFixed(2);
           }
           return {
