@@ -151,6 +151,10 @@ module.exports = async function handler(req, res) {
           await supabase.from('booking_requests').insert({
             service: meta.service || 'Pet Care',
             preferred_date: meta.serviceDate,
+            // R63 - same NOT NULL constraint as create-invoice-booking. Without
+            //       this the booking silently failed to appear after the client
+            //       paid the invoice, inside a webhook where nobody sees it.
+            preferred_time: '',
             preferred_end_date: meta.endDate || null,
             scheduled_date: meta.serviceDate,
             contact_name: meta.clientName || '',

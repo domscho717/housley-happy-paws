@@ -72,8 +72,10 @@ module.exports = async function handler(req, res) {
     petNames, dueDate, serviceDate, endDate, notes,
   } = req.body || {};
 
-  if (!clientEmail || !amount || !service) {
-    return res.status(400).json({ error: 'Missing required fields: clientEmail, amount, service' });
+  // R63 - serviceDate is required: booking_requests.preferred_date is NOT NULL.
+  //       Without this the insert failed with a raw Postgres constraint error.
+  if (!clientEmail || !amount || !service || !serviceDate) {
+    return res.status(400).json({ error: 'Missing required fields: clientEmail, amount, service, serviceDate' });
   }
   if (typeof amount !== 'number' || amount <= 0) {
     return res.status(400).json({ error: 'amount must be a positive number' });
@@ -126,6 +128,10 @@ module.exports = async function handler(req, res) {
       service: service,
       pet_names: petNames || null,
       preferred_date: serviceDate || null,
+      // R63 - preferred_time is NOT NULL with no default. The client booking
+      //       form passes '' for an unspecified time; this flow passed nothing,
+      //       so EVERY owner-side invoice insert was rejected (23502).
+      preferred_time: '',
       preferred_end_date: isHouseSitting ? (endDate || null) : null,
       estimated_total: amount,
       status: 'invoice_sent',
