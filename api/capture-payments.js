@@ -199,7 +199,12 @@ module.exports = async function handler(req, res) {
               service_date: nextOccurrence,
               type: 'recurring_weekly',
             },
-          });
+            // R64 - the retry path below and charge-saved-card.js both send an
+            //       idempotency key; this one did not. Vercel retries a timed-out
+            //       function, and two overlapping cron runs can both clear the
+            //       "already charged for this date?" check above before either
+            //       writes, billing the client twice for one visit.
+          }, { idempotencyKey: `recurring-${booking.id}-${nextOccurrence}-${chargeCents}` });
 
           if (paymentIntent.status === 'succeeded') {
             results.charged++;
