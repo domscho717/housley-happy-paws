@@ -1178,7 +1178,7 @@
     try{
       var[clientsRes,petsRes]=await Promise.all([
         sb.from('profiles').select('id,user_id,full_name,phone,pet_names,avatar_url').eq('role','client').order('full_name',{ascending:true}),
-        sb.from('pets').select('id,name,species,breed,photo_url,owner_id')
+        sb.from('pets').select('id,name,species,breed,photo_url,owner_id,social_media_ok')
       ]);
       var clients=clientsRes.data||[];
       var allPets=petsRes.data||[];
@@ -1216,6 +1216,7 @@
               petHtml+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
               petHtml+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
               petHtml+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
+              petHtml+=_socialDot(pet.social_media_ok);
               petHtml+='<span style="font-size:0.65rem;color:var(--forest);font-weight:600">View →</span>';
               petHtml+='</div>';
             });
@@ -1264,7 +1265,7 @@
     if(!sb){el.innerHTML='<div style="font-size:0.75rem;color:var(--mid);padding:4px 0;font-style:italic">Could not load</div>';return;}
     try{
       // First try direct query
-      var{data:pets,error}=await sb.from('pets').select('id,name,species,breed,photo_url,owner_id').eq('owner_id',ownerUserId).order('name');
+      var{data:pets,error}=await sb.from('pets').select('id,name,species,breed,photo_url,owner_id,social_media_ok').eq('owner_id',ownerUserId).order('name');
       // Fallback: try RPC if direct query returned empty
       if((!pets||!pets.length)&&!error){
         try{
@@ -1286,6 +1287,7 @@
         h+='<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;border-radius:6px;cursor:pointer;transition:background 0.15s;font-size:0.8rem" onclick="event.stopPropagation();HHP_Customizer.openPetProfile(\''+pet.id+'\')" onmouseover="this.style.background=\'rgba(200,150,62,0.08)\'" onmouseout="this.style.background=\'\'">';
         h+='<div style="width:26px;height:26px;border-radius:50%;background:var(--warm);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;font-size:0.7rem">'+petAvatar+'</div>';
         h+='<div style="flex:1"><span style="font-weight:600">'+pet.name+'</span><span style="color:var(--mid);font-size:0.7rem;margin-left:4px">'+(pet.breed||pet.species||'')+'</span></div>';
+        h+=_socialDot(pet.social_media_ok);
         h+='<span style="font-size:0.65rem;color:var(--forest);font-weight:600">View →</span>';
         h+='</div>';
       });
@@ -1527,6 +1529,18 @@
   setTimeout(_fallback,500);
 
   // ── PET PROFILE MODAL ──
+  // R67 - Rachel could not see photo consent anywhere she actually looks.
+  //       The full badge existed, but only inside the pet profile modal, which
+  //       meant opening every pet one at a time - there are 30. The client list
+  //       did not even fetch the field. This puts it on each pet row.
+  //       7 owners have said yes, 7 have said no, 16 have never been asked -
+  //       so "no answer" must never read as permission.
+  function _socialDot(v){
+    if(v===true)  return '<span title="Owner said YES to photos" style="font-size:0.72rem;margin-right:6px;flex-shrink:0">&#128248;</span>';
+    if(v===false) return '<span title="Owner said NO - do not post this pet" style="font-size:0.72rem;margin-right:6px;flex-shrink:0">&#128683;</span>';
+    return '<span title="Never asked - treat as no until the client answers" style="font-size:0.72rem;margin-right:6px;flex-shrink:0;opacity:0.6">&#10068;</span>';
+  }
+
   async function _openPetProfile(petId){
     var sb=_getSB();if(!sb||!petId)return;
     try{
