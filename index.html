@@ -2714,6 +2714,25 @@ try {
             <div class="card-title" style="margin-bottom:10px">Outstanding, all weeks</div>
             <div id="payrollOutstanding" style="font-size:0.88rem;color:var(--mid)">—</div>
           </div>
+          <!-- R75: pay lines the site cannot work out by itself. -->
+          <div class="card" style="margin-top:14px">
+            <div class="card-title" style="margin-bottom:6px">Add a pay line by hand</div>
+            <div style="font-size:0.8rem;color:var(--mid);margin-bottom:12px;line-height:1.5">For the odd case the site cannot work out itself: two people sharing one visit, or a visit that was never started in the app. Enter what the client paid for that person's part and their share is worked out from their pay rate. To split a visit, remove the automatic line above and add one line per person.</div>
+            <div class="form-row" style="margin-bottom:10px">
+              <div class="form-group"><label class="form-lbl">Who</label><select class="form-in" id="mp-staff" onchange="hhpManualPayPreview()"></select></div>
+              <div class="form-group"><label class="form-lbl">Date of the visit</label><input class="form-in" id="mp-date" type="date"></div>
+            </div>
+            <div class="form-row" style="margin-bottom:10px">
+              <div class="form-group"><label class="form-lbl">Service</label><input class="form-in" id="mp-service" placeholder="Dog Walking"></div>
+              <div class="form-group"><label class="form-lbl">Client</label><input class="form-in" id="mp-client" placeholder="Client name"></div>
+            </div>
+            <div class="form-row" style="margin-bottom:10px">
+              <div class="form-group"><label class="form-lbl">Client paid for this part ($)</label><input class="form-in" id="mp-gross" type="number" step="0.01" min="0" placeholder="0.00" oninput="hhpManualPayPreview()"></div>
+              <div class="form-group"><label class="form-lbl">They get</label><div id="mp-preview" style="padding:10px 0;font-weight:700">—</div></div>
+            </div>
+            <div id="mp-error" style="display:none;color:#c44;font-size:0.82rem;margin-bottom:8px"></div>
+            <button class="btn btn-forest btn-sm" onclick="hhpSaveManualPay()">Add pay line</button>
+          </div>
         </div>
 
         <div id="addStaffFormWrap" style="display:none;margin-top:16px">
@@ -12033,7 +12052,9 @@ async function loadStaffPayroll() {
             + '<span style="color:var(--mid)">' + d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
             + ' · ' + esc(r.service || '') + (r.client_name ? ' · ' + esc(r.client_name) : '') + '</span>'
             + '<span style="font-weight:600;white-space:nowrap">' + money(r.staff_amount)
-            + (r.status === 'paid' ? ' <span style="color:var(--forest);font-size:0.72rem">paid</span>' : '') + '</span></div>';
+            + (r.status === 'paid' ? ' <span style="color:var(--forest);font-size:0.72rem">paid</span>'
+                : ' <a href="#" onclick="event.preventDefault();hhpVoidPayLine(\'' + r.id + '\')" style="color:var(--rose,#c25656);font-size:0.72rem;margin-left:6px">remove</a>')
+            + '</span></div>';
         }).join('');
         return '<div style="border:1px solid var(--border,#e8e0d4);border-radius:12px;padding:14px;background:var(--cream,#fdfaf5)">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">'
@@ -12052,6 +12073,8 @@ async function loadStaffPayroll() {
       }).join('');
     }
 
+    hhpLoadManualPayStaff();   // R75 - fills the "add a pay line by hand" picker
+
     // Everything still owed, across every week, so nothing gets forgotten.
     var { data: allUnpaid } = await sb.from('staff_earnings')
       .select('staff_id, staff_amount').eq('status', 'unpaid');
@@ -12068,6 +12091,93 @@ async function loadStaffPayroll() {
     console.error('[payroll] load failed:', e);
     listEl.innerHTML = '<div style="padding:22px;text-align:center;color:var(--rose,#c25656);font-size:0.88rem">Could not load payroll — see console.</div>';
   }
+}
+
+// ── R75: pay lines by hand, and removing one ──
+var _hhpManualPayStaff = [];
+async function hhpLoadManualPayStaff() {
+  var sel = document.getElementById('mp-staff');
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sel || !sb) return;
+  try {
+    var { data } = await sb.from('profiles').select('user_id, full_name, staff_pay_pct, is_active')
+      .eq('role', 'staff').order('full_name', { ascending: true });
+    _hhpManualPayStaff = (data || []).filter(function(p) { return p.user_id && p.is_active !== false; });
+    var keep = sel.value;
+    sel.innerHTML = '';
+    var first = document.createElement('option');
+    first.value = ''; first.textContent = _hhpManualPayStaff.length ? 'Choose a person' : 'No staff yet';
+    sel.appendChild(first);
+    _hhpManualPayStaff.forEach(function(p) {
+      var o = document.createElement('option');
+      o.value = p.user_id; o.textContent = p.full_name || 'Staff';
+      sel.appendChild(o);
+    });
+    if (keep) sel.value = keep;
+    hhpManualPayPreview();
+  } catch (e) { console.warn('[payroll] staff list:', e); }
+}
+function _hhpManualPaySplit() {
+  var sid = (document.getElementById('mp-staff') || {}).value || '';
+  var gross = Number((document.getElementById('mp-gross') || {}).value);
+  var p = _hhpManualPayStaff.filter(function(x) { return x.user_id === sid; })[0];
+  if (!p || !isFinite(gross) || gross <= 0) return null;
+  return { person: p, split: hhpPaySplit(gross, p.staff_pay_pct) };
+}
+function hhpManualPayPreview() {
+  var el = document.getElementById('mp-preview');
+  if (!el) return;
+  var r = _hhpManualPaySplit();
+  el.textContent = r ? '$' + r.split.staff.toFixed(2) + ' (' + r.split.pct + '% of $' + r.split.gross.toFixed(2) + ')' : '—';
+}
+async function hhpSaveManualPay() {
+  var errEl = document.getElementById('mp-error');
+  function err(m) { if (errEl) { errEl.textContent = m; errEl.style.display = 'block'; } }
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb) { err('Not signed in.'); return; }
+  var date = (document.getElementById('mp-date') || {}).value || '';
+  var r = _hhpManualPaySplit();
+  if (!r) { err('Choose a person and enter what the client paid for their part.'); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { err('Pick the date of the visit.'); return; }
+  var service = ((document.getElementById('mp-service') || {}).value || '').trim();
+  var client = ((document.getElementById('mp-client') || {}).value || '').trim();
+  try {
+    var res = await sb.from('staff_earnings').insert({
+      staff_id: r.person.user_id, booking_id: null, service_date: date,
+      service: service || null, client_name: client || null,
+      gross_amount: r.split.gross, pay_pct: r.split.pct, staff_amount: r.split.staff,
+      platform_amount: r.split.platform, owner_amount: r.split.owner,
+      status: 'unpaid', note: 'Added by hand'
+    }).select('id');
+    if (res.error || !res.data || !res.data.length) {
+      console.error('[payroll] manual line failed:', res.error);
+      err('That did not save' + (res.error && res.error.message ? ': ' + res.error.message : '.'));
+      return;
+    }
+    if (typeof toast === 'function') toast('✅ Pay line added for ' + (r.person.full_name || 'staff') + ' — $' + r.split.staff.toFixed(2));
+    ['mp-gross', 'mp-service', 'mp-client'].forEach(function(id) { var e = document.getElementById(id); if (e) e.value = ''; });
+    hhpManualPayPreview();
+    if (typeof loadStaffPayroll === 'function') loadStaffPayroll();
+  } catch (e) { console.error('[payroll] manual line threw:', e); err('That did not save - see console.'); }
+}
+// Removing a line marks it void rather than deleting it, so there is always a
+// record that it existed. Only unpaid lines offer this.
+async function hhpVoidPayLine(id) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !id) return;
+  if (!window.confirm('Remove this pay line? Use this when a visit was shared and you are adding each person\'s part by hand.')) return;
+  try {
+    var res = await sb.from('staff_earnings').update({ status: 'void', note: 'Removed by owner' })
+      .eq('id', id).eq('status', 'unpaid').select('id');
+    if (res.error || !res.data || !res.data.length) {
+      console.error('[payroll] remove failed:', res.error);
+      if (typeof toast === 'function') toast('⚠️ That line was not removed.', 'error');
+      return;
+    }
+    if (typeof toast === 'function') toast('Pay line removed.');
+    if (typeof loadStaffPayroll === 'function') loadStaffPayroll();
+  } catch (e) { console.error('[payroll] remove threw:', e); }
 }
 
 // Mark one person's week paid. Verified with .select() and a row count,
@@ -14817,7 +14927,8 @@ var _staffClientsData = [];
 async function hhpStaffScope() {
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   var user = window.HHP_Auth && window.HHP_Auth.currentUser;
-  var out = { uid: user ? user.id : null, clientUserIds: [], legacyClientUserIds: [], assigned: [] };
+  var out = { uid: user ? user.id : null, clientUserIds: [], legacyClientUserIds: [], assigned: [],
+              dayBookingIds: [], myDays: {}, notMyDays: {} };
   if (!sb || !user) return out;
   var seen = {};
   function add(id) { if (id && !seen[id]) { seen[id] = 1; out.clientUserIds.push(id); } }
@@ -14840,20 +14951,79 @@ async function hhpStaffScope() {
       }
     }
   } catch (e2) { console.warn('[staff-scope] legacy assignments:', e2); }
+  // R75 - single days. booking_day_staff says who covers ONE day of a booking
+  // that spans several (a multi-night house sit, a recurring series).
+  //   myDays     booking id -> the days this person covers on it
+  //   notMyDays  booking id -> days someone else covers on a booking that is
+  //              otherwise assigned to this person
+  try {
+    var wholeIds = out.assigned.map(function(b) { return b.id; });
+    var md = await sb.from('booking_day_staff').select('booking_id, service_date').eq('staff_id', user.id);
+    ((md && md.data) || []).forEach(function(r) {
+      if (!out.myDays[r.booking_id]) { out.myDays[r.booking_id] = []; out.dayBookingIds.push(r.booking_id); }
+      out.myDays[r.booking_id].push(r.service_date);
+    });
+    // Bookings reached only through a covered day: pull their client details
+    // too, and forget any whose booking no longer exists.
+    var extraIds = out.dayBookingIds.filter(function(id) { return wholeIds.indexOf(id) === -1; });
+    if (extraIds.length) {
+      var eb = await sb.from('booking_requests')
+        .select('id, client_id, contact_name, contact_email, contact_phone, pet_names, status, preferred_date')
+        .in('id', extraIds);
+      var alive = {};
+      ((eb && eb.data) || []).forEach(function(b) { alive[b.id] = 1; out.assigned.push(b); add(b.client_id); });
+      out.dayBookingIds = out.dayBookingIds.filter(function(id) { return wholeIds.indexOf(id) !== -1 || alive[id]; });
+    }
+    if (wholeIds.length) {
+      var od = await sb.from('booking_day_staff').select('booking_id, service_date, staff_id')
+        .in('booking_id', wholeIds).neq('staff_id', user.id);
+      ((od && od.data) || []).forEach(function(r) {
+        (out.notMyDays[r.booking_id] = out.notMyDays[r.booking_id] || []).push(r.service_date);
+      });
+    }
+  } catch (e3) { console.warn('[staff-scope] day cover:', e3); }
   return out;
 }
 // Narrow a booking_requests query to this staff member's work. It never
 // widens: with nothing assigned it matches nothing, not everything.
 function hhpStaffFilter(query, scope) {
   if (!scope || !scope.uid) return query.eq('assigned_to', '00000000-0000-0000-0000-000000000000');
-  if (scope.legacyClientUserIds && scope.legacyClientUserIds.length) {
-    var inList = scope.legacyClientUserIds.map(function(id) { return '"' + id + '"'; }).join(',');
-    return query.or('assigned_to.eq.' + scope.uid + ',client_id.in.(' + inList + ')');
-  }
-  return query.eq('assigned_to', scope.uid);
+  function q(ids) { return ids.map(function(id) { return '"' + id + '"'; }).join(','); }
+  var parts = ['assigned_to.eq.' + scope.uid];
+  // R75: bookings where this person covers individual days.
+  if (scope.dayBookingIds && scope.dayBookingIds.length) parts.push('id.in.(' + q(scope.dayBookingIds) + ')');
+  if (scope.legacyClientUserIds && scope.legacyClientUserIds.length) parts.push('client_id.in.(' + q(scope.legacyClientUserIds) + ')');
+  return parts.length === 1 ? query.eq('assigned_to', scope.uid) : query.or(parts.join(','));
+}
+// R75 - is this particular day of this booking this person's?
+// A covered day wins over the booking's own assignee, in both directions.
+function hhpIsMyDay(scope, b, dateStr) {
+  if (!scope || !b) return false;
+  if ((scope.myDays[b.id] || []).indexOf(dateStr) !== -1) return true;
+  if ((scope.notMyDays[b.id] || []).indexOf(dateStr) !== -1) return false;
+  if (b.assigned_to && b.assigned_to === scope.uid) return true;
+  if (b.client_id && (scope.legacyClientUserIds || []).indexOf(b.client_id) !== -1) return true;
+  return false;
+}
+function hhpDayList(dates) {
+  return (dates || []).slice().sort().map(function(d) {
+    var dt = new Date(d + 'T12:00:00');
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }).join(', ');
+}
+// One line under a job on the staff side, only when the booking is split.
+function hhpDayCoverNote(scope, b) {
+  if (!scope || !b) return '';
+  var mine = scope.myDays[b.id] || [], notMine = scope.notMyDays[b.id] || [];
+  var whole = b.assigned_to && b.assigned_to === scope.uid;
+  if (mine.length && !whole) return '<div style="font-size:0.72rem;font-weight:700;color:var(--forest,#3d5a47);margin-top:2px">📅 Your days: ' + hhpDayList(mine) + '</div>';
+  if (whole && notMine.length) return '<div style="font-size:0.72rem;color:var(--mid);margin-top:2px">Covered by someone else: ' + hhpDayList(notMine) + '</div>';
+  return '';
 }
 window.hhpStaffScope = hhpStaffScope;
 window.hhpStaffFilter = hhpStaffFilter;
+window.hhpIsMyDay = hhpIsMyDay;
+window.hhpDayCoverNote = hhpDayCoverNote;
 
 async function loadStaffClients() {
   var listEl = document.getElementById('sc-list');
@@ -14997,6 +15167,21 @@ async function loadStaffSchedule() {
     var bookingsRes = await bookingsQuery;
     var bookings = bookingsRes.data || [];
 
+    // R75 - bookings where this person covers individual days. A long sit can
+    // have started before this week, so these are fetched without the date
+    // floor and kept while one of their days is still to come.
+    if (_scope.dayBookingIds.length) {
+      try {
+        var _wkStart = _localDateStr(startOfWeek);
+        var _dcRes = await sb.from('booking_requests').select('*').in('id', _scope.dayBookingIds)
+          .in('status', ['accepted', 'confirmed', 'pending', 'in_progress', 'payment_hold']);
+        ((_dcRes && _dcRes.data) || []).forEach(function(db) {
+          var _upcoming = (_scope.myDays[db.id] || []).some(function(d) { return d >= _wkStart; });
+          if (_upcoming && !bookings.some(function(b) { return b.id === db.id; })) bookings.push(db);
+        });
+      } catch (dcErr) { console.warn('[staff schedule] day cover:', dcErr); }
+    }
+
     // Also include recurring bookings for today
     var todayStr = _localDateStr(today);
     if (typeof isRecurringOnDate === 'function') {
@@ -15004,7 +15189,7 @@ async function loadStaffSchedule() {
         .in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']).not('recurrence_pattern', 'is', null), _scope);
       if (staffRecurring) {
         staffRecurring.forEach(function(rb) {
-          if (isRecurringOnDate(rb, todayStr)) {
+          if (isRecurringOnDate(rb, todayStr) && hhpIsMyDay(_scope, rb, todayStr)) {
             var alreadyIn = bookings.some(function(b) { return b.id === rb.id; });
             if (!alreadyIn) bookings.push(rb);
           }
@@ -15059,6 +15244,7 @@ async function loadStaffSchedule() {
         '<div style="font-size:0.78rem;color:var(--mid)">' + dateStr + (timeDisplay ? ' · ' + timeDisplay : '') + '</div>' +
         (b.pet_names ? '<div style="font-size:0.72rem;color:var(--mid)">🐾 ' + b.pet_names + '</div>' : '') +
         (b.contact_name ? '<div style="font-size:0.72rem;color:var(--mid)">' + b.contact_name + '</div>' : '') +
+        hhpDayCoverNote(_scope, b) +
         '</div></div>' +
         '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">' +
         '<span style="background:' + statusColor + ';color:white;font-size:0.65rem;font-weight:700;padding:3px 10px;border-radius:50px;text-transform:uppercase">' + statusLabel + '</span>' +
@@ -17143,6 +17329,49 @@ function hhpPaySplit(gross, payPct) {
   var owner = Math.round((gross - staff - platform) * 100) / 100;
   return { gross: gross, pct: pct, staff: staff, platform: platform, owner: owner };
 }
+
+// R75 - staff pay for a finished house sit, one line per night.
+// A house sit is one booking with one report at the end, so before this it
+// never wrote a pay line at all, whoever did the nights. Each night goes to
+// whoever covered it: the person picked for that day if there is one,
+// otherwise the booking's own assignee. Nights Rachel did herself write
+// nothing - hhpRecordStaffEarning() only records for staff. The last night
+// carries the leftover cents so the nights add back to exactly what the
+// client paid. Safe to run twice: the ledger allows one line per booking,
+// date and person.
+async function hhpRecordHouseSitPay(bookingId, nights, finalAmount) {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  if (!sb || !bookingId) return;
+  nights = parseInt(nights, 10);
+  var total = Math.round((Number(finalAmount) || 0) * 100) / 100;
+  if (!(nights > 0) || !(total > 0)) return;
+  try {
+    var bk = await sb.from('booking_requests')
+      .select('id, service, contact_name, preferred_date, assigned_to').eq('id', bookingId).maybeSingle();
+    var b = bk && bk.data;
+    if (!b || !b.preferred_date) return;
+    var dr = await sb.from('booking_day_staff').select('service_date, staff_id').eq('booking_id', bookingId);
+    var byDay = {};
+    ((dr && dr.data) || []).forEach(function(r) { byDay[r.service_date] = r.staff_id; });
+    if (!b.assigned_to && !Object.keys(byDay).length) return;   // all Rachel's - nothing to pay out
+    var per = Math.floor((total / nights) * 100) / 100;
+    var cur = new Date(b.preferred_date + 'T12:00:00');
+    for (var i = 0; i < nights; i++) {
+      var dk = _localDateStr(cur);
+      var who = byDay[dk] || b.assigned_to || null;
+      var gross = (i === nights - 1) ? Math.round((total - per * (nights - 1)) * 100) / 100 : per;
+      if (who) {
+        await hhpRecordStaffEarning({
+          staffId: who, bookingId: bookingId, serviceDate: dk,
+          service: (b.service || 'House Sitting') + ' (night ' + (i + 1) + ' of ' + nights + ')',
+          clientName: b.contact_name || '', gross: gross
+        });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+  } catch (e) { console.error('[staff-pay] house sit:', e); }
+}
+window.hhpRecordHouseSitPay = hhpRecordHouseSitPay;
 
 // Record what a staff member earned for one completed visit.
 // Every figure is SNAPSHOT - the percentage in force today and all three dollar
@@ -19335,7 +19564,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20261112a" defer></script>
+  <script src="/js/booking-system.js?v=20261112b" defer></script>
   <script src="/js/messaging.js?v=20261112a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260925f" defer></script>

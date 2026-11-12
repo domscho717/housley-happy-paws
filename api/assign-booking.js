@@ -48,7 +48,7 @@ module.exports = async function handler(req, res) {
     return res.status(403).json({ error: 'Forbidden: owner or staff access required' });
   }
 
-  const { bookingId, staffUserId } = req.body || {};
+  const { bookingId, staffUserId, serviceDates } = req.body || {};
   if (!bookingId || !staffUserId) return res.status(400).json({ error: 'bookingId and staffUserId are required' });
 
   try {
@@ -74,13 +74,24 @@ module.exports = async function handler(req, res) {
       : 'TBD';
     const map = mapsLink(booking.address || '');
 
-    const subject = `New assignment: ${booking.service || 'Pet Care'} — ${booking.contact_name || 'Client'} on ${dateFmt}`;
+    // R75: when Rachel gives someone individual days of a longer booking
+    // (some nights of a house sit, some visits of a weekly series), the email
+    // lists those days instead of presenting the whole booking as theirs.
+    const coverDays = Array.isArray(serviceDates)
+      ? serviceDates.filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 60).sort()
+      : [];
+    const isCover = coverDays.length > 0;
+    const coverFmt = coverDays.map(d => new Date(d + 'T12:00:00')
+      .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+    const subject = isCover
+      ? `Days to cover: ${booking.service || 'Pet Care'} — ${booking.contact_name || 'Client'}`
+      : `New assignment: ${booking.service || 'Pet Care'} — ${booking.contact_name || 'Client'} on ${dateFmt}`;
     const bodyHTML = `
       <p>Hi ${escHtml(staffProf.full_name || 'there')},</p>
-      <p>${escHtml(callerProfile.full_name || 'Rachel')} just assigned this booking to you.</p>
+      <p>${escHtml(callerProfile.full_name || 'Rachel')} ${isCover ? 'asked you to cover part of this booking.' : 'just assigned this booking to you.'}</p>
       <div style="background:#eef4ef;border-radius:10px;padding:14px 18px;margin:16px 0;border-left:4px solid #3d5a47">
         <div style="font-weight:700;font-size:1.05rem;margin-bottom:6px">${escHtml(booking.service || 'Pet Care')}</div>
-        <div style="margin-bottom:4px">📅 ${escHtml(dateFmt)}${timeFmt ? ' at ' + escHtml(timeFmt) : ''}</div>
+        <div style="margin-bottom:4px">📅 ${isCover ? '<strong>Your days:</strong> ' + escHtml(coverFmt.join(' · ')) : escHtml(dateFmt)}${timeFmt ? ' at ' + escHtml(timeFmt) : ''}</div>
         <div style="margin-bottom:4px"><strong>Client:</strong> ${escHtml(booking.contact_name || '')}</div>
         ${booking.contact_phone ? `<div style="margin-bottom:4px"><strong>Phone:</strong> ${escHtml(booking.contact_phone)}</div>` : ''}
         ${booking.contact_email ? `<div style="margin-bottom:4px"><strong>Email:</strong> ${escHtml(booking.contact_email)}</div>` : ''}

@@ -3881,6 +3881,177 @@
     }
   };
 
+  // ── R75: a different person on individual days of one booking ──
+  // Only multi-night house sits and recurring series need this; every other
+  // booking is a single day, so "Assigned to" already does the job. One row
+  // in booking_day_staff = one day covered by one person. No row for a day
+  // means the booking's own "Assigned to" applies.
+  function _dayCoverFmt(d) {
+    var dt = new Date(d + 'T12:00:00');
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function _dayCoverList(dates) {
+    return (dates || []).slice().sort().map(_dayCoverFmt).join(', ');
+  }
+  function _dayCoverYmd(dt) {
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+  }
+  // The days of a booking that can be given to someone. House sit: one per
+  // night (the same count the completion endpoint bills). Recurring: the
+  // visits in the next six weeks.
+  function _dayCoverDates(r) {
+    var out = [];
+    var hs = (r.service || '').toLowerCase().indexOf('house sitting') !== -1;
+    if (hs && r.preferred_date && r.preferred_end_date && r.preferred_end_date > r.preferred_date) {
+      var c = new Date(r.preferred_date + 'T12:00:00');
+      var e = new Date(r.preferred_end_date + 'T12:00:00');
+      while (c < e && out.length < 60) {
+        var dk = _dayCoverYmd(c);
+        out.push({ date: dk, label: 'Night of ' + _dayCoverFmt(dk) });
+        c.setDate(c.getDate() + 1);
+      }
+    } else if (r.recurrence_pattern && typeof isRecurringOnDate === 'function') {
+      var d = new Date(); d.setHours(12, 0, 0, 0);
+      for (var i = 0; i < 42 && out.length < 14; i++) {
+        var dk2 = _dayCoverYmd(d);
+        if (isRecurringOnDate(r, dk2)) out.push({ date: dk2, label: _dayCoverFmt(dk2) });
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    return out;
+  }
+
+  window.toggleDayCover = async function(bookingId) {
+    var box = document.getElementById('day-cover-' + bookingId);
+    if (!box) return;
+    if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+    box.style.display = '';
+    box.innerHTML = '<div style="font-size:0.8rem;color:var(--mid)">Loading the days\u2026</div>';
+    var sb = getSB();
+    if (!sb) { box.textContent = 'Not signed in.'; return; }
+    try {
+      var r = (_bookingPanelState.requests || []).filter(function(x) { return x.id === bookingId; })[0];
+      if (!r) {
+        var one = await sb.from('booking_requests').select('*').eq('id', bookingId).maybeSingle();
+        r = one && one.data;
+      }
+      if (!r) { box.textContent = 'Booking not found.'; return; }
+      var days = _dayCoverDates(r);
+      if (!days.length) { box.innerHTML = '<div style="font-size:0.8rem;color:var(--mid)">No upcoming days to share out on this booking.</div>'; return; }
+      var res = await sb.from('booking_day_staff').select('service_date, staff_id').eq('booking_id', bookingId);
+      if (res.error) throw res.error;
+      var byDay = {};
+      (res.data || []).forEach(function(x) { byDay[x.service_date] = x.staff_id; });
+
+      var staffList = _bookingPanelState.staffList || [];
+      var me = window.HHP_Auth && window.HHP_Auth.currentUser;
+      var myId = me ? me.id : '';
+      var wholeName = 'Rachel';
+      staffList.forEach(function(s) { if (s.user_id === r.assigned_to) wholeName = s.full_name || s.email || 'Staff'; });
+
+      var html = '<div style="font-size:0.78rem;color:var(--mid);margin-bottom:8px;line-height:1.45">Pick a different person for any single day. Days you leave alone stay with ' + escHtml(wholeName) + '.' +
+        (r.recurrence_pattern ? ' Showing the visits in the next six weeks.' : '') + '</div>';
+      days.forEach(function(dy) {
+        var cur = byDay[dy.date] || '';
+        var opts = '<option value="">Same as the booking (' + escHtml(wholeName) + ')</option>';
+        if (myId) opts += '<option value="' + myId + '"' + (cur === myId ? ' selected' : '') + '>Rachel</option>';
+        staffList.forEach(function(s) {
+          if (s.user_id === myId) return;
+          opts += '<option value="' + s.user_id + '"' + (cur === s.user_id ? ' selected' : '') + '>' + escHtml(s.full_name || s.email || 'Staff') + '</option>';
+        });
+        html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
+          '<span style="font-size:0.8rem;font-weight:600;min-width:150px">' + escHtml(dy.label) + '</span>' +
+          '<select data-prev="' + cur + '" onchange="setDayCover(\'' + bookingId + '\',\'' + dy.date + '\',this)" style="flex:1;min-width:150px;padding:6px 10px;font-size:0.8rem;border:1px solid var(--border);border-radius:6px;background:var(--cream,white);font-family:inherit">' + opts + '</select>' +
+          '</div>';
+      });
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px">' +
+        '<span style="font-size:0.74rem;color:var(--mid)">Each change saves as you make it. Nobody is told until you press the button.</span>' +
+        '<button class="btn btn-outline btn-sm" style="font-size:0.76rem" onclick="emailDayCover(\'' + bookingId + '\',this)">\uD83D\uDCE7 Email them their days</button>' +
+        '</div>';
+      box.innerHTML = html;
+    } catch (e) {
+      console.error('[day-cover] load failed:', e);
+      box.innerHTML = '<div style="font-size:0.8rem;color:var(--rose,#c25656)">Could not load the days \u2014 see console.</div>';
+    }
+  };
+
+  // Save one day. Verified with .select() and a row count, because the
+  // Supabase client resolves on a refused write rather than throwing.
+  window.setDayCover = async function(bookingId, dateStr, sel) {
+    var sb = getSB();
+    if (!sb || !sel) return;
+    var val = sel.value;
+    var prev = sel.getAttribute('data-prev') || '';
+    sel.disabled = true;
+    try {
+      if (!val) {
+        var del = await sb.from('booking_day_staff').delete().eq('booking_id', bookingId).eq('service_date', dateStr).select('id');
+        if (del.error) throw del.error;
+        if (typeof toast === 'function') toast('\u2705 ' + _dayCoverFmt(dateStr) + ' is back with the booking\'s own person');
+      } else {
+        var up = await sb.from('booking_day_staff')
+          .upsert({ booking_id: bookingId, service_date: dateStr, staff_id: val }, { onConflict: 'booking_id,service_date' })
+          .select('id');
+        if (up.error) throw up.error;
+        if (!up.data || !up.data.length) throw new Error('The change was not saved.');
+        if (typeof toast === 'function') toast('\u2705 Saved for ' + _dayCoverFmt(dateStr));
+      }
+      sel.setAttribute('data-prev', val);
+    } catch (e) {
+      console.error('[day-cover] save failed:', e);
+      sel.value = prev;
+      if (typeof toast === 'function') toast('\u26a0\ufe0f Not saved: ' + ((e && e.message) || 'unknown error'), 'error');
+    } finally {
+      sel.disabled = false;
+    }
+  };
+
+  // One email per staff member listing the days they were given on this
+  // booking. Sent only when Rachel presses the button, never on its own.
+  window.emailDayCover = async function(bookingId, btn) {
+    var sb = getSB();
+    if (!sb) return;
+    var orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '\u23f3 Sending\u2026'; }
+    try {
+      var res = await sb.from('booking_day_staff').select('service_date, staff_id').eq('booking_id', bookingId);
+      if (res.error) throw res.error;
+      var me = window.HHP_Auth && window.HHP_Auth.currentUser;
+      var today = _dayCoverYmd(new Date());
+      var byStaff = {};
+      (res.data || []).forEach(function(x) {
+        if (me && x.staff_id === me.id) return;          // Rachel does not email herself
+        if (x.service_date < today) return;              // past days are not news
+        (byStaff[x.staff_id] = byStaff[x.staff_id] || []).push(x.service_date);
+      });
+      var ids = Object.keys(byStaff);
+      if (!ids.length) { if (typeof toast === 'function') toast('Nobody else has an upcoming day on this booking.'); return; }
+      var sess = await sb.auth.getSession();
+      var token = sess && sess.data && sess.data.session ? sess.data.session.access_token : '';
+      var okCount = 0, failCount = 0;
+      for (var i = 0; i < ids.length; i++) {
+        try {
+          var resp = await fetch('/api/assign-booking', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ bookingId: bookingId, staffUserId: ids[i], serviceDates: byStaff[ids[i]].sort() }),
+          });
+          var data = await resp.json().catch(function() { return {}; });
+          if (resp.ok && data.sent) okCount++; else { failCount++; console.error('[day-cover] email failed:', resp.status, data); }
+        } catch (sendErr) { failCount++; console.error('[day-cover] email threw:', sendErr); }
+      }
+      if (typeof toast === 'function') {
+        if (failCount === 0) toast('\u2705 Emailed ' + okCount + ' ' + (okCount === 1 ? 'person' : 'people') + ' their days');
+        else toast('\u26a0\ufe0f ' + okCount + ' sent, ' + failCount + ' did not send \u2014 tell them yourself', 'error');
+      }
+    } catch (e) {
+      console.error('[day-cover] email step failed:', e);
+      if (typeof toast === 'function') toast('\u26a0\ufe0f Could not send \u2014 see console.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = orig || '\uD83D\uDCE7 Email them their days'; }
+    }
+  };
+
   // ── R5 P3 #4: send a quick reply to the client about a booking request.
   //  Calls /api/booking-reply (Resend). Empties the textarea + shows a
   //  short success toast on success; surfaces the error inline on the
@@ -5119,13 +5290,24 @@
             }
           } catch (laErr) { console.warn('[bookings panel] staff_assignments lookup:', laErr); }
 
-          // Combined filter: either assigned_to me OR client_id ∈ my legacy set.
-          if (legacyClientIds.length > 0) {
-            var inList = legacyClientIds.map(function(id) { return '"' + id + '"'; }).join(',');
-            query = query.or('assigned_to.eq.' + staffUid + ',client_id.in.(' + inList + ')');
-          } else {
-            query = query.eq('assigned_to', staffUid);
-          }
+          // R75: bookings where I cover individual days (booking_day_staff).
+          var dayCoverIds = [];
+          _bookingPanelState.myDayCover = {};
+          try {
+            var { data: _dcRows } = await sb.from('booking_day_staff').select('booking_id, service_date').eq('staff_id', staffUid);
+            (_dcRows || []).forEach(function(x) {
+              if (!_bookingPanelState.myDayCover[x.booking_id]) { _bookingPanelState.myDayCover[x.booking_id] = []; dayCoverIds.push(x.booking_id); }
+              _bookingPanelState.myDayCover[x.booking_id].push(x.service_date);
+            });
+          } catch (dcErr) { console.warn('[bookings panel] day cover lookup:', dcErr); }
+
+          // Combined filter: assigned_to me, OR a booking I cover days on, OR
+          // client_id ∈ my legacy set.
+          var _q = function(ids) { return ids.map(function(id) { return '"' + id + '"'; }).join(','); };
+          var _parts = ['assigned_to.eq.' + staffUid];
+          if (dayCoverIds.length > 0) _parts.push('id.in.(' + _q(dayCoverIds) + ')');
+          if (legacyClientIds.length > 0) _parts.push('client_id.in.(' + _q(legacyClientIds) + ')');
+          query = _parts.length === 1 ? query.eq('assigned_to', staffUid) : query.or(_parts.join(','));
         }
       }
 
@@ -5445,6 +5627,30 @@
           '</div>';
       }
 
+      // R75 - a booking that covers several days (a multi-night house sit or a
+      //    recurring series) can have a different person on individual days.
+      //    The list is loaded only when Rachel opens it.
+      var dayCoverHTML = '';
+      if (portal === 'owner' && assignableStatuses[r.status]) {
+        var _multiNight = isHS && r.preferred_date && r.preferred_end_date && r.preferred_end_date > r.preferred_date;
+        if (_multiNight || r.recurrence_pattern) {
+          dayCoverHTML =
+            '<div style="margin-top:8px">' +
+            '<button class="btn btn-outline btn-sm" style="font-size:0.76rem" onclick="event.stopPropagation();toggleDayCover(\'' + r.id + '\')">\uD83D\uDCC5 Different person on some days</button>' +
+            '<div id="day-cover-' + r.id + '" onclick="event.stopPropagation()" style="display:none;margin-top:8px;background:var(--warm);border-radius:8px;padding:10px 12px"></div>' +
+            '</div>';
+        }
+      }
+      // Staff: when only some days of a booking are theirs, say which.
+      var dayNoteHTML = '';
+      if (portal === 'staff') {
+        var _myD = (_bookingPanelState.myDayCover || {})[r.id];
+        var _meU = window.HHP_Auth && window.HHP_Auth.currentUser;
+        if (_myD && _myD.length && (!_meU || r.assigned_to !== _meU.id)) {
+          dayNoteHTML = '<div style="margin-top:10px;background:var(--warm);border-radius:8px;padding:8px 10px;font-size:0.8rem;font-weight:700;color:var(--forest,#3d5a47)">\uD83D\uDCC5 Your days: ' + escHtml(_dayCoverList(_myD)) + '</div>';
+        }
+      }
+
       // ── R5 P3 #4: owner reply text field. Lets Rachel respond to the
       //    client directly from the booking card. Sends email via
       //    /api/booking-reply (Resend) and appends to admin_notes for
@@ -5497,6 +5703,8 @@
         panelMultiDateHTML,
         actionsHTML,
         assignHTML,
+        dayCoverHTML,
+        dayNoteHTML,
         replyHTML,
         '</div>',
       ].join('');
@@ -6665,6 +6873,14 @@
       if (data.success) {
         closeHouseSittingReport();
         if (typeof toast === 'function') toast('✅ House sitting completed! $' + data.finalAmount.toFixed(2) + ' charged. Report sent to client.');
+
+        // R75 - log what staff earned for the nights they covered. After the
+        // stay is confirmed closed, and never allowed to disturb that.
+        try {
+          if (typeof window.hhpRecordHouseSitPay === 'function') {
+            await window.hhpRecordHouseSitPay(rpt.bookingId, rpt.currentNights, data.finalAmount);
+          }
+        } catch (payErr) { console.error('[staff-pay] house sit record failed:', payErr); }
 
         // Refresh all relevant views
         if (typeof window.loadBookingRequestsPanel === 'function') window.loadBookingRequestsPanel(_bookingPanelState.portal);
