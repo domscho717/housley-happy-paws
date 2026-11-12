@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Housley Happy Paws — Rachel Housley · Lancaster, PA</title>
-<meta name="description" content="Professional pet care in Lancaster, PA — dog walking, drop-in visits, boarding, cat care & more. Insured, background-checked, CPR & First Aid certified. Book online with Housley Happy Paws.">
+<meta name="description" content="Professional pet care in Lancaster, Lititz, Manheim, Mountville and Willow Street PA — dog walking, drop-in visits, house sitting, cat care &amp; more. Insured, background-checked, CPR & First Aid certified. Book online with Housley Happy Paws.">
 <meta name="keywords" content="pet care Lancaster PA, dog walking Lancaster, pet sitting, dog boarding, cat care, drop-in visits, Housley Happy Paws, Rachel Housley">
 <link rel="canonical" href="https://www.housleyhappypaws.com/">
 <!-- R8 P3 #11 — LocalBusiness JSON-LD. Helps Google understand we're a pet
@@ -1867,7 +1867,7 @@ try {
       </div>
       <div><div class="footer-col-head">Services</div><ul class="footer-links"><li><a href="#services" onclick="switchView('home')">Dog Walking</a></li><li><a href="#services" onclick="switchView('home')">Drop-In Visits</a></li><li><a href="#services" onclick="switchView('home')">House Sitting</a></li><li><a href="#" onclick="openModal('boardingInterestModal')">Dog Boarding <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('daycareModal')">Day Care <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('pawbusModal')">Paw Bus <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('weddingModal')">Wedding Addition <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('contactModal')">Pet Shop <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li></ul></div>
       <div><div class="footer-col-head">Clients</div><ul class="footer-links"><li><a href="#" onclick="switchView('client')">Client Portal</a></li><li><a href="#" onclick="openModal('mgModal')">Book Meet & Greet</a></li><li><a href="#" onclick="openModal('contactModal')">Ask a Question</a></li><li><a href="#reviews">Reviews</a></li></ul></div>
-      <div><div class="footer-col-head">Lancaster, PA</div><ul class="footer-links"><li><a href="https://maps.google.com/?q=Lancaster+PA" target="_blank">📍 Lancaster City Area</a></li><li><a href="tel:+17177157595">📞 Call: 717-715-7595</a></li><li><a href="sms:+17177157595">💬 Text: 717-715-7595</a></li><li><a href="mailto:housleyhappypaws@gmail.com">📧 housleyhappypaws@gmail.com</a></li></ul></div>
+      <div><div class="footer-col-head">Lancaster, PA</div><ul class="footer-links"><li><a href="https://maps.google.com/?q=Lancaster+PA" target="_blank">📍 Lancaster City Area</a></li><li style="color:rgba(253,250,245,0.55);font-size:0.82rem;font-weight:300;line-height:1.5">Also serving Lititz, Manheim,<br>Mountville &amp; Willow Street</li><li><a href="tel:+17177157595">📞 Call: 717-715-7595</a></li><li><a href="sms:+17177157595">💬 Text: 717-715-7595</a></li><li><a href="mailto:housleyhappypaws@gmail.com">📧 housleyhappypaws@gmail.com</a></li></ul></div>
     </div>
     <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA · <a href="/privacy.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Privacy</a> · <a href="/terms.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Terms</a> · <a href="/accessibility.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Accessibility</a></div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
   </footer>
@@ -12499,9 +12499,13 @@ async function sendAI() {
   aiHistory.push({ role:'user', content: msg });
   showAITyping();
   try {
+    // R65 - /api/ai-chat now requires a signed-in owner/staff token.
+    const _aiSb = window.HHP_Auth && window.HHP_Auth.supabase;
+    const _aiSess = _aiSb ? await _aiSb.auth.getSession() : null;
+    const _aiTok = _aiSess && _aiSess.data && _aiSess.data.session ? _aiSess.data.session.access_token : '';
     const res = await fetch('/api/ai-chat', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer ' + _aiTok},
       body: JSON.stringify({ system: AI_SYSTEM, messages: aiHistory, max_tokens: 1000 })
     });
     const data = await res.json();
@@ -12614,9 +12618,13 @@ async function aiRewrite(section) {
   if (rewriteBtn) { rewriteBtn.textContent = 'Rewriting...'; rewriteBtn.disabled = true; }
 
   try {
+    // R65 - /api/ai-chat now requires a signed-in owner/staff token.
+    const _cwSb = window.HHP_Auth && window.HHP_Auth.supabase;
+    const _cwSess = _cwSb ? await _cwSb.auth.getSession() : null;
+    const _cwTok = _cwSess && _cwSess.data && _cwSess.data.session ? _cwSess.data.session.access_token : '';
     const res = await fetch('/api/ai-chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _cwTok },
       body: JSON.stringify({
         system: 'You are a copywriter for Housley Happy Paws, a pet care business in Lancaster PA owned by Rachel Housley. Write warm, professional, compelling copy. Always return valid JSON only.',
         messages: [{ role: 'user', content: prompt }],
@@ -17345,8 +17353,15 @@ async function loadPublicReviews() {
     var _avaColors = ['var(--gold-deep)', 'var(--rose)', 'var(--forest)', '#7c5cbf', 'var(--brown)'];
 
     // Render review cards in horizontal carousel style
+    // R69 - four approved reviews are a 5-star rating with no words. They
+    //       rendered as a blank card carrying five gold stars and a
+    //       "Verified Stay" badge, which reads as invented and undermines
+    //       the real reviews beside them. The ratings are genuine, so they
+    //       still count toward the average shown above and toward the schema
+    //       count - they simply no longer get a card of their own.
+    var _withWords = reviews.filter(function(r){ return (r.review_text || '').trim().length > 0; });
     var cardsH = '';
-    reviews.forEach(function(r, idx) {
+    _withWords.forEach(function(r, idx) {
       var dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '';
       var initial = (r.client_name || 'H').charAt(0).toUpperCase();
       var avaColor = _avaColors[idx % _avaColors.length];
