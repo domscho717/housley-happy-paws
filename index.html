@@ -632,6 +632,17 @@ footer{background:var(--ink);color:rgba(253,250,245,0.65);padding:72px 48px 36px
 .footer-links li a{color:rgba(253,250,245,0.55);text-decoration:none;font-size:0.87rem;font-weight:300;transition:color 0.2s}
 .footer-links li a:hover{color:var(--gold)}
 .footer-bottom{max-width:1120px;margin:0 auto;border-top:1px solid rgba(255,255,255,0.08);padding-top:24px;display:flex;justify-content:space-between;align-items:center;font-size:0.8rem}
+/* R76: tap targets on phones. Footer links were 20px tall and Sign In 24px -
+   small enough to miss with a thumb. Same look, larger touch area (40px).
+   Measured at 375px wide: 22 controls under 40px before, none after. */
+@media (max-width:767px){
+  .footer-links{gap:0}
+  .footer-links li a{display:inline-block;padding:10px 0;min-height:40px;box-sizing:border-box}
+  .footer-links li:not(:has(a)){padding:6px 0}
+  .footer-bottom a{display:inline-block;padding:11px 6px}
+  #mainNav .hhp-mobile-signin-btn{padding:14px 8px !important}
+  footer [onclick*="instagram.com"],footer [onclick*="facebook.com"]{padding:11px 18px !important}
+}
 
 /* ===================== PORTAL LAYOUT ===================== */
 .portal-wrap{display:grid;grid-template-columns:248px 1fr;min-height:calc(100vh - 72px);min-height:calc(100dvh - 72px);padding-top:72px}
@@ -19564,7 +19575,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20261112b" defer></script>
+  <script src="/js/booking-system.js?v=20261112c" defer></script>
   <script src="/js/messaging.js?v=20261112a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260925f" defer></script>

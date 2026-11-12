@@ -123,13 +123,31 @@
     });
   };
 
-  // Load deals on startup — retry until auth is ready so _clientUsedDealIds is accurate
+  // Load deals on startup.
+  //
+  // R76 - this used to re-query `deals` every 2 seconds for as long as nobody
+  // was signed in. For an anonymous visitor that is forever: about 28 requests
+  // a minute, per open tab, for as long as the page stayed open. The retry
+  // existed for two real reasons, both kept:
+  //   1. the database client may not be ready on the first try
+  //      -> retry until the first load succeeds, at most 15 times;
+  //   2. someone signing in needs their own "already used" list
+  //      -> a local check (no network) notices when the signed-in person
+  //         changes and re-queries once.
+  var _dealsForUser = null;   // who the cache was last loaded for ('' = nobody); null = not loaded yet
+  var _dealsInitTries = 0;
+  function _dealsCurrentUser() {
+    return ((typeof getEffectiveClientId === 'function' ? getEffectiveClientId() : null) ||
+            (window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null)) || '';
+  }
   function _initDeals() {
+    _dealsInitTries++;
+    var _asked = _dealsCurrentUser();
     _fetchActiveDeals().then(function() {
-      // If clientId was null (auth not ready), retry once auth resolves
-      var clientId = window.HHP_Auth && window.HHP_Auth.currentUser ? window.HHP_Auth.currentUser.id : null;
-      if (!clientId) {
-        // Auth not ready — schedule retries
+      if (_dealsLoaded) {
+        if (_dealsForUser === null) _dealsForUser = _asked;
+      } else if (_dealsInitTries < 15) {
+        // Database client not ready yet — try again shortly.
         setTimeout(_initDeals, 2000);
       }
     }).catch(function(err) {
@@ -151,6 +169,18 @@
     }
   }
   setTimeout(_initDeals, 1200);
+  // R76: notice a sign-in, sign-out or "view as client" switch without asking
+  // the server anything, and refresh the deal list once when it happens.
+  setInterval(function() {
+    if (_dealsForUser === null || _dealsFetching) return;
+    var uid = _dealsCurrentUser();
+    if (uid !== _dealsForUser) {
+      _dealsForUser = uid;
+      _fetchActiveDeals().then(function() {
+        if (typeof window._brmUpdatePrice === 'function') window._brmUpdatePrice();
+      });
+    }
+  }, 2000);
   // Also re-fetch deals whenever auth state changes (login/logout)
   if (typeof window.onHHPAuthReady === 'function') {
     window.onHHPAuthReady(function() { _fetchActiveDeals(); });
