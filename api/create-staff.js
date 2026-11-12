@@ -1,8 +1,17 @@
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
+const { sendEmail, escHtml } = require('./_email');
 
 // Owner-only: create a staff account from the server using the service role
 // key. Doing this client-side via supabase.auth.signUp would log the calling
 // owner out (Supabase swaps the active session to the new user).
+//
+// R74 - two ways to add someone:
+//   1. Rachel types a password (the original behaviour, unchanged).
+//   2. Rachel leaves the password blank. The account is created with a long
+//      random password nobody ever sees, and the new person is emailed a
+//      one-time link to choose their own. The same link is returned to
+//      Rachel so she can text it herself if the email does not arrive.
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://www.housleyhappypaws.com');
@@ -35,7 +44,7 @@ module.exports = async function handler(req, res) {
 
   const { data: callerProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, full_name')
     .eq('user_id', user.id)
     .maybeSingle();
   if (!callerProfile || callerProfile.role !== 'owner') {
@@ -43,12 +52,17 @@ module.exports = async function handler(req, res) {
   }
 
   const { name, email, password, phone, payPct, jobTitle } = req.body || {};
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'name, email, and password are required' });
+  // R74: no password means "invite them to choose their own".
+  const invite = (password === undefined || password === null || password === '');
+  if (!name || !email) {
+    return res.status(400).json({ error: 'name and email are required' });
   }
-  if (typeof password !== 'string' || password.length < 8) {
+  if (!invite && (typeof password !== 'string' || password.length < 8)) {
     return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
+  const effectivePassword = invite
+    ? crypto.randomBytes(30).toString('base64url') + 'aA1!'
+    : password;
 
   try {
     // R5 P1 #1: pre-check if the email already exists in auth.users. Without
@@ -74,7 +88,7 @@ module.exports = async function handler(req, res) {
 
     const { data: created, error: createErr } = await supabase.auth.admin.createUser({
       email,
-      password,
+      password: effectivePassword,
       email_confirm: true,
       user_metadata: { full_name: name, role: 'staff' },
     });
@@ -139,7 +153,54 @@ module.exports = async function handler(req, res) {
       console.warn('[create-staff] Profile upsert warning:', profileErr.message);
     }
 
-    return res.status(200).json({ success: true, userId: newUserId, jobTitleSaved: !!jobTitle });
+    // R74: invite flow. The account exists either way; a failure below never
+    // undoes it - Rachel is told, and the person can still use "Forgot
+    // password" on the sign-in screen to get a fresh link.
+    let inviteLink = null, emailSent = false, inviteError = null;
+    if (invite) {
+      try {
+        const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
+          type: 'recovery',
+          email,
+          options: { redirectTo: 'https://www.housleyhappypaws.com/?welcome=true' },
+        });
+        if (linkErr) throw linkErr;
+        inviteLink = (linkData && linkData.properties && linkData.properties.action_link) || null;
+        if (!inviteLink) throw new Error('No link returned');
+        const firstName = String(name).trim().split(/\s+/)[0];
+        const inviter = (callerProfile.full_name || 'Rachel').trim().split(/\s+/)[0];
+        const bodyHTML = `
+          <p>Hi ${escHtml(firstName)},</p>
+          <p>${escHtml(inviter)} added you to the Housley Happy Paws team. Choose your own password to finish setting up your account:</p>
+          <p style="text-align:center;margin:24px 0">
+            <a href="${inviteLink}" style="display:inline-block;padding:12px 28px;background:#3d5a47;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:700">Set my password</a>
+          </p>
+          <p>After that, you sign in at housleyhappypaws.com with this email address (${escHtml(email)}).</p>
+          <p style="font-size:0.9em;color:#666">This link works once and expires after a short time. If it has expired, go to housleyhappypaws.com, tap Sign In, then "Forgot password", and enter this email address. You will get a fresh link.</p>
+        `;
+        const sent = await sendEmail({
+          to: email,
+          subject: 'Welcome to the Housley Happy Paws team - set your password',
+          title: 'Welcome to the Team',
+          bodyHTML,
+        });
+        emailSent = !!(sent && sent.success);
+        if (!emailSent) inviteError = (sent && sent.error) || 'Email did not send';
+      } catch (invErr) {
+        console.error('[create-staff] invite step failed:', invErr && invErr.message);
+        inviteError = (invErr && invErr.message) || 'Could not create the invite link';
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      userId: newUserId,
+      jobTitleSaved: !!jobTitle,
+      invited: invite,
+      emailSent,
+      inviteLink,
+      inviteError,
+    });
   } catch (err) {
     console.error('[create-staff] Error:', err);
     return res.status(500).json({ error: err.message || 'Internal server error' });

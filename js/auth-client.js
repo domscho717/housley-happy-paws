@@ -551,13 +551,16 @@ async function handleSignup(e) {
 function showPasswordResetModal() {
     const existing = document.getElementById('hhp-pw-reset-modal');
     if (existing) existing.remove();
+    // R74: a new staff member arriving from their invite email lands here too.
+    // Same form, friendlier words.
+    const isWelcome = /[?&]welcome=true/.test(window.location.search || '');
     const modal = document.createElement('div');
     modal.id = 'hhp-pw-reset-modal';
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px;';
     modal.innerHTML = `
       <div style="background:var(--cream,#fff8ec);border-radius:16px;max-width:420px;width:100%;padding:28px;box-shadow:0 12px 40px rgba(0,0,0,0.25);">
-        <h2 style="font-family:'Cormorant Garamond',serif;color:var(--forest,#3d5a47);margin:0 0 8px;">Set a new password</h2>
-        <p style="color:#666;margin:0 0 18px;font-size:0.92rem;">You arrived here from a password reset email. Choose a new password to finish.</p>
+        <h2 style="font-family:'Cormorant Garamond',serif;color:var(--forest,#3d5a47);margin:0 0 8px;">${isWelcome ? 'Welcome to the team' : 'Set a new password'}</h2>
+        <p style="color:#666;margin:0 0 18px;font-size:0.92rem;">${isWelcome ? 'Choose a password to finish setting up your account. You will use it with your email address to sign in.' : 'You arrived here from a password reset email. Choose a new password to finish.'}</p>
         <label style="font-weight:600;display:block;margin-bottom:6px;">New password</label>
         <input id="hhp-pw-reset-new" type="password" autocomplete="new-password" minlength="8" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;" placeholder="At least 8 characters">
         <label style="font-weight:600;display:block;margin-bottom:6px;">Confirm password</label>

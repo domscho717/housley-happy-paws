@@ -2728,7 +2728,7 @@ try {
             </div>
             <div class="form-row" style="margin-bottom:14px">
               <div class="form-group"><label class="form-lbl">Phone</label><input class="form-in" id="ns-phone" type="tel" placeholder="(717) 555-0123"></div>
-              <div class="form-group"><label class="form-lbl">Temporary Password *</label><input class="form-in" id="ns-pass" type="text" placeholder="TempPass123!"></div>
+              <div class="form-group"><label class="form-lbl">Password (optional)</label><input class="form-in" id="ns-pass" type="text" placeholder="Leave blank to email them a link"><div style="font-size:0.74rem;color:var(--mid);margin-top:4px">Leave this blank and they get an email with a link to choose their own password. Or type one (8+ characters) and tell them yourself.</div></div>
             </div>
             <div class="form-row" style="margin-bottom:14px">
               <div class="form-group"><label class="form-lbl">Pay Rate (% of each visit)</label><input class="form-in" id="ns-pct" type="number" step="1" min="0" max="85" placeholder="60"><div style="font-size:0.74rem;color:var(--mid);margin-top:4px">Leave blank for the standard 60%. On a $25 visit that is $15.00 to them.</div></div>
@@ -12171,8 +12171,9 @@ async function createNewStaff() {
   var title = (document.getElementById('ns-title') || {}).value;
   title = title ? title.trim() : '';
 
-  if (!name || !email || !password) { showErr('Please fill in name, email, and password.'); return; }
-  if (password.length < 8) { showErr('Password must be at least 8 characters.'); return; }
+  // R74: a blank password means "email them a link to choose their own".
+  if (!name || !email) { showErr('Please fill in name and email.'); return; }
+  if (password && password.length < 8) { showErr('Password must be at least 8 characters - or leave it blank to email them a link.'); return; }
 
   var sb = window.HHP_Auth && window.HHP_Auth.supabase;
   if (!sb) { showErr('Database not connected — refresh and try again.'); return; }
@@ -12199,7 +12200,7 @@ async function createNewStaff() {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + session.access_token,
       },
-      body: JSON.stringify({ name: name, email: email, password: password, phone: phone, payPct: payPct, jobTitle: title }),
+      body: JSON.stringify({ name: name, email: email, password: password || null, phone: phone, payPct: payPct, jobTitle: title }),
     });
     var result = await resp.json().catch(function() { return {}; });
     if (!resp.ok || !result.success) {
@@ -12214,12 +12215,62 @@ async function createNewStaff() {
     if (typeof toast === 'function') toast('✅ Staff account created for ' + name + '!');
     var wrap = document.getElementById('addStaffFormWrap');
     if (wrap) wrap.style.display = 'none';
+    // R74: when no password was typed, tell Rachel exactly what happened to
+    // the invite and hand her the link so she can text it if she wants to.
+    if (result.invited) hhpShowStaffInvite(name, email, result);
     if (typeof loadStaffTeam === 'function') loadStaffTeam();
   } catch (err) {
     showErr(err && err.message ? err.message : 'Unknown error — see console.');
   } finally {
     btnEls.forEach(function(b) { b.disabled = false; if (b.dataset._origText) b.textContent = b.dataset._origText; });
   }
+}
+
+// R74 - the result of inviting a staff member, shown above the add-staff form
+// until Rachel closes it. Built with textContent so a name or address can
+// never be read as markup.
+function hhpShowStaffInvite(name, email, result) {
+  var old = document.getElementById('ns-invite-done');
+  if (old) old.remove();
+  var wrap = document.getElementById('addStaffFormWrap');
+  if (!wrap || !wrap.parentNode) return;
+  var box = document.createElement('div');
+  box.id = 'ns-invite-done';
+  box.className = 'card';
+  box.style.cssText = 'margin-top:16px;border:2px solid var(--forest)';
+  var h = document.createElement('div');
+  h.className = 'card-title';
+  h.textContent = name + ' has been added';
+  var p = document.createElement('div');
+  p.style.cssText = 'font-size:0.88rem;color:var(--mid);margin:8px 0 12px;line-height:1.5';
+  p.textContent = result.emailSent
+    ? 'We emailed ' + email + ' a link to choose their own password. You can also send them the link yourself - it works once and expires after a short time.'
+    : 'The account is ready, but the email to ' + email + ' did not send' + (result.inviteError ? ' (' + result.inviteError + ')' : '') + '. ' +
+      (result.inviteLink ? 'Send them the link below yourself.' : 'Ask them to open the site, tap Sign In, then "Forgot password", and enter this email address.');
+  box.appendChild(h); box.appendChild(p);
+  if (result.inviteLink) {
+    var copyBtn = document.createElement('button');
+    copyBtn.className = 'btn btn-forest btn-sm';
+    copyBtn.textContent = 'Copy invite link';
+    copyBtn.onclick = function() {
+      var done = function() { copyBtn.textContent = 'Copied'; setTimeout(function() { copyBtn.textContent = 'Copy invite link'; }, 2000); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(result.inviteLink).then(done).catch(function() { window.prompt('Copy this link:', result.inviteLink); });
+      } else { window.prompt('Copy this link:', result.inviteLink); }
+    };
+    box.appendChild(copyBtn);
+  }
+  var closeBtn = document.createElement('button');
+  closeBtn.className = 'btn btn-outline btn-sm';
+  closeBtn.style.marginLeft = '8px';
+  closeBtn.textContent = 'Done';
+  closeBtn.onclick = function() { box.remove(); };
+  box.appendChild(closeBtn);
+  var note = document.createElement('div');
+  note.style.cssText = 'font-size:0.76rem;color:var(--mid);margin-top:10px';
+  note.textContent = 'If the link expires before they use it: they open the site, tap Sign In, then "Forgot password", and enter ' + email + '.';
+  box.appendChild(note);
+  wrap.parentNode.insertBefore(box, wrap);
 }
 
 async function toggleStaffStatus(profileId, currentActive) {
@@ -17666,7 +17717,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/js/stripe-client.js?v=20260603a" defer></script>
 
 <!-- Supabase Auth Client -->
-<script src="/js/auth-client.js?v=20260715a" defer></script>
+<script src="/js/auth-client.js?v=20261112a" defer></script>
 
 <!-- End-of-service Report Submission Pipeline (localStorage save + parallel side effects) -->
 <script src="/js/report-submission.js?v=20260925d" defer></script>
