@@ -115,21 +115,27 @@ module.exports = async function handler(req, res) {
         const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
         if (connectedAccountId && invoice.amount_paid > 0 && invoice.charge) {
           const amountCents = invoice.amount_paid;
+          // R65 - this sent `amountCents - feeCents`, i.e. 85%, to the dev
+          //       account. Every other path sends the 15% share and leaves the
+          //       rest with Rachel (see _platform-fee.js, verified against the
+          //       live balance ledger on 27 Aug). This had never fired because
+          //       the owner invoice flow was broken until R63 - so the next
+          //       paid invoice would have been the first, and would have
+          //       misrouted 85% of it.
           const feeCents = Math.round(amountCents * 0.15);
-          const transferCents = amountCents - feeCents;
           try {
             await stripe.transfers.create({
-              amount: transferCents,
+              amount: feeCents,
               currency: 'usd',
               destination: connectedAccountId,
               source_transaction: invoice.charge,
-              description: `Invoice ${invoice.number || invoice.id} — ${meta.service || 'Pet Care'}`,
+              description: `15% dev share — Invoice ${invoice.number || invoice.id} — ${meta.service || 'Pet Care'}`,
             }, {
               // Stripe retries invoice.payment_succeeded on any non-2xx or
-              // timeout. Without a key each retry moved another 85% out.
+              // timeout. Without a key each retry would send a second share.
               idempotencyKey: `inv-transfer-${invoice.charge}`,
             });
-            console.log('Fee transfer completed:', { total: amountCents, fee: feeCents, transferred: transferCents });
+            console.log('Fee transfer completed:', { total: amountCents, devShare: feeCents, retainedByOwner: amountCents - feeCents });
           } catch (transferErr) {
             console.error('Fee transfer failed (non-blocking):', transferErr.message);
           }

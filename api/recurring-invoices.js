@@ -18,6 +18,7 @@
 const crypto = require('crypto');
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
+const { feeCents, getDestination, recordUnroutedFee } = require('./_platform-fee');
 const { sendEmail, sendToRachel, escHtml, SITE_URL } = require('./_email');
 
 module.exports = async function handler(req, res) {
@@ -525,11 +526,17 @@ async function chargeClient(stripe, supabase, opts) {
               },
             };
 
-            const connectedAccountId = process.env.STRIPE_CONNECTED_ACCOUNT_ID;
-            if (connectedAccountId) {
-              piParams.application_fee_amount = Math.round(totalAmount * 100 * 0.15);
-              piParams.transfer_data = { destination: connectedAccountId };
-            }
+            // R65 - the 15% dev share used to be routed here as a DESTINATION
+            //       CHARGE: application_fee_amount = 15% with transfer_data
+            //       pointing at the dev account. In a destination charge the
+            //       platform keeps ONLY the application fee and the destination
+            //       receives everything else - so this sent the dev account 85%
+            //       and left Rachel 15%, the exact inverse of the agreement.
+            //       It is now a separate 15% transfer after the charge, which
+            //       is how _platform-fee.js documents it and how every other
+            //       charge path already works.
+            const connectedAccountId = getDestination('recurring-invoices');
+            const devShareCents = feeCents(Math.round(totalAmount * 100));
 
             // R18: the double-charge guard. billedSet is read at the START of a
             // run, but the recurring_invoices row that feeds it is only written
@@ -557,6 +564,29 @@ async function chargeClient(stripe, supabase, opts) {
             });
 
             if (paymentIntent.status === 'succeeded') {
+              // R65 - 15% dev share as a separate transfer. Keyed on the
+              //       PaymentIntent so a cron retry cannot send it twice.
+              if (connectedAccountId && devShareCents > 0) {
+                try {
+                  await stripe.transfers.create({
+                    amount: devShareCents,
+                    currency: 'usd',
+                    destination: connectedAccountId,
+                    source_transaction: paymentIntent.latest_charge,
+                    description: `15% dev share — ${service || 'Pet Care'} recurring (${entries.length} date${entries.length === 1 ? '' : 's'})`,
+                  }, {
+                    idempotencyKey: `transfer-${paymentIntent.id}`,
+                  });
+                } catch (transferErr) {
+                  await recordUnroutedFee(supabase, {
+                    paymentIntentId: paymentIntent.id,
+                    amountCents: devShareCents,
+                    context: 'recurring-invoices',
+                    reason: transferErr.message,
+                  });
+                }
+              }
+
               return {
                 success: true,
                 invoiceId: paymentIntent.id,
