@@ -12468,9 +12468,13 @@ async function sendAI() {
   aiHistory.push({ role:'user', content: msg });
   showAITyping();
   try {
+    // R65 - /api/ai-chat now requires a signed-in owner/staff token.
+    const _aiSb = window.HHP_Auth && window.HHP_Auth.supabase;
+    const _aiSess = _aiSb ? await _aiSb.auth.getSession() : null;
+    const _aiTok = _aiSess && _aiSess.data && _aiSess.data.session ? _aiSess.data.session.access_token : '';
     const res = await fetch('/api/ai-chat', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer ' + _aiTok},
       body: JSON.stringify({ system: AI_SYSTEM, messages: aiHistory, max_tokens: 1000 })
     });
     const data = await res.json();
@@ -12583,9 +12587,13 @@ async function aiRewrite(section) {
   if (rewriteBtn) { rewriteBtn.textContent = 'Rewriting...'; rewriteBtn.disabled = true; }
 
   try {
+    // R65 - /api/ai-chat now requires a signed-in owner/staff token.
+    const _cwSb = window.HHP_Auth && window.HHP_Auth.supabase;
+    const _cwSess = _cwSb ? await _cwSb.auth.getSession() : null;
+    const _cwTok = _cwSess && _cwSess.data && _cwSess.data.session ? _cwSess.data.session.access_token : '';
     const res = await fetch('/api/ai-chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _cwTok },
       body: JSON.stringify({
         system: 'You are a copywriter for Housley Happy Paws, a pet care business in Lancaster PA owned by Rachel Housley. Write warm, professional, compelling copy. Always return valid JSON only.',
         messages: [{ role: 'user', content: prompt }],

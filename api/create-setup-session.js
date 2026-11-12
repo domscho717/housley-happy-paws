@@ -12,8 +12,32 @@ module.exports = async function handler(req, res) {
   );
 
   try {
-    const { email, name, profileId } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required' });
+    // R65 - this endpoint took `profileId` and `email` straight from the
+    //       request body and then, with the SERVICE ROLE key, overwrote that
+    //       profile's stripe_customer_id. There was no authentication of any
+    //       kind, so anyone who could POST here could repoint any client's
+    //       saved-card relationship at a Stripe customer they controlled.
+    //
+    //       The caller is now identified from their own access token, and the
+    //       body's profileId and email are ignored entirely - you can only
+    //       ever set up a card for yourself. The front end already sent this
+    //       header (index.html ~13480), so nothing on the client changes.
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) return res.status(401).json({ error: 'Not signed in' });
+
+    const supabaseAuth = createClient(
+      process.env.SUPABASE_URL || 'https://niysrippazlkpvdkzepp.supabase.co',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+    );
+    const { data: authData, error: authErr } = await supabaseAuth.auth.getUser(token);
+    if (authErr || !authData || !authData.user) {
+      return res.status(401).json({ error: 'Not signed in' });
+    }
+
+    const profileId = authData.user.id;
+    const email = authData.user.email;
+    const { name } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Account has no email address' });
 
     // Check if profile already has a Stripe customer
     // Note: profileId is the auth user ID, profiles use user_id column
