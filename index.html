@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Housley Happy Paws — Rachel Housley · Lancaster, PA</title>
-<meta name="description" content="Professional pet care in Lancaster, Lititz, Manheim, Mountville and Willow Street PA — dog walking, drop-in visits, house sitting, cat care &amp; more. Insured, background-checked, CPR & First Aid certified. Book online with Housley Happy Paws.">
+<meta name="description" content="Professional pet care in Lancaster, PA — dog walking, drop-in visits, boarding, cat care & more. Insured, background-checked, CPR & First Aid certified. Book online with Housley Happy Paws.">
 <meta name="keywords" content="pet care Lancaster PA, dog walking Lancaster, pet sitting, dog boarding, cat care, drop-in visits, Housley Happy Paws, Rachel Housley">
 <link rel="canonical" href="https://www.housleyhappypaws.com/">
 <!-- R8 P3 #11 — LocalBusiness JSON-LD. Helps Google understand we're a pet
@@ -1867,7 +1867,7 @@ try {
       </div>
       <div><div class="footer-col-head">Services</div><ul class="footer-links"><li><a href="#services" onclick="switchView('home')">Dog Walking</a></li><li><a href="#services" onclick="switchView('home')">Drop-In Visits</a></li><li><a href="#services" onclick="switchView('home')">House Sitting</a></li><li><a href="#" onclick="openModal('boardingInterestModal')">Dog Boarding <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('daycareModal')">Day Care <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('pawbusModal')">Paw Bus <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('weddingModal')">Wedding Addition <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li><li><a href="#" onclick="openModal('contactModal')">Pet Shop <span style="font-size:0.72rem;color:var(--gold);font-weight:700">(Coming Soon)</span></a></li></ul></div>
       <div><div class="footer-col-head">Clients</div><ul class="footer-links"><li><a href="#" onclick="switchView('client')">Client Portal</a></li><li><a href="#" onclick="openModal('mgModal')">Book Meet & Greet</a></li><li><a href="#" onclick="openModal('contactModal')">Ask a Question</a></li><li><a href="#reviews">Reviews</a></li></ul></div>
-      <div><div class="footer-col-head">Lancaster, PA</div><ul class="footer-links"><li><a href="https://maps.google.com/?q=Lancaster+PA" target="_blank">📍 Lancaster City Area</a></li><li style="color:var(--mid);font-size:0.82rem;line-height:1.5">Also serving Lititz, Manheim,<br>Mountville &amp; Willow Street</li><li><a href="tel:+17177157595">📞 Call: 717-715-7595</a></li><li><a href="sms:+17177157595">💬 Text: 717-715-7595</a></li><li><a href="mailto:housleyhappypaws@gmail.com">📧 housleyhappypaws@gmail.com</a></li></ul></div>
+      <div><div class="footer-col-head">Lancaster, PA</div><ul class="footer-links"><li><a href="https://maps.google.com/?q=Lancaster+PA" target="_blank">📍 Lancaster City Area</a></li><li><a href="tel:+17177157595">📞 Call: 717-715-7595</a></li><li><a href="sms:+17177157595">💬 Text: 717-715-7595</a></li><li><a href="mailto:housleyhappypaws@gmail.com">📧 housleyhappypaws@gmail.com</a></li></ul></div>
     </div>
     <div class="footer-bottom"><div>© 2025–2026 Housley Happy Paws · Rachel Housley · Lancaster, PA · <a href="/privacy.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Privacy</a> · <a href="/terms.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Terms</a> · <a href="/accessibility.html" style="color:rgba(253,250,245,0.7);text-decoration:underline">Accessibility</a></div><div style="color:rgba(253,250,245,0.3);font-size:0.75rem">Made with 🐾 and a lot of love</div></div>
   </footer>
@@ -10206,10 +10206,25 @@ function buildLspNote() {
       var pottySentence = potty
         ? ' ' + p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' went ' + potty + ' on our visit.'
         : '';
-      note = _pickSingleOpener(pet.name, p) +
-        ' ' + p.sub.charAt(0).toUpperCase() + p.sub.slice(1) + ' enjoyed lots of fresh air and sniffs.' +
-        pottySentence +
-        ' Once we got back inside, ' + pet.name + ' had a snack and a drink — I refreshed ' + p.pos + ' water before I left.';
+      // R70 - Rachel's own wording, used as she wrote it. Each clause is
+      //       still gated on what was actually ticked, so the note never
+      //       claims a treat or a drink that was not given - this goes to a
+      //       paying client as a record of the visit.
+      var _Sub = p.sub.charAt(0).toUpperCase() + p.sub.slice(1);
+      var _inside = '';
+      if (pet.treat && pet.water)      _inside = ' Once we got back inside, ' + p.sub + ' enjoyed a treat along with a drink.';
+      else if (pet.treat)              _inside = ' Once we got back inside, ' + p.sub + ' enjoyed a treat.';
+      else if (pet.water)              _inside = ' Once we got back inside, ' + p.sub + ' had a drink.';
+      var _waterLine = pet.water
+        ? ' I refreshed ' + p.pos + ' water and gave ' + p.obj + ' even more love on my way out!'
+        : ' I gave ' + p.obj + ' even more love on my way out!';
+      note = pet.name + ' is such a good pup! ' +
+        _Sub + ' got lots of fresh air and sniffs' +
+        (potty ? ', ' + p.sub + ' also went ' + potty + '.' : '.') +
+        ' We played fetch and ' + p.sub + ' enjoyed tons of belly rubs!' +
+        _inside +
+        _waterLine +
+        ' Such a cutie pie!';   // always singular here - this branch is one pet
     } else {
       var allNames = pets.map(function(pe) { return pe.name; });
       var nameList = allNames.length === 2 ? allNames.join(' and ') : allNames.slice(0, -1).join(', ') + ', and ' + allNames[allNames.length - 1];
@@ -17330,15 +17345,8 @@ async function loadPublicReviews() {
     var _avaColors = ['var(--gold-deep)', 'var(--rose)', 'var(--forest)', '#7c5cbf', 'var(--brown)'];
 
     // Render review cards in horizontal carousel style
-    // R69 - four approved reviews are a 5-star rating with no words. They
-    //       rendered as a blank card carrying five gold stars and a
-    //       "Verified Stay" badge, which reads as invented and undermines
-    //       the real reviews beside them. The ratings are genuine, so they
-    //       still count toward the average shown above and toward the schema
-    //       count - they simply no longer get a card of their own.
-    var _withWords = reviews.filter(function(r){ return (r.review_text || '').trim().length > 0; });
     var cardsH = '';
-    _withWords.forEach(function(r, idx) {
+    reviews.forEach(function(r, idx) {
       var dateStr = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '';
       var initial = (r.client_name || 'H').charAt(0).toUpperCase();
       var avaColor = _avaColors[idx % _avaColors.length];
