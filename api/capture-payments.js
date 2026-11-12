@@ -25,7 +25,17 @@ module.exports = async function handler(req, res) {
   const manualSecret = req.headers['x-cron-secret'];
   const envSecret = process.env.CRON_SECRET;
 
-  if (envSecret && cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret) {
+  // R66 - this guard used to read `if (envSecret && ...)`, which meant that if
+  //        CRON_SECRET were ever unset or removed, the check was skipped
+  //        entirely and this endpoint became callable by anyone on the
+  //        internet. These crons capture and charge real cards. CRON_SECRET is
+  //        set today, so nothing changes in normal operation - but a missing
+  //        secret must fail closed, not open.
+  if (!envSecret) {
+    console.error('[cron-auth] CRON_SECRET is not set — refusing to run.');
+    return res.status(500).json({ error: 'Server misconfigured' });
+  }
+  if (cronSecret !== `Bearer ${envSecret}` && manualSecret !== envSecret) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
