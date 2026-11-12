@@ -4327,15 +4327,11 @@ async function showClientPickerModal() {
       clients = data || [];
     } else if (myRole === 'staff') {
       // Staff sees only their assigned clients
-      var user = HHP_Auth.currentUser;
-      var { data: myProfile } = await sb.from('profiles').select('id').eq('user_id', user.id).single();
-      if (myProfile) {
-        var { data: assignments } = await sb.from('staff_assignments').select('client_id').eq('staff_id', myProfile.id);
-        if (assignments && assignments.length > 0) {
-          var clientProfileIds = assignments.map(function(a) { return a.client_id; });
-          var { data } = await sb.from('profiles').select('id, user_id, full_name, phone, pet_names, avatar_url').in('id', clientProfileIds).order('full_name', { ascending: true });
-          clients = data || [];
-        }
+      // R72 - the clients of the bookings assigned to this staff member.
+      var _pScope = (typeof window.hhpStaffScope === 'function') ? await window.hhpStaffScope() : { clientUserIds: [] };
+      if (_pScope.clientUserIds.length > 0) {
+        var { data } = await sb.from('profiles').select('id, user_id, full_name, phone, pet_names, avatar_url').in('user_id', _pScope.clientUserIds).order('full_name', { ascending: true });
+        clients = data || [];
       }
     }
   } catch(e) {
@@ -14757,6 +14753,57 @@ async function submitInterest(service) {
 // ── Staff: My Clients Panel (s-clients) — shows only assigned clients ──
 var _staffClientsData = [];
 
+// ── R72: what a staff member is responsible for ──
+// Booking-level assignment is the source of truth: booking_requests.assigned_to
+// holds the staff member's AUTH id, set from the "Assigned to" dropdown on the
+// owner's booking card. The older client-level table (staff_assignments, keyed
+// on PROFILE ids) is unioned in so neither mechanism breaks the other.
+//
+// Before R72 the staff panels read only the client-level table, which has
+// never held a row. So a booking Rachel assigned to someone never reached that
+// person's Schedule, Job Queue, Clients or dashboard - and two panels fell
+// through to listing EVERY client's bookings when their list came back empty.
+async function hhpStaffScope() {
+  var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+  var user = window.HHP_Auth && window.HHP_Auth.currentUser;
+  var out = { uid: user ? user.id : null, clientUserIds: [], legacyClientUserIds: [], assigned: [] };
+  if (!sb || !user) return out;
+  var seen = {};
+  function add(id) { if (id && !seen[id]) { seen[id] = 1; out.clientUserIds.push(id); } }
+  try {
+    var bk = await sb.from('booking_requests')
+      .select('id, client_id, contact_name, contact_email, contact_phone, pet_names, status, preferred_date')
+      .eq('assigned_to', user.id);
+    out.assigned = (bk && bk.data) || [];
+    out.assigned.forEach(function(b) { add(b.client_id); });
+  } catch (e) { console.warn('[staff-scope] assigned bookings:', e); }
+  try {
+    var me = await sb.from('profiles').select('id').eq('user_id', user.id).maybeSingle();
+    if (me && me.data && me.data.id) {
+      var sa = await sb.from('staff_assignments').select('client_id').eq('staff_id', me.data.id);
+      var pids = ((sa && sa.data) || []).map(function(a) { return a.client_id; }).filter(Boolean);
+      if (pids.length) {
+        var cp = await sb.from('profiles').select('user_id').in('id', pids);
+        out.legacyClientUserIds = ((cp && cp.data) || []).map(function(p) { return p.user_id; }).filter(Boolean);
+        out.legacyClientUserIds.forEach(add);
+      }
+    }
+  } catch (e2) { console.warn('[staff-scope] legacy assignments:', e2); }
+  return out;
+}
+// Narrow a booking_requests query to this staff member's work. It never
+// widens: with nothing assigned it matches nothing, not everything.
+function hhpStaffFilter(query, scope) {
+  if (!scope || !scope.uid) return query.eq('assigned_to', '00000000-0000-0000-0000-000000000000');
+  if (scope.legacyClientUserIds && scope.legacyClientUserIds.length) {
+    var inList = scope.legacyClientUserIds.map(function(id) { return '"' + id + '"'; }).join(',');
+    return query.or('assigned_to.eq.' + scope.uid + ',client_id.in.(' + inList + ')');
+  }
+  return query.eq('assigned_to', scope.uid);
+}
+window.hhpStaffScope = hhpStaffScope;
+window.hhpStaffFilter = hhpStaffFilter;
+
 async function loadStaffClients() {
   var listEl = document.getElementById('sc-list');
   var countEl = document.getElementById('sc-count');
@@ -14771,28 +14818,33 @@ async function loadStaffClients() {
       return;
     }
 
-    // Get staff's profile ID
-    var profileRes = await sb.from('profiles').select('id').eq('user_id', window.HHP_Auth.currentUser.id).single();
-    if (!profileRes.data) {
-      listEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--mid)">Staff profile not found.</div>';
-      return;
-    }
-    var staffProfileId = profileRes.data.id;
+    // R72 - clients come from the bookings assigned to this staff member
+    // (plus any legacy client-level assignment), not the legacy table alone.
+    var _scope = await hhpStaffScope();
+    var _clientUids = _scope.clientUserIds;
 
-    // Get assigned client profile IDs from staff_assignments
-    var assignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
-    var assignedClientIds = (assignRes.data || []).map(function(a) { return a.client_id; });
-
-    if (assignedClientIds.length === 0) {
+    if (_clientUids.length === 0) {
       listEl.innerHTML = '<div style="padding:28px;text-align:center;color:var(--mid)"><div style="font-size:2rem;margin-bottom:10px">👥</div><div style="font-weight:600;margin-bottom:6px">No clients assigned yet</div><div style="font-size:0.84rem">Rachel will assign clients to you as bookings come in.</div></div>';
       if (countEl) countEl.textContent = '0 Clients';
       return;
     }
 
-    // Fetch full profiles for assigned clients
+    // Fetch full profiles for those clients
     var clientsRes = await sb.from('profiles').select('id, user_id, full_name, email, phone, role, stripe_customer_id, customer_number, created_at')
-      .in('id', assignedClientIds).order('full_name', { ascending: true });
+      .in('user_id', _clientUids).order('full_name', { ascending: true });
     var clients = clientsRes.data || [];
+    // A staff login may not be permitted to read a client's profile row. Fall
+    // back to what the assigned booking itself carries, so the client is still
+    // listed by name with their pets. (No profile id, so the card does not open.)
+    var _have = {};
+    clients.forEach(function(c) { _have[c.user_id] = 1; });
+    _scope.assigned.forEach(function(b) {
+      if (b.client_id && !_have[b.client_id]) {
+        _have[b.client_id] = 1;
+        clients.push({ id: '', user_id: b.client_id, full_name: b.contact_name || 'Client', email: b.contact_email || '', phone: b.contact_phone || '', role: 'client', _fromBooking: true });
+      }
+    });
+    clients.sort(function(x, y) { return String(x.full_name || '').localeCompare(String(y.full_name || '')); });
 
     // Fetch pets for those clients
     var clientUserIds = clients.map(function(c) { return c.user_id; });
@@ -14874,21 +14926,10 @@ async function loadStaffSchedule() {
   if (!card) return;
 
   try {
-    // Get staff's profile to find assigned clients
-    var profileRes = await sb.from('profiles').select('id').eq('user_id', window.HHP_Auth.currentUser.id).single();
-    if (!profileRes.data) return;
-    var staffProfileId = profileRes.data.id;
-
-    // Get assigned client IDs
-    var assignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
-    var assignedClientIds = (assignRes.data || []).map(function(a) { return a.client_id; });
-
-    // Get assigned clients' user_ids from profiles
-    var clientUserIds = [];
-    if (assignedClientIds.length > 0) {
-      var clientProfiles = await sb.from('profiles').select('user_id').in('id', assignedClientIds);
-      clientUserIds = (clientProfiles.data || []).map(function(p) { return p.user_id; });
-    }
+    // R72 - this person's work is the bookings assigned to them (plus any
+    // legacy client-level assignment). With nothing assigned the list is
+    // empty; it no longer falls through to everyone's bookings.
+    var _scope = await hhpStaffScope();
 
     // Get bookings for those clients (this week and upcoming)
     var today = new Date();
@@ -14898,9 +14939,7 @@ async function loadStaffSchedule() {
     endOfWeek.setDate(startOfWeek.getDate() + 6);
 
     var bookingsQuery = sb.from('booking_requests').select('*').in('status', ['accepted', 'confirmed', 'pending', 'in_progress']);
-    if (clientUserIds.length > 0) {
-      bookingsQuery = bookingsQuery.in('client_id', clientUserIds);
-    }
+    bookingsQuery = hhpStaffFilter(bookingsQuery, _scope);
     bookingsQuery = bookingsQuery.gte('preferred_date', _localDateStr(startOfWeek))
       .order('preferred_date', { ascending: true }).limit(20);
 
@@ -14910,8 +14949,8 @@ async function loadStaffSchedule() {
     // Also include recurring bookings for today
     var todayStr = _localDateStr(today);
     if (typeof isRecurringOnDate === 'function') {
-      var { data: staffRecurring } = await sb.from('booking_requests').select('*')
-        .in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']).not('recurrence_pattern', 'is', null);
+      var { data: staffRecurring } = await hhpStaffFilter(sb.from('booking_requests').select('*')
+        .in('status', ['accepted', 'confirmed', 'in_progress', 'payment_hold']).not('recurrence_pattern', 'is', null), _scope);
       if (staffRecurring) {
         staffRecurring.forEach(function(rb) {
           if (isRecurringOnDate(rb, todayStr)) {
@@ -14992,24 +15031,13 @@ async function loadStaffJobs() {
   if (!card) return;
 
   try {
-    var profileRes = await sb.from('profiles').select('id').eq('user_id', window.HHP_Auth.currentUser.id).single();
-    if (!profileRes.data) return;
-    var staffProfileId = profileRes.data.id;
-
-    var assignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
-    var assignedClientIds = (assignRes.data || []).map(function(a) { return a.client_id; });
-
-    var clientUserIds = [];
-    if (assignedClientIds.length > 0) {
-      var clientProfiles = await sb.from('profiles').select('user_id').in('id', assignedClientIds);
-      clientUserIds = (clientProfiles.data || []).map(function(p) { return p.user_id; });
-    }
+    // R72 - only requests Rachel has assigned to this person. This list used
+    // to fall through to every client's pending requests.
+    var _scope = await hhpStaffScope();
 
     // Get pending booking requests for assigned clients
     var query = sb.from('booking_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }).limit(15);
-    if (clientUserIds.length > 0) {
-      query = query.in('client_id', clientUserIds);
-    }
+    query = hhpStaffFilter(query, _scope);
 
     var res = await query;
     var requests = res.data || [];
@@ -15039,7 +15067,8 @@ async function loadStaffJobs() {
         '</div></div>' +
         '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">' +
         '<div style="font-size:0.68rem;color:var(--gold-deep);font-weight:600">Details →</div>' +
-        '<button onclick="event.stopPropagation();acceptJob(\'' + r.id + '\')" style="background:var(--forest,#3d5a47);color:white;border:none;padding:7px 16px;border-radius:6px;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">Accept</button>' +
+        // R72 - no Accept button here. It set status 'confirmed' directly, skipping
+        // the owner's accept flow (card hold + client email). Accepting stays with Rachel.
         '</div>';
       card.appendChild(row);
     });
@@ -18130,29 +18159,22 @@ document.addEventListener('DOMContentLoaded', function() {
         startOfWeek.setHours(0, 0, 0, 0);
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-        // Get staff profile ID
-        var staffProfRes = await sb.from('profiles').select('id').eq('user_id', userId).single();
-        var staffProfileId = staffProfRes.data ? staffProfRes.data.id : null;
-
-        // Get assigned client profile IDs → user IDs
-        var staffClientUserIds = [];
-        if (staffProfileId) {
-          var staffAssignRes = await sb.from('staff_assignments').select('client_id').eq('staff_id', staffProfileId);
-          var staffAssignedIds = (staffAssignRes.data || []).map(function(a) { return a.client_id; });
-          if (staffAssignedIds.length > 0) {
-            var staffClientProfs = await sb.from('profiles').select('user_id').in('id', staffAssignedIds);
-            staffClientUserIds = (staffClientProfs.data || []).map(function(p) { return p.user_id; });
-          }
-        }
-
-        // Fetch all bookings for assigned clients
+        // R72 - read this person's real work: booking_requests assigned to them.
+        // The old code read the legacy `bookings` table (empty) through
+        // staff_assignments (also empty), so every tile here was always 0.
         var staffAllBookings = [];
-        if (staffClientUserIds.length > 0) {
-          var staffBkRes = await sb.from('bookings').select('id, service, date, time_slot, status, pet_names, client_id')
-            .in('client_id', staffClientUserIds).in('status', ['confirmed', 'pending', 'completed'])
-            .order('date', { ascending: true });
-          staffAllBookings = staffBkRes.data || [];
-        }
+        try {
+          if (typeof window.hhpStaffScope === 'function') {
+            var _sScope = await window.hhpStaffScope();
+            var staffBkRes = await window.hhpStaffFilter(
+              sb.from('booking_requests').select('id, service, preferred_date, preferred_time, status, pet_names, client_id')
+                .in('status', ['accepted', 'confirmed', 'pending', 'in_progress', 'completed']), _sScope)
+              .order('preferred_date', { ascending: true });
+            staffAllBookings = ((staffBkRes && staffBkRes.data) || [])
+              .filter(function(b) { return !!b.preferred_date; })
+              .map(function(b) { return { id: b.id, service: b.service, date: b.preferred_date, time_slot: b.preferred_time, status: b.status, pet_names: b.pet_names, client_id: b.client_id }; });
+          }
+        } catch (sbErr) { console.warn('[staff dash] assigned bookings:', sbErr); }
 
         var weekStr = _localDateStr(startOfWeek);
         var endOfWeek = new Date(startOfWeek); endOfWeek.setDate(endOfWeek.getDate() + 7);
@@ -18188,7 +18210,7 @@ document.addEventListener('DOMContentLoaded', function() {
               weekJobs.forEach(function(b) {
                 var icon = svcIcons[b.service] || '\uD83D\uDC3E';
                 var dateStr = new Date(b.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                jh += '<div onclick="showBookingDetail(\'' + (b.id || '') + '\',\'staff\',\'bookings\')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.boxShadow=\'none\'">';
+                jh += '<div onclick="showBookingDetail(\'' + (b.id || '') + '\',\'staff\',\'booking_requests\')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--warm);border-radius:8px;margin-bottom:6px;transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,0.06)\'" onmouseout="this.style.boxShadow=\'none\'">';
                 jh += '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:1.1rem">' + icon + '</span>';
                 jh += '<div><div style="font-weight:600;font-size:0.84rem">' + (b.service || 'Service') + '</div>';
                 jh += '<div style="font-size:0.76rem;color:var(--mid)">' + dateStr + (b.time_slot ? ' \u00B7 ' + fmt12h(b.time_slot) : '') + '</div>';
@@ -19262,8 +19284,8 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20261106a" defer></script>
-  <script src="/js/messaging.js?v=20261030a" defer></script>
+  <script src="/js/booking-system.js?v=20261112a" defer></script>
+  <script src="/js/messaging.js?v=20261112a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260925f" defer></script>
   <!-- R8 P5 #18 — customizer.js (~138KB) is owner-only. Defer loading to
@@ -19276,7 +19298,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (document.getElementById('hhp-customizer-script')) return;
         var s = document.createElement('script');
         s.id = 'hhp-customizer-script';
-        s.src = '/js/customizer.js?v=20260921a';
+        s.src = '/js/customizer.js?v=20261112a';
         s.defer = true;
         document.head.appendChild(s);
       }

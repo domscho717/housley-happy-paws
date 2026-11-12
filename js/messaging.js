@@ -463,16 +463,32 @@
   // For a staff member: get their assigned client user_ids + names
   async function getStaffAssignedClients() {
     var sb = getSB(); if (!sb) return [];
-    var profile = await getMyProfile(); if (!profile) return [];
-    var { data } = await sb.from('staff_assignments')
-      .select('client_id, profiles!staff_assignments_client_id_fkey(user_id, full_name)')
-      .eq('staff_id', profile.id);
-    if (!data) return [];
     var clients = [];
-    for (var i = 0; i < data.length; i++) {
-      var p = data[i].profiles;
-      if (p && p.user_id) clients.push({ userId: p.user_id, name: p.full_name || 'Client' });
-    }
+    var seen = {};
+    // Legacy: client-level assignment.
+    try {
+      var profile = await getMyProfile();
+      if (profile) {
+        var { data } = await sb.from('staff_assignments')
+          .select('client_id, profiles!staff_assignments_client_id_fkey(user_id, full_name)')
+          .eq('staff_id', profile.id);
+        for (var i = 0; data && i < data.length; i++) {
+          var p = data[i].profiles;
+          if (p && p.user_id && !seen[p.user_id]) { seen[p.user_id] = 1; clients.push({ userId: p.user_id, name: p.full_name || 'Client' }); }
+        }
+      }
+    } catch (e) { console.warn('[messaging] legacy assigned clients:', e); }
+    // R72 - the clients of bookings assigned to me directly
+    // (booking_requests.assigned_to is my auth id). Name comes off the booking.
+    try {
+      var me = getCurrentUser();
+      if (me && me.id) {
+        var bk = await sb.from('booking_requests').select('client_id, contact_name').eq('assigned_to', me.id);
+        ((bk && bk.data) || []).forEach(function(b) {
+          if (b.client_id && !seen[b.client_id]) { seen[b.client_id] = 1; clients.push({ userId: b.client_id, name: b.contact_name || 'Client' }); }
+        });
+      }
+    } catch (e2) { console.warn('[messaging] booking-assigned clients:', e2); }
     return clients;
   }
 
@@ -488,16 +504,39 @@
       var profile = await getMyProfile();
       profileId = profile ? profile.id : null;
     }
-    if (!profileId) return [];
-    var { data } = await sb.from('staff_assignments')
-      .select('staff_id, profiles!staff_assignments_staff_id_fkey(user_id, full_name)')
-      .eq('client_id', profileId);
-    if (!data) return [];
     var staff = [];
-    for (var i = 0; i < data.length; i++) {
-      var p = data[i].profiles;
-      if (p && p.user_id) staff.push({ userId: p.user_id, name: p.full_name || 'Staff' });
+    var seen = {};
+    // Legacy: client-level assignment.
+    if (profileId) {
+      try {
+        var { data } = await sb.from('staff_assignments')
+          .select('staff_id, profiles!staff_assignments_staff_id_fkey(user_id, full_name)')
+          .eq('client_id', profileId);
+        for (var i = 0; data && i < data.length; i++) {
+          var p = data[i].profiles;
+          if (p && p.user_id && !seen[p.user_id]) { seen[p.user_id] = 1; staff.push({ userId: p.user_id, name: p.full_name || 'Staff' }); }
+        }
+      } catch (e) { console.warn('[messaging] legacy assigned staff:', e); }
     }
+    // R72 - whoever is assigned to one of this client's bookings.
+    try {
+      var cuid = overrideUserId || (getCurrentUser() || {}).id;
+      if (cuid) {
+        var bk = await sb.from('booking_requests').select('assigned_to')
+          .eq('client_id', cuid).not('assigned_to', 'is', null)
+          .in('status', ['pending', 'accepted', 'confirmed', 'modified', 'in_progress', 'payment_hold', 'invoice_sent', 'completed']);
+        var ids = [];
+        ((bk && bk.data) || []).forEach(function(b) {
+          if (b.assigned_to && !seen[b.assigned_to] && ids.indexOf(b.assigned_to) === -1) ids.push(b.assigned_to);
+        });
+        if (ids.length) {
+          var sp = await sb.from('profiles').select('user_id, full_name').in('user_id', ids).eq('role', 'staff');
+          ((sp && sp.data) || []).forEach(function(r) {
+            if (r.user_id && !seen[r.user_id]) { seen[r.user_id] = 1; staff.push({ userId: r.user_id, name: r.full_name || 'Staff' }); }
+          });
+        }
+      }
+    } catch (e2) { console.warn('[messaging] booking-assigned staff:', e2); }
     return staff;
   }
 

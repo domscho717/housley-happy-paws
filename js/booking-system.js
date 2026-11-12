@@ -1274,7 +1274,10 @@
             var discLabel = activeDeal.discount_type === 'percent' ? activeDeal.discount_value + '% off' : '$' + Number(activeDeal.discount_value).toFixed(0) + ' off';
             var dealNameEscaped = (activeDeal.name || 'Special').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             dealNote.innerHTML = '<div style="font-weight:700;font-size:0.82rem;color:var(--forest)">🏷️ ' + dealNameEscaped + ' — ' + discLabel + '</div>' +
-              '<div style="font-size:0.78rem;color:var(--forest)">You save $' + dealResult.savingsAmount.toFixed(2) + '!</div>';
+              '<div style="font-size:0.78rem;color:var(--forest)">You save $' + dealResult.savingsAmount.toFixed(2) + '!</div>' +
+              // R72 - say out loud what R62 already does. When the booking is more
+              // than one night or visit, the discount comes off ONE of them.
+              (_dealUnit ? '<div style="font-size:0.74rem;color:var(--mid);margin-top:3px">This discount applies to ' + (isHS ? 'one night of the stay \u2014 the other nights are regular price.' : 'one visit \u2014 the other visits are regular price.') + '</div>' : '');
             breakdownEl.appendChild(dealNote);
           }
           // Store discounted total on window for submit to pick up
