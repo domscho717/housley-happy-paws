@@ -219,6 +219,11 @@ module.exports = async function handler(req, res) {
                   destination: connectedAccountId,
                   source_transaction: chargeId,
                   description: `15% dev share — ${booking.service || 'Pet Care'} recurring ${nextOccurrence} (#${booking.id.slice(0, 8)})`,
+                }, {
+                  // R65 - R64 gave the PaymentIntent an idempotency key but not
+                  //       this transfer. A Vercel retry re-ran it and sent a
+                  //       second 15% out of Rachel's balance for one charge.
+                  idempotencyKey: `transfer-${paymentIntent.id}`,
                 });
               } catch (transferErr) {
                 // Money is already taken; refusing cannot undo it. Record it so it can
@@ -379,6 +384,9 @@ module.exports = async function handler(req, res) {
                       destination: connectedAccountId,
                       source_transaction: chargeId,
                       description: `15% dev share — ${booking.service || 'Pet Care'} retry (#${booking.id.slice(0, 8)})`,
+                    }, {
+                      // R65 - same gap as the main path above.
+                      idempotencyKey: `transfer-${retryIntent.id}`,
                     });
                   } catch (transferErr) {
                     // Money is already taken; refusing cannot undo it. Record it so it can
