@@ -9,7 +9,7 @@
 const HHP_Auth = window.HHP_Auth = {
     // ── Config ──
     SUPABASE_URL: 'https://niysrippazlkpvdkzepp.supabase.co',
-    SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5peXNyaXBwYXpsa3B2ZGt6ZXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0OTcxNDYsImV4cCI6MjA3OTA3MzE0Nn0.miAoNZQtOTTbnruWcj1WVn8ZGYtQZB5rh8FbBAS7VZU',
+    SUPABASE_ANON_KEY: 'sb_publishable_BxeVHZOwPIztehdO9L5sNg_vnbuS3t9',
 
     supabase: null,
     currentUser: null,
