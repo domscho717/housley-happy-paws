@@ -4852,11 +4852,17 @@ async function loadClientProfileForm() {
     return;
   }
 
+  // R68 - this read currentUser.id, so "View as Client" showed Rachel her
+  //       OWN profile under the client's name. getEffectiveClientId() already
+  //       existed for exactly this and is used in 6 other places; this was one
+  //       it missed.
+  const _profUserId = (typeof getEffectiveClientId === 'function' && getEffectiveClientId()) || currentUser.id;
+
   // Fetch current profile data
   const { data: profile, error } = await sb
     .from('profiles')
     .select('full_name, phone, address, emergency_contact_name, emergency_contact_phone')
-    .eq('user_id', currentUser.id)
+    .eq('user_id', _profUserId)
     .single();
 
   if (error) {
@@ -4916,6 +4922,16 @@ async function saveClientProfile() {
     btn.disabled = true;
     btn.textContent = '⏳ Saving...';
     if (statusDiv) statusDiv.textContent = '';
+
+      // R68 - view-as is a read-only lens. Before this, saving here while
+      //       viewing as a client wrote the form onto RACHEL's own profile,
+      //       because the update below filters on currentUser.id. Client
+      //       details are edited from the owner's client profile screen.
+      if (window._viewingAsClient) {
+        toast('Viewing as ' + (window._viewingAsClient.fullName || 'a client') + ' - editing is disabled here.');
+        if (statusDiv) statusDiv.textContent = '';
+        return;
+      }
 
     var updateData = {
       full_name: document.getElementById('profile-full-name').value.trim(),
@@ -12468,13 +12484,9 @@ async function sendAI() {
   aiHistory.push({ role:'user', content: msg });
   showAITyping();
   try {
-    // R65 - /api/ai-chat now requires a signed-in owner/staff token.
-    const _aiSb = window.HHP_Auth && window.HHP_Auth.supabase;
-    const _aiSess = _aiSb ? await _aiSb.auth.getSession() : null;
-    const _aiTok = _aiSess && _aiSess.data && _aiSess.data.session ? _aiSess.data.session.access_token : '';
     const res = await fetch('/api/ai-chat', {
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer ' + _aiTok},
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ system: AI_SYSTEM, messages: aiHistory, max_tokens: 1000 })
     });
     const data = await res.json();
@@ -12587,13 +12599,9 @@ async function aiRewrite(section) {
   if (rewriteBtn) { rewriteBtn.textContent = 'Rewriting...'; rewriteBtn.disabled = true; }
 
   try {
-    // R65 - /api/ai-chat now requires a signed-in owner/staff token.
-    const _cwSb = window.HHP_Auth && window.HHP_Auth.supabase;
-    const _cwSess = _cwSb ? await _cwSb.auth.getSession() : null;
-    const _cwTok = _cwSess && _cwSess.data && _cwSess.data.session ? _cwSess.data.session.access_token : '';
     const res = await fetch('/api/ai-chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _cwTok },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: 'You are a copywriter for Housley Happy Paws, a pet care business in Lancaster PA owned by Rachel Housley. Write warm, professional, compelling copy. Always return valid JSON only.',
         messages: [{ role: 'user', content: prompt }],
