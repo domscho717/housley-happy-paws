@@ -1,8 +1,16 @@
 const Stripe = require('stripe');
+const { getCaller } = require('./_caller');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // R78 - this used to hand anyone on the internet a Stripe onboarding link
+  // for the connected payout account (or create a new connected account on
+  // Rachel's Stripe). Nothing on the site calls it; it is a setup tool. Owner only.
+  const caller = await getCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Not signed in' });
+  if (!caller.isOwner) return res.status(403).json({ error: 'Owner access required' });
 
   if (!process.env.STRIPE_SECRET_KEY) {
     return res.status(500).json({ error: 'Stripe is not configured.' });

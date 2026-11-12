@@ -1,4 +1,5 @@
 const Stripe = require('stripe');
+const { getCaller } = require('./_caller');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
@@ -9,23 +10,36 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // R78 - this used to answer anyone on the internet with the most recent
+  // completed payments: amounts, dates, services, pet names and, where Stripe
+  // held them, client names and email addresses. No sign-in was asked for.
+  // Now: the owner may list payments; anyone else signed in sees only the
+  // payments made under their own email address; everyone else is refused.
+  const caller = await getCaller(req);
+  if (!caller) return res.status(401).json({ error: 'Not signed in' });
+
   if (!process.env.STRIPE_SECRET_KEY) {
     return res.status(500).json({ error: 'Stripe not configured' });
   }
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
   try {
-    const { email, limit = 25 } = req.query;
+    let { email, limit = 25 } = req.query || {};
+    if (!caller.isOwner) {
+      email = caller.user.email || null;
+      if (!email) return res.status(200).json({ payments: [], total: 0 });
+    }
 
     const sessions = await stripe.checkout.sessions.list({
-      limit: Math.min(parseInt(limit), 100),
+      limit: Math.min(parseInt(limit, 10) || 25, 100),
       status: 'complete',
       expand: ['data.line_items'],
     });
 
     let payments = sessions.data;
     if (email) {
-      payments = payments.filter(s => s.customer_email === email);
+      const want = String(email).toLowerCase();
+      payments = payments.filter(s => String(s.customer_email || '').toLowerCase() === want);
     }
 
     const formatted = payments.map(s => ({

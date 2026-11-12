@@ -179,7 +179,11 @@ const HHP_Stripe = window.HHP_Stripe = {
       if (email) params.set('email', email);
       if (limit) params.set('limit', limit);
 
-      const resp = await fetch(`/api/payments?${params}`);
+      // R78 - /api/payments now requires a signed-in caller.
+      const sb = window.HHP_Auth && window.HHP_Auth.supabase;
+      const sess = sb ? await sb.auth.getSession() : null;
+      const token = sess && sess.data && sess.data.session ? sess.data.session.access_token : '';
+      const resp = await fetch(`/api/payments?${params}`, { headers: { 'Authorization': 'Bearer ' + token } });
       const data = await resp.json();
       return data.payments || [];
     } catch (err) {

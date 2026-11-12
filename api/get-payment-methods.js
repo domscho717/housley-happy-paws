@@ -28,8 +28,19 @@ module.exports = async function handler(req, res) {
   try {
     // R12 P2 — WHATWG URL avoids deprecated url.parse() via req.query.
     const _q = new URL(req.url || '', 'http://x').searchParams;
-    const profileId = _q.get('profileId') || req.body?.profileId;
-    const email = _q.get('email') || req.body?.email;
+    let profileId = _q.get('profileId') || req.body?.profileId;
+    let email = _q.get('email') || req.body?.email;
+
+    // R78 - a signed-in person could ask for ANY profile's saved cards, and by
+    // pairing someone else's profile with a different email could get that
+    // profile pointed at another customer's card. Now only the owner may look
+    // up someone else. Everyone else gets their own, whatever they ask for.
+    const { data: _callerProf } = await supabase
+      .from('profiles').select('role').eq('user_id', user.id).maybeSingle();
+    if (!_callerProf || _callerProf.role !== 'owner') {
+      profileId = user.id;
+      email = user.email || null;
+    }
 
     if (!profileId && !email) return res.status(400).json({ error: 'profileId or email required' });
 
