@@ -1,0 +1,38 @@
+# R73 - keep internal files off the public website.
+#
+# Everything listed here STAYS in the repository. It is just not deployed, so
+# it can no longer be opened at housleyhappypaws.com/<name>. Before this file
+# existed, the handoff notes, database schema, old copies of the site and a
+# 64 MB Git installer were all downloadable from the live domain.
+#
+# Nothing the live site loads is listed here. To undo: delete this file.
+
+# Internal notes and documents
+HANDOFF-SUMMARY.md
+HANDOFF-SUMMARY-Mar19.md
+HousleyHappyPaws-Master-Reference.md
+DEPLOY.md
+Housley-Happy-Paws-App-Roadmap.docx
+.env.example
+desktop.ini
+*.patch
+
+# Not part of the site at all
+Git-2.53.0-64-bit.exe
+
+# Old copies of the site and its scripts (the live ones are index.html,
+# ux-patch.js and everything under /js and /api)
+index-latest.html
+housley-happy-paws-v7.html
+housley-happy-paws-v8.html
+/housley-happy-paws
+ux-patch-v*.js
+/booking-system.js
+/cancel-booking.js
+/charge-saved-card.js
+
+# Database schema and developer tooling
+/migrations
+/tools
+api/*.md
+api/*.sql
