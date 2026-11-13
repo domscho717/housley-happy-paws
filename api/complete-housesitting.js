@@ -21,6 +21,7 @@
  */
 
 const Stripe = require('stripe');
+const { internalHeaders } = require('./_caller');
 const { createClient } = require('@supabase/supabase-js');
 
 const { getDestination, recordUnroutedFee } = require('./_platform-fee');
@@ -254,7 +255,7 @@ module.exports = async function handler(req, res) {
             try {
               await fetch((process.env.NEXT_PUBLIC_SITE_URL || 'https://www.housleyhappypaws.com') + '/api/booking-status-notification', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: internalHeaders(),   // R79: tells the notification endpoint this is the site itself
                 body: JSON.stringify({
                   email: profile.email,
                   name: profile.full_name || 'Client',
@@ -273,7 +274,7 @@ module.exports = async function handler(req, res) {
             try {
               await fetch((process.env.NEXT_PUBLIC_SITE_URL || 'https://www.housleyhappypaws.com') + '/api/booking-status-notification', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: internalHeaders(),   // R79: tells the notification endpoint this is the site itself
                 body: JSON.stringify({
                   email: process.env.OWNER_EMAIL || '',
                   name: 'Rachel',
@@ -396,7 +397,7 @@ module.exports = async function handler(req, res) {
     notifPromises.push(
       fetch((process.env.NEXT_PUBLIC_SITE_URL || 'https://www.housleyhappypaws.com') + '/api/service-completed-notification', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: internalHeaders(),   // R79: tells the notification endpoint this is the site itself
         body: JSON.stringify({
           clientEmail: clientProfile ? clientProfile.email : booking.contact_email,
           clientName: clientProfile ? clientProfile.full_name : booking.contact_name,

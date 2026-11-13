@@ -5,6 +5,7 @@
  */
 
 const { sendEmail, fmt12, escHtml, SITE_URL } = require('./_email');
+const { checkNotify } = require('./_caller');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -22,6 +23,11 @@ module.exports = async function handler(req, res) {
   if (!clientEmail || !service) {
     return res.status(400).json({ error: 'Missing required fields: clientEmail, service' });
   }
+
+  // R79 - same as booking-status-notification: it emails any address it is
+  // handed and never asked who was calling. See checkNotify() in _caller.js.
+  const _refused = await checkNotify(req, 'service-completed-notification', clientEmail, '');
+  if (_refused) return res.status(_refused.status).json(_refused.body);
 
   try {
   const safeNote = escHtml(personalNote);

@@ -228,12 +228,18 @@
 
       // 2d — Email notification to client. Fire-and-forget with timeout.
       if (payload.emailNotification && payload.emailNotification.url) {
+        // R79: the request now carries the signed-in person's token. This
+        // function is not async, so the headers are fetched as a promise.
+        var _notifHeadersP = (typeof window.hhpAuthHeaders === 'function')
+          ? window.hhpAuthHeaders() : Promise.resolve({ 'Content-Type': 'application/json' });
         tasks.push(
           withTimeout(
-            fetch(payload.emailNotification.url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload.emailNotification.body)
+            _notifHeadersP.then(function(_notifHeaders) {
+              return fetch(payload.emailNotification.url, {
+                method: 'POST',
+                headers: _notifHeaders,
+                body: JSON.stringify(payload.emailNotification.body)
+              });
             }),
             8000,
             'email notification'

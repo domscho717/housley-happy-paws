@@ -10,6 +10,7 @@
  */
 
 const Stripe = require('stripe');
+const { internalHeaders } = require('./_caller');
 const { createClient } = require('@supabase/supabase-js');
 
 const { getDestination, recordUnroutedFee } = require('./_platform-fee');
@@ -94,7 +95,7 @@ module.exports = async function handler(req, res) {
           try {
             await fetch(siteUrl + '/api/booking-status-notification', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: internalHeaders(),   // R79: tells the notification endpoint this is the site itself
               body: JSON.stringify({
                 email: profile.email,
                 name: profile.full_name || 'Client',
@@ -113,7 +114,7 @@ module.exports = async function handler(req, res) {
           try {
             await fetch(siteUrl + '/api/booking-status-notification', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: internalHeaders(),   // R79: tells the notification endpoint this is the site itself
               body: JSON.stringify({
                 email: process.env.OWNER_EMAIL || '',
                 name: 'Rachel',
@@ -284,7 +285,7 @@ module.exports = async function handler(req, res) {
         try {
           await fetch(siteUrl + '/api/booking-status-notification', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: internalHeaders(),   // R79: tells the notification endpoint this is the site itself
             body: JSON.stringify({
               email: profile.email,
               name: profile.full_name || 'Client',

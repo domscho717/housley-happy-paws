@@ -8774,7 +8774,7 @@ async function clientAcceptTimeChange(bookingId) {
       if (mapLink) ownerNotes += '\n📍 Address: ' + clientAddress + '\n🗺️ Map: ' + mapLink;
       await fetch('/api/booking-status-notification', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: (typeof window.hhpAuthHeaders === 'function') ? await window.hhpAuthHeaders() : { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: 'rlhousley05@gmail.com',
           name: 'Rachel',
@@ -8903,7 +8903,7 @@ async function clientDeclineTimeChange(bookingId) {
     try {
       await fetch('/api/booking-status-notification', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: (typeof window.hhpAuthHeaders === 'function') ? await window.hhpAuthHeaders() : { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: 'rlhousley05@gmail.com',
           name: 'Rachel',
@@ -10616,7 +10616,7 @@ async function submitHouseSittingReport(bookingId, clientId) {
         if (_clientEmail) {
           fetch('/api/service-completed-notification', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: (typeof window.hhpAuthHeaders === 'function') ? await window.hhpAuthHeaders() : { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               clientEmail: _clientEmail, clientName: clientName, service: service,
               petNames: petNames, reportDate: stayEnd, duration: duration,
@@ -17960,7 +17960,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/js/auth-client.js?v=20261112b" defer></script>
 
 <!-- End-of-service Report Submission Pipeline (localStorage save + parallel side effects) -->
-<script src="/js/report-submission.js?v=20260925d" defer></script>
+<script src="/js/report-submission.js?v=20261112a" defer></script>
 
 <!-- Cloudinary Photo Manager -->
 <script src="/js/cloudinary-client.js?v=20261112a" defer></script>
@@ -18039,6 +18039,19 @@ document.addEventListener('DOMContentLoaded', function() {
   window._hhpEarlyHydrated = false;
   window.onHHPAuthReady = function(fn) {
     if (window._hhpAuthReady) { fn(); } else { window._hhpAuthCallbacks.push(fn); }
+  };
+  // R79 - headers for a JSON call to one of our own /api endpoints, carrying
+  // the signed-in person's token so the server can tell who is asking. With
+  // nobody signed in it is just the content type, exactly as before.
+  window.hhpAuthHeaders = async function() {
+    var h = { 'Content-Type': 'application/json' };
+    try {
+      var sb = window.HHP_Auth && window.HHP_Auth.supabase;
+      var s = sb ? await sb.auth.getSession() : null;
+      var t = s && s.data && s.data.session ? s.data.session.access_token : '';
+      if (t) h['Authorization'] = 'Bearer ' + t;
+    } catch (e) {}
+    return h;
   };
   function _fireAuthReady() {
     window._hhpAuthReady = true;
@@ -19575,7 +19588,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="/js/employee-mgmt.js?v=20260517e" defer></script>
 
   <script src="/js/realtime-cache.js?v=20260921a" defer></script>
-  <script src="/js/booking-system.js?v=20261112d" defer></script>
+  <script src="/js/booking-system.js?v=20261112e" defer></script>
   <script src="/js/messaging.js?v=20261112a" defer></script>
   <script src="/js/gallery.js?v=20260428" defer></script>
   <script src="/js/notifications.js?v=20260925f" defer></script>

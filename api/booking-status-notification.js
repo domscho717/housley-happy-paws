@@ -5,6 +5,7 @@
  */
 
 const { sendEmail, fmt12, escHtml, SITE_URL } = require('./_email');
+const { checkNotify } = require('./_caller');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -23,6 +24,12 @@ module.exports = async function handler(req, res) {
   if (!email || !name || !service || !status) {
     return res.status(400).json({ error: 'Missing required fields: email, name, service, status' });
   }
+
+  // R79 - this endpoint emails whatever address it is given, from Rachel's
+  // sender, including a "pay here" link taken from the request. Until now it
+  // never asked who was calling. See checkNotify() in _caller.js.
+  const _refused = await checkNotify(req, 'booking-status-notification', email, 'status=' + status);
+  if (_refused) return res.status(_refused.status).json(_refused.body);
 
   // Validate status is one of the expected values
   if (!['accepted', 'modified', 'declined', 'payment_hold', 'payment_decline_warning', 'payment_auto_canceled', 'owner_payment_decline_alert', 'canceled'].includes(status)) {

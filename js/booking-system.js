@@ -4869,7 +4869,7 @@
             try {
               await fetch('/api/booking-status-notification', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: (typeof window.hhpAuthHeaders === 'function') ? await window.hhpAuthHeaders() : { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   email: req.contact_email,
                   name: req.contact_name,
@@ -4908,7 +4908,7 @@
           try {
             await fetch('/api/booking-status-notification', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: (typeof window.hhpAuthHeaders === 'function') ? await window.hhpAuthHeaders() : { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 email: req.contact_email,
                 name: req.contact_name,
@@ -5975,7 +5975,7 @@
     try {
       await fetch('/api/booking-status-notification', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: (typeof window.hhpAuthHeaders === 'function') ? await window.hhpAuthHeaders() : { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: req.contact_email,
           name: req.contact_name || 'Client',
@@ -6152,7 +6152,7 @@
     try {
       await fetch('/api/booking-status-notification', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: (typeof window.hhpAuthHeaders === 'function') ? await window.hhpAuthHeaders() : { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: firstBooking.contact_email,
           name: firstBooking.contact_name || 'Client',
